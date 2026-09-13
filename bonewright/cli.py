@@ -1,4 +1,4 @@
-"""bw: bonewright 명령줄. rig · motion · doctor · status · usage · plugin-path"""
+"""bw: bonewright 명령줄. rig · motion · demo · doctor · status · usage · plugin-path"""
 import argparse
 import json
 import shutil
@@ -45,6 +45,8 @@ def main() -> int:
     r.add_argument("--no-judge", action="store_true", help="시각 판정(모델 호출) 생략"); r.add_argument("--quiet", action="store_true")
     m = sub.add_parser("motion", help="텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다")
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
+    d = sub.add_parser("demo", help="리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0")
+    d.add_argument("run_id"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
     st = sub.add_parser("status"); st.add_argument("run_id", nargs="?")
     u = sub.add_parser("usage"); u.add_argument("--days", type=int, default=7)
     for name in ("doctor", "plugin-path"):
@@ -65,6 +67,8 @@ def main() -> int:
     try:
         if a.cmd == "rig":
             out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge)
+        elif a.cmd == "demo":
+            out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
             out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet)
     except pipeline.Blocked as e:

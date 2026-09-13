@@ -27,6 +27,8 @@ mn, mx = Vector(A["stats"]["min"]), Vector(A["stats"]["max"]); center = (mn + mx
 bpy.ops.object.light_add(type="SUN", location=(3, -3, 5))
 sc = bpy.context.scene; sc.render.engine = "BLENDER_WORKBENCH"; sc.render.resolution_x = sc.render.resolution_y = A.get("size", 512)
 sc.display.shading.color_type = "MATERIAL"; sc.display.shading.light = "STUDIO"
+# 엑스레이(반투명): 안쪽 본도 흐리게 보여야 비율을 판정할 수 있다. 실루엣 밖 본은 진한 빨강으로 구분된다
+sc.display.shading.show_xray = True; sc.display.shading.xray_alpha = float(A.get("xray_alpha", 0.45))
 outs = []
 for name, (dx, dy) in {"front": (0, -1), "side": (1, 0), "iso": (0.8, -0.8)}.items():
     dist = H * 1.6

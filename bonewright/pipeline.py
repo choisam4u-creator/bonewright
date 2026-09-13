@@ -176,3 +176,25 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     atomic_write(r.dir / "report.md", "\n".join(report)); r.state("final", "ok")
     _log(quiet, f"완료 → {r.dir / 'report.md'}")
     return r.dir / "report.md"
+
+
+def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: int = 96) -> Path:
+    """리그 결과 데모 영상(토큰 0): runs/<id>/02_rigged.blend → demo.mp4(+ ffmpeg 가 있으면 demo.gif)."""
+    import shutil
+    cfg = load(root)
+    r = Run(root, run_id, cfg, quiet)
+    blend = r.dir / "02_rigged.blend"
+    if not blend.exists():
+        raise Blocked(f"리그 결과가 없다: {blend}")
+    a = json.loads((r.dir / "analysis.json").read_text(encoding="utf-8"))
+    d = r.blender("render_demo", {"blend": str(blend), "out_dir": str(r.dir), "stats": a["stats"], "height": a["landmarks"]["height"], "size": size, "frames": frames})
+    out = Path(d["frames_dir"])
+    if shutil.which("ffmpeg"):   # PNG 연속 이미지 → mp4(H.264) → gif(12fps, 480px)
+        mp4, gif = r.dir / "demo.mp4", r.dir / "demo.gif"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(d["fps"]), "-i", str(out / "f_%04d.png"), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(mp4)], check=True)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-vf", "fps=12,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse", str(gif)])
+        out = mp4
+    else:
+        _log(quiet, "ffmpeg 가 없어 PNG 프레임만 남긴다 (brew install ffmpeg)")
+    _log(quiet, f"demo: {out} · 프레임 {d['frames']} · 컨트롤 {d['controls']}")
+    return out

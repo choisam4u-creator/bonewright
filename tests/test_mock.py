@@ -37,6 +37,25 @@ class RigMockTests(unittest.TestCase):
         for v in ("front", "side", "iso"):
             self.assertTrue((self.tmp / f"runs/t1/view_{v}.png").exists())
         self.assertIn("targets", json.loads((self.tmp / "runs/t1/fit.json").read_text()))
+        self.assertEqual(0, st["deform_outside_mesh"], st.get("deform_outside_mesh_bones"))   # 변형 본 끝점이 메시 표면 밖에 없어야 한다
+        # 데모 영상(짧게): IK 컨트롤이 존재하고 mp4 가 만들어진다
+        video = pipeline.demo(self.tmp, "t1", quiet=True, size=128, frames=16)
+        self.assertTrue(video.exists(), video)   # ffmpeg 있으면 demo.mp4, 없으면 PNG 프레임 폴더
+        self.assertTrue((self.tmp / "runs/t1/demo_frames/f_0016.png").exists())
+
+    def test_bad_elbow_is_snapped_to_axis(self):
+        """모델이 팔꿈치를 팔 중심선에서 15cm 아래로 찍어도 중심선으로 되돌리고(axis_snapped) 변형 본이 메시 밖에 남지 않는다."""
+        pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t2", quiet=True, no_judge=True)
+        run = self.tmp / "runs/t2"
+        a = json.loads((run / "analysis.json").read_text()); fit = json.loads((run / "fit.json").read_text())
+        for side in ("L", "R"):
+            el = fit["targets"][f"forearm.{side}"]["head"]; bad = [el[0], el[1], el[2] - 0.15]
+            fit["targets"][f"upper_arm.{side}"]["tail"] = bad; fit["targets"][f"forearm.{side}"]["head"] = bad
+        g = blender.run_script("fit_generate", {"blend": str(run / "01_analyzed.blend"), "out_blend": str(run / "02_bad.blend"), "preset": "humanoid",
+                                                "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": False}, {}, run / "logs")
+        st = g["stats"]
+        self.assertEqual(["forearm.L", "forearm.R"], st["axis_snapped"], st)
+        self.assertEqual(0, st["deform_outside_mesh"], st.get("deform_outside_mesh_bones"))
 
     def test_motion_bvh_import(self):
         bvh = self.tmp / "tiny.bvh"
