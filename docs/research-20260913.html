@@ -1,0 +1,139 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Blender 리깅·애니메이션 × Codex 오픈소스 자료조사 (2026-09-13)</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:980px;margin:32px auto;padding:0 16px;line-height:1.55;color:#222}
+h1{font-size:1.5em}h2{font-size:1.2em;margin-top:1.6em;border-bottom:1px solid #ddd;padding-bottom:4px}h3{font-size:1.05em;margin-top:1.2em}
+table{border-collapse:collapse;width:100%;font-size:.9em;margin:8px 0}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top}th{background:#f3f3f3}
+.bad{background:#fff3f0}.ok{background:#f0fff3}.mid{background:#fffbe6}.note{background:#f7f7f7;padding:10px 14px;border-left:4px solid #999;margin:10px 0}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}
+pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:.88em}</style></head><body>
+<h1>Blender 리깅·애니메이션을 Codex(구독)로 돌리는 오픈소스: 자료조사</h1>
+<p>2026-09-13. 웹 검색 + GitHub 원문 + 로컬 환경 실측. Codex 토큰 사용 0. 근거는 끝의 출처 목록.</p>
+
+<h2>0. 결론 먼저</h2>
+<ul>
+<li><b>만들 자리는 있다. 단, "AI 자동 리깅"이 아니라 "검증되는 리깅·애니메이션 작업 파이프라인"으로 좁혀야 한다.</b> 이유: 최신 AI 자동 리깅·모캡(UniRig, BlendCap, SAM3DBody-cpp)은 전부 NVIDIA CUDA 전제라 Sam의 Mac mini(M4 Pro, 24GB)에서는 안 돌아간다. Mac에서 되는 건 Blender 내장 Rigify(리깅), 키프레임·NLA 스크립팅, BVH 가져오기, 그리고 kimodo.cpp(텍스트→동작, M3에서 60프레임 48초·모델 10GB+)뿐이다.</li>
+<li><b>빈자리는 "검증·재현·비용 통제"다.</b> 기존 도구(blender-mcp 28.4k★, 공식 Blender MCP 1.0.3, blender-copilot)는 전부 "채팅으로 Blender에 파이썬을 실행"하는 방식이고 리깅·애니메이션 전용 검증이 없다. BlenderGym(CVPR 2025)은 최신 멀티모달 모델도 사람에게 쉬운 Blender 편집에 실패한다고 보고했다. 즉, 모델이 쓴 코드를 <b>게이트로 검사</b>하는 구조(hyperresearch-codex에서 검증한 방식)가 차별점이 된다.</li>
+<li><b>형태는 CLI + 얇은 Blender 브리지 + (나중에) 앱.</b> 파이썬 지휘자(MIT)가 단계마다 <code>codex exec</code>로 bpy 스크립트를 받아 Blender(GUI 없이 <code>bpy</code> 휠 5.2.1 macOS arm64로도 가능)에서 실행하고, 본 개수·가중치 합·빈 정점·테스트 포즈 렌더를 검사한다. 렌더 확인은 <code>codex exec "…" -i shot.png</code>로 Codex가 본다.</li>
+<li><b>먼저 결정할 것 2개:</b> (1) 범위를 "휴머노이드·사족 Rigify 기반"으로 한정할지, (2) 라이선스 분리(Blender 안에서 도는 애드온은 GPL 필수, 바깥 CLI는 MIT 가능)를 받아들일지.</li>
+</ul>
+
+<h2>1. 약점·반대 근거부터</h2>
+<table>
+<tr><th>문제</th><th>근거</th><th>대응</th></tr>
+<tr class="bad"><td>AI 자동 리깅은 Mac에서 못 돌린다</td><td>UniRig(MIT, SIGGRAPH 2025): CUDA GPU 8GB+ 필수, macOS 언급 없음. BlendCap(GPL-3): "macOS not supported", 모델 32GB. SAM3DBody-cpp(MIT): Metal 없음, CUDA 전제</td><td>자동 리깅은 "선택 공급자"로 뺀다(클라우드 Tripo/Meshy, 또는 CUDA PC). 기본은 Rigify + 휴리스틱 + Codex 판단</td></tr>
+<tr class="bad"><td>모델은 3D 편집에 약하다</td><td>BlenderGym: 245개 과제에서 최신 VLM도 사람에게 쉬운 편집에 실패. 검증기(verifier)를 키우면 좋아진다는 결과</td><td>모델이 "판단"만, 파이썬이 실행·검사. 실패 시 되돌리기(undo 스냅샷)</td></tr>
+<tr class="bad"><td>Blender 애니메이션 API가 움직이는 중</td><td>Slotted Actions는 4.4에 들어갔고, 5.x는 Layered Animation 2단계 진행 중(2027 이후 NLA 개편 예정). 5.1(2026-03-17)에서도 액션 교체 연산자·Bone Info 노드 등 추가</td><td>5.2 LTS를 기준 버전으로 고정하고 액션/슬롯 API를 한 모듈에 격리</td></tr>
+<tr class="bad"><td>라이선스가 둘로 갈린다</td><td><code>import bpy</code> 하는 애드온은 GPL. 외부 프로세스가 소켓으로 통신하는 형태는 일반적으로 GPL 의무가 없다고 보지만 "회색 지대"라는 논의가 있고, 확정 판례는 없다</td><td>두 패키지: <code>bridge</code> 애드온(GPL-3, 아주 작게) + CLI/지휘자(MIT). extensions.blender.org 규칙(설치 시 pip 금지·휠 동봉·온라인 접근 선언)도 애드온에만 적용</td></tr>
+<tr class="mid"><td>경쟁이 이미 많다</td><td>blender-mcp 28.4k★(MIT), 공식 Blender MCP(2026-04-27 1.0.0, 09-11 1.0.3), blender-copilot(Rigify 도구 6개, 4★), CSM BlenderMCP(클라우드 텍스트→애니), Proscenium(Kimodo 클라이언트), 3D-Agent·Mixar(상용)</td><td>"채팅 도우미"와 경쟁하지 않는다. "작업 단위 CLI(rig / animate / retarget / export) + 검증 보고서"로 자리 잡는다</td></tr>
+<tr class="mid"><td>토큰</td><td>Codex 구독. 렌더 이미지를 매번 보면 비용이 는다</td><td>이미지 판단은 단계당 1장, 저해상도(512px), 실패 시에만 추가. 예산 정지·장부는 hyperresearch-codex 코드 재사용</td></tr>
+</table>
+
+<h2>2. 현황 지도 (2026-09 기준)</h2>
+<h3>2-1. Blender 자체</h3>
+<table>
+<tr><th>항목</th><th>상태</th></tr>
+<tr><td>버전</td><td>5.1 정식 2026-03-17. 로컬에는 <b>5.2.0 LTS</b> 설치됨(실측). bpy 파이썬 모듈 5.2.1 macOS arm64 휠이 PyPI에 있음(실측) → GUI 없이 CLI·CI 가능</td></tr>
+<tr><td>5.1 애니·리깅 변경</td><td>액션·셰이프키 평가 속도 2~4배, Dope Sheet 보간 색 표시, "Apply to Basis", 여러 오브젝트 액션 교체 연산자, Geometry Nodes <b>Bone Info</b> 노드, 본 이름 바꿔도 드라이버 유지</td></tr>
+<tr><td>애니메이션 시스템 개편</td><td>Slotted Actions(4.4 완료) → Layered Animation(진행 중, UI·평가 작업) → 스트립 비선형 편집(2027+)</td></tr>
+<tr><td>Rigify</td><td>내장, 메타리그(휴머노이드·사족 등) → 생성. 파라미터는 <code>rigify_parameters</code>. 5.x에서 큰 변화 확인 안 됨</td></tr>
+<tr><td>공식 MCP</td><td>projects.blender.org/lab/blender_mcp. 애드온 + 별도 MCP 서버, TCP 소켓. 문서 탐색·파이썬 API 접근 목적("경량"). 리깅·애니 전용 도구 없음</td></tr>
+</table>
+
+<h3>2-2. 리깅·애니·모캡 도구</h3>
+<table>
+<tr><th>도구</th><th>무엇</th><th>라이선스</th><th>Mac(M4 Pro)</th><th>우리와의 관계</th></tr>
+<tr><td>UniRig (VAST/Tsinghua)</td><td>임의 메시 자동 스켈레톤+스키닝, FBX 출력, 인간·동물·사물</td><td>MIT</td><td class="bad">✗ CUDA 8GB+</td><td>CUDA PC 있는 사용자용 "공급자" 플러그인 후보</td></tr>
+<tr><td>Rigify (내장)</td><td>메타리그 → 제어 리그 생성</td><td>GPL(Blender)</td><td class="ok">✓</td><td>MVP 기본 리깅 엔진</td></tr>
+<tr><td>BlendCap</td><td>영상 1개 → 몸·손·얼굴 캡처 → Rigify/ARP/Mixamo 리타겟(SAM 3D Body+YOLO11+MediaPipe)</td><td>GPL-3</td><td class="bad">✗ 미지원</td><td>Windows/Linux 사용자 연동 후보</td></tr>
+<tr><td>SAM3DBody-cpp</td><td>영상 → 70관절 BVH, C++ ONNX/ggml</td><td>MIT</td><td class="bad">✗ Metal 없음(CPU는 느림)</td><td>BVH 입력 표준으로 삼으면 나중에 붙일 수 있음</td></tr>
+<tr><td>Kimodo (NVIDIA) + motionmcp-kimodo / Proscenium</td><td>텍스트·제약 → 동작(700시간 모캡 학습), MMCP 프로토콜, Blender 클라이언트</td><td>코드 Apache-2.0, 가중치 별도(NVIDIA 조건 확인 필요)</td><td class="mid">△ PyTorch판은 CUDA 권장</td><td>MMCP 클라이언트로 붙이면 "동작 공급자"</td></tr>
+<tr><td>kimodo.cpp</td><td>Kimodo를 C++/GGML로, SMPL-X 22관절 출력</td><td>확인 필요</td><td class="ok">✓ M3에서 60프레임/48초, 모델 10GB+</td><td>Mac에서 유일하게 되는 텍스트→동작. 기능은 원본보다 적음</td></tr>
+<tr><td>OpenT2M / MonoFrill</td><td>2,800시간 공개 모션 데이터 + 텍스트→동작 모델(2026-03)</td><td>확인 필요</td><td>미확인</td><td>학습·평가 데이터 후보</td></tr>
+<tr><td>Mixamo / AccuRIG / Tripo / Meshy</td><td>클라우드·상용 자동 리깅·애니</td><td>비공개</td><td>웹</td><td>수동 가져오기 경로로만</td></tr>
+</table>
+
+<h3>2-3. LLM × Blender 에이전트</h3>
+<table>
+<tr><th>도구</th><th>특징</th><th>라이선스·규모</th><th>빈자리</th></tr>
+<tr><td>ahujasid/blender-mcp</td><td>소켓 9876, 임의 파이썬 실행, 스크린샷, PolyHaven/Sketchfab/Hyper3D. Codex 지원 명시</td><td>MIT, 28.4k★</td><td>리깅·애니 도구 없음, 검증 없음</td></tr>
+<tr><td>공식 Blender MCP</td><td>문서·API 탐색 중심, 경량</td><td>Blender Foundation, 1.0.3</td><td>작업 파이프라인 아님</td></tr>
+<tr><td>dwgx/blender-copilot</td><td>Rigify 메타리그 생성·맞춤·생성·IK·얼굴, 키프레임 도구 9개</td><td>MIT, 4★</td><td>채팅 의존, 검증·비용 통제 없음. <b>기능 목록은 참고 가치 큼</b></td></tr>
+<tr><td>CSM BlenderMCP</td><td>텍스트→애니(고정 라이브러리, 클라우드)</td><td>MIT</td><td>클라우드 종속</td></tr>
+<tr><td>BlenderGym / 3DCodeBench</td><td>VLM의 Blender 편집 벤치마크</td><td>연구</td><td>우리 게이트의 효과를 측정할 자</td></tr>
+</table>
+
+<h3>2-4. Codex 쪽 사실</h3>
+<ul>
+<li>Codex CLI는 MCP 클라이언트(<code>codex mcp add blender -- uvx blender-mcp</code>). 설정은 <code>~/.codex/config.toml</code>, CLI·앱·IDE 공용.</li>
+<li>이미지 입력: <code>codex exec "프롬프트" -i shot.png</code>(exec 모드는 프롬프트가 플래그보다 앞). PNG/JPEG만.</li>
+<li>Codex 앱(2026-04): 컴퓨터 사용(macOS 앱 조작), 인앱 브라우저, 플러그인 90+, 메모리. "앱" 형태는 Codex 앱 플러그인(스킬+MCP)로 제공하는 게 가장 싸다.</li>
+<li>로컬 실측: <code>codex mcp list</code>에 Blender 서버 없음(Claude 쪽에만 설치돼 있음). 필요 시 사용자가 등록.</li>
+</ul>
+
+<h2>3. 후보 구조 3가지와 추천</h2>
+<table>
+<tr><th></th><th>A. MCP 도구 서버(Codex가 지휘)</th><th>B. 파이썬 지휘자 + <code>codex exec</code> 단계 호출 (추천)</th><th>C. Blender 애드온 UI만</th></tr>
+<tr><td>누가 단계를 정하나</td><td>모델</td><td>파이썬(고정 순서)</td><td>사람</td></tr>
+<tr><td>검증</td><td>도구 안에 일부</td><td>단계마다 게이트(본 수·가중치·렌더 판단)</td><td>없음</td></tr>
+<tr><td>재현·재개·장부</td><td>어려움</td><td>hyperresearch-codex 코드 재사용</td><td>–</td></tr>
+<tr><td>GUI 없이(CI)</td><td>Blender 실행 필요</td><td>bpy 휠로 헤드리스 가능</td><td>불가</td></tr>
+<tr><td>경쟁</td><td>blender-mcp와 정면 충돌</td><td>빈자리</td><td>Auto-Rig Pro 등과 충돌</td></tr>
+</table>
+<div class="note">추천: <b>B를 핵심으로, A는 얇은 포장</b>(같은 파이프라인을 MCP 도구 4개로도 노출: rig / animate / retarget / export). C는 나중에 "결과 미리보기 패널" 정도.</div>
+
+<h2>4. MVP 제안 (이름 미정, 4주 안)</h2>
+<pre>cli rig  model.glb  --preset humanoid|quadruped   # 메시 분석(대칭·높이·팔다리 후보) → Codex가 메타리그 본 위치 판단(JSON) → Rigify 생성 → 게이트 → 테스트 포즈 3장 렌더 → Codex 시각 판정(-i) → 보고서
+cli animate rig.blend "walk 2 seconds, then wave"   # Codex가 키프레임 계획(JSON: 본·프레임·값) → 파이썬이 적용 → 게이트(발 미끄러짐·관절 한계·프레임 수) → 렌더 4장 판정
+cli motion  rig.blend  --bvh clip.bvh | --kimodo "..."  # BVH/kimodo.cpp 결과 리타겟 → 베이크 → 위 게이트
+cli export  rig.blend  --gltf|--fbx                 # 내보내기 + 검증(본 계층·애니 클립 수)
+cli status / usage / resume                          # hyperresearch-codex 그대로</pre>
+<ul>
+<li><b>게이트(토큰 0)</b>: 본 개수·이름 규칙, 정점 가중치 합=1·미할당 정점 0, 대칭 본 쌍 오차, 관절 회전 한계, 발 접지(발 본 높이 변화), 프레임 범위, 내보내기 재가져오기 일치.</li>
+<li><b>모델 판단(토큰)</b>: 메타리그 본 위치 제안(텍스트), 렌더 3~4장 시각 판정(이미지당 약 1~2천 토큰). 리그 1건 = 호출 4~6회, 입력 20만~50만 토큰 예상(hyperresearch Light lean과 비슷). 실측 필요.</li>
+<li><b>라이선스</b>: <code>bridge/</code>(GPL-3 애드온·소켓 서버, 100줄 목표) + <code>cli/</code>(MIT). 헤드리스 경로는 bpy 휠을 쓰므로 애드온 없이도 동작 → GPL 접점 최소.</li>
+<li><b>동작 공급자 인터페이스</b>: 입력은 BVH 또는 glTF 애니메이션으로 통일. kimodo.cpp(Mac), motionmcp(MMCP), 파일 가져오기 순으로 지원.</li>
+</ul>
+
+<h2>5. 바로 할 수 있는 확인(스파이크) — 토큰 거의 0</h2>
+<ol>
+<li>bpy 5.2.1 휠을 새 venv에 설치해 헤드리스로 Rigify 메타리그→생성→FBX 내보내기까지 되는지(Rigify가 bpy 모듈에서도 로드되는지가 관건).</li>
+<li>Codex <code>-i</code> 시각 판정 1회: 렌더 1장 + "이 리그의 팔 본이 메시 밖으로 나갔나?" 같은 질문(토큰 수천).</li>
+<li>kimodo.cpp Mac 빌드·10GB 모델 내려받기(디스크·시간만). 성공하면 텍스트→동작을 MVP에 넣고, 실패하면 BVH 가져오기만.</li>
+<li>테스트 자산: 무료 리깅용 메시(예: Blender Studio 캐릭터, Sketchfab CC0) 3개로 게이트 기준값 잡기.</li>
+</ol>
+
+<h2>6. 결정 필요</h2>
+<ul>
+<li>범위: 휴머노이드+사족(Rigify 메타리그 두 종)으로 시작할지, 임의 생물(UniRig 필요→CUDA)까지 갈지.</li>
+<li>이름·저장소(hyperresearch 때처럼 이름 혼동 피하기: blender-mcp·copilot 계열 이름은 피한다).</li>
+<li>라이선스 2분할(GPL 애드온 + MIT CLI) 수용 여부.</li>
+<li>"앱"의 뜻: Codex 앱 플러그인(가장 싸다) / 로컬 웹 UI / Blender 패널 중 하나.</li>
+</ul>
+
+
+<h2>7. 확인 3개 실측 결과 (2026-09-13 저녁, 같은 Mac mini M4 Pro 24GB)</h2>
+<table>
+<tr><th>확인</th><th>결과</th><th>수치</th><th>뜻</th></tr>
+<tr class="ok"><td>① Rigify 헤드리스</td><td>통과</td><td>Blender.app 5.2.0 LTS 배경 실행: 휴머노이드 159본→706본(변형 160), 늑대 190본→823본(변형 197), FBX 1.75MB, 8.7초. <b>bpy 5.2.1 휠(Python 3.13 venv)</b>에서도 휴머노이드 생성 706본·3.3초</td><td>Blender 앱 없이 CLI·CI 가능. 두 메타리그 모두 자동 생성됨</td></tr>
+<tr class="ok"><td>② Codex 시각 판정(<code>-i</code>)</td><td>통과(2회째)</td><td>1회: 헤드리스 렌더에 뼈대가 안 그려져 "본이 안 보임"이라고 정직하게 답함(입력 18,050). 2회: 본을 빨간 기둥으로 그린 렌더에서 심어 둔 오류(왼쪽 위팔을 몸 밖으로)를 "한쪽 팔이 오른쪽 위로 비정상적으로 길게 뻗음"으로 지적, JSON 스키마 준수, 입력 18,045·출력 171 토큰</td><td>이미지 1장은 텍스트 호출과 비용이 거의 같다. 판정 문구는 "메시 표면에서 얼마나 벗어났나"로 좁혀야 함(캡슐 몸통 탓에 손·다리도 "밖"으로 봄)</td></tr>
+<tr class="ok"><td>③ kimodo.cpp Mac</td><td>통과</td><td>cmake·ninja·hf CLI 설치 후 <code>KIMODO_ENABLE_VULKAN=OFF</code>로 <b>Metal 백엔드 빌드 성공</b>. SOMA RP v1.1(1.1GB) + 텍스트 인코더(Llama-3 GGML 32조각, 14GB) 다운로드·SHA 검증. 프롬프트 "걷다가 멈추고 오른손 흔들기" → <b>60프레임·30관절 46.5초, 메모리 3.8GB</b>. BVH 변환 → Blender 가져오기: 본 30개(Hips·Spine·Chest·Neck·Head…), 30fps, 루트 이동 3.48m</td><td>Mac에서 텍스트→동작이 실제로 된다. 단, 1초 애니에 약 23초 꼴이라 "미리보기 후 채택" 방식이 맞다. SOMA/G1 가중치는 상업 이용 가능(NVIDIA Open Model License), SMPL-X는 비상업</td></tr>
+</table>
+<div class="note">파일 위치: 빌드·모델은 <code>/Users/sam/Desktop/Gpt_Codex/blender-anim-codex/vendor/kimodo.cpp/</code>(약 15GB), 스파이크 스크립트·렌더·BVH·Codex 답은 <code>…/blender-anim-codex/spikes/</code>. 설치한 도구: Homebrew cmake 4.4.3·ninja 1.13.2, uv 도구 huggingface_hub(hf).</div>
+<h3>남은 기술 위험(실측으로 드러난 것)</h3>
+<ul>
+<li>헤드리스 렌더는 아마추어를 안 그린다 → 게이트용 렌더는 본을 기둥 메시로 그리는 헬퍼가 필요(스파이크 스크립트에 있음).</li>
+<li>Kimodo 출력은 SOMA 30관절이라 Rigify 변형 본(160개)으로 <b>리타겟</b>이 필요. 이름 매핑 표 + 회전 복사 제약(Blender 내장)으로 가능하지만 MVP에서 가장 손이 많이 갈 부분.</li>
+<li>bpy 휠은 Python 3.13 전용(cp313). 사용자 환경에 3.13이 없으면 uv로 설치하는 안내가 필요.</li>
+</ul>
+<h2>출처</h2>
+<ul>
+<li>Blender 5.1: <a href="https://developer.blender.org/docs/release_notes/5.1/animation_rigging/">Animation & Rigging release notes</a>, <a href="https://linuxiac.com/blender-5-1-3d-creation-software-released/">linuxiac</a></li>
+<li>애니 시스템 개편: <a href="https://projects.blender.org/blender/blender/issues/154504">Layered Actions tracking</a>, <a href="https://projects.blender.org/blender/blender/issues/120406">Slotted Actions planning</a></li>
+<li>공식 MCP: <a href="https://projects.blender.org/lab/blender_mcp">projects.blender.org/lab/blender_mcp</a>, <a href="https://note.com/harayoki/n/n4b7139a86b23?hl=en">공식 vs 커뮤니티 차이</a></li>
+<li><a href="https://github.com/ahujasid/blender-mcp">ahujasid/blender-mcp</a>, <a href="https://github.com/dwgx/blender-copilot">dwgx/blender-copilot</a>, <a href="https://blenderartists.org/t/open-source-blender-mcp-with-fast-3d-generation-search-and-instant-text-to-animation-auto-rigging/1589568">CSM BlenderMCP</a></li>
+<li><a href="https://github.com/VAST-AI-Research/UniRig">UniRig</a>, <a href="https://github.com/Arcomade/BlendCap">BlendCap</a>, <a href="https://github.com/AmmarkoV/SAM3DBody-cpp">SAM3DBody-cpp</a></li>
+<li>Kimodo: <a href="https://github.com/animatica-ai/motionmcp-kimodo">motionmcp-kimodo</a>, <a href="https://note.com/npaka/n/na89d0fbc4bbb?hl=en">kimodo.cpp on Mac</a>, <a href="https://research.nvidia.com/labs/sil/projects/kimodo/assets/kimodo_tech_report.pdf">tech report</a>; <a href="https://arxiv.org/pdf/2603.18623">OpenT2M</a></li>
+<li>벤치마크: <a href="https://arxiv.org/abs/2504.01786">BlenderGym</a>, <a href="https://arxiv.org/pdf/2606.01057">3DCodeBench</a></li>
+<li>Codex: <a href="https://www.tembo.io/blog/codex-cli-mcp">MCP 설정</a>, <a href="https://codex.danielvaughan.com/2026/03/28/codex-cli-image-workflows/">이미지 입력</a>, <a href="https://www.macrumors.com/2026/04/16/openai-codex-mac-update/">Codex 앱 2026-04</a></li>
+<li>라이선스: <a href="https://www.blender.org/about/license/">Blender License</a>, <a href="https://cgcookie.com/posts/the-gpl-and-the-legal-limits-of-blender">GPL 한계</a>, <a href="https://developer.blender.org/docs/handbook/extensions/addon_guidelines/">Extensions 가이드라인</a></li>
+<li>bpy 휠: <a href="https://pypi.org/p/bpy">PyPI bpy</a>(5.2.1 macosx_11_0_arm64 실측)</li>
+</ul>
+</body></html>

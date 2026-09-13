@@ -1,0 +1,10 @@
+# 실행 산출물(리그·렌더·로그·장부)과 벤더 빌드(kimodo.cpp 16GB)는 올리지 않는다
+runs/
+vendor/
+spikes/motion_out/
+docs/internal/
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+*.blend1

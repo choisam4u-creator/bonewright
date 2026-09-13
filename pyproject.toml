@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bonewright"
+version = "0.1.0"
+description = "Rig and animate Blender characters with Codex: Python drives the steps, codex exec judges, gates verify."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{name = "samchoi"}]
+dependencies = []
+keywords = ["blender", "rigging", "animation", "codex", "rigify"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "Operating System :: MacOS", "Operating System :: POSIX :: Linux"]
+
+[project.optional-dependencies]
+headless = ["bpy==5.2.1"]
+
+[project.scripts]
+bw = "bonewright.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bonewright"]

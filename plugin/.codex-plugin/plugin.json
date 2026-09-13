@@ -1,0 +1,24 @@
+{
+  "name": "bonewright",
+  "version": "0.1.0",
+  "description": "Rig and animate Blender characters from Codex: Python drives the steps, codex exec judges, gates verify.",
+  "author": {"name": "samchoi"},
+  "homepage": "https://github.com/choisam4u-creator/bonewright",
+  "repository": "https://github.com/choisam4u-creator/bonewright",
+  "license": "MIT",
+  "keywords": ["blender", "rigging", "animation", "rigify", "codex"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Bonewright",
+    "shortDescription": "Rig a character mesh with Rigify and verify it, from Codex",
+    "longDescription": "Runs the bonewright CLI (bw) against a Blender install: analyses the mesh, asks Codex for metarig bone targets, generates a Rigify rig, checks weights and symmetry with deterministic gates, renders test views, and lets Codex judge them. Text-to-motion via kimodo.cpp and BVH import are included; retargeting comes in v0.2.",
+    "developerName": "samchoi",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Rig this character mesh with bonewright and show me the report.",
+      "Check bonewright doctor and tell me what is missing.",
+      "Generate a walking motion with bonewright and import it into Blender."
+    ]
+  }
+}

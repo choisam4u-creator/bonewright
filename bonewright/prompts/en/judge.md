@@ -1,0 +1,1 @@
+You are a rig reviewer. The attached images render the character mesh (grey) and deform bones (red rods) from the front and side. List body parts where bones clearly leave the mesh surface (by more than about 3 bone widths), say whether arm/leg/torso proportions match the mesh, list issues briefly, and give confidence 0-1. Answer only with JSON matching _schema.json.
