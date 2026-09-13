@@ -12,6 +12,9 @@ def rig_gates(stats: dict, g: dict, verts: int) -> list[str]:
     if len(stats["bones_outside_bbox"]) > g["max_bones_outside_bbox"]:
         fails.append(f"메시 상자 밖 변형 본 {len(stats['bones_outside_bbox'])}: {stats['bones_outside_bbox'][:5]}")
     tol = g["symmetry_max_error"] * max(0.2, stats.get("height", 1.8) / 1.8)   # 키 비례(1.8m 기준값)
+    tv = stats.get("weight_leak_torso_verts", 0)
+    if tv and stats.get("weight_leak_arm_torso", 0) / tv > g.get("max_weight_leak_ratio", 0.005):
+        fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}")
     if stats["symmetry_max_error"] > tol:
         fails.append(f"좌우 대칭 오차 {stats['symmetry_max_error']} > {round(tol, 4)}")
     return fails

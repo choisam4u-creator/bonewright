@@ -214,6 +214,29 @@ vg = {g.index: g.name for g in obj.vertex_groups}; sums = []; unweighted = 0
 for v in obj.data.vertices:
     w = sum(g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")); sums.append(w)
     if w < 1e-4: unweighted += 1
+# 가중치 누출 검사(토큰 0): 복셀 대리 메시는 가까운 조각을 붙이므로 팔 본이 몸통으로 샐 수 있다(Maya 는 복셀 위 측지 거리로 막는다).
+# (A) 몸통 한가운데(가슴~배) 정점이 팔 본에게 받는 가중치 — 빗장뼈(shoulder)는 원래 가슴 위를 덮으므로 뺀다.
+# (B) 지배 본이 정점에서 키의 15% 보다 멀면 의심 — 가방·날개 같은 부속물은 정상적으로 걸리므로 게이트가 아니라 기록만 한다.
+_H = A["landmarks"]["height"]; _z0 = A["landmarks"]["ground_z"]
+_seg = {b.name: (rig.matrix_world @ b.head_local, rig.matrix_world @ b.tail_local) for b in rig.data.bones if b.use_deform}
+def _dist(name, p):
+    a, b = _seg[name]; ab = b - a
+    if ab.length_squared < 1e-12: return (p - a).length
+    t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
+    return (p - (a + ab * t)).length
+_ARM = ("DEF-upper_arm", "DEF-forearm", "DEF-hand")
+vgn = {g.index: g.name for g in obj.vertex_groups}
+leak_arm, torso_verts, far_dom = 0, 0, 0
+for v in obj.data.vertices:
+    pw = obj.matrix_world @ v.co
+    w = {vgn.get(g.group, ""): g.weight for g in v.groups if vgn.get(g.group, "").startswith("DEF-")}
+    if not w: continue
+    t = sum(w.values()) or 1.0
+    if abs(pw.x) < 0.04 * _H and _z0 + 0.45 * _H < pw.z < _z0 + 0.70 * _H:
+        torso_verts += 1
+        if sum(val for k, val in w.items() if k.startswith(_ARM)) / t > 0.15: leak_arm += 1
+    dom = max(w, key=w.get)
+    if w[dom] / t > 0.5 and dom in _seg and _dist(dom, pw) > 0.15 * _H: far_dom += 1
 mn = Vector(A["stats"]["min"]); mx = Vector(A["stats"]["max"]); pad = 0.12
 outside = [b.name for b in rig.data.bones if b.use_deform and not all(mn[i] - pad <= (rig.matrix_world @ b.head_local)[i] <= mx[i] + pad for i in range(3))]
 def _outside(p):
@@ -228,7 +251,7 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
          "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
-         "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
+         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])
