@@ -8,6 +8,21 @@ bpy.ops.preferences.addon_enable(module="rigify")
 obj = bpy.data.objects["character"]
 T = A["targets"]            # {"bone": {"head":[x,y,z], "tail":[x,y,z]}} 일부만 와도 된다
 preset = A.get("preset", "humanoid")
+# 판정 기준면: 원본 메시는 옷·신발·머리가 겹친 여러 껍질이고 목·소매에 구멍이 뚫려 있어 안/밖 판정이 둘 다 틀린다
+# (법선 방식은 몸 안의 점을 밖으로, 광선 방식은 구멍으로 새어 밖으로 읽는다 — 둘 다 실측으로 확인).
+# 복셀 리메시로 구멍을 메운 "부피 메시"를 한 번 만들어 그것으로만 판정한다.
+bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+bpy.ops.object.duplicate(); vol = bpy.context.active_object; vol.name = "bw_volume"
+_vm = vol.modifiers.new("remesh", "REMESH"); _vm.mode = "VOXEL"; _vm.voxel_size = max(0.004, A["landmarks"]["height"] / 150); volume_voxel = round(_vm.voxel_size, 4)
+bpy.ops.object.modifier_apply(modifier="remesh")
+vinv = vol.matrix_world.inverted()
+def is_inside(p, margin=0.0):
+    """부피 메시 기준: 가장 가까운 면의 법선 방향으로 margin 보다 더 나가 있으면 밖."""
+    ok, loc, nrm, _ = vol.closest_point_on_mesh(vinv @ p)
+    if not ok: return True
+    d = (p - (vol.matrix_world @ loc)).dot((vol.matrix_world.to_3x3() @ nrm).normalized())
+    return d <= margin
+
 op = {"humanoid": "armature_human_metarig_add", "quadruped": "armature_wolf_metarig_add"}[preset]
 getattr(bpy.ops.object, op)(); meta = bpy.context.active_object; meta.name = "metarig"
 # 전체 크기: 메타리그 높이를 메시 높이에 맞춘다
@@ -85,6 +100,7 @@ if all(n in eb for n in ["spine", "spine.004"] + mid):
         eb[n].head = a_ + (b_ - a_) * (acc / tot); acc += ln; eb[n].tail = a_ + (b_ - a_) * (acc / tot)
 # 보정 3: 손(과 손가락)이 메시 손끝을 넘으면 손 본 head 를 중심으로 줄인다. 손 방향으로 광선을 쏴 메시를 빠져나가는 거리를 잰다
 inv = obj.matrix_world.inverted(); finger_scale = {}
+center_y = 0.0   # 가져오기에서 다리 중앙을 y=0 으로 맞춘다
 for side in ("L", "R"):
     hn = f"hand.{side}"
     if hn not in eb: continue
@@ -98,21 +114,28 @@ for side in ("L", "R"):
         sc_ = max(0.2, (exit_d - 0.01) / far); M = Matrix.Translation(h) @ Matrix.Scale(sc_, 4) @ Matrix.Translation(-h)
         for b in sub: b.transform(M, scale=True, roll=True)
         finger_scale[side] = round(sc_, 3)
-# 보정 4: 그래도 메시 밖에 있는 점(head/tail)은 가장 가까운 표면에서 1.2cm 안쪽으로 당긴다(뚫린 메시면 법선이 틀릴 수 있어 통계로 남긴다)
+# 보정 4: 그래도 메시 밖에 있는 점(head/tail)은 메시 안으로 당긴다.
+# 안/밖 판정은 "광선 통과 횟수"로 한다(홀수면 안). 가장 가까운 면의 법선으로 판정하면 게임 메시처럼 옷·신발이 겹친
+# 여러 껍질에서는 몸 안의 점도 "밖"으로 잘못 나온다(실측: 정강이 중간점이 5.2cm 밖으로 오판).
 def pull_inside(p, inset=0.012):
-    """메시 밖의 점을 가장 가까운 표면에서 inset 만큼 안쪽으로. 머리카락·신발창처럼 얇은 곳은 1.2cm 가 반대편으로 뚫고 나가므로 절반씩 줄여 다시 시도한다"""
-    ok, loc, nrm, _ = obj.closest_point_on_mesh(inv @ p)
+    """메시 밖의 점만 안으로 당긴다: 가장 가까운 표면에서 inset 만큼 안쪽 → 광선 판정으로 확인, 실패하면 절반씩 줄여 재시도,
+    그래도 안 되면 같은 높이의 몸 중심축 쪽으로 조금씩 옮긴다(얇은 껍질·법선 오류 대비)."""
+    if is_inside(p): return p, False
+    ok, loc, nrm, _ = vol.closest_point_on_mesh(vinv @ p)
     if not ok: return p, False
-    loc = obj.matrix_world @ loc; nrm = (obj.matrix_world.to_3x3() @ nrm).normalized()
-    if (p - loc).dot(nrm) <= 0: return p, False
+    loc = vol.matrix_world @ loc; nrm = (vol.matrix_world.to_3x3() @ nrm).normalized()
     for k in range(4):
         q = loc - nrm * (inset / (2 ** k))
-        ok2, loc2, nrm2, _ = obj.closest_point_on_mesh(inv @ q)
-        if ok2 and (q - (obj.matrix_world @ loc2)).dot((obj.matrix_world.to_3x3() @ nrm2)) <= 0:
-            return q, True
-    return loc - nrm * (inset / 16), True
+        if is_inside(q): return q, True
+    axis = Vector((0.0, center_y, p.z))   # 몸 중심축(좌우 0, 앞뒤 중앙)
+    for k in range(1, 11):
+        q = p + (axis - p) * (k / 10.0)
+        if is_inside(q): return q, True
+    return loc - nrm * (inset / 8), True
 snapped_inside = []
+skip_inside = {b.name for h in ("hand.L", "hand.R") if h in eb for b in eb if any(pb.name == h for pb in b.parent_recursive)}
 for b in list(eb):
+    if b.name in skip_inside: continue   # 손가락: 보정 3 이 손 실루엣 안으로 넣었다. 부피 메시(복셀 1.2cm)는 손가락을 뭉개서 잘못 당긴다
     for attr in ("head", "tail"):
         q, moved_pt = pull_inside(getattr(b, attr))
         if moved_pt: setattr(b, attr, q); snapped_inside.append(f"{b.name}.{attr}")
@@ -194,13 +217,18 @@ for v in obj.data.vertices:
 mn = Vector(A["stats"]["min"]); mx = Vector(A["stats"]["max"]); pad = 0.12
 outside = [b.name for b in rig.data.bones if b.use_deform and not all(mn[i] - pad <= (rig.matrix_world @ b.head_local)[i] <= mx[i] + pad for i in range(3))]
 def _outside(p):
-    ok, loc, nrm, _ = obj.closest_point_on_mesh(inv @ p)
-    return ok and ((p - (obj.matrix_world @ loc)).dot((obj.matrix_world.to_3x3() @ nrm)) > 0.003)
-deform_outside_mesh = sorted({b.name for b in rig.data.bones if b.use_deform for pt in (b.head_local, b.tail_local) if _outside(rig.matrix_world @ pt)})
+    return not is_inside(p, margin=0.003)
+# 손가락 본은 이 검사에서 뺀다: 판정용 부피 메시(복셀 1.2cm)가 손가락을 한 덩어리로 뭉개서 전부 "밖"으로 읽힌다.
+# 손가락은 보정 3(손 실루엣 안으로 축소)이 원본 메시 기준으로 이미 처리한다
+FINGER = ("DEF-f_", "DEF-thumb", "DEF-palm")
+_check = [b for b in rig.data.bones if b.use_deform and not b.name.startswith(FINGER)]
+finger_bones_skipped = sum(1 for b in rig.data.bones if b.use_deform and b.name.startswith(FINGER))
+deform_outside_mesh = sorted({b.name for b in _check for pt in (b.head_local, b.tail_local) if _outside(rig.matrix_world @ pt)})
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
-         "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
+bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])
