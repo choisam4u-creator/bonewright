@@ -10,6 +10,7 @@ DEFAULTS = {
     "budget": {"max_input_tokens": 600_000, "price_input_per_m": 10.0, "price_output_per_m": 50.0},
     "codex": {"timeout": 600, "ignore_user_config": True, "extra_args": ["--skip-git-repo-check", "--ephemeral"]},
     "blender": {"app": "", "prefer_module": True, "timeout": 600},      # app 비우면 자동 탐색
+    "rig": {"face": False},                                             # Rigify 얼굴 리그 포함 여부(v0.1 기본 제외)
     "render": {"size": 512, "judge_views": ["front", "side"]},
     "gates": {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03,
               "deform_bones_min": 60, "max_bones_outside_bbox": 0},

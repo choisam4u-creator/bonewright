@@ -1,0 +1,62 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>bonewright v0.1 상태 (2026-09-13)</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:940px;margin:32px auto;padding:0 16px;line-height:1.55;color:#222}
+h1{font-size:1.5em}h2{font-size:1.2em;margin-top:1.6em;border-bottom:1px solid #ddd;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;font-size:.92em;margin:8px 0}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top}th{background:#f3f3f3}
+.bad{background:#fff3f0}.ok{background:#f0fff3}.mid{background:#fffbe6}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}pre{background:#f4f4f4;padding:10px;overflow:auto}</style></head><body>
+<h1>bonewright v0.1 — 첫 뼈대 상태</h1>
+<p>2026-09-13 밤. 폴더 <code>/Users/sam/Desktop/Gpt_Codex/bonewright/</code> (이름 확정: <b>bonewright</b> = bone + wright(만드는 사람). GitHub 저장소 0개·PyPI 비어 있음 확인). 라이선스 MIT(CLI), 애드온은 v0.2에 GPL로 분리.</p>
+
+<h2>결론</h2>
+<ul>
+<li><b>rig 파이프라인이 끝까지 돈다.</b> 분석(토큰 0) → Codex 맞춤(1회) → Rigify 생성+자동 가중치(토큰 0) → 게이트(토큰 0) → 렌더 3장(토큰 0) → Codex 시각 판정(1회) → 보고서. 실제 Codex로 2회 완주, mock 테스트 3개 통과.</li>
+<li><b>실측 비용: 리그 1건 입력 56,882 토큰·출력 1,222·약 1분·요금 상한 $0.63.</b> hyperresearch Light 1회의 1/10이다.</li>
+<li><b>약점: 팔 맞춤 품질.</b> 판정이 "팔꿈치·손 본이 메시 밖" 이라고 두 번 다 지적했다(정직한 needs_review). 다리·몸통·머리는 맞는다. v0.2의 첫 과제.</li>
+</ul>
+
+<h2>실제 실행 2회</h2>
+<table>
+<tr><th>실행</th><th>fit 입력/시간</th><th>judge 입력/시간</th><th>게이트</th><th>판정</th><th>상태</th></tr>
+<tr class="mid"><td>real2 (얼굴 리그 포함, 머리 정렬 전)</td><td>38,374 / 33.5초 · 목표 본 9개</td><td>18,507 / 14.7초</td><td>통과(가중치 auto, 밖 0)</td><td>머리·얼굴, 양팔, 양손 돌출</td><td>needs_review</td></tr>
+<tr class="mid"><td>real3 (얼굴 제외, 목·머리 사슬 정렬)</td><td>38,375 / 38.2초 · 목표 본 13개</td><td>18,507 / 14.2초</td><td>통과(리그 본 410, 변형 73)</td><td>팔꿈치 주변·손 돌출. 다리·몸통 비율 OK</td><td>needs_review</td></tr>
+</table>
+<p>판정이 잡은 문제는 렌더에서도 보인다(docs/internal/real3/view_front.png). 게이트(상자 밖 본 0)는 통과했는데 시각 판정은 실패 — <b>상자 검사만으로는 부족하고 시각 판정이 값어치를 한다</b>는 증거이기도 하다.</p>
+
+<h2>이번에 잡은 결함(전부 테스트로 재현·수정)</h2>
+<table>
+<tr><th>증상</th><th>원인</th><th>수정</th></tr>
+<tr><td>Rigify 생성 실패 "zero length vectors"</td><td>팔·다리 관절이 일직선이라 폴 방향 계산 불가</td><td>일직선이면 팔꿈치 뒤·무릎 앞으로 2cm 굽힘</td></tr>
+<tr><td>자동 가중치 전부 실패</td><td>glTF 재가져오기로 삼각형마다 정점이 갈라짐(조각 2,848개)</td><td>가져올 때 겹친 정점 합침 + 조각 수·비매니폴드 통계 기록 + 실패 시 엔벨로프 대체(정규화)</td></tr>
+<tr><td>Codex 스키마 400 오류</td><td>엄격 스키마는 모든 속성이 required 여야 함</td><td>목표 본을 name·head·tail 필수 배열로</td></tr>
+<tr><td>가랑이를 발 사이 틈으로 오인</td><td>아래에서 첫 갈라짐 띠를 잡음</td><td>갈라진 띠 중 가장 높은 것</td></tr>
+<tr><td>얼굴 본 필터가 아래팔 삭제</td><td>"ear" 부분 일치가 forearm 에 걸림</td><td>이름 첫 토큰으로 판별</td></tr>
+<tr><td>목·머리 사슬 끊김</td><td>head 만 옮기고 앞 본 tail 미조정</td><td>사슬 양 끝을 함께 설정</td></tr>
+</table>
+
+<h2>구성</h2>
+<pre>bonewright/cli.py            bw rig · motion · doctor · status · usage · plugin-path
+bonewright/pipeline.py       rig / motion 단계·게이트·보고서·예산·장부
+bonewright/blender.py        Blender.app -b 또는 bpy 휠 자식 프로세스 실행(부트스트랩)
+bonewright/codex.py          hyperresearch-codex 러너 + 이미지 입력(-i)
+bonewright/bpy_scripts/      analyze · metarig_dump · fit_generate · render_views · import_bvh · make_test_mesh
+bonewright/prompts/{ko,en}/  fit.md · judge.md
+plugin/.codex-plugin/plugin.json + skills/bonewright/SKILL.md   Codex 앱 플러그인
+tests/test_mock.py           절차적 휴머노이드로 rig 전체 + BVH 가져오기 + 게이트 단위 (Blender 필요, 토큰 0)
+vendor/kimodo.cpp            Metal 빌드 + SOMA 모델(16GB, 미추적)</pre>
+
+<h2>v0.2 후보(우선순위)</h2>
+<ol>
+<li><b>팔 맞춤 정확도</b>: 분석에 팔 축(어깨→팔끝) 점열과 굵기를 넣고, 손 본은 팔끝 안쪽으로 클램프. 판정 실패 시 1회 자동 재맞춤(재판정 포함 +5.7만 토큰).</li>
+<li><b>사족(quadruped)</b> 실제 메시 테스트(늑대 메타리그는 생성만 확인).</li>
+<li><b>motion 리타겟</b>: SOMA 30관절 → Rigify DEF 매핑표 + 회전 복사 + 베이크.</li>
+<li>실제 캐릭터 메시(CC0)로 검증 1건, 사용자 메시로 1건.</li>
+<li>GPL 브리지 애드온(열린 Blender 세션에 결과 넣기), extensions.blender.org 규칙 준수.</li>
+</ol>
+
+<h2>사용법(지금)</h2>
+<pre>cd /Users/sam/Desktop/Gpt_Codex/bonewright
+python3 -m bonewright.cli doctor
+python3 -m bonewright.cli rig 캐릭터.glb --preset humanoid          # 실제 Codex, 약 5.7만 토큰
+BW_BACKEND=mock python3 -m bonewright.cli rig 캐릭터.glb --no-judge # 토큰 0 점검
+python3 -m bonewright.cli motion --text "a person walks and waves"  # kimodo.cpp, 약 50초
+BW_BACKEND=mock python3 -m unittest tests/test_mock.py             # 3 tests</pre>
+</body></html>

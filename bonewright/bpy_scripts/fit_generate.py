@@ -16,6 +16,23 @@ scale = A["landmarks"]["height"] / mh if mh else 1.0
 meta.scale = (scale, scale, scale); meta.location.z = A["landmarks"]["ground_z"]
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 bpy.ops.object.mode_set(mode="EDIT"); eb = meta.data.edit_bones; moved = []; clamped = []
+# 얼굴 리그는 기본 제외(v0.1): 메시 머리와 안 맞으면 본이 튀어나온다. rig.face=true 면 유지
+FACE = {"face", "eye", "lip", "brow", "nose", "cheek", "jaw", "ear", "chin", "tongue", "teeth", "temple", "forehead", "lid"}
+removed_face = 0
+if not A.get("face", False):
+    # 첫 토큰으로 판별한다("ear" 부분 일치는 forearm 까지 지운다)
+    for b in [b for b in eb if b.name.split(".")[0].split("_")[0] in FACE]:
+        eb.remove(b); removed_face += 1
+# 머리·목 사슬을 메시 높이에 맞춘다: 목 밑 = 어깨 위, 정수리 = 메시 꼭대기. 사슬이 끊기지 않게 앞 본 tail 과 다음 본 head 를 함께 맞춘다
+L = A["landmarks"]
+chain = ["spine.003", "spine.004", "spine.005", "spine.006"]
+if all(n in eb for n in chain):
+    z0, z3 = L["shoulder_z"] + 0.03, L["top_z"] - 0.01
+    zs = [z0, z0 + (z3 - z0) * 0.3, z0 + (z3 - z0) * 0.45, z3]
+    y = eb["spine.004"].head.y
+    eb["spine.003"].tail = Vector((0, y, zs[0]))
+    for k, name in enumerate(chain[1:]):
+        eb[name].head = Vector((0, y, zs[k])); eb[name].tail = Vector((0, y, zs[k + 1]))
 lo = Vector(A["stats"]["min"]) + Vector((0.02, 0.02, 0.0)); hi = Vector(A["stats"]["max"]) - Vector((0.02, 0.02, 0.0))
 def clamp(name, v):
     c = Vector((min(max(v[i], lo[i]), hi[i]) for i in range(3)))
@@ -72,7 +89,7 @@ outside = [b.name for b in rig.data.bones if b.use_deform and not all(mn[i] - pa
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "moved_bones": moved, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "bones_outside_bbox": outside[:20], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])

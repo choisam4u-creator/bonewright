@@ -22,19 +22,23 @@ for i in range(bands):
 # 후보: 가장 넓은 띠(상단 45% 안) = 어깨/팔 높이, 갈라짐이 시작되는 띠 = 가랑이
 top = [r for r in rows if r["z"] > zmin + H * 0.55]
 shoulder = max(top, key=lambda r: r["width"]) if top else rows[-1]
-crotch = next((r for r in rows if r["gap"] > 0.02), None)
+# 가랑이: 실루엣이 둘로 갈라진 띠 중 가장 높은 것(아래에서 첫 띠를 잡으면 두 발 사이 틈을 가랑이로 오인한다)
+split = [r for r in rows if r["gap"] > 0.02 and r["z"] < zmin + H * 0.6]
+crotch = max(split, key=lambda r: r["z"]) if split else None
 sym = sum(abs(r["left"] + r["right"]) for r in rows) / max(1, len(rows))
 # 몸통 반폭: 가랑이 위~어깨 아래 구간에서 가장 좁은 띠. 팔 끝: 어깨 높이 아래 구간에서 가장 바깥 점
 cz = crotch["z"] if crotch else zmin + H * 0.47
 torso = [r for r in rows if cz + H * 0.08 < r["z"] < shoulder["z"] - H * 0.02 and r["width"] > 0]
 torso_hw = round(min(r["width"] for r in torso) / 2, 3) if torso else round(st["width"] / 6, 3)
-arm_rows = [r for r in rows if zmin + H * 0.45 < r["z"] <= shoulder["z"] + H * 0.05 and r["width"] > 0]
+arm_rows = [r for r in rows if zmin + H * 0.45 < r["z"] < zmax - H * 0.08 and r["width"] > torso_hw * 2 * 1.3]
 tip = max(arm_rows, key=lambda r: r["right"]) if arm_rows else shoulder
+if arm_rows:   # 어깨 높이는 팔이 처음 나타나는(가장 높은) 띠
+    shoulder = max(arm_rows, key=lambda r: r["z"])
 land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 3),
         "shoulder_z": shoulder["z"], "shoulder_halfwidth": round(shoulder["width"] / 2, 3),
         "crotch_z": crotch["z"] if crotch else round(zmin + H * 0.47, 3),
         "hip_z": round((crotch["z"] if crotch else zmin + H * 0.47) + H * 0.05, 3),
-        "knee_z": round(zmin + (crotch["z"] - zmin) * 0.52, 3) if crotch else round(zmin + H * 0.26, 3),
+        "knee_z": round(zmin + H * 0.05 + (crotch["z"] - zmin - H * 0.05) * 0.5, 3) if crotch else round(zmin + H * 0.26, 3),
         "ankle_z": round(zmin + H * 0.05, 3), "head_top_z": round(zmax, 3), "neck_z": round(zmax - H * 0.12, 3),
         "torso_halfwidth": torso_hw, "arm_tip_x": tip["right"], "arm_tip_z": tip["z"],
         "symmetry_error": round(sym, 3), "pose_guess": "A" if tip["z"] < shoulder["z"] - H * 0.05 else "T"}

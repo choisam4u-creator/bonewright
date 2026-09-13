@@ -99,12 +99,13 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
     fit = r.call("fit", "fit", {"analysis.json": json.dumps({"stats": a["stats"], "landmarks": a["landmarks"], "bands": a["bands"][::2]}, ensure_ascii=False),
                                "metarig_bones.json": json.dumps(meta["bones"], ensure_ascii=False)}, schemas.FIT)
+    fit["targets"] = {t["name"]: {"head": t["head"], "tail": t["tail"]} for t in fit["targets"]}   # 배열 → 이름별 dict
     atomic_write(r.dir / "fit.json", json.dumps(fit, ensure_ascii=False, indent=2))
     _log(quiet, f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}")
     # 3 생성·스키닝·통계
     r.state("generate", "running")
     g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": preset,
-                                   "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"]})
+                                   "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"]})
     atomic_write(r.dir / "rig_stats.json", json.dumps(g, ensure_ascii=False, indent=2))
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']} · 상자 밖 {len(st['bones_outside_bbox'])}")
