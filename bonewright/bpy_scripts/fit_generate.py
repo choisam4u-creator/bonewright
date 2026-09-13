@@ -100,11 +100,17 @@ for side in ("L", "R"):
         finger_scale[side] = round(sc_, 3)
 # 보정 4: 그래도 메시 밖에 있는 점(head/tail)은 가장 가까운 표면에서 1.2cm 안쪽으로 당긴다(뚫린 메시면 법선이 틀릴 수 있어 통계로 남긴다)
 def pull_inside(p, inset=0.012):
+    """메시 밖의 점을 가장 가까운 표면에서 inset 만큼 안쪽으로. 머리카락·신발창처럼 얇은 곳은 1.2cm 가 반대편으로 뚫고 나가므로 절반씩 줄여 다시 시도한다"""
     ok, loc, nrm, _ = obj.closest_point_on_mesh(inv @ p)
     if not ok: return p, False
     loc = obj.matrix_world @ loc; nrm = (obj.matrix_world.to_3x3() @ nrm).normalized()
     if (p - loc).dot(nrm) <= 0: return p, False
-    return loc - nrm * inset, True
+    for k in range(4):
+        q = loc - nrm * (inset / (2 ** k))
+        ok2, loc2, nrm2, _ = obj.closest_point_on_mesh(inv @ q)
+        if ok2 and (q - (obj.matrix_world @ loc2)).dot((obj.matrix_world.to_3x3() @ nrm2)) <= 0:
+            return q, True
+    return loc - nrm * (inset / 16), True
 snapped_inside = []
 for b in list(eb):
     for attr in ("head", "tail"):
@@ -146,13 +152,38 @@ def weigh(kind):
         sums.append(s)
         if s < 1e-4: unweighted += 1
     return unweighted, sums
-weight_method = "auto"
-unweighted, sums = weigh("ARMATURE_AUTO"); auto_unweighted = unweighted
-if unweighted > len(obj.data.vertices) * 0.05:
-    # Bone Heat 실패(겹친 조각·비매니폴드 메시) → 엔벨로프로 대체. 품질은 낮지만 항상 붙는다. 보고서에 표시.
+def clear_groups():
     for g in list(obj.vertex_groups): obj.vertex_groups.remove(g)
-    weight_method = "envelope_fallback"
-    unweighted, sums = weigh("ARMATURE_ENVELOPE")
+    for md in [m for m in obj.modifiers if m.type == "ARMATURE"]: obj.modifiers.remove(md)
+weight_method = "auto"
+unweighted, sums = weigh("ARMATURE_AUTO"); auto_unweighted = unweighted; proxy_unweighted = None
+if unweighted > len(obj.data.vertices) * 0.05:
+    # Bone Heat 실패(게임 메시는 머리·몸·옷·가방이 따로 겹쳐 있어 자주 실패한다) → 복셀 리메시 대리 메시(한 덩어리 닫힌 표면)에서
+    # 자동 가중치를 풀고 원본 정점으로 전송한다(가장 가까운 면 보간). 리깅 도구들이 쓰는 표준 우회법
+    clear_groups()
+    bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.duplicate(); proxy = bpy.context.active_object; proxy.name = "bw_proxy"
+    rm = proxy.modifiers.new("remesh", "REMESH"); rm.mode = "VOXEL"; rm.voxel_size = max(0.005, A["landmarks"]["height"] / 90)
+    bpy.ops.object.modifier_apply(modifier="remesh")
+    bpy.ops.object.select_all(action="DESELECT"); proxy.select_set(True); rig.select_set(True); bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    pvg = {g.index: g.name for g in proxy.vertex_groups}
+    proxy_unweighted = sum(1 for v in proxy.data.vertices if sum(g.weight for g in v.groups if pvg.get(g.group, "").startswith("DEF-")) < 1e-4)
+    if proxy_unweighted <= len(proxy.data.vertices) * 0.05:
+        # data_transfer 는 활성(active) 오브젝트 → 선택된 오브젝트로 옮긴다: 대리 메시가 활성, 원본이 선택
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); proxy.select_set(True); bpy.context.view_layer.objects.active = proxy
+        bpy.ops.object.data_transfer(use_reverse_transfer=False, data_type="VGROUP_WEIGHTS", vert_mapping="POLYINTERP_NEAREST", layers_select_src="ALL", layers_select_dst="NAME")
+        obj.parent = rig; obj.matrix_parent_inverse = rig.matrix_world.inverted()
+        am = obj.modifiers.new("Armature", "ARMATURE"); am.object = rig
+        weight_method = "auto_proxy"
+    bpy.data.objects.remove(proxy)
+    vg = {g.index: g.name for g in obj.vertex_groups}; sums = []; unweighted = 0
+    for v in obj.data.vertices:
+        w = sum(g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")); sums.append(w)
+        if w < 1e-4: unweighted += 1
+    if weight_method != "auto_proxy" or unweighted > len(obj.data.vertices) * 0.05:
+        clear_groups(); weight_method = "envelope_fallback"   # 대리 메시도 실패 → 엔벨로프(항상 붙지만 품질 낮음). 보고서에 표시
+        unweighted, sums = weigh("ARMATURE_ENVELOPE")
 # 정규화: 정점별 변형 가중치 합을 1 로(엔벨로프는 합이 1 이 아니다)
 bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
 bpy.ops.object.vertex_group_normalize_all(lock_active=False)
@@ -169,7 +200,7 @@ deform_outside_mesh = sorted({b.name for b in rig.data.bones if b.use_deform for
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])

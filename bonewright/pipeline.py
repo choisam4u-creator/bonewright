@@ -81,7 +81,7 @@ class Run:
 
 
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
-        budget: int | None = None, no_judge: bool = False) -> Path:
+        budget: int | None = None, no_judge: bool = False, facing: str = "auto") -> Path:
     cfg = load(root, lang)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
@@ -91,8 +91,9 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     _log(quiet, f"rig {run_id} · {preset} · {mesh}")
     # 1 분석
     r.state("analyze", "running")
-    a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend")})
+    a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing})
     atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
+    _log(quiet, f"[1/6] import: {a['stats'].get('import')}")
     _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
     # 2 맞춤 판단(모델)
     r.state("fit", "running")
@@ -128,6 +129,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     t = r.tokens(); status = "ok" if not fails else "needs_review"
     report = [f"# bonewright rig report · {run_id}", "",
               f"- mesh: `{mesh}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
+              f"- import: {json.dumps(a['stats'].get('import'), ensure_ascii=False)}",
               f"- rig: `{g['blend']}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
               f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
               f"- gates: {'PASS' if not fails else 'FAIL: ' + '; '.join(fails)}",

@@ -1,9 +1,9 @@
 """1단계 분석(토큰 0): 메시 크기·대칭·높이띠별 폭에서 관절 후보(어깨·골반·무릎·손)를 추정한다."""
 import bpy
 from mathutils import Vector
-from _common import args, done, fresh, import_mesh, mesh_stats, topology
+from _common import args, done, fresh, import_mesh, mesh_stats, topology, IMPORT_INFO
 A = args(); fresh()
-obj = import_mesh(A["mesh"]); st = mesh_stats(obj); st.update(topology(obj))
+obj = import_mesh(A["mesh"], facing=A.get("facing", "auto")); st = mesh_stats(obj); st.update(topology(obj)); st["import"] = dict(IMPORT_INFO)
 vs = [obj.matrix_world @ v.co for v in obj.data.vertices]
 zmin, zmax = st["min"][2], st["max"][2]; H = st["height"]
 el0 = sorted((obj.data.vertices[e.vertices[0]].co - obj.data.vertices[e.vertices[1]].co).length for e in obj.data.edges[:4000])

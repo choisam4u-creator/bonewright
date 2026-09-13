@@ -57,6 +57,20 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual(["forearm.L", "forearm.R"], st["axis_snapped"], st)
         self.assertEqual(0, st["deform_outside_mesh"], st.get("deform_outside_mesh_bones"))
 
+    def test_real_shape_cc0_character(self):
+        """CC0 게임 캐릭터(스킨 메시+아마추어+가방+손가락, T 포즈)를 mock 으로 리깅: 아마추어를 버리고 REST 자세로 굽고, 대리 메시 가중치가 붙고, 변형 본이 메시 안에 있어야 한다."""
+        asset = Path(__file__).parent / "assets" / "quaternius_adventurer.glb"
+        if not asset.exists():
+            self.skipTest("tests/assets/quaternius_adventurer.glb 없음")
+        pipeline.rig(self.tmp, str(asset), "humanoid", run_id="t3", quiet=True, no_judge=True)
+        a = json.loads((self.tmp / "runs/t3/analysis.json").read_text())
+        self.assertEqual(1, a["stats"]["import"]["had_armature"]); self.assertIn("Icosphere", a["stats"]["import"]["meshes_dropped"])
+        self.assertEqual("T", a["landmarks"]["pose_guess"]); self.assertGreaterEqual(len(a["landmarks"]["arm_axis_L"]), 6)
+        st = json.loads((self.tmp / "runs/t3/rig_stats.json").read_text())["stats"]
+        self.assertEqual("auto_proxy", st["weight_method"], st); self.assertEqual(0, st["unweighted_verts"])
+        self.assertLessEqual(st["deform_outside_mesh"], 2, st.get("deform_outside_mesh_bones"))
+        self.assertEqual("ok", json.loads((self.tmp / "runs/t3/state.json").read_text())["status"])
+
     def test_motion_bvh_import(self):
         bvh = self.tmp / "tiny.bvh"
         bvh.write_text("HIERARCHY\nROOT Hips\n{\n OFFSET 0 0 0\n CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation\n JOINT Spine\n {\n  OFFSET 0 0.5 0\n  CHANNELS 3 Zrotation Xrotation Yrotation\n  End Site\n  {\n   OFFSET 0 0.3 0\n  }\n }\n}\nMOTION\nFrames: 3\nFrame Time: 0.033333\n0 1 0 0 0 0 0 0 0\n0.5 1 0 0 0 0 10 0 0\n1.0 1 0 0 0 0 20 0 0\n")
