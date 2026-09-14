@@ -48,6 +48,16 @@ Cost: one `bw rig` makes **2 model calls** — a fit call (~80k input tokens) an
 Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. A rejected mesh costs nothing, and
 `--no-judge` skips the second call.
 
+A-pose input rigs as well as T-pose (same asset, arms lowered 30–60°: mannequiny 2.96 cm T vs 2.5–2.8 cm A).
+Downstream steps (animation, retargeting) usually expect a T-pose rest, so `--rest-pose t` swings the arms to
+horizontal and bakes that as the rest pose before Rigify runs: an A-pose mannequiny normalised this way lands
+2.62 cm from the original T-pose skeleton. Characters whose "T" already droops a few degrees are left alone
+(threshold 8°).
+
+```bash
+bw rig character_apose.glb --rest-pose t     # rest pose becomes T (arms horizontal); default keeps the mesh's own pose
+```
+
 When a joint lands wrong, fix it by hand instead of paying for another run:
 
 ```bash

@@ -207,6 +207,76 @@ for b in eb:
     if b.parent and (b.head - b.parent.tail).length > 1e-5 and (b.name in joined or b.use_connect):
         print("BW chain gap:", b.name, "connect", b.use_connect, "gap", round((b.head - b.parent.tail).length, 4), list(b.head), list(b.parent.tail))
 bpy.ops.object.mode_set(mode="OBJECT")
+
+# 쉬는 자세 T 정규화(선택, rest_pose="t"): 팔이 내려간 메시(A 포즈)를 T 포즈로 굳힌다.
+# 리깅 자체는 A 포즈도 T 만큼 된다(같은 자산 팔만 내린 실험: mannequiny T 2.96cm vs A 2.5~2.8cm). 이걸 하는 이유는
+# 다음 단계(애니메이션·리타게팅)가 T 포즈 쉬는 자세를 전제로 하기 때문이다.
+# 방법: 메시를 메타리그에 임시 자동 가중치로 붙인다 → 위팔을 어깨 기준으로 돌려 어깨→손끝을 수평으로 → 메시에 굽는다
+# → 메타리그의 쉬는 자세를 그 자세로 굳힌다 → 임시 가중치를 지우고 평소대로 Rigify 생성·스키닝으로 간다
+rest_pose = {"requested": A.get("rest_pose", "keep"), "applied": False, "angles_deg": {}}
+if A.get("rest_pose") == "t" and preset == "humanoid" and all(n in meta.data.bones for n in ("upper_arm.L", "upper_arm.R")):
+    import math
+    angles = {}
+    for side, sx in (("L", 1.0), ("R", -1.0)):
+        ua = meta.data.bones[f"upper_arm.{side}"]; hand = meta.data.bones.get(f"hand.{side}")
+        a_ = meta.matrix_world @ ua.head_local; b_ = meta.matrix_world @ (hand.tail_local if hand else ua.tail_local)
+        d_ = b_ - a_
+        angles[side] = round(math.degrees(math.atan2(-d_.z, d_.x * sx)), 2)   # 수평 아래로 몇 도 내려가 있나(+)
+    rest_pose["angles_deg"] = angles
+    if max(abs(v) for v in angles.values()) > 8.0:   # 이미 거의 수평이면 손대지 않는다
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); meta.select_set(True); bpy.context.view_layer.objects.active = meta
+        bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+        # Bone Heat 는 떨어진 조각(손끝 장식·소품)에 가중치를 못 준다 → 그 정점들은 안 따라와 옛 자리에 떠 있었다(렌더로 확인).
+        # 가중치 없는 정점은 가장 가까운 변형 본(선분 거리)에 1.0 으로 붙인다. 임시 가중치라 이 정도로 충분하다
+        _vg = {g.index: g.name for g in obj.vertex_groups}
+        _segs = [(b.name, meta.matrix_world @ b.head_local, meta.matrix_world @ b.tail_local) for b in meta.data.bones if b.use_deform and b.name in obj.vertex_groups]
+        def _seg_dist(p, a, b):
+            ab = b - a; t = 0.0 if ab.length_squared < 1e-12 else max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
+            return (p - (a + ab * t)).length
+        _seg_by = {n: (a_, b_) for n, a_, b_ in _segs}
+        filled = reassigned = 0
+        for v in obj.data.vertices:
+            p = obj.matrix_world @ v.co
+            near_name, near_d = min(((sg[0], _seg_dist(p, sg[1], sg[2])) for sg in _segs), key=lambda t: t[1])
+            ws = [(g.weight, _vg.get(g.group, "")) for g in v.groups if _vg.get(g.group, "") in _seg_by]
+            if not ws or sum(w for w, _ in ws) < 1e-4:
+                obj.vertex_groups[near_name].add([v.index], 1.0, "REPLACE"); filled += 1; continue
+            dom = max(ws)[1]; dom_d = _seg_dist(p, *_seg_by[dom])
+            # 떨어진 껍질(손끝 장식·소품)은 Bone Heat 가 멀리 있는 몸통 본에 붙인다 → 팔을 돌려도 안 따라와 옛 자리에 떠 있었다(렌더로 확인).
+            # 지배 본이 가장 가까운 본보다 3배 넘게 멀면 가까운 본으로 통째로 바꾼다
+            if dom_d > near_d * 3.0 + 0.01:
+                for g in list(v.groups):
+                    obj.vertex_groups[_vg[g.group]].remove([v.index])
+                obj.vertex_groups[near_name].add([v.index], 1.0, "REPLACE"); reassigned += 1
+        rest_pose["filled_unweighted"] = filled; rest_pose["reassigned_far"] = reassigned
+        meta.data.pose_position = "POSE"
+        bpy.ops.object.mode_set(mode="POSE")
+        MW = meta.matrix_world
+        for side, sx in (("L", 1.0), ("R", -1.0)):
+            pb = meta.pose.bones[f"upper_arm.{side}"]; head_w = MW @ pb.head
+            # Y 축 +회전은 +X 를 -Z(아래)로 보낸다 → 왼팔(+X)을 올리려면 -각도, 오른팔은 +각도
+            R_w = Matrix.Translation(head_w) @ Matrix.Rotation(math.radians(-angles[side] * sx), 4, "Y") @ Matrix.Translation(-head_w)
+            pb.matrix = MW.inverted() @ R_w @ MW @ pb.matrix
+            bpy.context.view_layer.update()
+        bpy.ops.object.mode_set(mode="OBJECT")
+        # 메시에 굽기
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+        for md in [m for m in obj.modifiers if m.type == "ARMATURE"]:
+            bpy.ops.object.modifier_apply(modifier=md.name)
+        bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+        for g in list(obj.vertex_groups): obj.vertex_groups.remove(g)   # 임시 가중치 제거(원본 그룹도 어차피 스키닝 전에 지운다)
+        # 메타리그의 쉬는 자세를 지금 자세로 굳힌다
+        bpy.ops.object.select_all(action="DESELECT"); meta.select_set(True); bpy.context.view_layer.objects.active = meta
+        bpy.ops.object.mode_set(mode="POSE"); bpy.ops.pose.armature_apply(selected=False); bpy.ops.object.mode_set(mode="OBJECT")
+        # 안/밖 판정용 부피 메시는 옛 자세로 만든 것이라 다시 만든다
+        bpy.data.objects.remove(vol)
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.duplicate(); vol = bpy.context.active_object; vol.name = "bw_volume"
+        _vm = vol.modifiers.new("remesh", "REMESH"); _vm.mode = "VOXEL"; _vm.voxel_size = max(0.004, A["landmarks"]["height"] / 150)
+        bpy.ops.object.modifier_apply(modifier="remesh"); vinv = vol.matrix_world.inverted()
+        bpy.ops.object.select_all(action="DESELECT"); meta.select_set(True); bpy.context.view_layer.objects.active = meta
+        rest_pose["applied"] = True
+
 bpy.ops.pose.rigify_generate(); rig = bpy.context.active_object
 # 스키닝
 # 원본 뼈대의 정점 그룹을 먼저 지운다. 가져오기에서 아마추어 모디파이어는 굽지만 그룹 이름은 메시에 남는다.
@@ -307,7 +377,7 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
          "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
-         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
+         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])
