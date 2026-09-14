@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사족 벤치마크 기준선 · 2026-09-15</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b6660; --line:#e2ddd4;
+    --card:#ffffff; --ok:#1c6b3f; --ok-bg:#e8f5ee; --no:#9b2226; --no-bg:#fbeaea;
+    --warn:#8a5a00; --warn-bg:#fdf3e0; --code:#f3f0ea; --bar:#c9563f; --bar-bg:#ece7de;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+      --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+      --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#e0705a; --bar-bg:#2b282f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+    --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+    --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#e0705a; --bar-bg:#2b282f;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);margin:0;
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;line-height:1.3;margin:0 0 6px;letter-spacing:-.02em}
+  .date{color:var(--muted);font-size:14px;margin:0 0 36px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:28px 0 8px}
+  p{margin:0 0 14px}
+  .lead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--fg);
+    border-radius:10px;padding:20px 22px;margin:0 0 8px}
+  .lead p:last-child{margin-bottom:0}
+  .tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:2px}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+  .scroll{overflow-x:auto}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+  th{font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .barwrap{display:flex;align-items:center;gap:8px;min-width:150px}
+  .bar{height:8px;background:var(--bar);border-radius:4px}
+  .bartrack{flex:1;background:var(--bar-bg);border-radius:4px;overflow:hidden;min-width:70px}
+  code{background:var(--code);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{background:var(--code);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}
+  pre code{background:none;padding:0}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  .worse{color:var(--no);font-weight:600}
+  .better{color:var(--ok);font-weight:600}
+  .note{color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>사족 벤치마크: 1종 → 11종</h1>
+<p class="date">2026-09-15 · bonewright · CC0 자산 10종 추가 · <code>BW_BACKEND=mock</code>(토큰 0)</p>
+
+<div class="lead">
+  <p><strong>결론: 자산은 11종으로 늘렸고, 그 결과 사족이 왜 안 되는지가 한 문장으로 드러났다.</strong></p>
+  <p><strong>사족 경로에는 사족 분석이 아예 없다.</strong> 네 발 달린 동물에 <strong>사람용 관절 찾기</strong>를 그대로 돌린다.
+  그래서 사슴의 팔이 등 위(높이 4.22m)에 20cm짜리로 붙고, 다리 두 개가 몸 한가운데에 14cm 간격으로 수직으로 선다.</p>
+  <p>기준선: <strong>10종 측정 · 키 대비 평균 오차 45.4%</strong>. 1종(사슴)은 Rigify 생성 단계에서 실패.
+  <strong>쓸 수 있는 수준이 전혀 아니다.</strong> 다만 이제 <strong>숫자로 재고 회귀를 잡을 수 있다.</strong></p>
+</div>
+
+<h2>1. 받은 자산 — Fab이 아니라 Quaternius</h2>
+<p><span class="tag t-no">막힘</span> <strong>Fab은 다운로드가 안 됐다.</strong> 무료 CC-BY 항목이라도 다운로드 버튼이 에픽 계정 로그인을 요구한다.
+계정 로그인은 내가 할 수 없는 작업이라 여기서 멈췄다.</p>
+<p><span class="tag t-ok">받음</span> 대신 <strong>Quaternius <em>Ultimate Animated Animals</em></strong>를 받았다. 로그인 없이 공개 링크로 받힌다.</p>
+<ul>
+  <li><strong>라이선스: CC0 1.0 Universal</strong> — 팩에 동봉된 <code>License.txt</code> 원문으로 확인. CC-BY보다 더 자유롭다(귀속 표기 의무도 없음).</li>
+  <li><strong>10종</strong>: Alpaca, Bull, Cow, Deer, Donkey, Horse, Husky, ShibaInu, Stag, Wolf</li>
+  <li>전부 <strong>스킨 1개 · 관절 38~51개</strong>, 버퍼가 파일 안에 들어 있어 외부 파일이 필요 없다</li>
+  <li>안 받은 것: <code>Fox</code>(이미 보유), <code>Horse_White</code>(Horse의 색 변형이라 중복)</li>
+</ul>
+
+<h3>뼈 이름이 한 칸씩 밀려 있다</h3>
+<p>이 팩은 이름만 믿으면 틀린다. <strong>이름 대신 실제 본 좌표를 재서</strong> 대응을 정했다(늑대 기준, Y가 위, 바닥 y≈0.07):</p>
+<div class="scroll">
+<table>
+<thead><tr><th>본 이름</th><th class="num">높이</th><th>실제 관절</th><th>우리 본</th></tr></thead>
+<tbody>
+<tr><td><code>Back</code></td><td class="num">1.98</td><td>골반</td><td><code>DEF-spine</code></td></tr>
+<tr><td><code>BackLeg.L</code></td><td class="num">1.76</td><td>고관절</td><td><code>DEF-thigh.L</code></td></tr>
+<tr><td><code>BackUpperLeg.L</code></td><td class="num">1.34</td><td>무릎</td><td><code>DEF-shin.L</code></td></tr>
+<tr><td><code>BackLowerLeg.L</code></td><td class="num">0.82</td><td>비절(뒷발목)</td><td><code>DEF-foot.L</code></td></tr>
+<tr><td><code>FrontUpperLeg.L</code></td><td class="num">1.46</td><td>앞어깨</td><td><code>DEF-front_thigh.L</code></td></tr>
+<tr><td><code>FrontLowerLeg.L</code></td><td class="num">1.12</td><td>앞팔꿈치</td><td><code>DEF-front_shin.L</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>Body</code>(높이 0.47)는 골반이 아니라 아마추어 원점이라 매핑에서 뺐다. 앞발은 대응 본이 아예 없다
+(<code>FrontLowerLeg</code> 하나가 발까지 내려간다) → <code>DEF-front_foot</code>은 매칭 없이 남는다.
+이 대응을 지키는 테스트를 <code>tests/test_mock.py</code>에 넣었다(총 11개 통과).</p>
+
+<h2>2. 기준선 (q1)</h2>
+<p>키가 자산마다 크게 달라서(0.79m ~ 5.20m) <strong>cm보다 키 대비 %를 봐야 한다.</strong></p>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">키(m)</th><th class="num">관절</th><th class="num">평균(cm)</th><th class="num">키 대비</th><th style="width:170px">　</th><th>최악 관절</th></tr></thead>
+<tbody>
+<tr><td>Alpaca</td><td class="num">5.20</td><td class="num">11</td><td class="num">148.5</td><td class="num">28.6%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:47%"></div></div></div></td><td><code>front_shin.R</code></td></tr>
+<tr><td>Husky</td><td class="num">3.19</td><td class="num">11</td><td class="num">99.5</td><td class="num">31.2%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:52%"></div></div></div></td><td><code>thigh.L</code></td></tr>
+<tr><td>Horse</td><td class="num">4.82</td><td class="num">11</td><td class="num">170.1</td><td class="num">35.3%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:59%"></div></div></div></td><td><code>front_shin.L</code></td></tr>
+<tr><td>Stag</td><td class="num">4.18</td><td class="num">11</td><td class="num">149.2</td><td class="num">35.7%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:59%"></div></div></div></td><td><code>front_shin.L</code></td></tr>
+<tr><td>Wolf</td><td class="num">2.68</td><td class="num">11</td><td class="num">132.8</td><td class="num">49.5%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:82%"></div></div></div></td><td><code>spine</code></td></tr>
+<tr><td>Donkey</td><td class="num">3.95</td><td class="num">11</td><td class="num">209.1</td><td class="num">52.9%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:88%"></div></div></div></td><td><code>shin.L</code></td></tr>
+<tr><td>Bull</td><td class="num">4.59</td><td class="num">11</td><td class="num">249.2</td><td class="num">54.3%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:90%"></div></div></div></td><td><code>front_shin.R</code></td></tr>
+<tr><td>Cow</td><td class="num">4.59</td><td class="num">11</td><td class="num">249.0</td><td class="num">54.3%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:90%"></div></div></div></td><td><code>front_shin.R</code></td></tr>
+<tr><td>fox <span class="note">(기존)</span></td><td class="num">0.79</td><td class="num">11</td><td class="num">43.8</td><td class="num">55.4%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:92%"></div></div></div></td><td><code>front_foot.L</code></td></tr>
+<tr><td>ShibaInu</td><td class="num">3.10</td><td class="num">11</td><td class="num">174.8</td><td class="num">56.5%</td><td><div class="barwrap"><div class="bartrack"><div class="bar" style="width:94%"></div></div></div></td><td><code>spine</code></td></tr>
+<tr><td><strong>Deer</strong></td><td class="num">–</td><td class="num">–</td><td colspan="4"><span class="worse">Rigify 생성 실패</span> — <code>r_index.01.L: Input to rig type must be a chain of 2 or more bones</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>측정 10종 · 키 대비 평균 45.4%.</strong> 관절 매칭은 전부 11개로 일정해서, 이름 매핑은 제대로 붙었다.
+앞다리(<code>front_shin</code>)가 최악인 자산이 5종으로 가장 많다.</p>
+
+<h2>3. 왜 이렇게 나쁜가 — 사슴 사례</h2>
+<p>사슴이 생성 실패까지 간 김에 목표 좌표를 직접 열어봤다. <strong>사족을 사람으로 착각하고 있다.</strong></p>
+<pre><code>shoulder.L   head=[0.04, 0.0, 4.241]              ← 사슴 등 꼭대기
+upper_arm.L  head=[0.187, 0.0, 4.221] 길이=0.235   ← 등 위에 붙은 23cm 짜리 팔
+forearm.L    head=[0.422, 0.0, 4.221] 길이=0.209
+hand.L       head=[0.631, 0.0, 4.221] 길이=0.078
+thigh.L      head=[0.14,  0.0, 2.872] 길이=1.329   ← 몸 한가운데, 좌우 14cm 간격
+shin.L       head=[0.14,  0.0, 1.543]
+foot.L       head=[0.14,  0.0, 0.214]
+
+landmarks: hip_z 2.872 · knee_z 1.543 · ankle_z 0.214 · shoulder_z 4.221
+suspect:   ['목 추정 실패', '팔 중심선 없음', '인체 비율 폴백: ankle,neck']</code></pre>
+<p>세 가지가 한꺼번에 보인다.</p>
+<ol>
+  <li><strong>앞다리에 목표가 하나도 안 간다.</strong> 늑대 메타리그의 앞다리 본은 <code>front_thigh / front_shin / front_foot</code>인데,
+      목표를 만드는 쪽은 사람 이름(<code>upper_arm / forearm / hand</code>)만 뱉는다. 이름이 안 맞으니 전부 버려지고,
+      앞다리는 <strong>메타리그 기본 위치에 그대로 남는다.</strong> 앞다리가 최악인 이유가 이거다.</li>
+  <li><strong>뒷다리는 사람 랜드마크로 옮겨진다.</strong> 네 발 동물의 다리를 "골반–무릎–발목이 몸 중앙에 수직으로 선 것"으로 계산하니
+      좌우 14cm 간격의 두 다리가 된다.</li>
+  <li><strong>분석 단계는 이미 실패를 알고 있다.</strong> <code>suspect</code>에 "목 추정 실패 · 팔 중심선 없음 · 인체 비율 폴백"이
+      찍혀 있는데도 파이프라인이 그냥 진행한다.</li>
+</ol>
+
+<h3>사슴 생성 실패는 별개 버그가 아니다</h3>
+<p>이분 탐색으로 확인했다. <strong>목표 좌표를 빼면 보정을 전부 켜도 성공</strong>한다(527본).
+목표를 넣으면 <code>axis</code>·<code>propagate</code>·<code>inside</code>·<code>rejoin</code> 중 <strong>아무거나 하나만 꺼도 성공</strong>한다.</p>
+<pre><code>목표없음 + 보정전부 : 성공 본 527
+실제목표 + 보정전부 : 실패 (MetarigError)
+실제목표 + axis      끄기: 성공 본 527
+실제목표 + propagate 끄기: 성공 본 527
+실제목표 + inside    끄기: 성공 본 527
+실제목표 + rejoin    끄기: 성공 본 527
+실제목표 + fingers / zerolen / bend 끄기: 여전히 실패</code></pre>
+<p>즉 특정 보정이 범인이 아니라, <strong>엉터리 목표가 뒷다리를 크게 줄이면서 그 아래 발가락 사슬이 1개로 뭉개진 것</strong>이다.
+근본 원인이 같으니 여기만 따로 고치는 건 증상 땜질이다.</p>
+
+<h2>4. 다음에 할 것</h2>
+<ol>
+  <li><strong>사족용 관절 찾기를 만든다.</strong> 지금은 사람용 하나뿐이다. 최소한 앞다리/뒷다리를 Y축(앞뒤)으로 갈라 찾고,
+      <code>front_thigh / front_shin / front_foot</code>에 목표를 주는 경로가 필요하다. <strong>이게 없으면 나머지는 의미가 없다.</strong></li>
+  <li><strong>비인간 거절 게이트.</strong> <code>suspect</code>에 "인체 비율 폴백"이 찍히고 프리셋이 사족이면,
+      엉터리 결과를 내놓지 말고 일찍 멈추는 편이 정직하다.</li>
+  <li>사족 목표가 생긴 뒤 이 11종으로 다시 재서 <strong>45.4%가 얼마나 내려가는지</strong> 확인한다.</li>
+</ol>
+
+<p class="note" style="margin-top:36px">
+자산 출처·라이선스 장부는 <code>scratchpad/bench-assets/ASSETS.md</code>(자산은 저장소에 커밋하지 않는다).
+수치는 <code>BW_BACKEND=mock</code> 실행 <code>q1</code> 로그와 <code>bench.json</code>.
+커밋 <code>5aa91c9</code>(QUAD_MAP·테스트), <code>bf15033</code>(에픽 조사), <code>f150d4a</code>(사족 생성 수정).</p>
+
+</div>
+</body>
+</html>
