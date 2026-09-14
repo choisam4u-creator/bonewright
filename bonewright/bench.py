@@ -81,6 +81,14 @@ def _gt_lookup(joints: dict) -> dict:
 def compare(ours: dict, gt_joints: dict, height: float) -> list[dict]:
     """우리 DEF 본과 정답 관절을 짝지어 거리를 잰다"""
     look = _gt_lookup(gt_joints)
+    # 골반 관습 차이 걸러내기: 어떤 리그는 Hips 본을 아래로 그린다(머리가 넙다리 관절보다 한참 아래).
+    # 그런 리그에서 Hips 를 골반으로 비교하면 우리 오차가 아니라 관습 차이가 숫자로 찍힌다 → 비교에서 뺀다
+    pelvis = next((look[(c, None)] for c in JOINT_MAP["spine"] if (c, None) in look), None)
+    thighs = [look[(c, s)] for c in JOINT_MAP["thigh"] for s in ("L", "R") if (c, s) in look]
+    if pelvis and thighs and height:
+        if pelvis[2] < min(t[2] for t in thighs) - height * 0.05:
+            for c in JOINT_MAP["spine"]:
+                look.pop((c, None), None)
     rows = []
     for ours_base, cands in JOINT_MAP.items():
         for side in (("L", "R") if ours_base in SIDED else (None,)):

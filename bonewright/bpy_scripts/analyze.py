@@ -26,6 +26,7 @@ sym = sum(abs(r["left"] + r["right"]) for r in rows) / max(1, len(rows))
 fallbacks = []   # 메시 증거로 못 찾아 인체 비율로 때운 항목(보고서에 남긴다)
 # 몸통 반폭: 각 띠에서 x 를 정렬해 일정 간격 이상 벌어진 곳을 끊으면 구간이 나온다. 0 을 품은 가운데 구간이 몸통, 바깥 구간이 팔이다.
 # 끊는 간격은 정점 간격(중앙값 변 길이)의 2.5배 이상이어야 한다. 복셀 리메시처럼 정점이 3cm 격자면 2cm 기준으로는 모든 정점이 따로 끊긴다
+ymin_all = min(v.y for v in vs)
 el = sorted((obj.data.vertices[e.vertices[0]].co - obj.data.vertices[e.vertices[1]].co).length for e in obj.data.edges[:4000])
 spacing = el[len(el) // 2] if el else 0.01; gap_thr = max(0.02, spacing * 2.5)
 def segments(z0, z1):
@@ -36,11 +37,13 @@ def segments(z0, z1):
     return segs
 for r in rows:
     segs = segments(r["z"] - H / bands / 2, r["z"] + H / bands / 2)
-    # 가운데를 품은 구간: 정점 간격만큼의 여유를 준다(저폴리 단면은 x=0 근처에 정점이 없을 수 있다)
-    tol = gap_thr * 0.5
-    mid = [sg for sg in segs if sg[0] <= tol and sg[1] >= -tol]
-    # 가운데 구간이 없으면 몸이 좌우로 갈라진 띠다(다리). 팔이 벌어진 띠는 가운데 몸통 구간이 남아 있어 구분된다
-    r["center_split"] = len(segs) >= 2 and not mid
+    mid = [sg for sg in segs if sg[0] <= 0 <= sg[1]]
+    # 좌우로 갈라진 띠(=다리 사이) 판정: 몸 한가운데(x=0)를 앞뒤로 관통하는 광선을 쏴 본다.
+    # 다리 사이는 뻥 뚫려 있어 아무것도 안 맞고, 몸통은 저폴리라 단면에 틈이 보여도 앞·뒤 벽에 맞는다.
+    # (틈 크기로만 재면 성긴 몸통 단면의 3~4cm 틈과 진짜 가랑이 틈을 구별할 수 없다 — 벤치마크로 확인)
+    hit, _, _, _ = obj.ray_cast(Vector((0.0, ymin_all - 0.1, r["z"])), Vector((0.0, 1.0, 0.0)))
+    r["center_open"] = not hit
+    r["center_split"] = bool(r["center_open"] and r["left"] < -spacing and r["right"] > spacing)
     if not mid: mid = [min(segs, key=lambda sg: min(abs(sg[0]), abs(sg[1])))] if segs else []
     r["torso_hw"] = round((mid[0][1] - mid[0][0]) / 2, 3) if mid else 0
     r["arm_segments"] = len(segs) - 1
@@ -48,14 +51,13 @@ for r in rows:
 # 어떤 띠까지 볼 때 갈라진 띠 비율이 60% 아래로 떨어지면 거기서 끊는다. 저폴리 단면이 한두 띠 튀어도 견딘다(높이 상수 없음)
 split = [r for r in rows if r["center_split"]]
 crotch = None
-DENSITY = 0.5   # 다리 띠의 절반 이상이 갈라져 있어야 "다리 구간"으로 본다
-if split:
-    lo_i = rows.index(split[0]); seen = 0
-    for i in range(lo_i, len(rows)):
-        if rows[i]["center_split"]:
-            seen += 1
-            if seen / (i - lo_i + 1) >= DENSITY: crotch = rows[i]
-        elif seen and seen / (i - lo_i + 1) < DENSITY: break
+# 바로 아래 4개 띠 중 60% 이상이 함께 갈라져 있어야 인정한다. 저폴리 단면이 가슴에서 한 띠만 갈라져 보이는
+# 가짜 신호를 막고, 허벅지가 잠깐 붙었다가 다시 갈라지는 캐릭터도 살린다(바닥부터 누적 비율은 그걸 못 살렸다)
+for i, r in enumerate(rows):
+    if not r["center_split"]: continue
+    win = rows[max(0, i - 4):i]
+    if not win or sum(1 for w in win if w["center_split"]) / len(win) >= 0.6:
+        crotch = r
 if crotch is None: fallbacks.append("crotch")
 cz = crotch["z"] if crotch else zmin + H * 0.47
 
