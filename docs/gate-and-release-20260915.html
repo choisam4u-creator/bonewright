@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>거절 게이트 + 공개 준비 · 2026-09-15</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b6660; --line:#e2ddd4;
+    --card:#ffffff; --ok:#1c6b3f; --ok-bg:#e8f5ee; --no:#9b2226; --no-bg:#fbeaea;
+    --warn:#8a5a00; --warn-bg:#fdf3e0; --code:#f3f0ea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+      --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+      --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+    --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+    --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);margin:0;
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;line-height:1.3;margin:0 0 6px;letter-spacing:-.02em}
+  .date{color:var(--muted);font-size:14px;margin:0 0 36px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:26px 0 8px}
+  p{margin:0 0 14px}
+  .lead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--fg);
+    border-radius:10px;padding:20px 22px;margin:0 0 8px}
+  .lead p:last-child{margin-bottom:0}
+  .big{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;flex:1;min-width:140px}
+  .stat b{display:block;font-size:24px;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--muted);font-size:13px}
+  .tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:2px}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+  .scroll{overflow-x:auto}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  code{background:var(--code);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{background:var(--code);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}
+  pre code{background:none;padding:0}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:6px 0}
+  .worse{color:var(--no);font-weight:600}
+  .better{color:var(--ok);font-weight:600}
+  .note{color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>거절 게이트 + 공개 준비</h1>
+<p class="date">2026-09-15 · bonewright · 커밋 <code>cd507fd</code>, <code>1239554</code></p>
+
+<div class="lead">
+  <p><strong>결론: 거절 게이트를 만들었고, 자산 17종에서 오판이 0건이다.</strong></p>
+  <p>핵심은 <strong>모델을 부르기 전에 막는 것</strong>이다. 리그 한 건이 입력 8만 토큰이라,
+  안 될 메시를 미리 걸러내면 <strong>돈이 한 푼도 안 든다.</strong></p>
+  <p>이어서 공개에 가장 크게 걸리던 세 가지(사용자 문서·자산 재현·CI)도 처리했다.
+  <strong>토큰이 드는 작업은 손대지 않고</strong> 인수인계 문서로 따로 모아 뒀다.</p>
+</div>
+
+<div class="big">
+  <div class="stat"><b class="better">0건</b><span>오판 (17종 기준)</span></div>
+  <div class="stat"><b>7 / 9</b><span>통과 / 거절</span></div>
+  <div class="stat"><b>0 토큰</b><span>거절 시 비용</span></div>
+  <div class="stat"><b>12</b><span>테스트 (+1)</span></div>
+</div>
+
+<h2>1. 거절 게이트</h2>
+<p>기준은 지어내지 않고 <strong>자산 17종의 분석 신호와 정답 오차를 맞춰</strong> 골랐다.</p>
+<ul>
+  <li>팔·다리 중심선이 <strong>양쪽 다</strong> 있어야 한다 — 없으면 관절 놓을 근거가 없다</li>
+  <li>가랑이·엉덩·무릎·발목을 <strong>인체 비율로 때웠으면</strong> 거절 (목만 때운 건 경고)</li>
+  <li>머리가 키의 35% 초과(치비) → 거절</li>
+  <li>좌우 비대칭이 키의 3% 초과 → 거절</li>
+  <li>크기가 0.3~20m 밖 → 거절 <span class="note">(안/밖 판정 복셀이 1.2cm라 이보다 작으면 측정 자체가 무의미하다)</span></li>
+</ul>
+
+<h3>17종 실측 — 깔끔하게 갈린다</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>판정</th><th class="num">오차 범위</th><th>자산</th></tr></thead>
+<tbody>
+<tr><td><span class="tag t-ok">통과 7</span></td><td class="num better">1.6 ~ 7.4%</td>
+    <td>mannequiny 1.6 · adventurer 3.3 · modularmen ×2 · quat_pp_43j · cesium_man · quaternius_ual(경고)</td></tr>
+<tr><td><span class="tag t-no">거절 9</span></td><td class="num worse">10.1 ~ 276.8%</td>
+    <td>rigged_figure · quat_pp_41j · godot_player · platformer · rigged_mesh · kira · alien_bug · fox · robot</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>잘못 거절 0, 잘못 통과 0.</strong> 경계에 있던 두 개도 맞게 갈렸다 —
+<code>quaternius_ual</code>(7.4%)은 목 폴백만 있어 경고로 통과, <code>godot_player</code>(26.4%)는 발목 폴백이 있어 거절.</p>
+
+<h3>실제 흐름 확인</h3>
+<pre><code>$ bw rig Fox.glb --preset humanoid
+[1/6] analyze: 정점 290 · 높이 0.79m
+BLOCKED: 이 메시는 humanoid 프리셋에 맞지 않는다(토큰 0 으로 중단):
+  - 팔 중심선 없음(L/R쪽) — 이 메시에서 팔을 못 찾았다
+  - 다리 중심선 없음(L/R쪽) — 이 메시에서 다리를 못 찾았다
+  - 관절을 메시에서 못 찾아 인체 비율로 때웠다: ankle, hip, knee
+  그래도 돌리려면 --force, 관절을 직접 찍으려면 --pin 본=x,y,z</code></pre>
+<p><strong>2/6(모델 호출) 단계에 도달하지 않는다.</strong> <code>--force</code>를 붙이면 경고를 찍고 그대로 진행한다.
+벤치는 <code>force=True</code>로 돌아서 거절 대상도 계속 측정한다(회귀 탐지를 잃지 않기 위해).</p>
+
+<h2>2. 스스로 찾아 진행한 것</h2>
+<p>앞선 점검에서 공개를 가장 크게 막는다고 본 것부터 처리했다. <strong>전부 토큰 0이다.</strong></p>
+<div class="scroll">
+<table>
+<thead><tr><th style="width:190px">작업</th><th>내용</th><th style="width:110px">검증</th></tr></thead>
+<tbody>
+<tr><td><strong>README 재작성</strong></td>
+    <td>쓸 만한 입력(1.6~7.4%)·사족(13.5% 실험)·거절 대상(10~277%)을 <strong>표로 먼저</strong> 밝혔다.
+        건당 $0.86~1.10 비용, "리눅스 미확인·윈도우 미지원"도 명시.</td>
+    <td>읽어서 확인</td></tr>
+<tr><td><strong>벤치 자산 받는 스크립트</strong></td>
+    <td>라이선스상 커밋 못 하는 자산을 원저작자 배포처에서 받고 출처·라이선스 파일을 남긴다.
+        남이 같은 숫자를 재현할 수 있게 된다.</td>
+    <td class="better">실제 실행<br>사족 10 + 샘플 4</td></tr>
+<tr><td><strong>CI 워크플로</strong></td>
+    <td>Blender 없이 도는 테스트 6개만 돌린다(파이썬 3.11/3.13).</td>
+    <td class="better">6개 로컬 확인<br><span class="note">워크플로 자체는 미실행</span></td></tr>
+<tr><td><strong>Codex 인수인계 문서</strong></td>
+    <td>토큰 쓰는 작업만 따로 모았다. 아래 3절 참고.</td>
+    <td>—</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>솔직히 짚을 것</h3>
+<p><strong>CI는 검증하지 못했다.</strong> 원격 저장소가 없어서 워크플로를 실제로 돌려본 적이 없다.
+파일에도 그렇게 적어 뒀다. 대신 <strong>CI가 돌릴 6개 테스트가 Blender 없이 통과하는 것은 로컬에서 확인</strong>했다
+(<code>BW_BLENDER=/nonexistent</code>로 강제, 0.001초).</p>
+<p>나머지 테스트 6개는 Blender가 필요해서 CI에서 안 돈다. <strong>로컬에서 12개 전부 돌려야 한다</strong>(약 40초).</p>
+
+<h2>3. Codex에게 넘긴 것 (토큰 리셋 뒤)</h2>
+<p>문서: <code>docs/HANDOFF-codex.md</code></p>
+<ol>
+  <li><strong>사족 실제 1건</strong> (필수) — <code>bw rig Wolf.gltf --preset quadruped</code>.
+      <strong>이 프로젝트의 핵심 주장이 사족에서 한 번도 검증된 적이 없다.</strong> 지금 숫자는 전부 mock이다.
+      특히 앞다리(18.2%)는 어깨가 몸 안쪽이라 기하학으로 못 잡는 지점이라, 렌더를 보는 모델이 더 나을 여지가 있다.</li>
+  <li><strong>거절 게이트가 실제 흐름에서 도는지</strong> — 거절 쪽은 토큰 0이라 공짜로 확인된다.</li>
+  <li><strong>사람형 회귀 1건</strong>(여유 있으면) — real8($1.10)과 판정 비교.</li>
+</ol>
+<p><strong>하지 말라고 적어 둔 것</strong>: 벤치 28종을 실제 모델로 돌리기(건당 $1이면 $28이고, 회귀 탐지는 mock으로 충분).</p>
+
+<h2>4. 남은 것</h2>
+<ol>
+  <li><strong>사족 앞다리 18.2%</strong> — 지금 가장 큰 오차. 어깨를 발 위치로 역산할 수 없다.</li>
+  <li><strong>리눅스 확인</strong> — pyproject에 적어뒀지만 돌려본 적이 없다.</li>
+  <li><strong>원격 저장소</strong> — 아직 없다(로컬 커밋 34개). 공개는 승인이 필요한 일이라 손대지 않았다.</li>
+  <li><strong>모션 리타게팅</strong> — v0.2 미구현.</li>
+</ol>
+
+<p class="note" style="margin-top:36px">
+검증: 테스트 12개 통과(신규 거절 게이트 테스트 1개 포함). 게이트 분리는 자산 17종의
+<code>runs/b11-*/analysis.json</code> 을 실제 <code>preflight()</code> 에 통과시켜 확인. 펫치 스크립트는 실제 내려받아 확인.</p>
+
+</div>
+</body>
+</html>
