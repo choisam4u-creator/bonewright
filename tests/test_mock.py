@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from bonewright import blender, gates, pipeline  # noqa: E402
+from bonewright import bench, blender, gates, pipeline  # noqa: E402
 
 
 @unittest.skipUnless(blender.find_blender({}) or blender.has_bpy_module(), "Blender 없음")
@@ -93,6 +93,21 @@ class RigMockTests(unittest.TestCase):
         for want, real in zip(knee, got):
             self.assertAlmostEqual(want, real, places=3, msg=f"고정 좌표 {knee} → 실제 {got}")
         self.assertGreater(st["symmetry_max_error"], 0.03)   # 한쪽만 고정했으니 대칭 게이트가 잡아야 한다
+
+    def test_bench_against_original_rig(self):
+        """원본 뼈대가 든 CC0 캐릭터로 관절 오차를 잰다. 숫자가 나빠지면(회귀) 여기서 걸린다.
+        기준선(2026-09-15): 평균 6.59cm · 골반 0.89cm · 목 1.76cm."""
+        asset = Path(__file__).parent / "assets" / "quaternius_adventurer.glb"
+        if not asset.exists():
+            self.skipTest("tests/assets/quaternius_adventurer.glb 없음")
+        bench.run(self.tmp, [str(asset)], run_id="bench-t", quiet=True)
+        d = json.loads((self.tmp / "runs/bench-t/bench.json").read_text())
+        r = d["results"][0]
+        self.assertEqual(17, r["matched"], r)          # 관절 17개가 이름으로 짝지어져야 한다
+        self.assertLess(r["mean_cm"], 8.0, r)          # 기준선 6.59cm + 여유
+        errs = {j["joint"]: j["error_cm"] for j in r["joints"]}
+        self.assertLess(errs["DEF-spine"], 3.0, errs)      # 골반
+        self.assertLess(errs["DEF-spine.004"], 4.0, errs)  # 목
 
     def test_motion_bvh_import(self):
         bvh = self.tmp / "tiny.bvh"

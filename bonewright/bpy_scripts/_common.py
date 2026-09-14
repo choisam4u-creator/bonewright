@@ -21,10 +21,11 @@ def fresh():
 IMPORT_INFO = {}   # import_mesh 가 정규화한 내용(보고서용)
 
 
-def import_mesh(path: str, facing: str = "auto"):
+def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False):
     """어떤 파일이 와도 '리깅할 메시 하나'로 만든다: 스킨된 메시는 REST 자세로 굽고 아마추어·엠프티·보조 구체를 버린다.
     조각을 합치고, cm 단위면 m 로, 좌우 중심을 x=0 으로, 앞이 +Y 면 -Y 로 돌린다. 정규화 내용은 IMPORT_INFO 에 남긴다."""
-    from mathutils import Vector
+    from mathutils import Vector, Matrix
+    M = Matrix.Identity(4)   # 정규화(크기·중심·방향)를 하나의 행렬로 모은다 — 원본 뼈대를 같은 공간으로 옮길 때 쓴다
     ext = os.path.splitext(path)[1].lower()
     before = set(bpy.data.objects)
     if ext in (".glb", ".gltf"):
@@ -59,8 +60,9 @@ def import_mesh(path: str, facing: str = "auto"):
         bpy.ops.object.convert(target="MESH")
         m.parent = None; m.matrix_world = mw
     dropped = [o.name for o in new if o.type == "MESH" and o not in meshes]
+    keep = set(meshes) | (set(arms) if keep_armature else set())
     for o in list(new):
-        if o.name in bpy.data.objects and o not in meshes:
+        if o.name in bpy.data.objects and o not in keep:
             bpy.data.objects.remove(o)
     bpy.ops.object.select_all(action="DESELECT")
     for m in meshes:
@@ -76,12 +78,12 @@ def import_mesh(path: str, facing: str = "auto"):
     unit = 1.0
     if H > 20:      # cm 단위로 보인다(사람 키 1800 = mm 면 1.8 로 맞춘다)
         unit = 0.001 if H > 500 else 0.01
-        obj.scale = (unit, unit, unit); bpy.ops.object.transform_apply(scale=True)
+        obj.scale = (unit, unit, unit); bpy.ops.object.transform_apply(scale=True); M = Matrix.Scale(unit, 4) @ M
         vs = [v.co for v in obj.data.vertices]; zmin, zmax = min(v.z for v in vs), max(v.z for v in vs); H = zmax - zmin
     # 좌우 중심을 x=0 으로
     xmin, xmax = min(v.x for v in vs), max(v.x for v in vs); off_x = (xmin + xmax) / 2
     if abs(off_x) > 1e-4:
-        obj.location.x -= off_x; bpy.ops.object.transform_apply(location=True)
+        obj.location.x -= off_x; bpy.ops.object.transform_apply(location=True); M = Matrix.Translation((-off_x, 0, 0)) @ M
     # 앞뒤: 발은 앞으로 뻗는다. 바닥 8% 띠의 y 무게중심이 발목 띠(12~18%)보다 키의 2% 이상 +Y 쪽이면 앞이 +Y 로 본다.
     # facing="auto" 면 그때 Z 축으로 180도 돌려 앞을 -Y(Rigify 메타리그 방향)로 맞춘다. "neg-y"/"pos-y" 로 강제할 수 있다
     foot = [v.y for v in vs if v.z < zmin + H * 0.08]; ankle = [v.y for v in vs if zmin + H * 0.12 < v.z < zmin + H * 0.18]
@@ -92,17 +94,22 @@ def import_mesh(path: str, facing: str = "auto"):
         from mathutils import Matrix
         obj.matrix_world = Matrix.Rotation(3.141592653589793, 4, "Z") @ obj.matrix_world
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        M = Matrix.Rotation(3.141592653589793, 4, "Z") @ M
         vs = [v.co for v in obj.data.vertices]
     # 앞뒤 중심: 다리 구간(키의 10~40%) 정점의 y 중앙값을 0 으로(가방·머리카락이 있어도 다리는 몸 축에 있다). 바닥은 z=0
     legs = sorted(v.y for v in vs if zmin + H * 0.10 < v.z < zmin + H * 0.40) or sorted(v.y for v in vs)
     off_y = legs[len(legs) // 2]
     obj.location.y -= off_y; obj.location.z -= zmin; bpy.ops.object.transform_apply(location=True)
+    M = Matrix.Translation((0, -off_y, -zmin)) @ M
+    for a in (arms if keep_armature else []):   # 원본 뼈대를 메시와 같은 공간으로
+        a.matrix_world = M @ a.matrix_world
     zmin = 0.0
     # glTF/FBX/OBJ 는 면마다 정점이 갈라져 들어오는 경우가 많다 → 겹친 정점을 합쳐야 자동 가중치(Bone Heat)가 풀린다
     bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.remove_doubles(threshold=max(0.0001, H * 0.00005)); bpy.ops.object.mode_set(mode="OBJECT")
     IMPORT_INFO.update({"meshes_used": len(meshes), "meshes_dropped": dropped[:10], "had_armature": len(arms), "unit_scale": unit,
-                        "offset_x": round(off_x, 4), "offset_y": round(off_y, 4), "ground_shift": True, "foot_direction_hint": hint, "facing": facing, "rotated_180": flip})
+                        "offset_x": round(off_x, 4), "offset_y": round(off_y, 4), "ground_shift": True, "foot_direction_hint": hint, "facing": facing, "rotated_180": flip,
+                        "matrix": [list(row) for row in M]})
     return obj
 
 

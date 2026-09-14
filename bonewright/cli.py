@@ -1,4 +1,4 @@
-"""bw: bonewright 명령줄. rig · motion · demo · doctor · status · usage · plugin-path"""
+"""bw: bonewright 명령줄. rig · motion · demo · bench · doctor · status · usage · plugin-path"""
 import argparse
 import json
 import shutil
@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import __version__, pipeline
+from . import __version__, bench, pipeline
 from .blender import find_blender, has_bpy_module
 from .config import find_root, load
 from .ledger import summarize
@@ -50,6 +50,10 @@ def main() -> int:
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
     d = sub.add_parser("demo", help="리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0")
     d.add_argument("run_id"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
+    bm = sub.add_parser("bench", help="원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)")
+    bm.add_argument("meshes", nargs="+", help="GLB/FBX 파일 또는 폴더")
+    bm.add_argument("--run-id"); bm.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto")
+    bm.add_argument("--quiet", action="store_true")
     st = sub.add_parser("status"); st.add_argument("run_id", nargs="?")
     u = sub.add_parser("usage"); u.add_argument("--days", type=int, default=7)
     for name in ("doctor", "plugin-path"):
@@ -87,6 +91,12 @@ def main() -> int:
     try:
         if a.cmd == "rig":
             out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets)
+        elif a.cmd == "bench":
+            files = []
+            for m in a.meshes:
+                p_ = Path(m)
+                files += sorted(str(f) for f in p_.iterdir() if f.suffix.lower() in (".glb", ".gltf", ".fbx")) if p_.is_dir() else [m]
+            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing)
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
