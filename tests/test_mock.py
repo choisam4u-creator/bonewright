@@ -140,13 +140,13 @@ class BenchMappingTests(unittest.TestCase):
               "BackUpperLeg.L": {"head": [0.34, -0.36, 1.34]}, "BackLowerLeg.L": {"head": [0.35, -1.24, 0.82]},
               "FrontUpperLeg.L": {"head": [0.33, 0.94, 1.46]}, "FrontLowerLeg.L": {"head": [0.33, 0.84, 1.12]},
               "Body": {"head": [0, 0, 0.47]}}
-        ours = {"DEF-spine.003": {"head": [0, -0.6, 1.98]}, "DEF-thigh.L": {"head": [0.34, -0.6, 1.76]},
+        ours = {"DEF-spine.004": {"head": [0, -0.6, 1.98]}, "DEF-thigh.L": {"head": [0.34, -0.6, 1.76]},
                 "DEF-shin.L": {"head": [0.34, -0.36, 1.34]}, "DEF-foot.L": {"head": [0.35, -1.24, 0.82]},
                 "DEF-front_thigh.L": {"head": [0.33, 0.94, 1.46]}, "DEF-front_shin.L": {"head": [0.33, 0.84, 1.12]},
                 "DEF-front_foot.L": {"head": [0.33, 0.84, 0.10]}}
         rows = {r["joint"]: r for r in bench.compare(ours, gt, 2.1, preset="quadruped")}
-        # 사족 골반은 DEF-spine 이 아니라 DEF-spine.003 이다(늑대 메타리그의 'spine' 은 꼬리 밑동이다)
-        for name in ("DEF-spine.003", "DEF-thigh.L", "DEF-shin.L", "DEF-foot.L", "DEF-front_thigh.L", "DEF-front_shin.L"):
+        # 사족 골반은 DEF-spine.004 다(늑대 메타리그의 'spine' 은 꼬리 밑동이고, Rigify 가 DEF 번호를 한 칸 민다)
+        for name in ("DEF-spine.004", "DEF-thigh.L", "DEF-shin.L", "DEF-foot.L", "DEF-front_thigh.L", "DEF-front_shin.L"):
             self.assertEqual(0.0, rows[name]["error_cm"], name)   # 같은 좌표를 줬으니 오차 0 이어야 옳게 붙은 것이다
         self.assertIsNone(rows["DEF-front_foot.L"]["gt"])          # 이 규약엔 앞발 본이 없다 → 매칭 없이 남는다
 
