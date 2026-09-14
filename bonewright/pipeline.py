@@ -137,6 +137,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                                    "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
                                    "rest_pose": rest_pose or cfg["rig"].get("rest_pose", "keep"),
                                    "weight_method": weights or cfg["rig"].get("weights", "auto")})
+    g["preset"] = preset   # bw motion 이 리그의 프리셋을 스스로 알도록 남긴다
     atomic_write(r.dir / "rig_stats.json", json.dumps(g, ensure_ascii=False, indent=2))
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}(가까운 본으로 메운 {st.get('filled_unweighted', 0)}) · 상자 밖 {len(st['bones_outside_bbox'])}")
@@ -175,7 +176,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
 
 
 def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: str | None = None, quiet: bool = False,
-           rig_run: str | None = None, export: str | None = None, roll: bool = True, preset: str = "humanoid", bvh_up: str = "y", legs: str = "auto") -> Path:
+           rig_run: str | None = None, export: str | None = None, roll: bool = True, preset: str | None = None, bvh_up: str = "y", legs: str = "auto") -> Path:
     """텍스트 → kimodo.cpp(Metal) → BVH → Blender 가져오기 → (rig_run 이 있으면) 그 리그에 리타겟 → (export 면) 변형 본만 든 GLB. 토큰 0."""
     cfg = load(root)
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
@@ -213,6 +214,9 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         blend = root / "runs" / rig_run / "02_rigged.blend"
         if not blend.exists():
             raise Blocked(f"리깅 결과가 없다: {blend}")
+        if preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid)
+            rs = root / "runs" / rig_run / "rig_stats.json"
+            preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
         mapping = bvh_mapping(imp["bone_names"], preset)
         r.state("retarget", "running")
         fa, fb = imp["frames"] if imp.get("frames") else (1, 1)
@@ -248,6 +252,20 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     atomic_write(r.dir / "report.md", "\n".join(report)); r.state("final", "ok")
     _log(quiet, f"완료 → {r.dir / 'report.md'}")
     return r.dir / "report.md"
+
+
+def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = False) -> Path:
+    """리깅 결과 → 변형 본만 든 GLB(토큰 0). 다시 읽어 본 위치를 대조한다."""
+    cfg = load(root)
+    r = Run(root, run_id, cfg, quiet)
+    blend = r.dir / "02_rigged.blend"
+    if not blend.exists():
+        raise Blocked(f"리깅 결과가 없다: {blend}")
+    dst = Path(out).resolve() if out else (r.dir / "rigged.glb")
+    ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
+    _log(quiet, f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm")
+    atomic_write(r.dir / "export.json", json.dumps(ex, ensure_ascii=False, indent=2))
+    return dst
 
 
 def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: int = 96) -> Path:

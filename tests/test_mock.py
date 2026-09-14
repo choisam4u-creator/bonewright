@@ -42,6 +42,12 @@ class RigMockTests(unittest.TestCase):
         video = pipeline.demo(self.tmp, "t1", quiet=True, size=128, frames=16)
         self.assertTrue(video.exists(), video)   # ffmpeg 있으면 demo.mp4, 없으면 PNG 프레임 폴더
         self.assertTrue((self.tmp / "runs/t1/demo_frames/f_0016.png").exists())
+        # 게임용 GLB: 변형 본만(컨트롤 400여 개 제외), 다시 읽어 본 위치 일치. 정점은 glTF 가 UV·법선 경계에서 쪼개므로 원본 이상
+        glb = pipeline.export_rig(self.tmp, "t1", quiet=True)
+        ex = json.loads((self.tmp / "runs/t1/export.json").read_text())
+        self.assertTrue(glb.exists()); self.assertLess(ex["bones"], 120, ex); self.assertGreaterEqual(ex["bones"], 60, ex)
+        self.assertEqual(0.0, ex["max_diff_cm"], ex); self.assertGreaterEqual(ex["verts"], ex["verts_in_source"], ex)
+        st = json.loads((self.tmp / "runs/t1/rig_stats.json").read_text()); self.assertEqual("humanoid", st["preset"])
 
     def test_retarget_bvh_and_export(self):
         """BVH 를 리그에 옮기고 GLB 로 내보낸다: 본 방향 오차 0, 메시 모서리 늘어남 6배 미만, 발이 바닥 아래로 안 감, 다시 읽은 GLB 의 손발 위치 일치"""

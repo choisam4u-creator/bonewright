@@ -42,6 +42,7 @@ bw rig character.glb --preset humanoid
 bw motion --text "a person walks forward, stops and waves"   # needs kimodo.cpp (Apple Silicon: Metal)
 bw motion --bvh walk.bvh --rig <run-id> --export         # retarget a BVH onto a rig, export deform-only GLB (0 tokens)
 bw demo <run-id>         # mp4/gif of the rig moving through IK controls (0 tokens)
+bw export <run-id>       # game-ready GLB: deform bones only (73, not 410) + skin, re-imported and checked (0 tokens)
 bw bench a.glb b.glb     # compare against the original skeletons (0 tokens)
 ```
 
@@ -69,8 +70,8 @@ bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 
 ## Motion retargeting
 
-`bw motion --bvh file.bvh --rig <run-id> [--preset quadruped] [--bvh-up z] [--export]` moves a BVH clip onto a rig
-made by `bw rig`. BVH joints are matched to Rigify controls by name (kimodo `LeftLeg/LeftShin`, Mixamo
+`bw motion --bvh file.bvh --rig <run-id> [--bvh-up z] [--export]` moves a BVH clip onto a rig made by `bw rig`
+(the rig's preset is read from its run; `--preset` overrides). BVH joints are matched to Rigify controls by name (kimodo `LeftLeg/LeftShin`, Mixamo
 `LeftUpLeg/LeftLeg`, CMU and Quaternius animal `BackLeg/FrontUpperLeg` conventions are covered by tests or runs).
 Units and frame rate are taken from the file (CMU's 16.7-unit hip height becomes a 0.06 scale); zero-length joints
 (CMU hands) take their direction from the first non-thumb child bone.

@@ -52,11 +52,13 @@ def main() -> int:
     m = sub.add_parser("motion", help="텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다")
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
     m.add_argument("--rig", help="리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)")
-    m.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help="리그의 프리셋(사족은 앞다리 front_* 로 옮긴다)")
+    m.add_argument("--preset", choices=["humanoid", "quadruped"], default=None, help="리그의 프리셋. 생략하면 리그 실행 기록(rig_stats.json)에서 읽는다")
     m.add_argument("--bvh-up", choices=["y", "z"], default="y", help="BVH 의 위 축. 표준은 y, Blender 가 내보낸 BVH 는 z")
     m.add_argument("--legs", choices=["auto", "fk", "ik"], default="auto", help="다리 전달: auto(소스에 발끝 관절이 있는 다리만 IK) | fk(회전만) | ik(발 IK 로 BVH 발끝을 좇음, 비율 차이 흡수)")
     m.add_argument("--no-roll", action="store_true", help="리타겟에서 비틀림(롤)을 옮기지 않는다(방향만, A/B 비교용)")
     m.add_argument("--export", nargs="?", const="auto", help="리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb")
+    ex = sub.add_parser("export", help="리그 결과를 변형 본만 든 GLB 로 내보내기(게임 엔진용), 토큰 0")
+    ex.add_argument("run_id"); ex.add_argument("--out", help="출력 경로(기본 runs/<id>/rigged.glb)"); ex.add_argument("--quiet", action="store_true")
     d = sub.add_parser("demo", help="리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0")
     d.add_argument("run_id"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
     bm = sub.add_parser("bench", help="원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)")
@@ -109,6 +111,8 @@ def main() -> int:
                 p_ = Path(m)
                 files += sorted(str(f) for f in p_.iterdir() if f.suffix.lower() in (".glb", ".gltf", ".fbx")) if p_.is_dir() else [m]
             out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset, skin=a.skin, weights=a.weights)
+        elif a.cmd == "export":
+            out = pipeline.export_rig(ROOT, a.run_id, out=a.out, quiet=a.quiet)
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
