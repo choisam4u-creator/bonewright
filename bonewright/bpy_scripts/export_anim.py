@@ -21,10 +21,18 @@ fm = (f0 + f1) // 2
 sc.frame_set(fm); bpy.context.view_layer.update()
 # 대조값: 중간 프레임의 손·발 월드 위치
 probe = {n: (rig.matrix_world @ rig.pose.bones[n].head).copy() for n in ("DEF-hand.L", "DEF-hand.R", "DEF-foot.L", "DEF-foot.R") if n in rig.pose.bones}
+# glTF 내보내기는 기본(ACTIONS)이 '아마추어에 얹을 수 있는 모든 액션'을 굽는다 → 원본 BVH 아마추어의 액션(motion)까지 우리 리그에
+# 얹혀 나가고, 다시 읽으면 그게 활성이 되어 리그가 쉬는 자세로 굳는다(e2e1 에서 손 위치 165cm 차이로 발견). 활성 액션만 내보내고
+# 다른 아마추어의 액션은 지운다
+for o in bpy.data.objects:
+    if o.type == "ARMATURE" and o is not rig and o.animation_data and o.animation_data.action:
+        act = o.animation_data.action; o.animation_data.action = None; bpy.data.actions.remove(act)
+sc.frame_start, sc.frame_end = f0, f1
 bpy.ops.object.select_all(action="DESELECT"); rig.select_set(True); mesh.select_set(True); bpy.context.view_layer.objects.active = rig
 bpy.ops.export_scene.gltf(filepath=A["out"], use_selection=True, export_format="GLB", export_apply=False, export_yup=True,
                           export_skins=True, export_def_bones=True, export_animations=True, export_force_sampling=True,
-                          export_frame_range=True, export_anim_single_armature=True, export_optimize_animation_size=False)
+                          export_frame_range=True, export_animation_mode="ACTIVE_ACTIONS", export_anim_single_armature=True,
+                          export_optimize_animation_size=False)
 
 # 다시 읽어 확인
 fresh()
@@ -44,5 +52,6 @@ for n, p in probe.items():
     if pb is not None:
         diff[n] = round(((arm.matrix_world @ pb.head) - p).length * 100, 2)
 done({"out": A["out"], "bones": len(arm.data.bones), "meshes": len(meshes), "verts": sum(len(m.data.vertices) for m in meshes),
+      "actions": [a.name for a in bpy.data.actions],
       "frames": fr, "fps": fps, "probe_frame": fm, "reimport_diff_cm": diff,
       "max_diff_cm": max(diff.values()) if diff else None}, A["result"])
