@@ -1,0 +1,22 @@
+# Blender 없이 도는 테스트만 돌린다(6개, 약 0.001초).
+# 나머지 테스트(리그 생성·가중치·벤치)는 Blender 5.2 또는 bpy 휠이 필요해서 여기서 안 돌린다 —
+# 로컬에서 `python3 -m unittest tests/test_mock.py` 로 12개 전부 돌려야 한다.
+# 주의: 이 워크플로는 원격 저장소가 없어 실제로 실행해 확인한 적이 없다.
+name: test
+on: [push, pull_request]
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install .
+      - name: Blender 없이 도는 테스트
+        run: python -m unittest -v tests.test_mock.BenchMappingTests tests.test_mock.GateTests
+      - name: CLI 가 임포트되는지
+        run: bw --help
