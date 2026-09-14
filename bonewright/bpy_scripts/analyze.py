@@ -96,10 +96,13 @@ def arm_axis(sign):
     rmed = sorted(p[3] for p in out)[len(out) // 2]
     out = [p for p in out if p[3] <= rmed * 2.0]
     if len(out) < 3: return out
-    # 첫 표본은 팔 뿌리 바깥의 무게중심이라 어깨 관절보다 바깥에 있다. 앞 두 표본을 몸통 폭의 0.9배 지점까지 되짚어 어깨 관절 표본을 앞에 붙인다
+    # 어깨 관절: 첫 표본에서 팔 안쪽으로 그 표본 굵기의 1배만 되짚는다.
+    # 예전에는 몸통 폭까지 밀어 넣었는데, 정답 뼈대 대조에서 그게 오히려 6cm 오차를 만드는 걸 확인했다(bench 2026-09-15).
     if abs(out[1][0] - out[0][0]) > 1e-4:
-        k = (out[0][0] - sign * torso_hw * 0.9) / (out[1][0] - out[0][0])
-        out.insert(0, [round(out[0][i] - (out[1][i] - out[0][i]) * k, 3) for i in range(3)] + [out[0][3]])
+        d = [out[1][i] - out[0][i] for i in range(3)]
+        ln = sum(v * v for v in d) ** 0.5
+        k = (out[0][3] * 1.0) / ln if ln > 1e-6 else 0
+        out.insert(0, [round(out[0][i] - d[i] * k, 3) for i in range(3)] + [out[0][3]])
     return out
 axes = {"arm_axis_L": arm_axis(1), "arm_axis_R": arm_axis(-1)}
 # 어깨 관절 높이는 중심선 첫 표본(팔 뿌리)에서 잰다. 실루엣 띠로는 팔이 몸통과 붙는 높이밖에 못 잡는다
