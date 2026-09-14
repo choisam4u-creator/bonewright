@@ -1,0 +1,70 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>벤치마크 17종 (믹사모 제외 정정본)</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:960px;margin:32px auto;padding:0 16px;line-height:1.6;color:#222}
+h1{font-size:1.5em}h2{font-size:1.18em;margin-top:1.7em;border-bottom:1px solid #ddd;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;font-size:.9em;margin:10px 0}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}th{background:#f3f3f3}
+.ok{background:#f2fff5}.mid{background:#fffbe8}.bad{background:#fff4f0}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}
+.note{background:#fff8e1;border-left:4px solid #f0ad4e;padding:10px 14px;margin:14px 0}</style></head><body>
+<h1>벤치마크 17종 — 믹사모를 뺀 정정본</h1>
+<p>2026-09-15. 토큰 0. 자산은 전부 로그인 없이 <code>curl</code> 로 받은 것이다.</p>
+
+<div class="note"><b>정정</b>: 앞선 보고에서 최고 성적으로 든 <b>Xbot(1.9%)은 믹사모 자산</b>이었다.
+어도비 일반 이용약관 <b>제17조</b>는 콘텐츠를 머신러닝·인공지능 시스템을 만들거나 학습·<b>테스트</b>·개선하는 데 쓰는 것을 금지하고,
+<b>제6.18조</b>는 스크래핑을 금지한다. 우리 벤치마크는 자동 리깅 도구를 테스트하는 장치이므로 "테스트"에 걸린다.
+Xbot·Michelle·Soldier·Ready Player Me 를 <b>삭제</b>하고 CC0 대체재로 다시 돌렸다. 아래가 정정된 숫자다.</div>
+
+<h2>결론</h2>
+<ul>
+<li><b>최고 성적은 그대로 1.9%</b> — 다만 이제 믹사모가 아니라 GDQuest 마네킹(CC-BY)이다.</li>
+<li><b>사람 형태 8종 평균 7.8%</b>(키 대비). 1.8m 기준 약 14cm.</li>
+<li><b>이름이 우리와 똑같아도 오차는 그대로다.</b> Quaternius 애니메이션 라이브러리는 뼈 이름이 <code>DEF-upper_arm.L</code> 로 Rigify 규칙과 동일한데도 7.4%였다. 즉 <b>남은 오차는 이름 짝짓기 문제가 아니라 관절 배치 문제</b>다. 이게 이번 실행의 가장 쓸모 있는 발견이다.</li>
+<li><b>비인간은 측정 자체가 안 된다.</b> 곤충형은 17개 중 1개만 짝지어졌다. 사족 여우는 13개가 붙었지만 62% 틀렸다.</li>
+</ul>
+
+<h2>전체 결과 (키 대비 오차 순)</h2>
+<table>
+<tr><th>자산</th><th>키</th><th>관절</th><th>평균</th><th>키 대비</th><th>비고</th></tr>
+<tr class="ok"><td>mannequiny (GDQuest, CC-BY)</td><td>1.80 m</td><td>17</td><td>3.44 cm</td><td>1.9%</td><td>언리얼 계열 T 포즈. 현재 최고</td></tr>
+<tr class="ok"><td>Modular Men B (CC0)</td><td>1.86 m</td><td>17</td><td>6.29 cm</td><td>3.4%</td><td></td></tr>
+<tr class="ok"><td>Adventurer (CC0)</td><td>1.86 m</td><td>17</td><td>6.56 cm</td><td>3.5%</td><td></td></tr>
+<tr class="ok"><td>Modular Men A (CC0)</td><td>1.89 m</td><td>17</td><td>9.50 cm</td><td>5.0%</td><td></td></tr>
+<tr class="mid"><td>Quaternius 캐릭터 43관절 (CC0)</td><td>2.22 m</td><td>15</td><td>16.04 cm</td><td>7.2%</td><td></td></tr>
+<tr class="mid"><td><b>Quaternius 애니 라이브러리 (CC0)</b></td><td>1.83 m</td><td>17</td><td>13.54 cm</td><td>7.4%</td><td><b>뼈 이름이 Rigify 와 동일</b>한데도 7.4%</td></tr>
+<tr class="mid"><td>riggedMesh (BabylonJS, 함정)</td><td>0.06 m</td><td>3</td><td>0.51 cm</td><td>8.5%</td><td>FBX 이름 깨짐으로 3개만 매칭</td></tr>
+<tr class="mid"><td>CesiumMan (CC-BY)</td><td>1.51 m</td><td>9</td><td>14.03 cm</td><td>9.3%</td><td></td></tr>
+<tr class="bad"><td>Quaternius 캐릭터 41관절 (CC0)</td><td>5.54 m</td><td>17</td><td>88.69 cm</td><td>16.0%</td><td>자산 자체가 키 5.5m</td></tr>
+<tr class="bad"><td>RiggedFigure (CC-BY)</td><td>1.45 m</td><td>13</td><td>26.13 cm</td><td>18.0%</td><td></td></tr>
+<tr class="bad"><td>Godot 플레이어 (MIT)</td><td>2.12 m</td><td>13</td><td>61.54 cm</td><td>29.1%</td><td>만화풍 + IK 컨트롤 섞임</td></tr>
+<tr class="bad"><td>Platformer 토끼 (CC0)</td><td>3.75 단위</td><td>15</td><td>183.95 cm</td><td>49.0%</td><td>치비</td></tr>
+<tr class="bad"><td>kira (CC0)</td><td>0.82 m</td><td>6</td><td>44.69 cm</td><td>54.3%</td><td>상반신만 있는 리그</td></tr>
+<tr class="bad"><td>alien-bug (CC0)</td><td>0.57 m</td><td>1</td><td>33.77 cm</td><td>59.1%</td><td>6족 곤충 — 1개만 짝지어짐</td></tr>
+<tr class="bad"><td>Fox (CC-BY)</td><td>0.79 m</td><td>13</td><td>49.15 cm</td><td>62.2%</td><td>사족을 사람 프리셋으로</td></tr>
+<tr class="bad"><td>RobotExpressive (CC0)</td><td>0.86 m</td><td>15</td><td>250.96 cm</td><td>291.7%</td><td>로봇 비율</td></tr>
+<tr><td>RiggedSimple (CC-BY)</td><td>-</td><td>0</td><td>-</td><td>-</td><td>상자 2관절. <b>측정 불가로 정직하게 표시</b></td></tr>
+</table>
+<p>사람 형태로 볼 수 있는 8종(관절 13개 이상 · 오차 20% 미만) 평균은 <b>7.8%</b>다. 전체 평균 50.55cm 는 로봇·토끼가 끌어올린 값이라 쓰지 말 것.</p>
+
+<h2>이번 실행이 알려준 것</h2>
+<ol>
+<li><b>이름 문제는 거의 해결됐고, 남은 건 배치 문제다.</b> Rigify 이름을 그대로 쓰는 자산에서도 7.4%가 나온다. 이름 매퍼를 더 손봐도 숫자는 안 내려간다.</li>
+<li><b>골반이 여전히 최대 오차원</b>이다. Quaternius 43관절 자산의 최악 관절도 <code>DEF-spine</code>(골반)이었다.</li>
+<li><b>측정 불가를 정직하게 표시한다.</b> RiggedSimple(상자)은 0개 매칭으로 평균에서 빠졌다. 억지로 숫자를 만들지 않는다.</li>
+<li><b>비인간 표본이 생겼다.</b> 곤충(1관절)·사족(13관절 62%)·로봇(292%). 휴머노이드 전용이라는 우리 범위를 숫자로 증명한다.</li>
+</ol>
+
+<h2>다음 순서</h2>
+<ol>
+<li><b>골반 높이</b> — 긴 코트·붙은 다리에서 가랑이를 너무 아래로 잡는 문제.</li>
+<li><b>사족 프리셋 실측</b> — 여우를 <code>--preset quadruped</code> 로 돌려 비교(지금은 사람 프리셋 결과다).</li>
+<li><b>비인간 거절</b> — 로봇·치비·곤충은 고치기보다 "다룰 수 없는 형태"라고 먼저 말하는 게 맞다.</li>
+<li>상반신 전용 리그(kira) 대응 — 다리를 못 찾으면 하반신 배치를 건너뛰기.</li>
+</ol>
+
+<h2>한계</h2>
+<ul>
+<li>정답은 원작자의 리그다. 관습 차이가 섞여 있으므로 절대 점수가 아니라 <b>버전 간 변화</b>를 본다.</li>
+<li>키가 0.06m~5.54m로 제각각이라 cm 가 아니라 % 로 봐야 한다.</li>
+<li>관절 <b>위치만</b> 잰다. 뼈 방향과 가중치 품질은 아직 안 잰다.</li>
+<li>회귀 테스트는 Adventurer 1종에만 걸려 있다(전체 17종은 한 번에 약 4분).</li>
+<li>Quaternius poly.pizza 4종은 조사 보고서가 <b>라이선스 역매핑 실패</b>로 표시했다. CC0 로 추정하지만 재확인 전에는 공개 자료에 쓰지 않는다.</li>
+</ul>
+</body></html>
