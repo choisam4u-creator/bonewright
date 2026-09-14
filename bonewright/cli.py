@@ -56,6 +56,7 @@ def main() -> int:
     bm.add_argument("--run-id"); bm.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto")
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
     bm.add_argument("--quiet", action="store_true")
+    bm.add_argument("--skin", action="store_true", help="스키닝 일치도도 잰다(원본 가중치와 대조, 토큰 0)")
     st = sub.add_parser("status"); st.add_argument("run_id", nargs="?")
     u = sub.add_parser("usage"); u.add_argument("--days", type=int, default=7)
     for name in ("doctor", "plugin-path"):
@@ -98,7 +99,7 @@ def main() -> int:
             for m in a.meshes:
                 p_ = Path(m)
                 files += sorted(str(f) for f in p_.iterdir() if f.suffix.lower() in (".glb", ".gltf", ".fbx")) if p_.is_dir() else [m]
-            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset)
+            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset, skin=a.skin)
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:

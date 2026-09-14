@@ -174,7 +174,7 @@ def skin_score(pairs: list, preset: str = "humanoid") -> dict:
 
 
 def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = False, facing: str = "auto",
-        preset: str = "humanoid") -> Path:
+        preset: str = "humanoid", skin: bool = False) -> Path:
     cfg = load(root)
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
@@ -198,6 +198,14 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
                         "max_cm": round(max(errs), 2) if errs else None,
                         "worst": max(rows, key=lambda r: r.get("error_cm") or -1)["joint"] if errs else None,
                         "joints": rows})
+            if skin:   # 스키닝도 잰다(토큰 0). 관절만 맞고 가중치가 엉망이면 쓸 수 없다
+                try:
+                    sc = run_script("skin_compare", {"mesh": str(Path(mesh).resolve()),
+                                                     "blend": str(root / "runs" / rid / "02_rigged.blend"),
+                                                     "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
+                    row["skin"] = skin_score(sc.get("pairs") or [], preset)
+                except Exception as e:
+                    row["skin"] = {"error": str(e).splitlines()[0][:120]}
             for r in rows:
                 if r.get("error_cm") is not None:
                     csv.append(f"{name},{r['joint']},{r['error_cm']},{r['error_pct_height']}," +
@@ -207,6 +215,9 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         results.append(row)
         if not quiet:
             s = row.get("error") or f"관절 {row.get('matched')}개 · 평균 {row.get('mean_cm')}cm · 최대 {row.get('max_cm')}cm ({row.get('worst')})"
+            sk = row.get("skin") or {}
+            if sk.get("agree") is not None:
+                s += f" · 스키닝 일치 {round(sk['agree'] * 100, 1)}%(매핑 {round(sk['mapped'] * 100)}%)"
             print(f"[bench {i}/{len(meshes)}] {name}: {s}", flush=True)
     ok = [r for r in results if r.get("mean_cm") is not None]
     summary = {"assets": len(results), "measured": len(ok),
