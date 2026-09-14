@@ -43,8 +43,10 @@ if not A.get("face", False):
         eb.remove(b); removed_face += 1
 # 머리·목 사슬을 메시 높이에 맞춘다: 목 밑 = 어깨 위, 정수리 = 메시 꼭대기. 사슬이 끊기지 않게 앞 본 tail 과 다음 본 head 를 함께 맞춘다
 L = A["landmarks"]
+# 사람 메타리그 전용: 늑대(사족)는 척추가 spine..spine.011 이라 spine.003 이 등 한가운데다.
+# 거기에 목·머리 정렬을 걸면 척추 사슬이 끊겨 Rigify 가 "disjoint" 로 실패한다(벤치마크로 확인)
 chain = ["spine.003", "spine.004", "spine.005", "spine.006"]
-if all(n in eb for n in chain):
+if preset == "humanoid" and all(n in eb for n in chain):
     z0, z3 = L["shoulder_z"] + 0.03, L["top_z"] - 0.01
     zs = [z0, z0 + (z3 - z0) * 0.3, z0 + (z3 - z0) * 0.45, z3]
     y = eb["spine.004"].head.y
@@ -112,7 +114,7 @@ for b in list(eb):
     b.transform(M, scale=True, roll=True); propagated.append(b.name)
 # 보정 2b: 척추 중간 본(spine.001~.003)은 양 끝(spine tail ↔ spine.004 head) 사이에 원래 길이 비율대로 다시 편다
 mid = ["spine.001", "spine.002", "spine.003"]
-if all(n in eb for n in ["spine", "spine.004"] + mid):
+if preset == "humanoid" and all(n in eb for n in ["spine", "spine.004"] + mid):
     a_, b_ = eb["spine"].tail.copy(), eb["spine.004"].head.copy(); lens = [orig_len[n] for n in mid]; tot = sum(lens) or 1.0; acc = 0.0
     for n, ln in zip(mid, lens):
         eb[n].head = a_ + (b_ - a_) * (acc / tot); acc += ln; eb[n].tail = a_ + (b_ - a_) * (acc / tot)
