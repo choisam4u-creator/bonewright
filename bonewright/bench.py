@@ -156,7 +156,8 @@ def skin_score(pairs: list, preset: str = "humanoid") -> dict:
         for c in cands:
             want[c] = base
     agree = side_ok = mapped = 0
-    for ours_name, gt_name, _ in pairs:
+    for pair in pairs:
+        ours_name, gt_name = pair[0], pair[1]   # skin_compare 는 [우리 본, 원본 본] 두 칸(예전 형식은 거리까지 세 칸)
         gcore, gside = _norm(gt_name)
         gbase = next((want[c] for c in _cores(gcore) if c in want), None)
         if gbase is None:
@@ -204,6 +205,7 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
                                                      "blend": str(root / "runs" / rid / "02_rigged.blend"),
                                                      "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
                     row["skin"] = skin_score(sc.get("pairs") or [], preset)
+                    row["skin"]["influence"] = sc.get("influence")   # 위치 지표(이름 규약과 무관): 영향 중심 거리
                 except Exception as e:
                     row["skin"] = {"error": str(e).splitlines()[0][:120]}
             for r in rows:
@@ -218,6 +220,9 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
             sk = row.get("skin") or {}
             if sk.get("agree") is not None:
                 s += f" · 스키닝 일치 {round(sk['agree'] * 100, 1)}%(매핑 {round(sk['mapped'] * 100)}%)"
+            inf = sk.get("influence") or {}
+            if inf.get("mean_cm") is not None:
+                s += f" · 영향중심 {inf['mean_cm']}cm(키의 {inf['mean_pct_height']}%, 10%초과 {round(inf['frac_over_10pct'] * 100)}%)"
             print(f"[bench {i}/{len(meshes)}] {name}: {s}", flush=True)
     ok = [r for r in results if r.get("mean_cm") is not None]
     summary = {"assets": len(results), "measured": len(ok),

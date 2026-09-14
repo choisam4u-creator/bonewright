@@ -90,7 +90,12 @@ Benchmark assets are not committed — their licences do not allow redistributio
 ```bash
 python3 scripts/fetch_bench_assets.py --out bench-assets
 bw bench bench-assets/quadruped/*.gltf --preset quadruped
+bw bench bench-assets/samples/*.glb --skin     # also compare skin weights against the original author's
 ```
+
+`--skin` reports two numbers per asset: how often our dominant bone matches the original's by name (weak — bone
+conventions differ), and the distance between the "influence centres" of the two weight sets, which is name-free.
+Current baseline: mannequiny 4.1 cm (2.3% of height), typical game characters 10–12 cm (5–8%).
 
 Mixamo/Adobe assets are deliberately excluded: the Adobe terms forbid using their content to test AI systems. Epic's
 own Fab content (Paragon, Game Animation Sample) is excluded too — it is tagged NoAI and ships in Unreal-only format.
