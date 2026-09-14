@@ -62,12 +62,26 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
         return False
     attached = [m for m in meshes if m not in skinned and _on_armature(m) and not _held(m)]
     attached_names = [m.name for m in attached] if skinned else []   # join 뒤에는 오브젝트가 사라져 이름을 못 읽는다
-    # 팔에 붙은 부품(어깨 갑옷·팔 보호대)은 실루엣을 넓혀 팔 랜드마크를 밖으로 민다(quat_pp_43j 위팔 11→32cm). 스키닝에는 넣되
-    # 랜드마크 분석에서는 빼도록 정점 그룹 bw_attachment 로 표시한다(analyze 가 이 그룹 정점을 랜드마크에서 제외)
-    LIMB_WORDS = ("arm", "shoulder", "clavicle", "elbow")
-    for m in (attached if skinned else []):
-        if m.parent_type == "BONE" and any(w in m.parent_bone.lower() for w in LIMB_WORDS):
-            g = m.vertex_groups.new(name="bw_attachment"); g.add(list(range(len(m.data.vertices))), 1.0, "REPLACE")
+    # 붙은 부품이 '몸의 빈 자리를 채우는 구조'(43j 의 머리, 로봇의 팔다리)인지 '장식'(사슴뿔·어깨 갑옷)인지 가른다:
+    # 부품이 붙은 본 머리 주변(스킨 메시 키의 12%)에 스킨된 정점이 이미 많으면 장식 → 스키닝에는 넣되 랜드마크 분석에서는 뺀다
+    # (정점 그룹 bw_attachment, analyze 가 제외). 사슴뿔을 키에 넣으면 사족 정규화가 통째로 밀린다(Stag 59→75cm 로 확인)
+    attachment_roles = {}
+    if skinned and attached:
+        from mathutils import Vector as _V
+        sk_pts = [m.matrix_world @ v.co for m in skinned for v in m.data.vertices]
+        zs_ = [q.z for q in sk_pts]; H_ = (max(zs_) - min(zs_)) if zs_ else 1.0; R_ = 0.12 * H_
+        for m in attached:
+            arm_ = m.parent
+            while arm_ is not None and arm_.type != "ARMATURE": arm_ = arm_.parent
+            if m.parent_type == "BONE" and arm_ is not None and m.parent_bone in arm_.data.bones:
+                hb = arm_.matrix_world @ arm_.data.bones[m.parent_bone].head_local
+            else:
+                hb = m.matrix_world.translation
+            near = sum(1 for q in sk_pts if (q - hb).length < R_)
+            role = "decor" if near >= 20 else "structural"
+            attachment_roles[m.name] = {"bone": m.parent_bone if m.parent_type == "BONE" else None, "near": near, "role": role}
+            if role == "decor":
+                g = m.vertex_groups.new(name="bw_attachment"); g.add(list(range(len(m.data.vertices))), 1.0, "REPLACE")
     if skinned:
         meshes = skinned + attached   # 스킨된 메시가 있으면 그것과 본에 붙은 부품만 캐릭터로 본다(내보내기가 남긴 보조 구체·프로브·가구 제외)
     if not meshes:
@@ -137,7 +151,7 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
     # glTF/FBX/OBJ 는 면마다 정점이 갈라져 들어오는 경우가 많다 → 겹친 정점을 합쳐야 자동 가중치(Bone Heat)가 풀린다
     bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.remove_doubles(threshold=max(0.0001, H * 0.00005)); bpy.ops.object.mode_set(mode="OBJECT")
-    IMPORT_INFO.update({"meshes_used": len(meshes), "meshes_attached": attached_names[:10],
+    IMPORT_INFO.update({"meshes_used": len(meshes), "meshes_attached": attached_names[:10], "attachments": attachment_roles,
                         "meshes_dropped": dropped[:10], "had_armature": len(arms), "unit_scale": unit,
                         "offset_x": round(off_x, 4), "offset_y": round(off_y, 4), "ground_shift": True, "foot_direction_hint": hint, "facing": facing, "rotated_180": flip,
                         "matrix": [list(row) for row in M]})

@@ -117,8 +117,11 @@ vertices are now bound to the nearest deform bone, and the gate counts filled ho
 Game files are rarely one clean mesh. When the file has an armature, bonewright takes the skinned meshes **plus parts
 rigidly parented to bones** (a robot's arm and head, a low-poly character's separate head), and drops everything else:
 furniture and walls in a scene export, the 42-vertex probe sphere many exporters leave at the origin, and anything
-parented to a hand or finger bone (weapons, tools). Armour attached to arm bones is skinned but ignored when locating
-joints, because it widens the silhouette. Files without an armature are used whole.
+parented to a hand or finger bone (weapons, tools). An attached part is treated as **decoration** when the skinned mesh
+already has geometry around its bone (antlers, shoulder armour, a separate head on a body that already has a neck):
+it is skinned but ignored when locating joints and measuring height — a stag's antlers would otherwise add 30% to its
+height and push every leg joint. A part whose bone region is empty in the skinned mesh (a robot's arms and legs) is
+structural and takes part in everything. Files without an armature are used whole.
 
 ## How joints are found
 

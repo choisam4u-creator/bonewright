@@ -9,6 +9,11 @@ obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), quad=QUAD); st = me
 _att = obj.vertex_groups.get("bw_attachment"); _ai = _att.index if _att else None
 vs = [obj.matrix_world @ v.co for v in obj.data.vertices if _ai is None or not any(g.group == _ai for g in v.groups)]
 st["attachment_verts"] = len(obj.data.vertices) - len(vs)
+if st["attachment_verts"]:   # 키·상자도 몸 기준으로(사슴뿔을 키에 넣으면 사족 정규화가 통째로 밀린다). 전체 상자는 full_bbox 에 남긴다
+    st["full_bbox"] = {"min": st["min"], "max": st["max"], "height": st["height"]}
+    xs_, ys_, zs_ = [v.x for v in vs], [v.y for v in vs], [v.z for v in vs]
+    st["min"], st["max"] = [min(xs_), min(ys_), min(zs_)], [max(xs_), max(ys_), max(zs_)]
+    st["height"], st["width"], st["depth"] = max(zs_) - min(zs_), max(xs_) - min(xs_), max(ys_) - min(ys_)
 zmin, zmax = st["min"][2], st["max"][2]; H = st["height"]
 el0 = sorted((obj.data.vertices[e.vertices[0]].co - obj.data.vertices[e.vertices[1]].co).length for e in obj.data.edges[:4000])
 spacing_gap = (el0[len(el0) // 2] if el0 else 0.01) * 1.5
