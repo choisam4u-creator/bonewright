@@ -133,6 +133,22 @@ class BenchMappingTests(unittest.TestCase):
             core, side = bench._norm(name)
             self.assertIn("upperarm", bench._cores(core), name); self.assertEqual("L", side, name)
 
+    def test_compare_matches_quaternius_animals(self):
+        """Quaternius 동물 규약은 이름이 관절보다 한 칸씩 밀려 있다(BackLeg=고관절, BackUpperLeg=무릎).
+        이름만 보면 BackUpperLeg 를 넓적다리로 붙이기 쉬운데, 실제 본 좌표로 확인한 대응을 지킨다"""
+        gt = {"Back": {"head": [0, -0.6, 1.98]}, "BackLeg.L": {"head": [0.34, -0.6, 1.76]},
+              "BackUpperLeg.L": {"head": [0.34, -0.36, 1.34]}, "BackLowerLeg.L": {"head": [0.35, -1.24, 0.82]},
+              "FrontUpperLeg.L": {"head": [0.33, 0.94, 1.46]}, "FrontLowerLeg.L": {"head": [0.33, 0.84, 1.12]},
+              "Body": {"head": [0, 0, 0.47]}}
+        ours = {"DEF-spine": {"head": [0, -0.6, 1.98]}, "DEF-thigh.L": {"head": [0.34, -0.6, 1.76]},
+                "DEF-shin.L": {"head": [0.34, -0.36, 1.34]}, "DEF-foot.L": {"head": [0.35, -1.24, 0.82]},
+                "DEF-front_thigh.L": {"head": [0.33, 0.94, 1.46]}, "DEF-front_shin.L": {"head": [0.33, 0.84, 1.12]},
+                "DEF-front_foot.L": {"head": [0.33, 0.84, 0.10]}}
+        rows = {r["joint"]: r for r in bench.compare(ours, gt, 2.1, preset="quadruped")}
+        for name in ("DEF-spine", "DEF-thigh.L", "DEF-shin.L", "DEF-foot.L", "DEF-front_thigh.L", "DEF-front_shin.L"):
+            self.assertEqual(0.0, rows[name]["error_cm"], name)   # 같은 좌표를 줬으니 오차 0 이어야 옳게 붙은 것이다
+        self.assertIsNone(rows["DEF-front_foot.L"]["gt"])          # 이 규약엔 앞발 본이 없다 → 매칭 없이 남는다
+
     def test_compare_matches_mixamo(self):
         gt = {"mixamorig:Hips": {"head": [0, 0, 1.0]}, "mixamorig:LeftArm": {"head": [0.2, 0, 1.4]},
               "mixamorig:LeftForeArm": {"head": [0.45, 0, 1.4]}, "mixamorig:LeftUpLeg": {"head": [0.1, 0, 0.95]}}

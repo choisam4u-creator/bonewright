@@ -31,14 +31,18 @@ SIDED = ("shoulder", "upper_arm", "forearm", "hand", "thigh", "shin", "foot",
          "front_thigh", "front_shin", "front_foot")
 # 사족(늑대 메타리그): 앞다리는 front_*, 뒷다리는 사람과 같은 이름을 쓴다.
 # 사족 원본 리그는 앞다리를 보통 팔 이름(LeftUpperArm)으로 부른다
+# Quaternius 동물 규약(BackLeg/BackUpperLeg/…)은 이름이 관절보다 한 칸씩 밀려 있다. 이름이 아니라
+# 실제 본 좌표로 확인했다(늑대, Y 가 위, 바닥 y≈0.07): BackLeg 1.76=고관절 · BackUpperLeg 1.34=무릎 ·
+# BackLowerLeg 0.82=비절, FrontUpperLeg 1.46=어깨 · FrontLowerLeg 1.12=팔꿈치. 그래서 아래처럼 붙인다.
+# 앞발은 이 규약에 대응 본이 없다(FrontLowerLeg 가 발까지 한 본이다) → 매칭 없이 남는다
 QUAD_MAP = {
-    "spine": ["hips", "hip", "pelvis", "root"],
-    "front_thigh": ["upperarm", "arm1", "arm"],
-    "front_shin": ["lowerarm", "forearm", "arm2"],
+    "spine": ["hips", "hip", "pelvis", "root", "back"],   # Quaternius 는 골반을 Back 이라 부른다(Body 는 아마추어 원점이라 뺀다)
+    "front_thigh": ["upperarm", "arm1", "arm", "frontupperleg"],
+    "front_shin": ["lowerarm", "forearm", "arm2", "frontlowerleg"],
     "front_foot": ["wrist", "hand", "arm3"],
-    "thigh": ["upperleg", "upleg", "thigh", "leg1"],
-    "shin": ["lowerleg", "shin", "calf", "leg2", "leg"],
-    "foot": ["foot", "ankle", "leg3"],
+    "thigh": ["upperleg", "upleg", "thigh", "leg1", "backleg"],
+    "shin": ["lowerleg", "shin", "calf", "leg2", "leg", "backupperleg"],
+    "foot": ["foot", "ankle", "leg3", "backlowerleg"],
 }
 
 
