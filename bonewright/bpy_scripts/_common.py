@@ -84,6 +84,10 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
                 g = m.vertex_groups.new(name="bw_attachment"); g.add(list(range(len(m.data.vertices))), 1.0, "REPLACE")
     if skinned:
         meshes = skinned + attached   # 스킨된 메시가 있으면 그것과 본에 붙은 부품만 캐릭터로 본다(내보내기가 남긴 보조 구체·프로브·가구 제외)
+    else:
+        # 뼈대 없는 파일: 내보내기가 남긴 작은 보조 구체(벤치 자산 17종 전부에 든 42정점 'Icosphere')만 뺀다
+        rest = [m for m in meshes if not (len(m.data.vertices) <= 64 and m.name.lower().startswith(("icosphere", "probe", "sphere")))]
+        meshes = rest or meshes
     if not meshes:
         raise ValueError("메시 오브젝트가 없다")
     # 굽기: 모디파이어(아마추어 포함)를 적용하고 부모에서 떼어낸다 → 그 뒤 아마추어·엠프티·제외된 메시 삭제
