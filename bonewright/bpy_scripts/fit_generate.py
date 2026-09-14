@@ -74,8 +74,9 @@ def nearest_on_axis(pt, ax):
         q = a + ab * k; d = (pt - q).length; r = ax[i][3] + (ax[i + 1][3] - ax[i][3]) * k
         if best is None or d < best[0]: best = (d, q, r)
     return best
+SKIP = set(A.get("skip") or [])   # 디버그: 특정 보정을 끈다(이분 탐색용)
 PINNED = set(A.get("pinned") or [])   # 사용자가 --pin 으로 직접 고정한 본은 어떤 보정도 건드리지 않는다
-for side in ("L", "R"):
+for side in (() if "axis" in SKIP else ("L", "R")):
     ax = L.get(f"arm_axis_{side}") or []
     if len(ax) < 3: continue
     for up, low in ((f"upper_arm.{side}", f"forearm.{side}"), (f"forearm.{side}", f"hand.{side}")):
@@ -84,7 +85,7 @@ for side in ("L", "R"):
             if d > r * 0.5:
                 eb[low].head = q; eb[up].tail = q; axis_snapped.append(low)
 # 다리: 팔과 달리 거의 수직이므로 높이(z)는 그대로 두고 좌우·앞뒤(x, y)만 다리 중심선으로 맞춘다
-for side in ("L", "R"):
+for side in (() if "axis" in SKIP else ("L", "R")):
     lax = L.get(f"leg_axis_{side}") or []
     if len(lax) < 3: continue
     def leg_center(z):
@@ -103,7 +104,7 @@ for side in ("L", "R"):
 # 보정 2: 목표에 없는 자식 본(손가락·발가락·뒤꿈치)은 가장 가까운 목표 조상 본의 이동(평행이동+회전+길이 비율)을 그대로 따른다.
 # 이걸 안 하면 손가락이 메타리그 기본 위치에 남아 메시 밖에 뜬다
 propagated = []
-for b in list(eb):
+for b in (() if "propagate" in SKIP else list(eb)):
     if b.name in before or b.name in PINNED: continue
     anc = b.parent
     while anc is not None and anc.name not in before: anc = anc.parent
@@ -121,7 +122,7 @@ if preset == "humanoid" and all(n in eb for n in ["spine", "spine.004"] + mid):
 # 보정 3: 손(과 손가락)이 메시 손끝을 넘으면 손 본 head 를 중심으로 줄인다. 손 방향으로 광선을 쏴 메시를 빠져나가는 거리를 잰다
 inv = obj.matrix_world.inverted(); finger_scale = {}
 center_y = 0.0   # 가져오기에서 다리 중앙을 y=0 으로 맞춘다
-for side in ("L", "R"):
+for side in (() if "fingers" in SKIP else ("L", "R")):
     hn = f"hand.{side}"
     if hn not in eb: continue
     hb = eb[hn]; h = hb.head.copy(); d = (hb.tail - h).normalized()
@@ -154,20 +155,24 @@ def pull_inside(p, inset=0.012):
     return loc - nrm * (inset / 8), True
 snapped_inside = []
 skip_inside = {b.name for h in ("hand.L", "hand.R") if h in eb for b in eb if any(pb.name == h for pb in b.parent_recursive)}
-for b in list(eb):
+# 우리가 옮긴 본과 그 자식만 당긴다. 예전엔 메타리그의 모든 본을 당겼는데, 손대지 않은 본까지 표면으로 끌려가
+# 사슬이 끊겼다(사족 프리셋이 Rigify 생성에서 통째로 실패한 원인 — 이분 탐색으로 확인)
+touched = set(T) | set(propagated)
+for b in (() if "inside" in SKIP else [x for x in eb if x.name in touched]):
     if b.name in skip_inside or b.name in PINNED: continue   # 손가락: 보정 3 이 손 실루엣 안으로 넣었다. 부피 메시(복셀 1.2cm)는 손가락을 뭉개서 잘못 당긴다
     for attr in ("head", "tail"):
         q, moved_pt = pull_inside(getattr(b, attr))
         if moved_pt: setattr(b, attr, q); snapped_inside.append(f"{b.name}.{attr}")
 # 안전장치: 길이 0 에 가까운 본은 부모 방향으로 살짝 늘린다(Rigify 는 0 길이 본에서 실패한다)
 fixed = []
-for b in eb:
+for b in (() if "zerolen" in SKIP else eb):
     if (b.tail - b.head).length < 0.005:
         d = (b.parent.tail - b.parent.head) if b.parent and (b.parent.tail - b.parent.head).length > 0.01 else Vector((0, 0, 1))
         b.tail = b.head + d.normalized() * 0.02; fixed.append(b.name)
 # 안전장치 2: 팔꿈치·무릎이 일직선이면 Rigify 가 폴 방향을 못 정한다 → 팔꿈치는 뒤(+Y), 무릎은 앞(-Y)으로 2cm 굽힌다
 bent = []
-for up, low, dy in (("upper_arm.L", "forearm.L", 0.02), ("upper_arm.R", "forearm.R", 0.02), ("thigh.L", "shin.L", -0.02), ("thigh.R", "shin.R", -0.02)):
+BEND = (("upper_arm.L", "forearm.L", 0.02), ("upper_arm.R", "forearm.R", 0.02), ("thigh.L", "shin.L", -0.02), ("thigh.R", "shin.R", -0.02))
+for up, low, dy in (() if "bend" in SKIP else BEND):
     if up in eb and low in eb:
         a, b = eb[up].tail - eb[up].head, eb[low].tail - eb[low].head
         if a.length > 0 and b.length > 0 and a.cross(b).length < 0.05 * a.length * b.length:   # 약 3도 미만
@@ -175,7 +180,7 @@ for up, low, dy in (("upper_arm.L", "forearm.L", 0.02), ("upper_arm.R", "forearm
             eb[low].head = joint; eb[up].tail = joint; bent.append(low)
 # 보정 5: 원래 부모 tail 에 붙어 있던 본은 다시 붙인다(부모부터 순서대로)
 rejoined = []
-for b in sorted(eb, key=lambda b: len(b.parent_recursive)):
+for b in (() if "rejoin" in SKIP else sorted(eb, key=lambda b: len(b.parent_recursive))):
     if b.name in joined and b.parent and (b.head - b.parent.tail).length > 1e-5:
         b.head = b.parent.tail.copy(); rejoined.append(b.name)
 # 고정(pin)은 마지막에 다시 적용한다: 중간 보정(사슬 재결합·길이·굽힘)이 건드렸을 수 있다. 사용자가 찍은 값이 최종 결정권을 갖는다
