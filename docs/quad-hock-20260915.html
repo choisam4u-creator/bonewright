@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사족 뒷발목 수정 · 2026-09-15</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b6660; --line:#e2ddd4;
+    --card:#ffffff; --ok:#1c6b3f; --ok-bg:#e8f5ee; --no:#9b2226; --no-bg:#fbeaea;
+    --warn:#8a5a00; --warn-bg:#fdf3e0; --code:#f3f0ea; --bar:#4a7c59; --bar2:#c9563f; --bar-bg:#ece7de;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+      --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+      --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#6fae84; --bar2:#e0705a; --bar-bg:#2b282f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+    --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+    --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#6fae84; --bar2:#e0705a; --bar-bg:#2b282f;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);margin:0;
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;line-height:1.3;margin:0 0 6px;letter-spacing:-.02em}
+  .date{color:var(--muted);font-size:14px;margin:0 0 36px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:28px 0 8px}
+  p{margin:0 0 14px}
+  .lead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--fg);
+    border-radius:10px;padding:20px 22px;margin:0 0 8px}
+  .lead p:last-child{margin-bottom:0}
+  .big{display:flex;gap:20px;flex-wrap:wrap;margin:18px 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;flex:1;min-width:140px}
+  .stat b{display:block;font-size:25px;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--muted);font-size:13px}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+  .scroll{overflow-x:auto}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+  th{font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bartrack{background:var(--bar-bg);border-radius:4px;overflow:hidden;min-width:60px;height:8px}
+  .bar{height:8px;background:var(--bar2);border-radius:4px}
+  .bar.good{background:var(--bar)}
+  code{background:var(--code);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{background:var(--code);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}
+  pre code{background:none;padding:0}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  .worse{color:var(--no);font-weight:600}
+  .better{color:var(--ok);font-weight:600}
+  .note{color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>비율이 아니라 보정이 범인이었다</h1>
+<p class="date">2026-09-15 · bonewright · 커밋 <code>5760a81</code> · <code>BW_BACKEND=mock</code>(토큰 0)</p>
+
+<div class="lead">
+  <p><strong>결론: 뒷발목(비절) 42.2% → 4.8%. 사족 전체 20.9% → 13.8%. 11종 전부 개선.</strong></p>
+  <p>요청은 "늑대 뒷발목 비율을 체형에 맞춰달라"였는데, <strong>비율은 문제가 아니었다.</strong>
+  재보니 메타리그 비율은 정답과 거의 같았고(무릎 0.641 vs 정답 평균 0.707, 비절 0.335 vs 0.395),
+  <strong>우리가 보낸 목표 좌표도 이미 정확했다.</strong></p>
+  <p>문제는 그 다음이었다. 보낸 목표를 <strong>사람용 보정이 끌고 가버렸다.</strong>
+  뒷발목은 이제 <strong>가장 정확한 관절</strong>이 됐다.</p>
+</div>
+
+<div class="big">
+  <div class="stat"><b class="better">4.8%</b><span>뒷발목 (42.2% → )</span></div>
+  <div class="stat"><b class="better">13.8%</b><span>사족 전체 (20.9% → )</span></div>
+  <div class="stat"><b>11/11</b><span>모두 개선</span></div>
+  <div class="stat"><b>변화 없음</b><span>사람형 17종</span></div>
+</div>
+
+<h2>1. 비율부터 의심했는데 아니었다</h2>
+<p>먼저 정답에서 뒷다리 관절 비율이 동물마다 얼마나 다른지 쟀다(발=0, 고관절=1 로 놓은 위치).</p>
+<div class="scroll">
+<table>
+<thead><tr><th>관절</th><th class="num">정답 평균</th><th class="num">표준편차</th><th class="num">범위</th><th class="num">늑대 메타리그</th></tr></thead>
+<tbody>
+<tr><td>무릎</td><td class="num">0.707</td><td class="num">0.029</td><td class="num">0.647~0.748</td><td class="num">0.641</td></tr>
+<tr><td>비절(뒷발목)</td><td class="num">0.395</td><td class="num">0.086</td><td class="num">0.212~0.516</td><td class="num">0.335</td></tr>
+<tr><td>앞팔꿈치</td><td class="num">0.542</td><td class="num">0.138</td><td class="num">0.377~0.753</td><td class="num">0.640</td></tr>
+</tbody>
+</table>
+</div>
+<p>메타리그와 정답의 차이는 비절에서 0.06 정도다. 늑대 다리 길이(1.69m)로 환산하면 <strong>10cm, 키의 3.8%</strong>밖에 안 된다.
+그런데 실제 오차는 <strong>60%</strong>였다. <strong>비율로는 설명이 안 된다.</strong></p>
+
+<h2>2. 목표는 맞았는데 결과가 달랐다</h2>
+<p>그래서 <strong>보낸 목표</strong>와 <strong>실제로 만들어진 본</strong>을 나란히 찍어봤다(늑대).</p>
+<pre><code>보낸 목표                                        생성된 본
+thigh.L  head=[0.329,  0.142, 1.942]   →   DEF-thigh.L  [0.329,  0.142, 1.942]  ✓ 그대로
+shin.L   head=[0.346, -0.085, 1.245]   →   DEF-shin.L   [0.262, -1.197, 1.366]  ✗
+foot.L   head=[0.325,  0.574, 0.651]   →   DEF-foot.L   [0.128, -1.105, 1.284]  ✗
+
+정답: 고관절 [0.341,-0.207,1.772] · 무릎 [0.341,-0.450,1.346] · 비절 [0.341,0.426,0.828]</code></pre>
+<p>보낸 비절 목표 <code>[0.325, 0.574, 0.651]</code>은 정답 <code>[0.341, 0.426, 0.828]</code>과 <strong>꽤 가깝다.</strong>
+그런데 만들어진 본은 <code>[0.128, -1.105, 1.284]</code> — <strong>앞뒤로 1.5m 넘게 끌려가</strong> 앞다리 근처에 박혔다.</p>
+
+<h3>범인: 중심선 스냅(보정 1)</h3>
+<p><code>fit_generate</code>의 첫 보정은 팔·다리 관절을 <strong>중심선</strong>에 끌어다 붙인다. 손으로 찍은 관절이 팔다리 바깥으로
+튀어나오는 걸 막는 장치다. 그런데 그 중심선(<code>arm_axis</code>·<code>leg_axis</code>)은
+<strong>"팔다리가 몸 중앙에 수직으로 선다"는 사람 가정</strong>으로 계산된다.</p>
+<p>네 발 동물에서는 그 선이 몸 한가운데를 수직으로 지나는 엉뚱한 막대가 된다. 잘 놓인 관절을 거기로 끌어당긴 것이다.
+<strong>사람 전용으로 잠갔다</strong> — 이미 목 사슬·척추 재배치에 걸려 있던 것과 같은 방식이다.</p>
+
+<h2>3. 결과</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">q1 기준선</th><th class="num">q5</th><th class="num">q6 (지금)</th><th style="width:140px">　</th></tr></thead>
+<tbody>
+<tr><td>fox</td><td class="num">55.4%</td><td class="num">11.0%</td><td class="num better">11.0%</td><td><div class="bartrack"><div class="bar good" style="width:20%"></div></div></td></tr>
+<tr><td>Donkey</td><td class="num">52.9%</td><td class="num">19.5%</td><td class="num better">12.4%</td><td><div class="bartrack"><div class="bar good" style="width:22%"></div></div></td></tr>
+<tr><td>Horse</td><td class="num">35.3%</td><td class="num">14.7%</td><td class="num better">12.7%</td><td><div class="bartrack"><div class="bar good" style="width:23%"></div></div></td></tr>
+<tr><td>Wolf</td><td class="num">49.5%</td><td class="num">25.1%</td><td class="num better">12.8%</td><td><div class="bartrack"><div class="bar good" style="width:23%"></div></div></td></tr>
+<tr><td>Bull / Cow</td><td class="num">54.3%</td><td class="num">24.5%</td><td class="num better">13.2%</td><td><div class="bartrack"><div class="bar good" style="width:24%"></div></div></td></tr>
+<tr><td>Deer</td><td class="num worse">생성 실패</td><td class="num">20.9%</td><td class="num better">14.1%</td><td><div class="bartrack"><div class="bar good" style="width:26%"></div></div></td></tr>
+<tr><td>Stag</td><td class="num">35.7%</td><td class="num">24.8%</td><td class="num better">14.2%</td><td><div class="bartrack"><div class="bar good" style="width:26%"></div></div></td></tr>
+<tr><td>Husky</td><td class="num">31.2%</td><td class="num">18.2%</td><td class="num better">14.6%</td><td><div class="bartrack"><div class="bar good" style="width:27%"></div></div></td></tr>
+<tr><td>ShibaInu</td><td class="num">56.5%</td><td class="num">23.5%</td><td class="num better">14.7%</td><td><div class="bartrack"><div class="bar good" style="width:27%"></div></div></td></tr>
+<tr><td>Alpaca</td><td class="num">28.6%</td><td class="num">25.1%</td><td class="num better">18.7%</td><td><div class="bartrack"><div class="bar" style="width:34%"></div></div></td></tr>
+<tr><td><strong>평균</strong></td><td class="num">45.4%</td><td class="num">20.9%</td><td class="num better"><strong>13.8%</strong></td><td></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>관절별 — 순위가 뒤집혔다</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>관절</th><th class="num">q5</th><th class="num">q6</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td><code>DEF-spine.003</code> 골반</td><td class="num">19.0%</td><td class="num worse">19.0%</td><td>이제 가장 나쁘다</td></tr>
+<tr><td><code>DEF-front_shin</code> 앞팔꿈치</td><td class="num">18.3%</td><td class="num">18.3%</td><td>그대로</td></tr>
+<tr><td><code>DEF-front_thigh</code> 앞어깨</td><td class="num">18.2%</td><td class="num">18.2%</td><td>그대로</td></tr>
+<tr><td><code>DEF-shin</code> 무릎</td><td class="num">15.3%</td><td class="num better">13.3%</td><td></td></tr>
+<tr><td><code>DEF-thigh</code> 고관절</td><td class="num">12.0%</td><td class="num">12.0%</td><td></td></tr>
+<tr><td><code>DEF-front_foot</code> 앞발목</td><td class="num">8.7%</td><td class="num">8.7%</td><td></td></tr>
+<tr><td><code>DEF-foot</code> 뒷발목(비절)</td><td class="num worse">42.2%</td><td class="num better"><strong>4.8%</strong></td><td>가장 정확한 관절이 됐다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>4. 솔직한 평가</h2>
+<p>13.8%는 <strong>아직 실용 수준이 아니다.</strong> 키 1m 동물이면 관절이 14cm씩 어긋난다.
+사람형 최고 기록(mannequiny 1.6%)과는 아직 여덟 배 넘게 차이난다.</p>
+<p>다만 흐름은 분명하다. 기준선 45.4%에서 <strong>세 번 연속으로 큰 폭</strong>으로 내려왔고,
+세 번 모두 원인이 <strong>"사족에 사람 규칙을 그대로 쓴 것"</strong>이었다.</p>
+<ul>
+  <li>앞뒤 방향 판정이 사람 규칙 → 시바견 좌우 뒤집힘</li>
+  <li>본 목록이 사람 기준 → 앞다리에 목표가 한 번도 안 감</li>
+  <li>중심선 스냅이 사람 가정 → 잘 놓인 뒷발목을 끌고 감</li>
+</ul>
+<p>같은 패턴이 남아 있을 가능성이 높다. 남은 큰 오차(골반 19%, 앞다리 18%)도 먼저 <strong>사람 가정이 섞였는지</strong>부터 볼 만하다.</p>
+
+<h2>5. 다음에 할 것</h2>
+<ol>
+  <li><strong>골반 19%</strong> — 지금 가장 나쁘다. 척추 높이(z)를 아직 안 맞췄다(앞서 쟀을 때 13.8% 몫).</li>
+  <li><strong>앞다리 어깨·팔꿈치 18%</strong> — 앞다리는 몸통에 미끄러지듯 붙어 발 위치만으로 역산이 안 된다.</li>
+  <li><strong>실제 Codex 1건</strong> — 여기 숫자는 전부 <code>mock</code>(토큰 0)이다. 진짜 모델로는 아직 한 번도 안 돌렸다.</li>
+  <li><strong>비인간 거절 게이트</strong> — 13.8%를 "된다"고 말하면 안 된다.</li>
+</ol>
+
+<p class="note" style="margin-top:36px">
+검증: 테스트 11개 통과. 사람형 17종(b11)은 직전 실행(b10)과 <strong>전 항목 숫자까지 동일</strong>
+(mannequiny 2.96cm, adventurer 6.08cm, modularmen 7.44/6.91cm …). 수치 출처 <code>runs/q1·q5·q6/bench.json</code>.</p>
+
+</div>
+</body>
+</html>
