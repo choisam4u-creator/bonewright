@@ -1,0 +1,68 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>bonewright v0.2 (2026-09-14)</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:960px;margin:32px auto;padding:0 16px;line-height:1.6;color:#222}
+h1{font-size:1.5em}h2{font-size:1.18em;margin-top:1.7em;border-bottom:1px solid #ddd;padding-bottom:4px}h3{font-size:1.02em;margin-top:1.3em}
+table{border-collapse:collapse;width:100%;font-size:.92em;margin:10px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f3f3f3}
+.ok{background:#f2fff5}.bad{background:#fff4f0}.mid{background:#fffbe8}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}pre{background:#f5f5f5;padding:10px;overflow:auto;font-size:.88em}</style></head><body>
+<h1>bonewright v0.2 — 인체 비율 상수 제거 + 관절 고정(--pin)</h1>
+<p>2026-09-14. 조사 보고서(<code>docs/research-autorig-sources-20260914.html</code>)의 최우선 권고 2개를 구현했다. 테스트 7개 통과, 로컬 커밋만(원격 없음).</p>
+
+<h2>결론</h2>
+<ul>
+<li><b>"키의 몇 %" 가정이 기본 경로에서 사라졌다.</b> 가랑이·목·발목·무릎·엉덩관절을 전부 메시 모양에서 찾는다. 인체 비율은 최후 폴백으로만 남았고, 쓰이면 <code>ratio_fallbacks</code> 에 이름이 찍힌다.</li>
+<li><b>관절을 손으로 고정할 수 있다.</b> <code>--pin 본=x,y,z</code> 는 모든 자동 보정을 이긴다. 실측으로 요청 좌표와 최종 뼈 좌표가 소수점 3자리까지 일치했다.</li>
+<li><b>재실행이 공짜가 됐다.</b> <code>--targets runs/&lt;id&gt;/targets.json</code> 은 모델을 부르지 않는다(실측 입력 토큰 0). 고정→확인→재고정을 돈 안 내고 반복할 수 있다.</li>
+<li><b>치비는 여전히 못 푼다.</b> 대신 "분석을 믿기 어렵다"를 정직하게 알린다.</li>
+</ul>
+
+<h2>1. 인체 비율 상수를 무엇으로 바꿨나</h2>
+<table>
+<tr><th>관절</th><th>전(v0.1)</th><th>후(v0.2) — 메시 증거</th></tr>
+<tr><td>가랑이</td><td>갈라진 띠 중 가장 높은 것, 단 키의 60% 아래에서만 찾음</td><td>가운데(x=0)를 품은 구간이 없는 띠 = 좌우로 갈라진 띠. 바닥부터 이어진 구간의 꼭대기(갈라진 띠 비율 50% 이상). <b>팔 사이 틈은 가운데 몸통 구간이 있어 걸리지 않으므로 높이 제한이 필요 없다</b></td></tr>
+<tr><td>목</td><td>정수리 − 키의 12%</td><td>어깨 위 띠 중 몸통 반폭이 가장 좁은 띠(정수리 쪽 2개 띠 제외). 그 위에 더 넓은 덩어리(머리)가 있어야 인정</td></tr>
+<tr><td>발목</td><td>바닥 + 키의 5%</td><td>다리 중심선에서 앞뒤로 굵기의 1.5배 넘게 튀어나온 점 = 발. 그 덩어리의 꼭대기(97 백분위). 부츠를 신어도 발끝은 앞으로 나온다</td></tr>
+<tr><td>무릎</td><td>발목~가랑이의 정확히 중간</td><td>엉덩관절~발목의 중간을 시작점으로, 그 ±15% 안에서 다리가 가장 가는 칸으로 보정. (중간이라는 건 키 비례가 아니라 "두 마디 팔다리는 위·아래 마디 길이가 비슷하다"는 구조 사실이다)</td></tr>
+<tr><td>엉덩관절</td><td>가랑이 + 키의 5%</td><td>가랑이 + 허벅지 굵기(넙다리뼈 머리 위치)</td></tr>
+<tr><td>어깨·팔 띠 범위</td><td>키의 45~92% 구간</td><td>가랑이 위 전체. 어깨 높이는 팔 중심선의 첫 표본(팔 뿌리)에서</td></tr>
+</table>
+<p>새로 넣은 <b>다리 중심선</b>(<code>leg_axis_L/R</code>)은 팔 중심선과 같은 방식이다. 가랑이 아래를 세로 8칸으로 나눠 칸마다 무게중심·굵기·앞뒤 길이를 잰다. 모델에게도 이 표본을 넘기고, 모델 답이 중심선에서 굵기의 60% 넘게 벗어나면 중심선 위로 되돌린다(팔에 쓰던 보정을 다리로 확장).</p>
+
+<h3>실측: 네 메시의 관절 위치(키 대비 %)</h3>
+<table>
+<tr><th>메시</th><th>가랑이</th><th>무릎</th><th>발목</th><th>폴백</th><th>의심 신호</th></tr>
+<tr class="ok"><td>Quaternius Adventurer (CC0, 1.86m)</td><td>43.8%</td><td>25.7%</td><td>3.3%</td><td>없음</td><td>없음</td></tr>
+<tr class="ok"><td>Quaternius Modular Men (CC0, 1.89m)</td><td>36.3%</td><td>22.0%</td><td>3.0%</td><td>없음</td><td>없음</td></tr>
+<tr class="mid"><td>절차적 캡슐 인형 (1.80m)</td><td>41.2%</td><td>25.3%</td><td>5.0%</td><td>목</td><td>목 추정 실패</td></tr>
+<tr class="bad"><td>Quaternius Platformer 토끼 (치비)</td><td>63.8%</td><td>51.8%</td><td>5.0%</td><td>발목·목</td><td>목 추정 실패, 팔 중심선 없음, 인체 비율 폴백</td></tr>
+</table>
+<p>사람 비례 참고값은 가랑이 45~48%, 무릎 25~29%, 발목 4~6%다. 실제 캐릭터 2종은 그 범위 근처에 자력으로 들어왔다. <b>토끼는 실패하고, 실패한다고 말한다.</b></p>
+
+<h2>2. 관절 고정(--pin)과 토큰 0 재실행(--targets)</h2>
+<pre>bw rig char.glb --pin "spine.004=0,0,1.42"                    # 머리만 고정
+bw rig char.glb --pin "hand.L=0.6,0,1.3/0.7,0,1.3"            # 머리/꼬리 둘 다
+bw rig char.glb --targets runs/&lt;id&gt;/targets.json               # 이전 답 재사용, 모델 호출 0회
+bw rig char.glb --targets runs/&lt;id&gt;/targets.json --pin "shin.L=0.09,0,0.48"</pre>
+<ul>
+<li>고정한 본은 <b>어떤 자동 보정도 건드리지 않는다</b>(중심선 스냅·자식 본 전파·표면 안쪽 당기기 전부 제외). 그리고 모든 보정이 끝난 뒤 <b>한 번 더 덮어쓴다</b> — 중간 단계(사슬 재결합)가 값을 흔드는 걸 실측으로 잡았기 때문이다(요청 0.039 → 실제 0.064 로 밀림 → 재적용 후 0.039 일치).</li>
+<li>고정 좌표는 <code>pins.json</code> 으로 모델에게도 넘어간다. 모델은 그 점을 그대로 두고 나머지를 맞춘다.</li>
+<li>실행마다 <code>runs/&lt;id&gt;/targets.json</code> 을 남긴다. 손으로 고쳐 <code>--targets</code> 로 다시 돌리면 된다.</li>
+<li><b>고정이 틀리면 게이트가 잡는다</b>: 한쪽 무릎만 5cm 안으로 고정했더니 좌우 대칭 오차 0.0638(기준 0.031 초과)로 실패했고, 메시 밖 본도 2개로 잡혔다. 고정은 무기이자 책임이다.</li>
+</ul>
+
+<h2>3. 남은 약점 (정직하게)</h2>
+<ul>
+<li><b>치비는 여전히 실패한다.</b> 토끼 캐릭터는 팔 중심선을 못 만들고 목을 못 찾는다. 조사 보고서대로 이건 상용 도구도 안 푸는 문제이고, 우리 답은 "실패를 알리고 <code>--pin</code> 으로 넘기기"다. 자동으로 되게 만들지 못했다.</li>
+<li><b>치비 자동 분류를 포기했다.</b> 머리 폭으로 판정하려다 사람 3종을 전부 치비로 오판했다(어깨 위 띠에 어깨 근육이 섞여 머리 폭이 2배로 나옴). 지금은 목을 메시 증거로 찾았을 때만 판정하고, 아니면 <code>chibi: null</code>(모름)이다.</li>
+<li><b>무릎 규칙은 여전히 "중간에서 출발"한다.</b> 굵기만으로 찾으려 했더니 부츠 때문에 무릎이 키의 10.6% 로 나왔다(부츠 목이 종아리보다 굵어 기울기가 거기서 최대). 구조 가정을 최소한으로 남겼다.</li>
+<li>캡슐 인형은 목 추정이 폴백이다. 합성 자산이라 우선순위를 낮췄다.</li>
+<li><b>v0.2 는 실제 Codex 로 아직 안 돌렸다.</b> 전부 mock(토큰 0)과 이전 실행의 답 재사용으로 검증했다. 실제 1건은 약 8만 토큰·$0.87 이라 사용자 결정 사항이다.</li>
+</ul>
+
+<h2>4. 검증</h2>
+<table>
+<tr><th>확인</th><th>결과</th></tr>
+<tr><td>테스트</td><td>7개 통과(캡슐 리그 · 팔꿈치 되돌리기 · CC0 실제 캐릭터 · <b>고정/재사용</b> · BVH · 게이트 · 누출 게이트)</td></tr>
+<tr><td>고정 정확도</td><td>요청 <code>shin.L=0.039,0,0.477</code> → 생성된 <code>DEF-shin.L</code> head <code>0.039,0,0.477</code> (소수점 3자리 일치, Blender 에서 직접 읽음)</td></tr>
+<tr><td>재사용 토큰</td><td><code>state.json</code> 의 input_tokens = 0</td></tr>
+<tr><td>CC0 캐릭터 2종</td><td>메시 밖 본 0 · 미가중 정점 0 · 가중치 누출 0 · 대칭 오차 0.0000/0.0006 · 게이트 통과</td></tr>
+</table>
+</body></html>

@@ -54,7 +54,8 @@ class RigMockTests(unittest.TestCase):
         g = blender.run_script("fit_generate", {"blend": str(run / "01_analyzed.blend"), "out_blend": str(run / "02_bad.blend"), "preset": "humanoid",
                                                 "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": False}, {}, run / "logs")
         st = g["stats"]
-        self.assertEqual(["forearm.L", "forearm.R"], st["axis_snapped"], st)
+        # v0.2 부터 다리(발목)도 중심선으로 스냅되므로 팔꿈치가 목록에 들어 있는지만 본다
+        self.assertIn("forearm.L", st["axis_snapped"], st); self.assertIn("forearm.R", st["axis_snapped"], st)
         self.assertEqual(0, st["deform_outside_mesh"], st.get("deform_outside_mesh_bones"))
 
     def test_real_shape_cc0_character(self):
@@ -70,6 +71,28 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual("auto_proxy", st["weight_method"], st); self.assertEqual(0, st["unweighted_verts"])
         self.assertLessEqual(st["deform_outside_mesh"], 2, st.get("deform_outside_mesh_bones"))
         self.assertEqual("ok", json.loads((self.tmp / "runs/t3/state.json").read_text())["status"])
+
+    def test_pin_and_targets_reuse(self):
+        """--targets 는 모델을 부르지 않고(토큰 0) 같은 리그를 다시 만든다. --pin 은 모든 보정을 이기고 그 좌표에 정확히 놓인다."""
+        pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t4", quiet=True, no_judge=True)
+        targets = json.loads((self.tmp / "runs/t4/targets.json").read_text())
+        self.assertIn("shin.L", targets)
+        # 재사용: 모델 호출 0회
+        pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t5", quiet=True, no_judge=True,
+                     targets_file=str(self.tmp / "runs/t4/targets.json"))
+        self.assertIsNone(json.loads((self.tmp / "runs/t5/fit.json").read_text())["confidence"])
+        self.assertEqual(0, json.loads((self.tmp / "runs/t5/state.json").read_text())["input_tokens"])
+        # 고정: 무릎을 안쪽으로 5cm 옮겨 고정하면 그 자리에 정확히 온다
+        knee = list(targets["shin.L"]["head"]); knee[0] -= 0.05
+        pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t6", quiet=True, no_judge=True,
+                     targets_file=str(self.tmp / "runs/t4/targets.json"), pins={"shin.L": {"head": knee}})
+        st = json.loads((self.tmp / "runs/t6/rig_stats.json").read_text())["stats"]
+        self.assertEqual(["shin.L"], st["pin_applied"], st)
+        got = blender.run_script("dump_bones", {"blend": str(self.tmp / "runs/t6/02_rigged.blend"), "names": ["DEF-shin.L"]},
+                                 {}, self.tmp / "logs")["bones"]["DEF-shin.L"]["head"]
+        for want, real in zip(knee, got):
+            self.assertAlmostEqual(want, real, places=3, msg=f"고정 좌표 {knee} → 실제 {got}")
+        self.assertGreater(st["symmetry_max_error"], 0.03)   # 한쪽만 고정했으니 대칭 게이트가 잡아야 한다
 
     def test_motion_bvh_import(self):
         bvh = self.tmp / "tiny.bvh"

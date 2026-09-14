@@ -22,15 +22,9 @@ for i in range(bands):
         neg = [x for x in xs if x < 0]; pos = [x for x in xs if x > 0]
         if neg and pos: gap = min(pos) - max(neg)
     rows.append({"z": round((z0 + z1) / 2, 3), "width": round(xs[-1] - xs[0], 3), "left": round(xs[0], 3), "right": round(xs[-1], 3), "gap": round(max(gap, 0), 3)})
-# 후보: 가장 넓은 띠(상단 45% 안) = 어깨/팔 높이, 갈라짐이 시작되는 띠 = 가랑이
-top = [r for r in rows if r["z"] > zmin + H * 0.55]
-shoulder = max(top, key=lambda r: r["width"]) if top else rows[-1]
-# 가랑이: 실루엣이 둘로 갈라진 띠 중 가장 높은 것(아래에서 첫 띠를 잡으면 두 발 사이 틈을 가랑이로 오인한다)
-split = [r for r in rows if r["gap"] > max(0.02, spacing_gap) and r["z"] < zmin + H * 0.6]   # 격자 간격만큼의 틈은 갈라진 게 아니다
-crotch = max(split, key=lambda r: r["z"]) if split else None
 sym = sum(abs(r["left"] + r["right"]) for r in rows) / max(1, len(rows))
-# 몸통 반폭: 각 띠에서 x 를 정렬해 0.02 이상 벌어진 곳을 끊으면 구간이 나온다. 0 을 품은 가운데 구간이 몸통, 바깥 구간이 팔이다
-cz = crotch["z"] if crotch else zmin + H * 0.47
+fallbacks = []   # 메시 증거로 못 찾아 인체 비율로 때운 항목(보고서에 남긴다)
+# 몸통 반폭: 각 띠에서 x 를 정렬해 일정 간격 이상 벌어진 곳을 끊으면 구간이 나온다. 0 을 품은 가운데 구간이 몸통, 바깥 구간이 팔이다.
 # 끊는 간격은 정점 간격(중앙값 변 길이)의 2.5배 이상이어야 한다. 복셀 리메시처럼 정점이 3cm 격자면 2cm 기준으로는 모든 정점이 따로 끊긴다
 el = sorted((obj.data.vertices[e.vertices[0]].co - obj.data.vertices[e.vertices[1]].co).length for e in obj.data.edges[:4000])
 spacing = el[len(el) // 2] if el else 0.01; gap_thr = max(0.02, spacing * 2.5)
@@ -40,22 +34,44 @@ def segments(z0, z1):
         if segs and x - segs[-1][1] <= gap_thr: segs[-1][1] = x
         else: segs.append([x, x])
     return segs
-center_hw = []
 for r in rows:
     segs = segments(r["z"] - H / bands / 2, r["z"] + H / bands / 2)
-    mid = [sg for sg in segs if sg[0] <= 0 <= sg[1]] or ([min(segs, key=lambda sg: min(abs(sg[0]), abs(sg[1])))] if segs else [])
+    # 가운데를 품은 구간: 정점 간격만큼의 여유를 준다(저폴리 단면은 x=0 근처에 정점이 없을 수 있다)
+    tol = gap_thr * 0.5
+    mid = [sg for sg in segs if sg[0] <= tol and sg[1] >= -tol]
+    # 가운데 구간이 없으면 몸이 좌우로 갈라진 띠다(다리). 팔이 벌어진 띠는 가운데 몸통 구간이 남아 있어 구분된다
+    r["center_split"] = len(segs) >= 2 and not mid
+    if not mid: mid = [min(segs, key=lambda sg: min(abs(sg[0]), abs(sg[1])))] if segs else []
     r["torso_hw"] = round((mid[0][1] - mid[0][0]) / 2, 3) if mid else 0
     r["arm_segments"] = len(segs) - 1
-    if cz + H * 0.05 < r["z"] < zmin + H * 0.85 and r["torso_hw"] > 0: center_hw.append(r["torso_hw"])
-center_hw.sort(); torso_hw = round(center_hw[len(center_hw) // 4], 3) if center_hw else round(st["width"] / 6, 3)   # 하위 25%: 팔이 붙는 띠는 넓게 나온다
+# 가랑이 = 바닥에서 이어지는 "갈라진 띠 구간"의 꼭대기. 다리는 바닥까지 계속 갈라져 있으므로,
+# 어떤 띠까지 볼 때 갈라진 띠 비율이 60% 아래로 떨어지면 거기서 끊는다. 저폴리 단면이 한두 띠 튀어도 견딘다(높이 상수 없음)
+split = [r for r in rows if r["center_split"]]
+crotch = None
+DENSITY = 0.5   # 다리 띠의 절반 이상이 갈라져 있어야 "다리 구간"으로 본다
+if split:
+    lo_i = rows.index(split[0]); seen = 0
+    for i in range(lo_i, len(rows)):
+        if rows[i]["center_split"]:
+            seen += 1
+            if seen / (i - lo_i + 1) >= DENSITY: crotch = rows[i]
+        elif seen and seen / (i - lo_i + 1) < DENSITY: break
+if crotch is None: fallbacks.append("crotch")
+cz = crotch["z"] if crotch else zmin + H * 0.47
+
+def torso_percentile(lo, hi):
+    """구간 안 띠들의 몸통 반폭 하위 25%(팔이 붙는 띠는 넓게 나오므로 중앙값 대신 하위값)"""
+    v = sorted(r["torso_hw"] for r in rows if lo < r["z"] < hi and r["torso_hw"] > 0)
+    return round(v[len(v) // 4], 3) if v else round(st["width"] / 6, 3)
+torso_hw = torso_percentile(cz, zmax)   # 1차: 가랑이 위 전체
 # 팔이 있는 띠: 몸통 밖 구간이 따로 있거나(A 포즈), 한 덩어리지만 몸통보다 2.6배 넓다(T 포즈, 어깨 높이)
-arm_rows = [r for r in rows if zmin + H * 0.45 < r["z"] < zmax - H * 0.08 and (r["arm_segments"] > 0 or r["width"] > torso_hw * 2 * 2.6)]
+arm_rows = [r for r in rows if r["z"] > cz and (r["arm_segments"] > 0 or r["width"] > torso_hw * 2 * 2.6)]
 tip = max(arm_rows, key=lambda r: r["right"]) if arm_rows else shoulder
 if arm_rows:   # 어깨 높이는 팔이 처음 나타나는(가장 높은) 띠
     shoulder = max(arm_rows, key=lambda r: r["z"])
 # 팔 중심선: 몸통 밖 정점을 어깨점→팔끝 방향으로 8칸에 나눠 칸마다 무게중심·반지름을 잰다(팔꿈치·손목을 중심선 위에 두기 위한 표본)
 def arm_axis(sign):
-    pts = [v for v in vs if v.x * sign > torso_hw + spacing * 0.5 and v.z > cz + H * 0.05]
+    pts = [v for v in vs if v.x * sign > torso_hw + spacing * 0.5 and v.z > cz]
     if len(pts) < 20: return []
     S = Vector((sign * torso_hw, sum(v.y for v in pts) / len(pts), shoulder["z"])); Tp = Vector((sign * tip["right"], S.y, tip["z"]))
     out = []
@@ -91,13 +107,110 @@ roots = [ax[0] for ax in axes.values() if ax]
 if roots:
     sz = sum(p[2] for p in roots) / len(roots)
     shoulder = min(rows, key=lambda r: abs(r["z"] - sz)); shoulder = dict(shoulder, z=round(sz, 3))
+# 2차 몸통 반폭: 어깨 아래~가랑이 위 구간만 본다(머리·팔이 섞이지 않는다)
+torso_hw = torso_percentile(cz, shoulder["z"])
+
+# 다리 중심선: 팔과 같은 방식으로 가랑이 아래를 세로로 8칸 나눠 칸마다 무게중심·반지름·앞뒤 길이를 잰다.
+# 무릎·발목을 "키의 몇 %" 가 아니라 이 프로필의 모양으로 찾는다
+def leg_axis(sign):
+    pts = [v for v in vs if v.z < cz and v.x * sign > spacing * 0.5]
+    if len(pts) < 20: return []
+    lo, hi = min(v.z for v in pts), cz; out = []
+    for i in range(8):
+        z0, z1 = lo + (hi - lo) * i / 8, lo + (hi - lo) * (i + 1) / 8
+        sel = [v for v in pts if z0 <= v.z < z1]
+        if len(sel) < 6: continue
+        c = sum(sel, Vector()) / len(sel)
+        rad = sum(((v - c) - Vector((0, 0, v.z - c.z))).length for v in sel) / len(sel)
+        out.append([round(c.x, 3), round(c.y, 3), round(c.z, 3), round(rad, 3), round(max(v.y for v in sel) - min(v.y for v in sel), 3)])
+    return out
+legs = {"leg_axis_L": leg_axis(1), "leg_axis_R": leg_axis(-1)}
+prof = legs["leg_axis_L"] or legs["leg_axis_R"]
+
+# 발목 = 발 덩어리의 꼭대기. "발"은 다리 중심선에서 앞뒤(y)로 굵기의 1.5배 넘게 튀어나온 점들이다(발끝·발등).
+# 부츠를 신어도 발끝은 앞으로 튀어나오므로 신발 종류와 무관하다
+def radius_at(z):
+    if not prof: return 0.0
+    lo, hi = prof[0], prof[-1]
+    if z <= lo[2]: return lo[3]
+    if z >= hi[2]: return hi[3]
+    for i in range(len(prof) - 1):
+        a, b = prof[i], prof[i + 1]
+        if a[2] <= z <= b[2]:
+            t = (z - a[2]) / (b[2] - a[2]) if b[2] > a[2] else 0
+            return a[3] + (b[3] - a[3]) * t
+    return hi[3]
+def center_y_at(z):
+    if not prof: return 0.0
+    for i in range(len(prof) - 1):
+        a, b = prof[i], prof[i + 1]
+        if a[2] <= z <= b[2]:
+            t = (z - a[2]) / (b[2] - a[2]) if b[2] > a[2] else 0
+            return a[1] + (b[1] - a[1]) * t
+    return prof[-1][1]
+foot_z = []
+for v in vs:
+    if v.z >= cz: continue
+    r = radius_at(v.z)
+    if r > 0 and abs(v.y - center_y_at(v.z)) > r * 1.5: foot_z.append(v.z)
+foot_z.sort()
+ankle_z = round(foot_z[int(len(foot_z) * 0.97)], 3) if len(foot_z) >= 10 else None
+if ankle_z is None or ankle_z > cz * 0.5:
+    ankle_z = zmin + H * 0.05; fallbacks.append("ankle")   # 최후 폴백(인체 비율)
+
+# 무릎 = 엉덩관절과 발목의 중간. 이건 사람 키 비례가 아니라 "두 마디 팔다리는 위·아래 마디 길이가 비슷하다"는 구조 사실이다
+# (넓다리뼈 ≈ 정강뼈). 그 근처에서 다리가 가장 잘록한 칸이 있으면 그쪽으로 붙인다
+knee_z = None   # 엉덩관절 계산 뒤에 채운다
+
+# 엉덩관절: 가랑이보다 허벅지 굵기만큼 위(넙다리뼈 머리 위치). 키 비례가 아니라 다리 굵기 기준이다
+thigh_r = max((sg[3] for sg in prof if sg[2] > (ankle_z + cz) / 2), default=0)
+hip_z = round(cz + thigh_r, 3) if thigh_r else round(cz + H * 0.05, 3)
+if not thigh_r: fallbacks.append("hip")
+
+leg_len = hip_z - ankle_z
+mid_knee = (hip_z + ankle_z) / 2
+near = [sg for sg in prof if abs(sg[2] - mid_knee) < leg_len * 0.15]
+if len(near) >= 3:   # 중간 근처에서 가장 가는 칸(무릎)으로 보정
+    knee_z = round(min(near, key=lambda sg: sg[3])[2], 3)
+else:
+    knee_z = round(mid_knee, 3)
+    if not prof: fallbacks.append("knee")
+
+# 목: 어깨 위에서 몸통 반폭이 가장 좁아지는 띠. 머리가 크면 그 위에서 다시 넓어지므로 전환점이 곧 목이다
+# 목 = 어깨 위에서 몸통 반폭이 가장 좁은 띠. 정수리는 항상 좁아지므로 맨 위 두 띠는 후보에서 뺀다.
+# 머리가 크면 목 위에서 폭이 다시 넓어지고, 그 최소점이 곧 목이다(키의 몇 % 라는 가정 없음)
+above = [r for r in rows if r["z"] > shoulder["z"] and r["torso_hw"] > 0]
+neck_z = None
+if len(above) >= 4:
+    cand = above[:-2]
+    m = min(cand, key=lambda r: r["torso_hw"])
+    if any(r["torso_hw"] > m["torso_hw"] * 1.1 for r in above if r["z"] > m["z"]):   # 그 위에 머리 덩어리가 있어야 목이다
+        neck_z = m["z"]
+if neck_z is None:
+    neck_z = round(zmax - H * 0.12, 3); fallbacks.append("neck")
+
+head_len = round(zmax - neck_z, 3)
+# 머리 폭: 목 위 띠들의 최대 몸통 반폭(목 추정이 폴백이면 이 값도 못 믿는다)
+upper_hw = max((r["torso_hw"] for r in rows if r["z"] > neck_z), default=0)
+# 치비 판정은 목을 메시 증거로 찾았을 때만 한다. 못 찾았으면 "모름"(None) — 추측해서 단정하지 않는다
+neck_ok = "neck" not in fallbacks
+chibi = bool(head_len / H > 0.35) if neck_ok else None
+# 분석 신뢰도: 하나라도 걸리면 결과를 믿지 말고 --pin 으로 관절을 고정하라고 알린다
+suspect = []
+if not neck_ok: suspect.append("목 추정 실패")
+if not (axes["arm_axis_L"] and axes["arm_axis_R"]): suspect.append("팔 중심선 없음")
+if not (legs["leg_axis_L"] and legs["leg_axis_R"]): suspect.append("다리 중심선 없음")
+if fallbacks: suspect.append("인체 비율 폴백: " + ",".join(fallbacks))
+if chibi: suspect.append("치비 비율(머리가 키의 35% 초과)")
 land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 3),
         "shoulder_z": shoulder["z"], "shoulder_halfwidth": round(shoulder["width"] / 2, 3),
-        "crotch_z": crotch["z"] if crotch else round(zmin + H * 0.47, 3),
-        "hip_z": round((crotch["z"] if crotch else zmin + H * 0.47) + H * 0.05, 3),
-        "knee_z": round(zmin + H * 0.05 + (crotch["z"] - zmin - H * 0.05) * 0.5, 3) if crotch else round(zmin + H * 0.26, 3),
-        "ankle_z": round(zmin + H * 0.05, 3), "head_top_z": round(zmax, 3), "neck_z": round(zmax - H * 0.12, 3),
+        "crotch_z": round(cz, 3), "hip_z": hip_z, "knee_z": round(knee_z, 3), "ankle_z": round(ankle_z, 3),
+        "head_top_z": round(zmax, 3), "neck_z": round(neck_z, 3), "head_length": head_len,
+        "head_ratio": round(head_len / H, 3), "head_halfwidth": round(upper_hw, 3), "chibi": chibi, "suspect": suspect,
+        "neck_from": "fallback" if "neck" in fallbacks else "evidence",
         "torso_halfwidth": torso_hw, "arm_tip_x": tip["right"], "arm_tip_z": tip["z"],
-        "vertex_spacing": round(spacing, 4), "symmetry_error": round(sym, 3), "pose_guess": "A" if tip["z"] < shoulder["z"] - H * 0.05 else "T", **axes}
+        "vertex_spacing": round(spacing, 4), "symmetry_error": round(sym, 3),
+        "pose_guess": "A" if tip["z"] < shoulder["z"] - (shoulder["z"] - cz) * 0.15 else "T",
+        "ratio_fallbacks": fallbacks, **axes, **legs}
 bpy.ops.wm.save_as_mainfile(filepath=A["blend"])
 done({"stats": st, "bands": rows, "landmarks": land, "blend": A["blend"]}, A["result"])

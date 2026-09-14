@@ -43,6 +43,9 @@ def main() -> int:
     r.add_argument("mesh"); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
     r.add_argument("--run-id"); r.add_argument("--lang", choices=["ko", "en"]); r.add_argument("--budget", type=int)
     r.add_argument("--no-judge", action="store_true", help="시각 판정(모델 호출) 생략"); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help="캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤"); r.add_argument("--quiet", action="store_true")
+    r.add_argument("--pin", action="append", metavar="본=x,y,z[/x,y,z]",
+                   help="관절을 직접 고정한다. 예: --pin spine.004=0,0,1.42 (머리만), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (머리/꼬리). 여러 번 쓸 수 있다")
+    r.add_argument("--targets", metavar="targets.json", help="이전 실행의 targets.json 을 그대로 쓴다(모델 호출 0회, 토큰 0)")
     m = sub.add_parser("motion", help="텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다")
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
     d = sub.add_parser("demo", help="리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0")
@@ -64,9 +67,26 @@ def main() -> int:
         for rid in ids:
             s = json.loads((runs / rid / "state.json").read_text()); print(f"{rid}: {s['step']} {s['status']} · in {s.get('input_tokens', 0):,}")
         return 0
+    def parse_pins(items):
+        """--pin 본=x,y,z[/x,y,z] → {"본": {"head": [...], "tail": [...]}}"""
+        out = {}
+        for it in items or []:
+            if "=" not in it:
+                raise SystemExit(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)")
+            name, rest = it.split("=", 1); parts = rest.split("/")
+            try:
+                v = {"head": [float(x) for x in parts[0].split(",")]}
+                if len(parts) > 1: v["tail"] = [float(x) for x in parts[1].split(",")]
+            except ValueError:
+                raise SystemExit(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로)")
+            if len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3:
+                raise SystemExit(f"--pin 좌표는 x,y,z 세 개다: {it}")
+            out[name.strip()] = v
+        return out
+
     try:
         if a.cmd == "rig":
-            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing)
+            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets)
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:

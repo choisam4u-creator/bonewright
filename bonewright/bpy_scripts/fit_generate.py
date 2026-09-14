@@ -72,19 +72,37 @@ def nearest_on_axis(pt, ax):
         q = a + ab * k; d = (pt - q).length; r = ax[i][3] + (ax[i + 1][3] - ax[i][3]) * k
         if best is None or d < best[0]: best = (d, q, r)
     return best
+PINNED = set(A.get("pinned") or [])   # 사용자가 --pin 으로 직접 고정한 본은 어떤 보정도 건드리지 않는다
 for side in ("L", "R"):
     ax = L.get(f"arm_axis_{side}") or []
     if len(ax) < 3: continue
     for up, low in ((f"upper_arm.{side}", f"forearm.{side}"), (f"forearm.{side}", f"hand.{side}")):
-        if up in eb and low in eb:
+        if up in eb and low in eb and low not in PINNED and up not in PINNED:
             d, q, r = nearest_on_axis(eb[low].head, ax)
             if d > r * 0.5:
+                eb[low].head = q; eb[up].tail = q; axis_snapped.append(low)
+# 다리: 팔과 달리 거의 수직이므로 높이(z)는 그대로 두고 좌우·앞뒤(x, y)만 다리 중심선으로 맞춘다
+for side in ("L", "R"):
+    lax = L.get(f"leg_axis_{side}") or []
+    if len(lax) < 3: continue
+    def leg_center(z):
+        for i in range(len(lax) - 1):
+            a, b = lax[i], lax[i + 1]
+            if a[2] <= z <= b[2]:
+                t = (z - a[2]) / (b[2] - a[2]) if b[2] > a[2] else 0
+                return Vector((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, z)), a[3] + (b[3] - a[3]) * t
+        near = lax[0] if z < lax[0][2] else lax[-1]
+        return Vector((near[0], near[1], z)), near[3]
+    for up, low in ((f"thigh.{side}", f"shin.{side}"), (f"shin.{side}", f"foot.{side}")):
+        if up in eb and low in eb and low not in PINNED and up not in PINNED:
+            q, r = leg_center(eb[low].head.z)
+            if r > 0 and (eb[low].head - q).length > r * 0.6:
                 eb[low].head = q; eb[up].tail = q; axis_snapped.append(low)
 # 보정 2: 목표에 없는 자식 본(손가락·발가락·뒤꿈치)은 가장 가까운 목표 조상 본의 이동(평행이동+회전+길이 비율)을 그대로 따른다.
 # 이걸 안 하면 손가락이 메타리그 기본 위치에 남아 메시 밖에 뜬다
 propagated = []
 for b in list(eb):
-    if b.name in before: continue
+    if b.name in before or b.name in PINNED: continue
     anc = b.parent
     while anc is not None and anc.name not in before: anc = anc.parent
     if anc is None or anc.name.startswith("spine"): continue   # 척추 목표의 길이 비율을 상체 전체에 번지게 하지 않는다(팔다리·손발 하위만)
@@ -135,7 +153,7 @@ def pull_inside(p, inset=0.012):
 snapped_inside = []
 skip_inside = {b.name for h in ("hand.L", "hand.R") if h in eb for b in eb if any(pb.name == h for pb in b.parent_recursive)}
 for b in list(eb):
-    if b.name in skip_inside: continue   # 손가락: 보정 3 이 손 실루엣 안으로 넣었다. 부피 메시(복셀 1.2cm)는 손가락을 뭉개서 잘못 당긴다
+    if b.name in skip_inside or b.name in PINNED: continue   # 손가락: 보정 3 이 손 실루엣 안으로 넣었다. 부피 메시(복셀 1.2cm)는 손가락을 뭉개서 잘못 당긴다
     for attr in ("head", "tail"):
         q, moved_pt = pull_inside(getattr(b, attr))
         if moved_pt: setattr(b, attr, q); snapped_inside.append(f"{b.name}.{attr}")
@@ -158,6 +176,21 @@ rejoined = []
 for b in sorted(eb, key=lambda b: len(b.parent_recursive)):
     if b.name in joined and b.parent and (b.head - b.parent.tail).length > 1e-5:
         b.head = b.parent.tail.copy(); rejoined.append(b.name)
+# 고정(pin)은 마지막에 다시 적용한다: 중간 보정(사슬 재결합·길이·굽힘)이 건드렸을 수 있다. 사용자가 찍은 값이 최종 결정권을 갖는다
+pin_applied = []
+for name in sorted(PINNED):
+    t = T.get(name)
+    if not t or name not in eb: continue
+    b = eb[name]
+    if "head" in t:
+        b.head = Vector(t["head"])
+        if name in joined and b.parent: b.parent.tail = b.head.copy()   # 붙어 있던 사슬은 같이 따라간다
+    if "tail" in t:
+        b.tail = Vector(t["tail"])
+        for ch in b.children:
+            if ch.name in joined: ch.head = b.tail.copy()
+    pin_applied.append(name)
+
 # 진단: 부모 tail 과 어긋난 본을 로그에 남긴다(Rigify 사슬 오류 추적용)
 for b in eb:
     if b.parent and (b.head - b.parent.tail).length > 1e-5 and (b.name in joined or b.use_connect):
@@ -250,7 +283,7 @@ deform_outside_mesh = sorted({b.name for b in _check for pt in (b.head_local, b.
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])

@@ -81,7 +81,7 @@ class Run:
 
 
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
-        budget: int | None = None, no_judge: bool = False, facing: str = "auto") -> Path:
+        budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None) -> Path:
     cfg = load(root, lang)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
@@ -94,19 +94,34 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing})
     atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
     _log(quiet, f"[1/6] import: {a['stats'].get('import')}")
+    if a["landmarks"].get("suspect"):
+        _log(quiet, f"  ⚠ 분석을 믿기 어렵다: {'; '.join(a['landmarks']['suspect'])} → 결과가 나쁘면 `--pin 본=x,y,z` 로 관절을 직접 고정하고 재시도하라")
     _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
-    # 2 맞춤 판단(모델)
+    # 2 맞춤 판단(모델). --targets 가 있으면 모델을 부르지 않는다(토큰 0)
     r.state("fit", "running")
-    meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
-    fit = r.call("fit", "fit", {"analysis.json": json.dumps({"stats": a["stats"], "landmarks": a["landmarks"], "bands": a["bands"][::2]}, ensure_ascii=False),
-                               "metarig_bones.json": json.dumps(meta["bones"], ensure_ascii=False)}, schemas.FIT)
-    fit["targets"] = {t["name"]: {"head": t["head"], "tail": t["tail"]} for t in fit["targets"]}   # 배열 → 이름별 dict
+    pins = dict(pins or {})
+    if targets_file:
+        fit = {"targets": json.loads(Path(targets_file).read_text(encoding="utf-8")), "reasoning": f"재사용: {targets_file}", "confidence": None}
+        _log(quiet, f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회")
+    else:
+        meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
+        inputs = {"analysis.json": json.dumps({"stats": a["stats"], "landmarks": a["landmarks"], "bands": a["bands"][::2]}, ensure_ascii=False),
+                  "metarig_bones.json": json.dumps(meta["bones"], ensure_ascii=False)}
+        if pins:
+            inputs["pins.json"] = json.dumps(pins, ensure_ascii=False)
+        fit = r.call("fit", "fit", inputs, schemas.FIT)
+        fit["targets"] = {t["name"]: {"head": t["head"], "tail": t["tail"]} for t in fit["targets"]}   # 배열 → 이름별 dict
+        _log(quiet, f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}")
+    for name, v in pins.items():   # 사용자가 고정한 관절이 최종 결정권을 갖는다
+        fit["targets"].setdefault(name, {}).update(v)
+    if pins:
+        _log(quiet, f"  📌 고정된 관절 {len(pins)}개: {', '.join(sorted(pins))}")
     atomic_write(r.dir / "fit.json", json.dumps(fit, ensure_ascii=False, indent=2))
-    _log(quiet, f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}")
+    atomic_write(r.dir / "targets.json", json.dumps(fit["targets"], ensure_ascii=False, indent=2))   # 손으로 고쳐 --targets 로 재사용
     # 3 생성·스키닝·통계
     r.state("generate", "running")
     g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": preset,
-                                   "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"]})
+                                   "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins)})
     atomic_write(r.dir / "rig_stats.json", json.dumps(g, ensure_ascii=False, indent=2))
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']} · 상자 밖 {len(st['bones_outside_bbox'])}")
@@ -130,11 +145,13 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     report = [f"# bonewright rig report · {run_id}", "",
               f"- mesh: `{mesh}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
               f"- import: {json.dumps(a['stats'].get('import'), ensure_ascii=False)}",
+              f"- landmarks: chibi={a['landmarks'].get('chibi')} · head_ratio={a['landmarks'].get('head_ratio')} · neck={a['landmarks'].get('neck_from')} · suspect={a['landmarks'].get('suspect')}",
               f"- rig: `{g['blend']}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
               f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
               f"- gates: {'PASS' if not fails else 'FAIL: ' + '; '.join(fails)}",
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
+              f"- targets: `{r.dir / 'targets.json'}` (손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)" + (f" · 고정 {sorted(pins)}" if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
     r.state("final", status)
