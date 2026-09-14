@@ -61,9 +61,15 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False):
         m.parent = None; m.matrix_world = mw
     dropped = [o.name for o in new if o.type == "MESH" and o not in meshes]
     keep = set(meshes) | (set(arms) if keep_armature else set())
+    # glTF 가져오기는 Y-up → Z-up 회전을 '루트 엠프티'에 넣는다. 그 엠프티를 지우면 자식(아마추어)이 옛 축에 남는다
+    # (벤치마크에서 mannequiny 정답 뼈대가 통째로 90도 누워 153cm 오차로 나왔다) → 지우기 전에 월드 행렬을 떠 둔다
+    saved = {a.name: a.matrix_world.copy() for a in arms} if keep_armature else {}
     for o in list(new):
         if o.name in bpy.data.objects and o not in keep:
             bpy.data.objects.remove(o)
+    for a in (arms if keep_armature else []):
+        if a.name in bpy.data.objects:
+            a.parent = None; a.matrix_world = saved[a.name]
     bpy.ops.object.select_all(action="DESELECT")
     for m in meshes:
         m.select_set(True)

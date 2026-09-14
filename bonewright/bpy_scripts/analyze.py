@@ -64,6 +64,9 @@ def torso_percentile(lo, hi):
     v = sorted(r["torso_hw"] for r in rows if lo < r["z"] < hi and r["torso_hw"] > 0)
     return round(v[len(v) // 4], 3) if v else round(st["width"] / 6, 3)
 torso_hw = torso_percentile(cz, zmax)   # 1차: 가랑이 위 전체
+# 어깨 기본값: 팔을 못 찾는 메시(사족·상자·팔 없는 캐릭터)에서도 죽지 않게 가랑이 위에서 가장 넓은 띠를 쓴다.
+# v0.2 에서 이 기본값이 빠져 여우·RiggedFigure·RobotExpressive 분석이 NameError 로 죽었다(벤치마크가 잡음)
+shoulder = max([r for r in rows if r["z"] > cz] or rows, key=lambda r: r["width"])
 # 팔이 있는 띠: 몸통 밖 구간이 따로 있거나(A 포즈), 한 덩어리지만 몸통보다 2.6배 넓다(T 포즈, 어깨 높이)
 arm_rows = [r for r in rows if r["z"] > cz and (r["arm_segments"] > 0 or r["width"] > torso_hw * 2 * 2.6)]
 tip = max(arm_rows, key=lambda r: r["right"]) if arm_rows else shoulder

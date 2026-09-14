@@ -15,16 +15,17 @@ from .manifest import atomic_write
 
 # 우리 변형 본 → 원본 뼈대 이름 후보(정규화된 핵심 이름). 앞에서부터 우선 매칭
 JOINT_MAP = {
-    "spine": ["hips", "pelvis"],
+    "spine": ["hips", "hip", "pelvis"],   # Godot 데모는 단수형 hip 을 쓴다
     "spine.004": ["neck"],
     "spine.006": ["head"],
     "shoulder": ["shoulder", "clavicle"],
-    "upper_arm": ["upperarm", "arm"],
-    "forearm": ["lowerarm", "forearm"],
-    "hand": ["wrist", "hand"],
-    "thigh": ["upperleg", "upleg", "thigh"],
-    "shin": ["lowerleg", "leg", "shin", "calf"],
-    "foot": ["foot", "ankle"],
+    # 숫자 체인 규약(CesiumMan 의 arm_joint_L_1/2/3)은 번호로 어깨·팔꿈치·손목을 구분한다 → 번호 붙은 후보를 먼저 본다
+    "upper_arm": ["upperarm", "armjoint1", "arm1", "arm"],
+    "forearm": ["lowerarm", "forearm", "armjoint2", "arm2"],
+    "hand": ["wrist", "hand", "armjoint3", "arm3"],
+    "thigh": ["upperleg", "upleg", "thigh", "legjoint1", "leg1"],
+    "shin": ["lowerleg", "shin", "calf", "legjoint2", "leg2", "leg"],
+    "foot": ["foot", "ankle", "legjoint3", "leg3"],
 }
 SIDED = ("shoulder", "upper_arm", "forearm", "hand", "thigh", "shin", "foot")
 
@@ -33,21 +34,27 @@ def _norm(name: str) -> tuple[str, str | None]:
     """'mixamorig:LeftForeArm' → ('forearm', 'L'), 'UpperLeg.R' → ('upperleg', 'R')"""
     n = name.lower().split(":")[-1]
     side = None
-    for pat, s in ((r"[._-]l$", "L"), (r"[._-]r$", "R"), (r"^left", "L"), (r"^right", "R"),
-                   (r"left", "L"), (r"right", "R"), (r"[._-]l[._-]", "L"), (r"[._-]r[._-]", "R")):
+    n = re.sub(r"[._-]?\d+$", "", n)   # 끝의 번호는 의미 없다(b_LeftUpperArm_09)
+    for pat, s in ((r"[._-]l$", "L"), (r"[._-]r$", "R"), (r"^l[._-]", "L"), (r"^r[._-]", "R"),
+                   (r"^left", "L"), (r"^right", "R"), (r"left", "L"), (r"right", "R"),
+                   (r"[._-]l[._-]", "L"), (r"[._-]r[._-]", "R")):
         if re.search(pat, n):
             side = s; n = re.sub(pat, "", n); break
     return re.sub(r"[^a-z]", "", n), side
 
 
 KEYWORDS = {k for v in JOINT_MAP.values() for k in v}
-PREFIXES = ("mixamorig", "valvebiped", "bip01", "bip", "def", "org", "ctrl", "j", "cc", "ch", "character", "root")
+PREFIXES = ("mixamorig", "valvebiped", "bip01", "bip", "def", "org", "ctrl", "skeleton", "b", "j", "cc", "ch", "character", "root")
+DECOR = ("joint", "jnt", "bind", "bone", "ctrl", "skin")   # 뼈 이름에 붙는 장식어
 
 
 def _cores(core: str) -> set[str]:
     """리그마다 붙이는 접두사를 벗긴다. 벗긴 결과가 우리가 아는 관절 이름일 때만 인정한다
     (예: Bip01_L_UpperArm → bipupperarm → upperarm, VRM 의 J_Bip_L_UpperArm → jbipupperarm → upperarm)"""
     out = {core}
+    for d in DECOR:
+        if core.endswith(d) and len(core) - len(d) >= 3: out.add(core[:-len(d)])
+        if core.startswith(d) and len(core) - len(d) >= 3: out.add(core[len(d):])
     for _ in range(3):   # 접두사가 겹쳐 붙은 경우(J_Bip_L_...)까지 단계적으로 벗긴다
         for c in list(out):
             for pre in PREFIXES:
@@ -62,8 +69,12 @@ def _gt_lookup(joints: dict) -> dict:
     out = {}
     for name, v in joints.items():
         core, side = _norm(name)
+        m = re.search(r"(\d+)$", name)   # 끝 번호(체인 순서). 의미 없는 인덱스일 수도 있어 별도 키로만 등록한다
+        idx = str(int(m.group(1))) if m else ""
         for c in _cores(core):
             out.setdefault((c, side), v["head"])
+            if idx:
+                out.setdefault((c + idx, side), v["head"])
     return out
 
 
