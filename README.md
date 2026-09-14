@@ -112,6 +112,14 @@ The edge-stretch check caught a real bug: vertices that Bone Heat leaves unweigh
 A-pose mannequiny) stayed at their rest position while the character walked away, turning into 2 m rods. Unweighted
 vertices are now bound to the nearest deform bone, and the gate counts filled holes.
 
+## What counts as "the character" in a file
+
+Game files are rarely one clean mesh. When the file has an armature, bonewright takes the skinned meshes **plus parts
+rigidly parented to bones** (a robot's arm and head, a low-poly character's separate head), and drops everything else:
+furniture and walls in a scene export, the 42-vertex probe sphere many exporters leave at the origin, and anything
+parented to a hand or finger bone (weapons, tools). Armour attached to arm bones is skinned but ignored when locating
+joints, because it widens the silhouette. Files without an armature are used whole.
+
 ## How joints are found
 
 Landmarks come from mesh evidence, not from human body ratios: the crotch is the top of the run of bands where the

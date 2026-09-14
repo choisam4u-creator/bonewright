@@ -49,8 +49,27 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
     bpy.context.view_layer.update()
     meshes = [o for o in new if o.type == "MESH"]
     skinned = [m for m in meshes if any(md.type == "ARMATURE" for md in m.modifiers)]
+    # 본에 통째로 붙은 부품(로봇 팔·머리, 저폴리 캐릭터의 머리)도 캐릭터다 — 스킨된 메시만 고르면 robot_expressive 는 손만,
+    # quat_pp_43j 는 머리 없이 리깅됐다(벤치 238%·머리 22cm 의 원인). 단 손·손가락 본에 붙은 것은 들고 있는 소품(총·칼)으로 보고 뺀다
+    HAND_WORDS = ("hand", "finger", "thumb", "index", "middle", "ring", "pinky", "palm", "wrist", "weapon", "socket", "prop", "grip")
+    def _held(m):
+        return m.parent_type == "BONE" and any(w in m.parent_bone.lower() for w in HAND_WORDS)
+    def _on_armature(m):
+        p = m.parent
+        while p is not None:
+            if p.type == "ARMATURE": return True
+            p = p.parent
+        return False
+    attached = [m for m in meshes if m not in skinned and _on_armature(m) and not _held(m)]
+    attached_names = [m.name for m in attached] if skinned else []   # join 뒤에는 오브젝트가 사라져 이름을 못 읽는다
+    # 팔에 붙은 부품(어깨 갑옷·팔 보호대)은 실루엣을 넓혀 팔 랜드마크를 밖으로 민다(quat_pp_43j 위팔 11→32cm). 스키닝에는 넣되
+    # 랜드마크 분석에서는 빼도록 정점 그룹 bw_attachment 로 표시한다(analyze 가 이 그룹 정점을 랜드마크에서 제외)
+    LIMB_WORDS = ("arm", "shoulder", "clavicle", "elbow")
+    for m in (attached if skinned else []):
+        if m.parent_type == "BONE" and any(w in m.parent_bone.lower() for w in LIMB_WORDS):
+            g = m.vertex_groups.new(name="bw_attachment"); g.add(list(range(len(m.data.vertices))), 1.0, "REPLACE")
     if skinned:
-        meshes = skinned   # 스킨된 메시가 있으면 그것만 캐릭터로 본다(내보내기가 남긴 보조 구체·프로브 제외)
+        meshes = skinned + attached   # 스킨된 메시가 있으면 그것과 본에 붙은 부품만 캐릭터로 본다(내보내기가 남긴 보조 구체·프로브·가구 제외)
     if not meshes:
         raise ValueError("메시 오브젝트가 없다")
     # 굽기: 모디파이어(아마추어 포함)를 적용하고 부모에서 떼어낸다 → 그 뒤 아마추어·엠프티·제외된 메시 삭제
@@ -118,7 +137,8 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
     # glTF/FBX/OBJ 는 면마다 정점이 갈라져 들어오는 경우가 많다 → 겹친 정점을 합쳐야 자동 가중치(Bone Heat)가 풀린다
     bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.remove_doubles(threshold=max(0.0001, H * 0.00005)); bpy.ops.object.mode_set(mode="OBJECT")
-    IMPORT_INFO.update({"meshes_used": len(meshes), "meshes_dropped": dropped[:10], "had_armature": len(arms), "unit_scale": unit,
+    IMPORT_INFO.update({"meshes_used": len(meshes), "meshes_attached": attached_names[:10],
+                        "meshes_dropped": dropped[:10], "had_armature": len(arms), "unit_scale": unit,
                         "offset_x": round(off_x, 4), "offset_y": round(off_y, 4), "ground_shift": True, "foot_direction_hint": hint, "facing": facing, "rotated_180": flip,
                         "matrix": [list(row) for row in M]})
     return obj

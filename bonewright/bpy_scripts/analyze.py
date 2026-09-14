@@ -5,7 +5,10 @@ from _common import args, done, fresh, import_mesh, mesh_stats, topology, IMPORT
 A = args(); fresh()
 QUAD = A.get("preset") == "quadruped"
 obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), quad=QUAD); st = mesh_stats(obj); st.update(topology(obj)); st["import"] = dict(IMPORT_INFO)
-vs = [obj.matrix_world @ v.co for v in obj.data.vertices]
+# 팔에 붙은 부품(bw_attachment 그룹)은 랜드마크 계산에서 뺀다 — 스키닝에는 그대로 들어간다
+_att = obj.vertex_groups.get("bw_attachment"); _ai = _att.index if _att else None
+vs = [obj.matrix_world @ v.co for v in obj.data.vertices if _ai is None or not any(g.group == _ai for g in v.groups)]
+st["attachment_verts"] = len(obj.data.vertices) - len(vs)
 zmin, zmax = st["min"][2], st["max"][2]; H = st["height"]
 el0 = sorted((obj.data.vertices[e.vertices[0]].co - obj.data.vertices[e.vertices[1]].co).length for e in obj.data.edges[:4000])
 spacing_gap = (el0[len(el0) // 2] if el0 else 0.01) * 1.5
