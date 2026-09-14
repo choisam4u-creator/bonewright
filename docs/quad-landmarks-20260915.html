@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사족 관절 찾기 · 2026-09-15</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b6660; --line:#e2ddd4;
+    --card:#ffffff; --ok:#1c6b3f; --ok-bg:#e8f5ee; --no:#9b2226; --no-bg:#fbeaea;
+    --warn:#8a5a00; --warn-bg:#fdf3e0; --code:#f3f0ea; --bar:#4a7c59; --bar2:#c9563f; --bar-bg:#ece7de;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+      --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+      --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#6fae84; --bar2:#e0705a; --bar-bg:#2b282f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+    --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+    --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#6fae84; --bar2:#e0705a; --bar-bg:#2b282f;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);margin:0;
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;line-height:1.3;margin:0 0 6px;letter-spacing:-.02em}
+  .date{color:var(--muted);font-size:14px;margin:0 0 36px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:28px 0 8px}
+  p{margin:0 0 14px}
+  .lead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--fg);
+    border-radius:10px;padding:20px 22px;margin:0 0 8px}
+  .lead p:last-child{margin-bottom:0}
+  .big{display:flex;gap:26px;flex-wrap:wrap;margin:18px 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;flex:1;min-width:150px}
+  .stat b{display:block;font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--muted);font-size:13px}
+  .tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:2px}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+  .scroll{overflow-x:auto}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+  th{font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bartrack{background:var(--bar-bg);border-radius:4px;overflow:hidden;min-width:60px;height:8px}
+  .bar{height:8px;background:var(--bar2);border-radius:4px}
+  .bar.good{background:var(--bar)}
+  code{background:var(--code);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{background:var(--code);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}
+  pre code{background:none;padding:0}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  .worse{color:var(--no);font-weight:600}
+  .better{color:var(--ok);font-weight:600}
+  .note{color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>사족 관절 찾기</h1>
+<p class="date">2026-09-15 · bonewright · 커밋 <code>2212cb6</code> · <code>BW_BACKEND=mock</code>(토큰 0)</p>
+
+<div class="lead">
+  <p><strong>결론: 사족 오차가 키 대비 45.4% → 33.3% 로 내려갔고, 실패하던 사슴도 이제 리깅된다.</strong></p>
+  <p>핵심은 <strong>욕심을 버린 것</strong>이다. 무릎·발목을 메시에서 찾으려던 두 번의 시도는 모두 실패했다
+  (오차 20~42%, 절반이 검출 실패). <strong>관절은 살 안쪽에 있어서 표면에서는 안 보인다</strong> — 늑대 고관절은 키의 66% 높이인데
+  다리가 몸에 합쳐지는 배는 그보다 한참 아래다.</p>
+  <p>그래서 <strong>확실히 잴 수 있는 것만 재기로</strong> 했다: <strong>발 네 개의 바닥 위치</strong>. 그리고 그 사이 관절은
+  <strong>Rigify 늑대 메타리그의 비율</strong>을 빌렸다 — 지어낸 상수가 아니라 실제 늑대를 본뜬 해부 모델이다.</p>
+  <p class="note">여전히 33.3%다. <strong>실용 수준은 아니다.</strong> 다만 방향이 맞았고, 남은 오차가 어디 있는지도 숫자로 보인다.</p>
+</div>
+
+<div class="big">
+  <div class="stat"><b class="better">33.3%</b><span>사족 11종 평균 (45.4% → )</span></div>
+  <div class="stat"><b>11/11</b><span>측정 성공 (10/11 → )</span></div>
+  <div class="stat"><b>2.6~7.7%</b><span>발 검출 오차 (정답 대조)</span></div>
+  <div class="stat"><b>변화 없음</b><span>사람형 17종 회귀</span></div>
+</div>
+
+<h2>1. 두 번 실패하고 배운 것</h2>
+<p>처음엔 관절을 직접 찾으려 했다. 두 번 다 안 됐고, 그 실패가 설계를 바꿨다.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>시도</th><th>방법</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>1차</td><td>다리 중심선을 따라가다 <strong>굵기가 급증하면</strong> 몸통으로 보고 멈춤</td><td><span class="worse">오차 12~36%</span> · 늑대에서 <strong>키의 20%에서 끊김</strong>(넓적다리가 발목보다 두꺼우니 다리 중간에서 멈춘다)</td></tr>
+<tr><td>2차</td><td>앞뒤 다리가 <strong>y 에서 합쳐지는 높이</strong>를 몸통으로 보고 멈춤</td><td><span class="worse">오차 20~42%</span> · 10종 중 <strong>3종만 성공</strong>(저폴리 다리는 얇은 칸에 점이 모자라 끊긴다)</td></tr>
+<tr><td>3차</td><td><strong>발 위치만</strong> 재고 관절 비율은 메타리그에서 가져옴</td><td><span class="better">발 오차 2.6~7.7%</span> · 10종 전부 성공</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>발 검출 정확도 (정답 뼈대의 IK 발 타깃과 대조)</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">오차(키 대비)</th><th style="width:220px">　</th></tr></thead>
+<tbody>
+<tr><td>Stag</td><td class="num">2.8%</td><td><div class="bartrack"><div class="bar good" style="width:36%"></div></div></td></tr>
+<tr><td>Donkey</td><td class="num">2.9%</td><td><div class="bartrack"><div class="bar good" style="width:38%"></div></div></td></tr>
+<tr><td>Husky</td><td class="num">3.1%</td><td><div class="bartrack"><div class="bar good" style="width:40%"></div></div></td></tr>
+<tr><td>Wolf</td><td class="num">3.1%</td><td><div class="bartrack"><div class="bar good" style="width:40%"></div></div></td></tr>
+<tr><td>Deer</td><td class="num">3.2%</td><td><div class="bartrack"><div class="bar good" style="width:42%"></div></div></td></tr>
+<tr><td>Horse</td><td class="num">3.3%</td><td><div class="bartrack"><div class="bar good" style="width:43%"></div></div></td></tr>
+<tr><td>Cow</td><td class="num">4.5%</td><td><div class="bartrack"><div class="bar good" style="width:58%"></div></div></td></tr>
+<tr><td>Bull</td><td class="num">5.1%</td><td><div class="bartrack"><div class="bar good" style="width:66%"></div></div></td></tr>
+<tr><td>Alpaca</td><td class="num">7.5%</td><td><div class="bartrack"><div class="bar" style="width:97%"></div></div></td></tr>
+<tr><td>ShibaInu <span class="note">(방향 고치기 전 22.5%)</span></td><td class="num">—</td><td><div class="bartrack"><div class="bar good" style="width:40%"></div></div></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>2. 곁다리로 잡은 버그 두 개</h2>
+
+<h3>시바견이 거꾸로 서 있었다</h3>
+<p>발 오차가 시바견만 <strong>22.5%</strong>였다. 열어보니 우리 "왼앞발"이 x=+0.29인데 정답은 <strong>x=−0.33</strong> — <strong>좌우가 뒤집혀</strong> 있었다.</p>
+<p>원인은 앞뒤 방향 판정이었다. 기존 규칙은 <strong>"발은 앞으로 뻗는다"</strong>(사람 기준)인데,
+네 발 동물은 <strong>앞뒤 양쪽에 발이 있어서</strong> 이 규칙이 흔들린다. 시바견은 +Y를 보고 서 있었는데 돌려세우지 못했다.</p>
+<p>규칙 후보 6개를 10종 정답과 대조해서 골랐다:</p>
+<pre><code>위25% 무게중심   10/10 맞음  ← 채택
+위10% 무게중심   10/10 맞음
+최고점          10/10 맞음
+배 위 무게중심    10/10 맞음
+끝단 높은 쪽      9/10 맞음  (허스키 실패)
+끝단 덩치 큰 쪽    1/10 맞음</code></pre>
+<p>"머리는 몸의 한쪽 끝 <strong>위</strong>에 붙는다" — 위쪽 점들의 앞뒤 무게중심이 몸 전체 평균에서 치우친 쪽이 앞이다.</p>
+
+<h3><code>DEF-spine</code>은 골반이 아니라 꼬리 밑동이었다</h3>
+<p>골반 오차가 <strong>102.6%</strong>로 압도적이었는데, 우리 잘못이 아니었다. Rigify 늑대 메타리그를 열어보니:</p>
+<pre><code>spine       y=+0.962   ← 꼬리 밑동
+spine.003   y=+0.408   ← 골반(고관절 y=+0.342 와 거의 같다)
+thigh.L     y=+0.342   ← 고관절</code></pre>
+<p>사람 메타리그에서는 <code>spine</code>이 골반이라 그대로 맞대고 있었다. <strong>사족에서는 <code>spine.003</code>이 골반이다.</strong>
+벤치 매핑을 고쳤다 — 이건 리깅 개선이 아니라 <strong>자를 고친 것</strong>이다.</p>
+
+<h2>3. 결과</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">q1 기준선</th><th class="num">q2 발 맞춤</th><th class="num">q4 몸 길이</th><th>변화</th></tr></thead>
+<tbody>
+<tr><td>Husky</td><td class="num">31.2%</td><td class="num">25.3%</td><td class="num"><strong>21.0%</strong></td><td class="better">−10.2</td></tr>
+<tr><td>ShibaInu</td><td class="num">56.5%</td><td class="num">29.1%</td><td class="num"><strong>24.6%</strong></td><td class="better">−31.9</td></tr>
+<tr><td>Donkey</td><td class="num">52.9%</td><td class="num">32.1%</td><td class="num"><strong>27.2%</strong></td><td class="better">−25.7</td></tr>
+<tr><td>Horse</td><td class="num">35.3%</td><td class="num">32.5%</td><td class="num"><strong>27.7%</strong></td><td class="better">−7.6</td></tr>
+<tr><td>Alpaca</td><td class="num">28.6%</td><td class="num">33.9%</td><td class="num"><strong>29.5%</strong></td><td class="worse">+0.9</td></tr>
+<tr><td>Deer</td><td class="num"><span class="worse">생성 실패</span></td><td class="num">34.6%</td><td class="num"><strong>29.8%</strong></td><td class="better">실패 해소</td></tr>
+<tr><td>Stag</td><td class="num">35.7%</td><td class="num">40.8%</td><td class="num"><strong>35.9%</strong></td><td class="worse">+0.2</td></tr>
+<tr><td>fox</td><td class="num">55.4%</td><td class="num">42.3%</td><td class="num"><strong>37.5%</strong></td><td class="better">−17.9</td></tr>
+<tr><td>Wolf</td><td class="num">49.5%</td><td class="num">48.0%</td><td class="num"><strong>43.1%</strong></td><td class="better">−6.4</td></tr>
+<tr><td>Cow</td><td class="num">54.3%</td><td class="num">49.2%</td><td class="num"><strong>44.4%</strong></td><td class="better">−9.9</td></tr>
+<tr><td>Bull</td><td class="num">54.3%</td><td class="num">50.6%</td><td class="num"><strong>45.8%</strong></td><td class="better">−8.5</td></tr>
+<tr><td><strong>평균</strong></td><td class="num">45.4%</td><td class="num">38.0%</td><td class="num"><strong>33.3%</strong></td><td class="better">−12.1</td></tr>
+</tbody>
+</table>
+</div>
+<p class="note">q2 = 발 위치에 다리 사슬 심기 · q4 = 거기에 몸 길이 맞추기(메타리그 앞발~뒷발 y 범위를 잰 값에 포갬) 추가.
+알파카·수사슴은 기준선과 사실상 같다(±1%p).</p>
+
+<h3>사람형은 그대로다</h3>
+<p><code>analyze</code>·<code>_common</code>·<code>mock</code>·<code>bench</code> 공용 코드를 건드렸으므로 사람형 17종을 다시 돌렸다.
+<strong>전 항목이 직전 실행과 숫자까지 동일하다</strong>(mannequiny 2.96cm, adventurer 6.08cm, modularmen 7.44/6.91cm …). 테스트 11개 통과.</p>
+
+<h2>4. 남은 오차는 어디 있나</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>관절</th><th class="num">평균 오차</th><th>읽는 법</th></tr></thead>
+<tbody>
+<tr><td><code>DEF-spine.003</code> 골반</td><td class="num">50.6%</td><td>가장 큼. 척추를 y 로만 옮기고 높이는 메타리그 그대로라 그렇다</td></tr>
+<tr><td><code>DEF-foot</code> 뒷발목(비절)</td><td class="num">44.3%</td><td>다리 안에서 관절 <em>비율</em>이 동물마다 다르다</td></tr>
+<tr><td><code>DEF-front_shin</code> 앞팔꿈치</td><td class="num">41.5%</td><td>앞다리가 뒷다리보다 두 배 이상 나쁘다</td></tr>
+<tr><td><code>DEF-front_thigh</code> 앞어깨</td><td class="num">38.1%</td><td>어깨는 몸 안쪽이라 발 위치만으로는 못 잡는다</td></tr>
+<tr><td><code>DEF-thigh</code> 고관절</td><td class="num">16.6%</td><td class="better">몸 길이 맞추기가 잘 들은 곳</td></tr>
+<tr><td><code>DEF-shin</code> 무릎</td><td class="num">14.9%</td><td class="better">가장 좋다</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>뒷다리(15~17%)와 앞다리(38~44%)의 격차가 크다.</strong> 뒷다리는 몸 길이 맞추기로 제자리를 찾았는데
+앞다리는 그렇지 않다 — 어깨는 갈비뼈 위에서 미끄러지듯 붙어 있어 발 위치만으로 역산이 안 된다.</p>
+
+<h2>5. 다음에 할 것</h2>
+<ol>
+  <li><strong>척추 높이도 맞춘다.</strong> 지금은 앞뒤(y)만 맞추고 높이(z)는 메타리그 그대로다 — 골반 50.6%의 주된 몫이다.
+      등선(몸통 윗면)을 재서 척추를 거기 걸면 된다.</li>
+  <li><strong>앞다리 어깨를 따로 잡는다.</strong> 가슴 깊이와 앞다리 기둥이 몸통에 합쳐지는 높이를 재는 편이 낫다.</li>
+  <li><strong>실제 Codex 1건.</strong> 지금 숫자는 전부 <code>mock</code>(토큰 0)이다. 진짜 모델은 렌더를 보고 판단하므로
+      앞다리 같은 애매한 곳에서 더 나을 수 있다 — 아직 확인 안 했다.</li>
+  <li><strong>비인간 거절 게이트.</strong> 33%는 여전히 "쓸 수 있다"고 말하면 안 되는 수치다.</li>
+</ol>
+
+<p class="note" style="margin-top:36px">
+수치 출처: <code>runs/q1·q2·q4/bench.json</code>(사족), <code>runs/b9·b10</code>(사람형 회귀), 발 검출 대조는
+<code>bpy_scripts/quad_probe.py</code> 진단. 자산은 Quaternius <em>Ultimate Animated Animals</em>(CC0) 10종 + Khronos Fox(CC-BY).</p>
+
+</div>
+</body>
+</html>
