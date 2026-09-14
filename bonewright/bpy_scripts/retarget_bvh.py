@@ -64,10 +64,22 @@ def dir_child(s):
         if (c.head_local - b.tail_local).length < 1e-4: return c.name
     return None
 
+# 길이 0 관절(CMU 의 LeftHand: 자식 둘이 같은 자리에 붙어 가져오기가 위쪽 0.1 짜리 본을 만든다)은 본 축이 의미가 없다 →
+# 엄지가 아닌 첫 자식의 본을 따라간다(손 → FingerBase). 안 고치면 손이 89° 꺾인다(CMU 02_01 로 확인)
+_skel_h = max((Ws @ b.tail_local).z for b in src.data.bones) - min((Ws @ b.head_local).z for b in src.data.bones)
+def effective_joint(s):
+    b = src.data.bones[s]
+    for _ in range(4):
+        if b.length > 0.01 * _skel_h or not b.children: return b.name
+        kids = [c for c in b.children if "thumb" not in c.name.lower()] or list(b.children)
+        b = kids[0]
+    return b.name
+
 def rest_joint_dir(s, c):
     """BVH 관절 s 의 쉬는 방향: 자식 c 가 있으면 관절→자식, 없으면(End Site 만 있는 끝 관절) 가져오기가 정한 본 축(End Site 방향)"""
     if c is None:
-        return (Ws3 @ src.data.bones[s].matrix_local.to_3x3() @ Vector((0, 1, 0))).normalized()
+        e = effective_joint(s)
+        return (Ws3 @ src.data.bones[e].matrix_local.to_3x3() @ Vector((0, 1, 0))).normalized()
     ps, pc = src.data.bones[s], src.data.bones[c]
     return (Ws3 @ (pc.matrix_local.translation - ps.matrix_local.translation)).normalized()
 
@@ -216,7 +228,11 @@ foot_z = []   # 프레임마다 가장 낮은 발끝 z: 음수면 바닥을 뚫�
 
 def joint_dir(s, child):
     if child is None:
-        return (Ws3 @ src.pose.bones[s].matrix.to_3x3() @ Vector((0, 1, 0))).normalized()
+        e = effective_joint(s)
+        if e != s:   # 길이 0 관절: 손목(s)의 델타를 자식 본의 쉬는 축에 적용한 방향이 우리가 옮기는 방향이다(자식 본의 자체 회전=손가락 굽힘은 제외)
+            ps = src.pose.bones[s]
+            return ((pose_rot(ps, Ws3) @ rest_rot(ps, Ws3).inverted()) @ rest_joint_dir(s, None)).normalized()
+        return (Ws3 @ src.pose.bones[e].matrix.to_3x3() @ Vector((0, 1, 0))).normalized()
     return ((Ws @ src.pose.bones[child].matrix).translation - (Ws @ src.pose.bones[s].matrix).translation).normalized()
 def def_dir(d):
     pb = rig.pose.bones[d]
@@ -263,7 +279,7 @@ for f in range(f0, f1 + 1):
         hip_t = (Wt @ rig.pose.bones[dhip].matrix).translation
         hip_s = (Ws @ src.pose.bones[s_hip].matrix).translation
         P = hip_t + (p_s - hip_s) * k_leg
-        if A.get("ik_ground", True): P.z = (p_s.z - src_floor.get(fik, 0.0)) * k
+        if A.get("ik_ground", True): P.z = max(0.0, (p_s.z - src_floor.get(fik, 0.0)) * k)   # 바닥(z=0) 아래로는 안 내린다
         ffk = fik.replace("_ik.", "_fk.")
         D = (pose_rot(ps, Ws3) @ rest_rot(ps, Ws3).inverted()) @ M.get(ffk, Matrix.Identity(3))
         pik = rig.pose.bones[fik]

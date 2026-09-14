@@ -71,7 +71,9 @@ bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 
 `bw motion --bvh file.bvh --rig <run-id> [--preset quadruped] [--bvh-up z] [--export]` moves a BVH clip onto a rig
 made by `bw rig`. BVH joints are matched to Rigify controls by name (kimodo `LeftLeg/LeftShin`, Mixamo
-`LeftUpLeg/LeftLeg` and Quaternius animal `BackLeg/FrontUpperLeg` conventions are covered by tests).
+`LeftUpLeg/LeftLeg`, CMU and Quaternius animal `BackLeg/FrontUpperLeg` conventions are covered by tests or runs).
+Units and frame rate are taken from the file (CMU's 16.7-unit hip height becomes a 0.06 scale); zero-length joints
+(CMU hands) take their direction from the first non-thumb child bone.
 
 - **Arms, body:** each bone receives the source joint's world rotation delta. Limbs get a rest-pose correction (a
   common reference frame built from the bone direction and world forward), so an A-pose rig receives the same motion
@@ -93,6 +95,7 @@ Measured (`BW_BACKEND=mock`, 0 tokens):
 | same → Quaternius Adventurer | 13.8 / 13.1 cm | +4.1 cm (FK) | max 2.9× |
 | Quaternius wolf Walk → our wolf rig | — | 0.05 cm · 0.7 cm (BVH 0.8) | max 2.6× |
 | Quaternius wolf Gallop → our wolf rig | — | 0.0 cm · — | max 2.6× |
+| CMU mocap 02_01 walk (120 fps, non-metric units, zero-length hand joints) → mannequiny | 14.9 / 17.9 cm | −0.6 cm · 76.6 cm over 344 frames (BVH 76.5) | max 3.6× |
 
 Hand position error is bounded by proportion differences between the BVH skeleton and the character, not by the
 transfer. Every run renders four frames next to the BVH skeleton drawn in red; the wolf walk was also compared frame
