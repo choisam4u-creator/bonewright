@@ -41,10 +41,30 @@ for ob in bpy.data.objects:
         for b in ob.data.bones:
             h = ob.matrix_world @ b.head_local
             gt[b.name] = [round(h.x, 3), round(h.y, 3), round(h.z, 3)]
+# 다리 기둥 추적: 발에서 위로 올라가며 직전 중심 주변 점만 모은다. 가장 뒤쪽 표본이 비절/팔꿈치인지 본다
+def trace(seed_xy, sx, ztop, spacing):
+    cx, cy = seed_xy
+    reach = spacing * 4.0
+    out = []
+    for i in range(24):
+        z0 = zmin + ztop * i / 24; z1 = zmin + ztop * (i + 1) / 24
+        sel = [v for v in vs if z0 <= v.z < z1 and v.x * sx > 0
+               and (v.x - cx) ** 2 + (v.y - cy) ** 2 < reach * reach]
+        if len(sel) < 4: break
+        c = sum(sel, Vector()) / len(sel)
+        rad = sum(((v - c) - Vector((0, 0, v.z - c.z))).length for v in sel) / len(sel)
+        out.append([round(c.x, 3), round(c.y, 3), round(c.z, 3), round(rad, 3)])
+        cx, cy = c.x, c.y
+        reach = max(spacing * 4.0, rad * 2.2)
+    return out
+traces = {}
+for k, f in q.get("feet", {}).items():
+    sx = 1.0 if k.endswith("L") else -1.0
+    traces[k] = trace((f[0], f[1]), sx, H * 0.55, spacing)
 xs = [abs(v.x) for v in vs]; halfw = sorted(xs)[int(len(xs) * 0.6)]   # 다리보다 안쪽 폭(몸통만 보기)
 cuts = {}
 for label, bone in (("pelvis", "Back"), ("shoulder", "FrontUpperLeg.L"), ("mid", None)):
     y = gt.get(bone, [0, None, 0])[1] if bone else (sum(v.y for v in vs) / len(vs))
     if y is not None:
         cuts[label] = {"y": round(y, 3), **(slice_at(y, halfw, H * 0.04) or {})}
-done({"quad": q, "gt": gt, "height": round(H, 3), "sig": sig, "halfw": round(halfw, 3), "cuts": cuts}, A["result"])
+done({"quad": q, "gt": gt, "height": round(H, 3), "sig": sig, "halfw": round(halfw, 3), "cuts": cuts, "traces": traces}, A["result"])

@@ -76,7 +76,11 @@ def nearest_on_axis(pt, ax):
     return best
 SKIP = set(A.get("skip") or [])   # 디버그: 특정 보정을 끈다(이분 탐색용)
 PINNED = set(A.get("pinned") or [])   # 사용자가 --pin 으로 직접 고정한 본은 어떤 보정도 건드리지 않는다
-for side in (() if "axis" in SKIP else ("L", "R")):
+# 중심선 스냅은 사람 전용이다. arm_axis·leg_axis 는 '팔다리가 몸 중앙에 수직으로 선다'는 사람 가정으로 계산돼
+# 네 발 동물에선 엉뚱한 선이 나온다. 실측: 늑대 비절 목표 [0.325,0.574,0.651] 이 이 스냅 때문에
+# [0.128,-1.105,1.284] 로 끌려가 앞다리 근처에 박혔다(오차 60%)
+AXIS_OK = preset == "humanoid" and "axis" not in SKIP
+for side in (("L", "R") if AXIS_OK else ()):
     ax = L.get(f"arm_axis_{side}") or []
     if len(ax) < 3: continue
     for up, low in ((f"upper_arm.{side}", f"forearm.{side}"), (f"forearm.{side}", f"hand.{side}")):
@@ -85,7 +89,7 @@ for side in (() if "axis" in SKIP else ("L", "R")):
             if d > r * 0.5:
                 eb[low].head = q; eb[up].tail = q; axis_snapped.append(low)
 # 다리: 팔과 달리 거의 수직이므로 높이(z)는 그대로 두고 좌우·앞뒤(x, y)만 다리 중심선으로 맞춘다
-for side in (() if "axis" in SKIP else ("L", "R")):
+for side in (("L", "R") if AXIS_OK else ()):
     lax = L.get(f"leg_axis_{side}") or []
     if len(lax) < 3: continue
     def leg_center(z):
