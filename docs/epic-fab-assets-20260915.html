@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>에픽(Fab) 자산 사용 가능 여부 · 2026-09-15</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b6660; --line:#e2ddd4;
+    --card:#ffffff; --ok:#1c6b3f; --ok-bg:#e8f5ee; --no:#9b2226; --no-bg:#fbeaea;
+    --warn:#8a5a00; --warn-bg:#fdf3e0; --code:#f3f0ea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+      --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+      --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+    --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+    --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);margin:0;
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;line-height:1.3;margin:0 0 6px;letter-spacing:-.02em}
+  .date{color:var(--muted);font-size:14px;margin:0 0 36px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:28px 0 8px}
+  p{margin:0 0 14px}
+  .lead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--fg);
+    border-radius:10px;padding:20px 22px;margin:0 0 8px}
+  .lead p:last-child{margin-bottom:0}
+  .tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:2px}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+  .scroll{overflow-x:auto}
+  th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+  th{font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  code{background:var(--code);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  blockquote{margin:12px 0;padding:12px 18px;background:var(--card);border-left:3px solid var(--line);
+    border-radius:0 8px 8px 0;color:var(--fg);font-size:14.5px}
+  blockquote .src{display:block;margin-top:6px;color:var(--muted);font-size:12.5px}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  .worse{color:var(--no);font-weight:600}
+  .better{color:var(--ok);font-weight:600}
+  .note{color:var(--muted);font-size:13.5px}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>에픽(Fab)이 주는 자산, 벤치마크에 쓸 수 있나</h1>
+<p class="date">2026-09-15 · bonewright · 실제 Fab EULA 원문과 리스팅 페이지를 직접 열어 확인</p>
+
+<div class="lead">
+  <p><strong>결론: 반은 되고 반은 안 된다.</strong></p>
+  <p><span class="tag t-no">불가</span> <strong>에픽이 직접 만든 자산</strong>(파라곤 39종, Game Animation Sample 500모션, City Sample, Lyra)은
+  <strong>못 쓴다</strong>. 이유가 두 개다 — ① 리스팅에 <code>AI 사용 허용: 아니요</code>가 박혀 있고, ② 파일이 <strong>언리얼 엔진 포맷 하나뿐</strong>이라 블렌더로 열 수도 없다.</p>
+  <p><span class="tag t-ok">가능</span> 반대로 <strong>Fab의 제3자 CC-BY 자산</strong>은 <strong>쓸 수 있다</strong>. Fab 검색에 <strong>CC-BY 4.0 필터</strong>가 따로 있고,
+  무료+CC-BY로 거르면 캐릭터만 <strong>3D 1,200여 건</strong>이 나온다. FBX로 받아진다.</p>
+  <p>즉 <strong>믹사모와는 사정이 다르다.</strong> 믹사모는 약관이 통째로 "AI 테스트 금지"라 전부 막혔지만,
+  Fab은 <strong>자산 하나하나에 AI 허용 깃발</strong>이 붙어 있어서 골라 쓰면 된다.</p>
+</div>
+
+<h2>1. 왜 이렇게 갈리나 — Fab 약관 실제 조항</h2>
+
+<h3>좋은 소식 ①: "언리얼 전용"이 아니다</h3>
+<blockquote>
+  호환되는 모든 툴과 함께 에셋을 사용(<strong>사용이 Unreal Engine으로 제한되지 않음</strong>)
+  <span class="src">Fab 표준 라이선스 요약, 최종 업데이트 2024-10-01</span>
+</blockquote>
+<p>옛날 언리얼 마켓플레이스 약관은 "언리얼 프로젝트에서만"이었다. Fab으로 넘어오면서 <strong>이 족쇄가 풀렸다.</strong>
+블렌더에서 써도 약관 위반이 아니다.</p>
+
+<h3>좋은 소식 ②: AI 금지가 "전면"이 아니라 "딱지 붙은 것만"</h3>
+<blockquote>
+  vii. <strong>NoAI 콘텐츠를</strong> (i) 생성형 AI 프로그램에서 활용하는 데이터세트에, (ii) 생성형 AI 프로그램의 개발에,
+  또는 (iii) 생성형 AI 프로그램 훈련 입력 정보로 이용.
+  <span class="src">Fab EULA 6(b)항 — 표준 라이선스 일반 제한사항</span>
+</blockquote>
+<p>핵심은 <strong>"NoAI 콘텐츠를"</strong>이다. 모든 자산이 아니라 <strong>NoAI 딱지가 붙은 자산만</strong> 금지다.
+딱지가 없으면 이 조항 자체가 적용되지 않는다. 그리고 Fab은 이 딱지를 리스팅 페이지에
+<code>AI 사용 허용: 예 / 아니요</code>로 <strong>눈에 보이게 표시한다.</strong></p>
+
+<p>덤으로, "생성형 AI 프로그램"의 정의에 예외가 달려 있다:</p>
+<blockquote>
+  프로그램은 … (c) <strong>새로운 콘텐츠를 생성하지 않고 기존 콘텐츠를 배열하기 위한 지침을 생성하는 경우</strong>,
+  일반 AI 프로그램의 이러한 정의를 충족하지 않습니다.
+  <span class="src">Fab EULA 16(l)(i)항</span>
+</blockquote>
+<p>bonewright가 하는 일이 정확히 이거다 — 새 메시를 만드는 게 아니라 <strong>이미 있는 메시에 뼈를 어디 둘지 좌표를 정한다.</strong>
+다만 이건 <strong>우리 쪽 해석</strong>이고, 우리는 판정 단계에서 Codex(LLM)에 렌더 이미지를 넣는다.
+그래서 <strong>NoAI 딱지가 붙은 자산은 그냥 안 쓰는 게 안전하다.</strong> 해석에 기대지 말자는 뜻이다.</p>
+
+<h2>2. 실제로 열어본 결과</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th>퍼블리셔</th><th>라이선스</th><th>AI 사용 허용</th><th>포맷</th><th>판정</th></tr></thead>
+<tbody>
+<tr><td>Paragon: Wukong</td><td>Epic Games</td><td>스탠다드</td><td><span class="worse">아니요</span></td><td>언리얼 엔진</td><td><span class="tag t-no">불가</span></td></tr>
+<tr><td>Game Animation Sample<br><span class="note">500+ 모션</span></td><td>Epic Games</td><td>스탠다드</td><td><span class="worse">아니요</span></td><td>언리얼 엔진</td><td><span class="tag t-no">불가</span></td></tr>
+<tr><td>Cartoon Male Character Rigged 002</td><td>Character Download</td><td><span class="better">CC BY 4.0</span></td><td><span class="better">예</span></td><td>fbx</td><td><span class="tag t-ok">가능</span></td></tr>
+</tbody>
+</table>
+</div>
+<p>Game Animation Sample 설명문에는 아예 이렇게 적혀 있다 —
+<em>"언리얼 엔진 전용 콘텐츠 - 언리얼 엔진 기반 제품에서만 사용할 수 있습니다."</em>
+같은 Fab 안에서도 <strong>퍼블리셔가 더 좁은 조건을 걸 수 있다.</strong> 그래서 자산별 확인이 필수다.</p>
+
+<h2>3. 그래서 어떻게 골라야 하나</h2>
+<ol>
+  <li>Fab 검색 → 왼쪽 <strong>가격 = 무료</strong> + <strong>라이선스 = CC-BY(CC BY 4.0)</strong> 체크</li>
+  <li>리스팅에서 <strong>포함된 포맷</strong>에 <code>fbx</code> 또는 <code>glb</code>가 있는지 확인 (언리얼만 있으면 탈락)</li>
+  <li>리스팅 하단 <strong><code>AI 사용 허용: 예</code></strong> 확인 (아니요면 탈락)</li>
+  <li>설명문에 "언리얼 전용" 같은 추가 제한이 없는지 읽기</li>
+  <li>저작자·출처·라이선스를 <code>ASSETS.md</code>에 기록 (CC-BY는 <strong>귀속 표기가 의무</strong>)</li>
+</ol>
+
+<h3>여전히 지켜야 할 선</h3>
+<ul>
+  <li><strong>자산은 저장소에 커밋하지 않는다.</strong> Fab EULA 5(a)항이 콘텐츠 단독 배포를 막는다. CC-BY라도 용량 때문에 scratchpad 유지.</li>
+  <li><strong>GPL과 섞지 않는다.</strong> 6(a)항이 표준 라이선스 콘텐츠와 GPL·LGPL·CC-BY-SA 결합을 금지한다.
+      우리 벤치는 GPL인 Rigify를 쓰지만 <strong>결과물을 배포하지 않으므로</strong> 로컬 실행은 걸리지 않는다. 다만 CC-BY 자산을 고르면 이 조항 자체가 적용되지 않아 더 깔끔하다.</li>
+  <li><strong>메타휴먼은 별도 확인 필요.</strong> 자체 라이선스라 이번 조사 범위 밖이다.</li>
+</ul>
+
+<h2>4. 같은 날 벤치마크 결과 (사족 수정 검증)</h2>
+<p>사족 프리셋 수정(<code>f150d4a</code>) 뒤 전체 17종을 다시 돌렸다. <strong>사람형은 회귀 없음.</strong></p>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">b8 (수정 전)</th><th class="num">b9 (수정 후)</th><th>변화</th></tr></thead>
+<tbody>
+<tr><td>mannequiny</td><td class="num">2.96</td><td class="num">2.96</td><td>동일</td></tr>
+<tr><td>quaternius_adventurer</td><td class="num">6.08</td><td class="num">6.08</td><td>동일</td></tr>
+<tr><td>modularmen ×2</td><td class="num">7.44 / 6.91</td><td class="num">7.44 / 6.91</td><td>동일</td></tr>
+<tr><td>quaternius_ual</td><td class="num">13.54</td><td class="num">13.54</td><td>동일</td></tr>
+<tr><td>cesium_man</td><td class="num">10.95</td><td class="num">10.95</td><td>동일</td></tr>
+<tr><td>robot_expressive</td><td class="num">255.89</td><td class="num">238.12</td><td><span class="better">−17.8 개선</span></td></tr>
+<tr><td>godot_player</td><td class="num">55.21</td><td class="num">56.02</td><td>+0.8</td></tr>
+<tr><td>kira</td><td class="num">39.22</td><td class="num">39.47</td><td>+0.25</td></tr>
+<tr><td>rigged_mesh <span class="note">(6cm 장난감, 관절 3개)</span></td><td class="num">0.60</td><td class="num">2.28</td><td><span class="worse">+1.68 악화</span></td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>유일한 악화는 <code>rigged_mesh</code>다.</strong> 원인을 확인했다 — 표면 안쪽으로 당긴 본 수가 <strong>42개 → 30개</strong>로 줄었다.
+예전엔 메타리그의 모든 본을 표면 안쪽으로 끌어당겼는데, 이 6cm짜리 굽은 박스에서는 그게 <em>우연히</em> 정답에 가까웠다.
+캐릭터가 아니라 glTF 샘플 도형이라 실사용 지표로는 의미가 약하지만, <strong>숨기지 않고 기록한다.</strong></p>
+
+<h3>사족(여우)은 "생성은 되지만 아직 못 맞춘다"</h3>
+<p>수정 전에는 Rigify 생성 자체가 <code>spine.003 disjoint</code>로 통째로 실패했다. 이제 <strong>527본 리그가 나온다.</strong>
+하지만 정확도는 <strong>평균 43.8cm</strong>이고, 여우 키가 <strong>0.79m</strong>라 <strong>키의 약 55%</strong>다.
+<strong>실용 수준이 전혀 아니다.</strong> "크래시가 안 난다"와 "쓸 만하다"는 다른 얘기다.</p>
+
+<h2>5. 다음에 할 것</h2>
+<ul>
+  <li>Fab CC-BY + <code>AI 사용 허용: 예</code>로 사족·비인간 자산 확보 (지금 벤치에 사족은 여우 1종뿐)</li>
+  <li>사족 관절 배치 자체를 손보기 — 생성만 되고 위치는 못 맞추는 상태</li>
+  <li>비인간 거절 게이트 (로봇 238cm·치비 106cm처럼 답이 안 나오는 건 일찍 거절)</li>
+  <li>어깨 12.7cm 오차 — 빗장뼈 관습 차이인지 실제 오배치인지 분리</li>
+</ul>
+
+<p class="note" style="margin-top:36px">근거: Fab EULA 전문(fab.com/eula, 2024-10-01 갱신) 및 각 리스팅 페이지를 브라우저로 직접 열어 확인.
+벤치 수치는 <code>BW_BACKEND=mock</code>(토큰 0) 실행 b8·b9·b9a 로그.</p>
+
+</div>
+</body>
+</html>
