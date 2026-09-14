@@ -133,6 +133,31 @@ class BenchMappingTests(unittest.TestCase):
             core, side = bench._norm(name)
             self.assertIn("upperarm", bench._cores(core), name); self.assertEqual("L", side, name)
 
+    def test_preflight_rejects_non_human(self):
+        """거절 게이트: 사람 전제가 깨진 메시는 모델을 부르기 전에 막는다(토큰 0).
+        기준값은 자산 17종의 분석 신호와 정답 대조 오차를 맞춰 고른 것이라, 경계가 바뀌면 여기서 걸린다"""
+        from bonewright.gates import preflight
+        from bonewright.config import DEFAULTS
+        g = DEFAULTS["gates"]
+        ok = {"height": 1.8, "arm_axis_L": [1], "arm_axis_R": [1], "leg_axis_L": [1], "leg_axis_R": [1],
+              "ratio_fallbacks": [], "chibi": False, "symmetry_error": 0.0}
+        self.assertEqual([], preflight(ok, {}, "humanoid", g)[0])          # 멀쩡한 사람형은 통과
+        # 목 폴백만 있는 경우는 경고로 끝낸다(quaternius_ual 은 오차 7.4% 로 쓸 만했다)
+        neck = dict(ok, ratio_fallbacks=["neck"])
+        block, warn = preflight(neck, {}, "humanoid", g)
+        self.assertEqual([], block); self.assertTrue(warn)
+        for name, bad in (("팔 없음", dict(ok, arm_axis_L=None)),                 # 로봇·곤충·여우
+                          ("다리 없음", dict(ok, leg_axis_R=[])),
+                          ("관절 폴백", dict(ok, ratio_fallbacks=["ankle", "neck"])),   # godot_player 26%
+                          ("치비", dict(ok, chibi=True, head_ratio=0.42)),            # platformer 28%
+                          ("비대칭", dict(ok, symmetry_error=0.185)),                  # quat_pp_41j 16%
+                          ("크기 이상", dict(ok, height=0.06))):                       # rigged_mesh 38%
+            self.assertTrue(preflight(bad, {}, "humanoid", g)[0], name)
+        # 사족은 발 네 개를 못 찾으면 막고, 찾으면 실험 단계라고 경고만 한다
+        self.assertTrue(preflight({"height": 1.0, "quad": {"ok": False, "notes": ["X"]}}, {}, "quadruped", g)[0])
+        qb, qw = preflight({"height": 1.0, "quad": {"ok": True}}, {}, "quadruped", g)
+        self.assertEqual([], qb); self.assertTrue(qw)
+
     def test_compare_matches_quaternius_animals(self):
         """Quaternius 동물 규약은 이름이 관절보다 한 칸씩 밀려 있다(BackLeg=고관절, BackUpperLeg=무릎).
         이름만 보면 BackUpperLeg 를 넓적다리로 붙이기 쉬운데, 실제 본 좌표로 확인한 대응을 지킨다"""

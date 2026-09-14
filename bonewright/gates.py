@@ -1,5 +1,47 @@
 """리그 게이트(토큰 0): 통계 JSON 을 기준값과 비교해 실패 목록을 돌려준다."""
 
+# 사람 몸 치수를 전제로 만든 파이프라인이라, 그 전제가 깨진 메시에서는 결과가 조용히 엉망이 된다
+# (실측: 로봇 키의 277%, 곤충 58%, 치비 28% 어긋난 리그를 아무 경고 없이 내놨다).
+# 아래 기준은 자산 17종의 분석 신호와 정답 대조 오차를 맞춰 고른 것이다 —
+# 이 규칙으로 7종(오차 1.6~7.4%)이 통과하고 10종(10.1% 이상)이 걸러진다.
+BLOCKING_FALLBACKS = ("crotch", "hip", "knee", "ankle")   # 목(neck) 폴백만은 경고로 끝낸다(quaternius_ual 7.4% 는 쓸 만했다)
+
+
+def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[str], list[str]]:
+    """모델을 부르기 **전에** 이 메시가 이 프리셋에 맞는지 본다. (막는 이유, 경고) 를 돌려준다.
+    여기서 막으면 토큰을 한 푼도 안 쓴다 — 리그 1건이 입력 8만 토큰이라 이게 실질적인 비용 절감이다."""
+    block, warn = [], []
+    H = landmarks.get("height") or 0.0
+    lo, hi = g.get("min_height_m", 0.3), g.get("max_height_m", 20.0)
+    if not (lo <= H <= hi):
+        block.append(f"메시 크기 {H}m 가 캐릭터 범위({lo}~{hi}m) 밖이다 — 단위가 틀렸거나 캐릭터가 아니다"
+                     " (안/밖 판정용 복셀이 1.2cm 라 이보다 작으면 측정 자체가 무의미하다)")
+    if preset == "quadruped":
+        q = landmarks.get("quad") or {}
+        if not q.get("ok"):
+            block.append("사족: 발 네 개를 못 찾았다 — " + ("; ".join(q.get("notes") or []) or "근거 없음"))
+        warn.append("사족 프리셋은 실험 단계다(자산 11종 정답 대조 평균 오차 키의 13.5%)")
+        return block, warn
+    # 사람형: 팔·다리 중심선이 양쪽 다 있어야 한다. 하나라도 없으면 관절을 놓을 근거가 없다
+    for part, ko, josa in (("arm", "팔", "을"), ("leg", "다리", "를")):
+        miss = [s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}")]
+        if miss:
+            block.append(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다")
+    fb = set(landmarks.get("ratio_fallbacks") or [])
+    hard = sorted(fb & set(BLOCKING_FALLBACKS))
+    if hard:
+        block.append(f"관절을 메시에서 못 찾아 인체 비율로 때웠다: {', '.join(hard)}")
+    if fb - set(BLOCKING_FALLBACKS):
+        warn.append("인체 비율 폴백(경고): " + ", ".join(sorted(fb - set(BLOCKING_FALLBACKS))))
+    if landmarks.get("chibi"):
+        block.append(f"치비 비율(머리가 키의 {round((landmarks.get('head_ratio') or 0) * 100)}%) — 사람 비율 전제가 깨진다")
+    sym = landmarks.get("symmetry_error") or 0.0
+    tol = g.get("max_symmetry_error_ratio", 0.03) * (H or 1.8)
+    if sym > tol:
+        block.append(f"좌우 비대칭 {round(sym, 3)} > {round(tol, 3)} — T 포즈가 아니거나 좌우가 다른 메시다")
+    return block, warn
+
+
 
 def rig_gates(stats: dict, g: dict, verts: int) -> list[str]:
     fails = []

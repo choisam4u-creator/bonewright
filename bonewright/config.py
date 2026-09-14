@@ -13,7 +13,8 @@ DEFAULTS = {
     "rig": {"face": False},                                             # Rigify 얼굴 리그 포함 여부(v0.1 기본 제외)
     "render": {"size": 512, "judge_views": ["front", "side"]},
     "gates": {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03, "max_weight_leak_ratio": 0.005, "max_deform_outside_mesh": 0,
-              "deform_bones_min": 60, "max_bones_outside_bbox": 0},
+              "deform_bones_min": 60, "max_bones_outside_bbox": 0,
+              "min_height_m": 0.3, "max_height_m": 20.0, "max_symmetry_error_ratio": 0.03},
     "kimodo": {"root": "vendor/kimodo.cpp", "model": "models/kimodo-soma-rp-v1.1-f32.gguf", "text_bundle": "generated/llm2vec-text-bundle",
                "frames": 60, "steps": 50, "seed": 1},
 }

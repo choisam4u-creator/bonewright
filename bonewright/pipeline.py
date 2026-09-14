@@ -10,7 +10,7 @@ from . import schemas
 from .blender import run_script
 from .codex import CodexError, UsageLimit, run_step
 from .config import load
-from .gates import judge_gates, rig_gates
+from .gates import judge_gates, preflight, rig_gates
 from .ledger import append as ledger_append
 from .manifest import atomic_write
 from .mock import mock_backend
@@ -81,7 +81,8 @@ class Run:
 
 
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
-        budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None) -> Path:
+        budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
+        force: bool = False) -> Path:
     cfg = load(root, lang)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
@@ -97,6 +98,18 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     if a["landmarks"].get("suspect"):
         _log(quiet, f"  ⚠ 분석을 믿기 어렵다: {'; '.join(a['landmarks']['suspect'])} → 결과가 나쁘면 `--pin 본=x,y,z` 로 관절을 직접 고정하고 재시도하라")
     _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
+    # 1b 거절 게이트: 모델을 부르기 전에 이 메시가 이 프리셋에 맞는지 본다.
+    # 여기서 막으면 토큰이 0 이다(리그 1건 입력 8만 토큰). --force 로 넘길 수 있다
+    block, warn = preflight(a["landmarks"], a["stats"], preset, cfg["gates"])
+    for w in warn:
+        _log(quiet, f"  ⚠ {w}")
+    if block and not force:
+        r.state("preflight", "rejected", reasons=block)
+        raise Blocked("이 메시는 " + preset + " 프리셋에 맞지 않는다(토큰 0 으로 중단):\n  - " + "\n  - ".join(block) +
+                      "\n  그래도 돌리려면 --force, 관절을 직접 찍으려면 --pin 본=x,y,z")
+    if block:
+        _log(quiet, "  ⚠ --force: 거절 사유를 무시하고 진행한다 — " + "; ".join(block))
+
     # 2 맞춤 판단(모델). --targets 가 있으면 모델을 부르지 않는다(토큰 0)
     r.state("fit", "running")
     pins = dict(pins or {})
