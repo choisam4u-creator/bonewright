@@ -118,6 +118,32 @@ class RigMockTests(unittest.TestCase):
         self.assertIn("bones 2", rep)
 
 
+class BenchMappingTests(unittest.TestCase):
+    """뼈대 이름 규약이 달라도 관절이 짝지어져야 한다(Blender 불필요)."""
+
+    def test_name_conventions(self):
+        cases = {"mixamorig:LeftForeArm": ("forearm", "L"), "LeftUpLeg": ("upleg", "L"), "UpperArm.L": ("upperarm", "L"),
+                 "thigh_r": ("thigh", "R"), "Wrist.L": ("wrist", "L"), "Hips": ("hips", None), "calf_l": ("calf", "L")}
+        for name, want in cases.items():
+            self.assertEqual(want, bench._norm(name), name)
+        # 접두사가 붙은 규약(3ds Max Biped, VRM)도 핵심 이름으로 환원된다
+        for name in ("Bip01_L_UpperArm", "J_Bip_L_UpperArm"):
+            core, side = bench._norm(name)
+            self.assertIn("upperarm", bench._cores(core), name); self.assertEqual("L", side, name)
+
+    def test_compare_matches_mixamo(self):
+        gt = {"mixamorig:Hips": {"head": [0, 0, 1.0]}, "mixamorig:LeftArm": {"head": [0.2, 0, 1.4]},
+              "mixamorig:LeftForeArm": {"head": [0.45, 0, 1.4]}, "mixamorig:LeftUpLeg": {"head": [0.1, 0, 0.95]}}
+        ours = {"DEF-spine": {"head": [0, 0, 1.05]}, "DEF-upper_arm.L": {"head": [0.2, 0, 1.4]},
+                "DEF-forearm.L": {"head": [0.5, 0, 1.4]}, "DEF-thigh.L": {"head": [0.1, 0, 0.95]},
+                "DEF-upper_arm.R": {"head": [-0.2, 0, 1.4]}}   # 정답에 오른팔이 없는 경우
+        rows = {r["joint"]: r for r in bench.compare(ours, gt, 1.8)}
+        self.assertAlmostEqual(5.0, rows["DEF-spine"]["error_cm"], places=1)      # 5cm
+        self.assertAlmostEqual(0.0, rows["DEF-upper_arm.L"]["error_cm"], places=1)
+        self.assertAlmostEqual(5.0, rows["DEF-forearm.L"]["error_cm"], places=1)
+        self.assertIsNone(rows["DEF-upper_arm.R"]["gt"])                           # 오른쪽 정답이 없으면 매칭 실패로 표시
+
+
 class GateTests(unittest.TestCase):
     def test_rig_gates(self):
         g = {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03, "deform_bones_min": 60, "max_bones_outside_bbox": 0}

@@ -40,12 +40,30 @@ def _norm(name: str) -> tuple[str, str | None]:
     return re.sub(r"[^a-z]", "", n), side
 
 
+KEYWORDS = {k for v in JOINT_MAP.values() for k in v}
+PREFIXES = ("mixamorig", "valvebiped", "bip01", "bip", "def", "org", "ctrl", "j", "cc", "ch", "character", "root")
+
+
+def _cores(core: str) -> set[str]:
+    """리그마다 붙이는 접두사를 벗긴다. 벗긴 결과가 우리가 아는 관절 이름일 때만 인정한다
+    (예: Bip01_L_UpperArm → bipupperarm → upperarm, VRM 의 J_Bip_L_UpperArm → jbipupperarm → upperarm)"""
+    out = {core}
+    for _ in range(3):   # 접두사가 겹쳐 붙은 경우(J_Bip_L_...)까지 단계적으로 벗긴다
+        for c in list(out):
+            for pre in PREFIXES:
+                rest = c[len(pre):]
+                if c.startswith(pre) and len(rest) >= 3:
+                    out.add(rest)
+    return out
+
+
 def _gt_lookup(joints: dict) -> dict:
     """정답 뼈대를 (핵심이름, 좌우) → head 좌표로 뒤집는다"""
     out = {}
     for name, v in joints.items():
         core, side = _norm(name)
-        out.setdefault((core, side), v["head"])
+        for c in _cores(core):
+            out.setdefault((c, side), v["head"])
     return out
 
 
