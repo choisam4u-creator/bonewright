@@ -209,6 +209,14 @@ for b in eb:
 bpy.ops.object.mode_set(mode="OBJECT")
 bpy.ops.pose.rigify_generate(); rig = bpy.context.active_object
 # 스키닝
+# 원본 뼈대의 정점 그룹을 먼저 지운다. 가져오기에서 아마추어 모디파이어는 굽지만 그룹 이름은 메시에 남는다.
+# 새 아마추어에 없는 이름이라 변형에는 영향이 없지만(가중치 합은 이미 DEF- 만 세고 있다),
+# 결과 파일에 죽은 그룹이 섞여 나가고 '이 정점을 주로 움직이는 본'을 물으면 엉뚱한 답이 나온다
+dropped_groups = [g.name for g in obj.vertex_groups]
+for g in list(obj.vertex_groups):
+    obj.vertex_groups.remove(g)
+
+
 def weigh(kind):
     bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); rig.select_set(True); bpy.context.view_layer.objects.active = rig
     bpy.ops.object.parent_set(type=kind)
@@ -299,7 +307,7 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
          "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
-         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
+         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])

@@ -30,7 +30,8 @@ sig = {
 }
 # 몸통 단면: 정답 골반 y 에서 등(최고)·배(최저)·무게중심 z 를 재 어느 규칙이 골반 높이를 맞히는지 본다
 def slice_at(y, halfw, band):
-    sel = [v for v in vs if abs(v.y - y) < band and abs(v.x) < halfw]
+    """그 y 위치의 등 높이(최고점). 다리는 아래에 있으니 x 를 안 자르고 최고점만 봐도 등이다"""
+    sel = [v for v in vs if abs(v.y - y) < band]
     if len(sel) < 6: return None
     zs = [v.z for v in sel]
     return {"zmin": round(min(zs), 3), "zmax": round(max(zs), 3),

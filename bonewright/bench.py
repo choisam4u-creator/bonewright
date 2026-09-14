@@ -127,6 +127,52 @@ def compare(ours: dict, gt_joints: dict, height: float, preset: str = "humanoid"
     return rows
 
 
+DEF_SUB = re.compile(r"\.\d{3}$")   # Rigify 가 변형 본을 반으로 쪼개며 붙이는 꼬리(DEF-shin.L.001)
+
+
+def _our_base(name: str) -> tuple[str, str | None]:
+    """'DEF-shin.L.001' → ('shin', 'L'), 'DEF-spine.006' → ('spine.006', None).
+    메타리그 번호(spine.006)는 의미가 있으니 남기고, 쪼개기 꼬리(.001)만 뗀다 —
+    둘 다 '.001' 꼴이라 좌우 표시가 그 앞에 있는지로 가른다"""
+    n = name[4:] if name.startswith("DEF-") else name
+    side = None
+    m = re.search(r"\.([LR])(?:\.\d{3})?$", n)
+    if m:
+        side = m.group(1)
+        n = n[:m.start()]
+    else:
+        n = DEF_SUB.sub("", n) if re.search(r"\.[LR]\.", n) else n
+    return n, side
+
+
+def skin_score(pairs: list, preset: str = "humanoid") -> dict:
+    """스키닝 일치도: '이 정점을 주로 움직이는 본'이 원본과 같은가.
+    이름 규약이 리그마다 달라 그대로는 못 맞대므로 _norm/_cores 로 핵심 이름까지 벗겨서 비교한다.
+    옮길 수 없는 이름(원본에만 있는 보조 본 등)은 분모에서 빼고 mapped 로 따로 보고한다 —
+    비교가 안 된 걸 '틀렸다'로 세면 숫자가 거짓말이 된다."""
+    joint_map = QUAD_MAP if preset == "quadruped" else JOINT_MAP
+    want = {}   # 정규화된 원본 이름 → 우리 본 기준이름
+    for base, cands in joint_map.items():
+        for c in cands:
+            want[c] = base
+    agree = side_ok = mapped = 0
+    for ours_name, gt_name, _ in pairs:
+        gcore, gside = _norm(gt_name)
+        gbase = next((want[c] for c in _cores(gcore) if c in want), None)
+        if gbase is None:
+            continue
+        obase, oside = _our_base(ours_name)
+        mapped += 1
+        if gside == oside:
+            side_ok += 1
+            if obase == gbase:
+                agree += 1
+    n = len(pairs) or 1
+    return {"verts_compared": len(pairs), "mapped": round(mapped / n, 3),
+            "agree": round(agree / mapped, 3) if mapped else None,
+            "agree_side": round(side_ok / mapped, 3) if mapped else None}
+
+
 def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = False, facing: str = "auto",
         preset: str = "humanoid") -> Path:
     cfg = load(root)
