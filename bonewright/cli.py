@@ -53,6 +53,7 @@ def main() -> int:
     bm = sub.add_parser("bench", help="원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)")
     bm.add_argument("meshes", nargs="+", help="GLB/FBX 파일 또는 폴더")
     bm.add_argument("--run-id"); bm.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto")
+    bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
     bm.add_argument("--quiet", action="store_true")
     st = sub.add_parser("status"); st.add_argument("run_id", nargs="?")
     u = sub.add_parser("usage"); u.add_argument("--days", type=int, default=7)
@@ -96,7 +97,7 @@ def main() -> int:
             for m in a.meshes:
                 p_ = Path(m)
                 files += sorted(str(f) for f in p_.iterdir() if f.suffix.lower() in (".glb", ".gltf", ".fbx")) if p_.is_dir() else [m]
-            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing)
+            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset)
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:

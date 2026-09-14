@@ -55,8 +55,11 @@ crotch = None
 # 가짜 신호를 막고, 허벅지가 잠깐 붙었다가 다시 갈라지는 캐릭터도 살린다(바닥부터 누적 비율은 그걸 못 살렸다)
 for i, r in enumerate(rows):
     if not r["center_split"]: continue
+    # 바로 아래 두 띠도 갈라져 있어야 한다. 허리에서 잘린 상반신 모델은 속이 빈 통이라 맨 아래 한 띠만
+    # 뚫린 것으로 읽히는데, 그걸 가랑이로 잡으면 다리 관절이 전부 바닥에 몰려 Rigify 가 실패한다(벤치마크로 확인)
+    if i < 2 or not (rows[i - 1]["center_split"] and rows[i - 2]["center_split"]): continue
     win = rows[max(0, i - 4):i]
-    if not win or sum(1 for w in win if w["center_split"]) / len(win) >= 0.6:
+    if sum(1 for w in win if w["center_split"]) / len(win) >= 0.6:
         crotch = r
 if crotch is None: fallbacks.append("crotch")
 cz = crotch["z"] if crotch else zmin + H * 0.47

@@ -27,7 +27,19 @@ JOINT_MAP = {
     "shin": ["lowerleg", "shin", "calf", "legjoint2", "leg2", "leg"],
     "foot": ["foot", "ankle", "legjoint3", "leg3"],
 }
-SIDED = ("shoulder", "upper_arm", "forearm", "hand", "thigh", "shin", "foot")
+SIDED = ("shoulder", "upper_arm", "forearm", "hand", "thigh", "shin", "foot",
+         "front_thigh", "front_shin", "front_foot")
+# 사족(늑대 메타리그): 앞다리는 front_*, 뒷다리는 사람과 같은 이름을 쓴다.
+# 사족 원본 리그는 앞다리를 보통 팔 이름(LeftUpperArm)으로 부른다
+QUAD_MAP = {
+    "spine": ["hips", "hip", "pelvis", "root"],
+    "front_thigh": ["upperarm", "arm1", "arm"],
+    "front_shin": ["lowerarm", "forearm", "arm2"],
+    "front_foot": ["wrist", "hand", "arm3"],
+    "thigh": ["upperleg", "upleg", "thigh", "leg1"],
+    "shin": ["lowerleg", "shin", "calf", "leg2", "leg"],
+    "foot": ["foot", "ankle", "leg3"],
+}
 
 
 def _norm(name: str) -> tuple[str, str | None]:
@@ -78,19 +90,20 @@ def _gt_lookup(joints: dict) -> dict:
     return out
 
 
-def compare(ours: dict, gt_joints: dict, height: float) -> list[dict]:
+def compare(ours: dict, gt_joints: dict, height: float, preset: str = "humanoid") -> list[dict]:
     """우리 DEF 본과 정답 관절을 짝지어 거리를 잰다"""
+    joint_map = QUAD_MAP if preset == "quadruped" else JOINT_MAP
     look = _gt_lookup(gt_joints)
     # 골반 관습 차이 걸러내기: 어떤 리그는 Hips 본을 아래로 그린다(머리가 넙다리 관절보다 한참 아래).
     # 그런 리그에서 Hips 를 골반으로 비교하면 우리 오차가 아니라 관습 차이가 숫자로 찍힌다 → 비교에서 뺀다
-    pelvis = next((look[(c, None)] for c in JOINT_MAP["spine"] if (c, None) in look), None)
-    thighs = [look[(c, s)] for c in JOINT_MAP["thigh"] for s in ("L", "R") if (c, s) in look]
+    pelvis = next((look[(c, None)] for c in joint_map["spine"] if (c, None) in look), None)
+    thighs = [look[(c, s)] for c in joint_map["thigh"] for s in ("L", "R") if (c, s) in look]
     if pelvis and thighs and height:
         if pelvis[2] < min(t[2] for t in thighs) - height * 0.05:
-            for c in JOINT_MAP["spine"]:
+            for c in joint_map["spine"]:
                 look.pop((c, None), None)
     rows = []
-    for ours_base, cands in JOINT_MAP.items():
+    for ours_base, cands in joint_map.items():
         for side in (("L", "R") if ours_base in SIDED else (None,)):
             our_name = f"DEF-{ours_base}" + (f".{side}" if side else "")
             if our_name not in ours:
@@ -105,7 +118,8 @@ def compare(ours: dict, gt_joints: dict, height: float) -> list[dict]:
     return rows
 
 
-def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = False, facing: str = "auto") -> Path:
+def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = False, facing: str = "auto",
+        preset: str = "humanoid") -> Path:
     cfg = load(root)
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
@@ -119,9 +133,9 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
             if not gt.get("joints"):
                 row["error"] = "원본 뼈대 없음 — 벤치마크 대상이 아니다"; results.append(row); continue
             rid = f"{run_id}-{name}"
-            pipeline.rig(root, mesh, "humanoid", run_id=rid, quiet=True, no_judge=True, facing=facing)
+            pipeline.rig(root, mesh, preset, run_id=rid, quiet=True, no_judge=True, facing=facing)
             ours = run_script("dump_bones", {"blend": str(root / "runs" / rid / "02_rigged.blend")}, cfg["blender"], out_dir / "logs")["bones"]
-            rows = compare(ours, gt["joints"], gt["height"])
+            rows = compare(ours, gt["joints"], gt["height"], preset)
             errs = [r["error_cm"] for r in rows if r.get("error_cm") is not None]
             row.update({"height": gt["height"], "gt_bones": gt["bones"], "matched": len(errs), "unmatched": len(rows) - len(errs),
                         "mean_cm": round(sum(errs) / len(errs), 2) if errs else None,
@@ -143,6 +157,7 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
     summary = {"assets": len(results), "measured": len(ok),
                "mean_cm": round(sum(r["mean_cm"] for r in ok) / len(ok), 2) if ok else None,
                "worst_asset": max(ok, key=lambda r: r["max_cm"])["asset"] if ok else None}
+    summary["preset"] = preset
     atomic_write(out_dir / "bench.json", json.dumps({"summary": summary, "results": results}, ensure_ascii=False, indent=2))
     atomic_write(out_dir / "bench.csv", "\n".join(csv) + "\n")
     md = [f"# bonewright bench · {run_id}", "",
