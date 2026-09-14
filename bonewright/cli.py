@@ -52,6 +52,9 @@ def main() -> int:
     m = sub.add_parser("motion", help="텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다")
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
     m.add_argument("--rig", help="리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)")
+    m.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help="리그의 프리셋(사족은 앞다리 front_* 로 옮긴다)")
+    m.add_argument("--bvh-up", choices=["y", "z"], default="y", help="BVH 의 위 축. 표준은 y, Blender 가 내보낸 BVH 는 z")
+    m.add_argument("--legs", choices=["auto", "fk", "ik"], default="auto", help="다리 전달: auto(소스에 발끝 관절이 있는 다리만 IK) | fk(회전만) | ik(발 IK 로 BVH 발끝을 좇음, 비율 차이 흡수)")
     m.add_argument("--no-roll", action="store_true", help="리타겟에서 비틀림(롤)을 옮기지 않는다(방향만, A/B 비교용)")
     m.add_argument("--export", nargs="?", const="auto", help="리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb")
     d = sub.add_parser("demo", help="리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0")
@@ -109,7 +112,7 @@ def main() -> int:
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
-            out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export, roll=not a.no_roll)
+            out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export, roll=not a.no_roll, preset=a.preset, bvh_up=a.bvh_up, legs=a.legs)
     except pipeline.Blocked as e:
         print("BLOCKED:", e, file=sys.stderr); return 2
     except Exception as e:  # Blender 오류 등

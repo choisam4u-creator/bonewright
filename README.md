@@ -69,30 +69,40 @@ bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 
 ## Motion retargeting
 
-`bw motion --bvh file.bvh --rig <run-id>` moves a BVH clip onto a rig made by `bw rig`. BVH joints are matched to
-Rigify FK controls by name (kimodo `LeftLeg/LeftShin` and Mixamo `LeftUpLeg/LeftLeg` conventions both work), the
-limbs are switched to FK, and each bone receives the source joint's **world rotation delta from its rest pose**. Limb
-bones get one extra correction — the minimal rotation from our rest direction to the BVH rest direction — so a rig
-whose rest pose is an A-pose receives the same motion as a T-pose rig. Twist is carried by the world delta; the
-correction uses a common reference frame so the rest-roll convention offset (1–4°) cancels too (`--no-roll` to A/B).
-Root motion is copied to `torso`, scaled by the hip-height ratio. Foot slide during BVH stance frames measured
-10.4 cm over the clip against 8.6 cm in the BVH itself — FK transfer adds ~1 mm per frame, so no IK foot planting.
+`bw motion --bvh file.bvh --rig <run-id> [--preset quadruped] [--bvh-up z] [--export]` moves a BVH clip onto a rig
+made by `bw rig`. BVH joints are matched to Rigify controls by name (kimodo `LeftLeg/LeftShin`, Mixamo
+`LeftUpLeg/LeftLeg` and Quaternius animal `BackLeg/FrontUpperLeg` conventions are covered by tests).
 
-Measured on a 60-frame kimodo walk-and-wave clip (`spikes/motion_out/walk_wave.bvh`):
+- **Arms, body:** each bone receives the source joint's world rotation delta. Limbs get a rest-pose correction (a
+  common reference frame built from the bone direction and world forward), so an A-pose rig receives the same motion
+  as a T-pose rig (0.2 cm difference) and twist comes along. Spine, neck and head take their reference from the
+  clip's most typical frame instead of the bind pose — animal rigs are often bound with the head raised, and a pure
+  bind-pose delta then makes the character stare at the ground.
+- **Legs (`--legs auto`, default):** legs whose source chain ends at a foot tip are driven by Rigify's foot IK: the
+  tip follows the BVH tip relative to the hip, scaled by the leg-length ratio, with the clip's lowest foot point taken
+  as the floor. Legs whose source chain stops at the wrist (the Quaternius wolf's front legs — the paw is a detached
+  IK bone) stay FK. `--legs fk` transfers rotations only.
+- Root motion goes to `torso`, scaled by the hip-height ratio. `--bvh-up z` reads BVH files written by Blender itself.
 
-| Rig | Bone direction vs BVH | Hand / foot position vs BVH (hip-relative) | Feet vs BVH floor | Edge stretch |
-|---|---|---|---|---|
-| mannequiny, T rest | 0.0° | hands 10.0 / 11.2 cm, feet 5.2 cm | +1.3 cm | max 4.8× (9 tiny edges at shoulder seam) |
-| mannequiny, **A-pose rest** | 0.0° | hands 10.2 / 11.4 cm, feet 5.2 cm | +1.3 cm | max 3.8× |
-| Quaternius Adventurer | 0.0° | hands 13.8 / 13.1 cm, feet 5.1 cm | +4.1 cm | max 2.9× |
-| cesium_man | 0.0° | 14.1 cm mean | +1.3 cm | max 2.0× |
+Measured (`BW_BACKEND=mock`, 0 tokens):
 
-Direction error is zero by construction (it verifies the transfer mechanism, IK/FK switch and hierarchy order).
-Position error is limited by proportion differences between the BVH skeleton and the character, not by the transfer.
-Every run renders four frames next to the BVH skeleton drawn in red, so the pose can be eyeballed.
+| Clip → rig | Hands vs BVH (hip-relative) | Feet: lowest toe / floor · slide during BVH stance | Edge stretch |
+|---|---|---|---|
+| kimodo walk+wave → mannequiny T rest | 12.0 / 14.1 cm | −0.4 cm · 9.9 cm (BVH itself 8.6) | max 4.8× (a few 2–20 mm edges) |
+| same → mannequiny **A-pose rest** | 10.6 / 11.9 cm | −0.9 cm · 9.7 cm | max 3.8× |
+| same → Quaternius Adventurer | 13.8 / 13.1 cm | +4.1 cm (FK) | max 2.9× |
+| Quaternius wolf Walk → our wolf rig | — | 0.05 cm · 0.7 cm (BVH 0.8) | max 2.6× |
+| Quaternius wolf Gallop → our wolf rig | — | 0.0 cm · — | max 2.6× |
 
-`--export` writes `runs/<id>/animated.glb` with **deform bones only** (73 instead of 410 for a Rigify human) and the
+Hand position error is bounded by proportion differences between the BVH skeleton and the character, not by the
+transfer. Every run renders four frames next to the BVH skeleton drawn in red; the wolf walk was also compared frame
+by frame against the original Quaternius animation from the side. Remaining gaps: the wolf's front legs are FK only
+and its thigh is 1.4× the source's, so front paws swing wider than the original; the tail is not transferred.
+
+`--export` writes `runs/<id>/animated.glb` with **deform bones only** (73 instead of 410 for a Rigify human), the
 animation baked; the file is re-imported and hand/foot positions checked at the middle frame (0.0 cm difference).
+`bw motion --text "..." --rig <run-id> --export` runs the whole chain text → kimodo.cpp → BVH → rig → GLB (60 frames
+in ~50 s on an M4 Pro; kimodo.cpp must be built with `-DKIMODO_ENABLE_VULKAN=OFF` on macOS).
 
 The edge-stretch check caught a real bug: vertices that Bone Heat leaves unweighted (152 hand-tip vertices on the
 A-pose mannequiny) stayed at their rest position while the character walked away, turning into 2 m rods. Unweighted

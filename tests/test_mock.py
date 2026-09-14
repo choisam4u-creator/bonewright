@@ -43,6 +43,25 @@ class RigMockTests(unittest.TestCase):
         self.assertTrue(video.exists(), video)   # ffmpeg 있으면 demo.mp4, 없으면 PNG 프레임 폴더
         self.assertTrue((self.tmp / "runs/t1/demo_frames/f_0016.png").exists())
 
+    def test_retarget_bvh_and_export(self):
+        """BVH 를 리그에 옮기고 GLB 로 내보낸다: 본 방향 오차 0, 메시 모서리 늘어남 6배 미만, 발이 바닥 아래로 안 감, 다시 읽은 GLB 의 손발 위치 일치"""
+        pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t3", quiet=True, no_judge=True)
+        out = pipeline.motion(self.tmp, bvh=str(ROOT / "spikes/motion_out/walk_wave.bvh"), run_id="m3", quiet=True, rig_run="t3", export="auto")
+        self.assertTrue(out.exists())
+        rt = json.loads((self.tmp / "runs/m3/retarget.json").read_text())
+        self.assertEqual(18, len(rt["mapped"]), rt["mapped"])
+        # 팔은 FK 라 방향이 정확히 맞고, 다리는 기본 auto(발 IK)라 비율에 맞춰 굽히므로 몇 도 어긋난다
+        for k in ("DEF-hand.L", "DEF-hand.R", "DEF-upper_arm.L", "DEF-forearm.L"):
+            self.assertEqual(0.0, rt["dir_deg"][k]["mean_deg"], rt["dir_deg"])
+        self.assertLess(rt["mean_dir_deg"], 8.0, rt["dir_deg"])
+        self.assertEqual(["foot_ik.L", "foot_ik.R"], sorted(rt["ik_legs"]), rt)
+        self.assertLess(rt["stretch"]["max_edge_ratio"], 6.0, rt["stretch"])
+        self.assertEqual(0, rt["foot_contact"]["frames_below_floor"], rt["foot_contact"])
+        self.assertLess(rt["mean_end_cm"], 25.0, rt["end_cm"])   # 절차적 메시는 BVH 뼈대와 비율이 달라 위치 오차가 남는다(상한만 본다)
+        self.assertTrue((self.tmp / "runs/m3/animated.glb").exists())
+        rep = (self.tmp / "runs/m3/report.md").read_text()
+        self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
+
     def test_bad_elbow_is_snapped_to_axis(self):
         """모델이 팔꿈치를 팔 중심선에서 15cm 아래로 찍어도 중심선으로 되돌리고(axis_snapped) 변형 본이 메시 밖에 남지 않는다."""
         pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t2", quiet=True, no_judge=True)

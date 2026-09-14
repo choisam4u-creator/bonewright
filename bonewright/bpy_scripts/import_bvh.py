@@ -2,7 +2,8 @@
 import bpy, os
 from _common import args, done, fresh
 A = args(); fresh()
-bpy.ops.import_anim.bvh(filepath=A["bvh"], axis_forward="-Z", axis_up="Y", update_scene_fps=True, update_scene_duration=True)
+_fwd, _up = ("Y", "Z") if A.get("bvh_up", "y") == "z" else ("-Z", "Y")   # Blender 가 내보낸 BVH 는 Z 가 위
+bpy.ops.import_anim.bvh(filepath=A["bvh"], axis_forward=_fwd, axis_up=_up, update_scene_fps=True, update_scene_duration=True)
 arm = [o for o in bpy.data.objects if o.type == "ARMATURE"][0]; sc = bpy.context.scene
 act = arm.animation_data.action if arm.animation_data else None
 frames = None
