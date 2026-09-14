@@ -175,7 +175,7 @@ def skin_score(pairs: list, preset: str = "humanoid") -> dict:
 
 
 def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = False, facing: str = "auto",
-        preset: str = "humanoid", skin: bool = False) -> Path:
+        preset: str = "humanoid", skin: bool = False, weights: str | None = None) -> Path:
     cfg = load(root)
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
@@ -189,7 +189,7 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
             if not gt.get("joints"):
                 row["error"] = "원본 뼈대 없음 — 벤치마크 대상이 아니다"; results.append(row); continue
             rid = f"{run_id}-{name}"
-            pipeline.rig(root, mesh, preset, run_id=rid, quiet=True, no_judge=True, facing=facing, force=True)   # 벤치는 거절 대상도 재야 회귀를 본다
+            pipeline.rig(root, mesh, preset, run_id=rid, quiet=True, no_judge=True, facing=facing, force=True, weights=weights)   # 벤치는 거절 대상도 재야 회귀를 본다
             ours = run_script("dump_bones", {"blend": str(root / "runs" / rid / "02_rigged.blend")}, cfg["blender"], out_dir / "logs")["bones"]
             rows = compare(ours, gt["joints"], gt["height"], preset)
             errs = [r["error_cm"] for r in rows if r.get("error_cm") is not None]

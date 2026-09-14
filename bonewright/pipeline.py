@@ -82,7 +82,7 @@ class Run:
 
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
         budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
-        force: bool = False, rest_pose: str | None = None) -> Path:
+        force: bool = False, rest_pose: str | None = None, weights: str | None = None) -> Path:
     cfg = load(root, lang)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
@@ -135,7 +135,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     r.state("generate", "running")
     g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": preset,
                                    "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
-                                   "rest_pose": rest_pose or cfg["rig"].get("rest_pose", "keep")})
+                                   "rest_pose": rest_pose or cfg["rig"].get("rest_pose", "keep"),
+                                   "weight_method": weights or cfg["rig"].get("weights", "auto")})
     atomic_write(r.dir / "rig_stats.json", json.dumps(g, ensure_ascii=False, indent=2))
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']} · 상자 밖 {len(st['bones_outside_bbox'])}")

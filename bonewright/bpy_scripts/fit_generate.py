@@ -302,7 +302,8 @@ def clear_groups():
     for md in [m for m in obj.modifiers if m.type == "ARMATURE"]: obj.modifiers.remove(md)
 weight_method = "auto"
 unweighted, sums = weigh("ARMATURE_AUTO"); auto_unweighted = unweighted; proxy_unweighted = None
-if unweighted > len(obj.data.vertices) * 0.05:
+# weight_method="proxy" 로 강제할 수 있다(A/B 비교용). 기본은 Bone Heat 가 5% 넘게 비었을 때만 대리 메시로 간다
+if A.get("weight_method") == "proxy" or unweighted > len(obj.data.vertices) * 0.05:
     # Bone Heat 실패(게임 메시는 머리·몸·옷·가방이 따로 겹쳐 있어 자주 실패한다) → 복셀 리메시 대리 메시(한 덩어리 닫힌 표면)에서
     # 자동 가중치를 풀고 원본 정점으로 전송한다(가장 가까운 면 보간). 리깅 도구들이 쓰는 표준 우회법
     clear_groups()

@@ -45,6 +45,7 @@ def main() -> int:
     r.add_argument("--no-judge", action="store_true", help="시각 판정(모델 호출) 생략"); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help="캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤"); r.add_argument("--quiet", action="store_true")
     r.add_argument("--force", action="store_true", help="거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)")
     r.add_argument("--rest-pose", choices=["keep", "t"], default=None, help="쉬는 자세: keep=메시 자세 그대로(기본), t=팔을 수평으로 굳혀 T 포즈로")
+    r.add_argument("--weights", choices=["auto", "proxy"], default=None, help="스키닝: auto=Bone Heat(비면 복셀 대리), proxy=항상 복셀 대리")
     r.add_argument("--pin", action="append", metavar="본=x,y,z[/x,y,z]",
                    help="관절을 직접 고정한다. 예: --pin spine.004=0,0,1.42 (머리만), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (머리/꼬리). 여러 번 쓸 수 있다")
     r.add_argument("--targets", metavar="targets.json", help="이전 실행의 targets.json 을 그대로 쓴다(모델 호출 0회, 토큰 0)")
@@ -58,6 +59,7 @@ def main() -> int:
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
     bm.add_argument("--quiet", action="store_true")
     bm.add_argument("--skin", action="store_true", help="스키닝 일치도도 잰다(원본 가중치와 대조, 토큰 0)")
+    bm.add_argument("--weights", choices=["auto", "proxy"], default=None, help="스키닝 방법 강제(A/B 비교용)")
     st = sub.add_parser("status"); st.add_argument("run_id", nargs="?")
     u = sub.add_parser("usage"); u.add_argument("--days", type=int, default=7)
     for name in ("doctor", "plugin-path"):
@@ -94,13 +96,13 @@ def main() -> int:
 
     try:
         if a.cmd == "rig":
-            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose)
+            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose, weights=a.weights)
         elif a.cmd == "bench":
             files = []
             for m in a.meshes:
                 p_ = Path(m)
                 files += sorted(str(f) for f in p_.iterdir() if f.suffix.lower() in (".glb", ".gltf", ".fbx")) if p_.is_dir() else [m]
-            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset, skin=a.skin)
+            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset, skin=a.skin, weights=a.weights)
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
