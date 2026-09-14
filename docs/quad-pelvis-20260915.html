@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사족 골반 오차 수정 · 2026-09-15</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --fg:#1d1b18; --muted:#6b6660; --line:#e2ddd4;
+    --card:#ffffff; --ok:#1c6b3f; --ok-bg:#e8f5ee; --no:#9b2226; --no-bg:#fbeaea;
+    --warn:#8a5a00; --warn-bg:#fdf3e0; --code:#f3f0ea; --bar:#4a7c59; --bar2:#c9563f; --bar-bg:#ece7de;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+      --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+      --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#6fae84; --bar2:#e0705a; --bar-bg:#2b282f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17161a; --fg:#eceae6; --muted:#a09a92; --line:#312e35;
+    --card:#1f1e23; --ok:#7fd4a3; --ok-bg:#16301f; --no:#f19a9d; --no-bg:#331a1b;
+    --warn:#e8bd6d; --warn-bg:#332714; --code:#26242b; --bar:#6fae84; --bar2:#e0705a; --bar-bg:#2b282f;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);margin:0;
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:30px;line-height:1.3;margin:0 0 6px;letter-spacing:-.02em}
+  .date{color:var(--muted);font-size:14px;margin:0 0 36px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:28px 0 8px}
+  p{margin:0 0 14px}
+  .lead{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--fg);
+    border-radius:10px;padding:20px 22px;margin:0 0 8px}
+  .lead p:last-child{margin-bottom:0}
+  .big{display:flex;gap:20px;flex-wrap:wrap;margin:18px 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;flex:1;min-width:140px}
+  .stat b{display:block;font-size:25px;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--muted);font-size:13px}
+  .tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:2px}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-no{background:var(--no-bg);color:var(--no)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0}
+  .scroll{overflow-x:auto}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+  th{font-weight:700;color:var(--muted);font-size:13px;white-space:nowrap}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bartrack{background:var(--bar-bg);border-radius:4px;overflow:hidden;min-width:60px;height:8px}
+  .bar{height:8px;background:var(--bar2);border-radius:4px}
+  .bar.good{background:var(--bar)}
+  code{background:var(--code);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{background:var(--code);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}
+  pre code{background:none;padding:0}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  .worse{color:var(--no);font-weight:600}
+  .better{color:var(--ok);font-weight:600}
+  .note{color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>골반 오차를 고치려다 더 큰 걸 찾았다</h1>
+<p class="date">2026-09-15 · bonewright · 커밋 <code>2767618</code> · <code>BW_BACKEND=mock</code>(토큰 0)</p>
+
+<div class="lead">
+  <p><strong>결론: 골반 오차 50.6% → 19.0%, 사족 전체 33.3% → 20.9%. 11종 전부 개선됐다.</strong></p>
+  <p>다만 <strong>고친 곳이 예상과 달랐다.</strong> "척추 높이(z)를 맞추면 된다"고 봤는데,
+  실제로 재보니 골반 오차는 <strong>z가 13.8%, y가 47.4%</strong>였다. <strong>앞뒤가 주범이었지 높이가 아니었다.</strong>
+  앞 보고서에서 z 탓으로 적은 건 틀렸다.</p>
+  <p>더 파보니 진짜 원인은 한 줄짜리 누락이었다. <strong>메타리그 본 목록에서 앞다리가 통째로 빠져 있었다.</strong></p>
+</div>
+
+<div class="big">
+  <div class="stat"><b class="better">19.0%</b><span>골반 (50.6% → )</span></div>
+  <div class="stat"><b class="better">20.9%</b><span>사족 전체 (33.3% → )</span></div>
+  <div class="stat"><b>11/11</b><span>모두 개선</span></div>
+  <div class="stat"><b>변화 없음</b><span>사람형 경로</span></div>
+</div>
+
+<h2>1. 예상이 틀렸다 — 재보니 y가 주범</h2>
+<p>"척추 높이를 맞춰라"는 요청대로 먼저 <strong>어디가 얼마나 어긋났는지</strong>부터 갈라 쟀다.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">높이 오차 dz</th><th class="num">앞뒤 오차 dy</th></tr></thead>
+<tbody>
+<tr><td>Wolf</td><td class="num">0.1%</td><td class="num worse">61.1%</td></tr>
+<tr><td>fox</td><td class="num">19.8%</td><td class="num worse">62.8%</td></tr>
+<tr><td>Horse</td><td class="num">8.9%</td><td class="num worse">57.7%</td></tr>
+<tr><td>Bull / Cow</td><td class="num">13.6%</td><td class="num worse">56.0%</td></tr>
+<tr><td>Husky</td><td class="num">16.4%</td><td class="num">10.8%</td></tr>
+<tr><td><strong>평균</strong></td><td class="num"><strong>13.8%</strong></td><td class="num worse"><strong>47.4%</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>높이를 손대봐야 얻을 게 13.8%뿐이었다. <strong>앞뒤(y)가 세 배 이상 컸다.</strong>
+그런데 나는 이미 지난 작업에서 "몸 길이 맞추기"로 y를 고쳤다고 적었다. 그러면 왜 여전히 47%인가?</p>
+
+<h2>2. 진짜 원인 — 앞다리가 목록에 없었다</h2>
+<p>우리가 실제로 보낸 목표 좌표를 열어봤다. <strong>척추 목표가 하나도 없었다.</strong></p>
+<pre><code>보낸 척추 목표:
+   (비어 있음)
+생성된 DEF 척추:
+   DEF-spine.003  head=[0.0, 1.462, 1.991]   ← 정답은 y=-0.177</code></pre>
+<p>추적해보니 <code>metarig_dump</code>(모델에게 주는 본 참고표)가 본을 걸러내는데, 그 목록이 이랬다.</p>
+<pre><code>keep = ("spine", "shoulder", "upper_arm", "forearm", "hand",
+        "thigh", "shin", "foot", "toe", "neck", "head")</code></pre>
+<p>사람 기준 목록이다. 늑대 메타리그의 앞다리 이름인 <code>front_thigh</code>·<code>front_shin</code>·<code>front_foot</code>·<code>front_toe</code>가
+<strong>전부 빠져 있다.</strong> 결과가 두 가지로 번졌다.</p>
+<ol>
+  <li><strong>앞다리는 목표를 한 번도 못 받았다.</strong> 지난 작업에서 "앞다리에 목표를 준다"고 만든 코드가
+      본 이름을 못 찾아 조용히 건너뛰고 있었다.</li>
+  <li><strong>몸 길이 맞추기가 통째로 꺼져 있었다.</strong> 이 기능은 "메타리그 앞발~뒷발 y 범위"를 기준으로 쓰는데,
+      앞발 본이 없으니 비율이 <code>None</code>이 되어 <strong>척추 목표까지 같이 안 나갔다.</strong></li>
+</ol>
+<p class="note">즉 지난 실행(q4)의 개선은 대부분 <strong>벤치 매핑을 고친 것</strong>(골반은 <code>DEF-spine</code>이 아니라 <code>DEF-spine.003</code>)에서 나온 것이고,
+몸 길이 맞추기는 실제로 한 번도 작동하지 않았다. 이건 내가 지난번에 잘못 보고한 부분이다.</p>
+
+<h2>3. 결과</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>자산</th><th class="num">q1 기준선</th><th class="num">q4</th><th class="num">q5 (지금)</th><th style="width:150px">　</th></tr></thead>
+<tbody>
+<tr><td>fox</td><td class="num">55.4%</td><td class="num">37.5%</td><td class="num better">11.0%</td><td><div class="bartrack"><div class="bar good" style="width:22%"></div></div></td></tr>
+<tr><td>Horse</td><td class="num">35.3%</td><td class="num">27.7%</td><td class="num better">14.7%</td><td><div class="bartrack"><div class="bar good" style="width:29%"></div></div></td></tr>
+<tr><td>Husky</td><td class="num">31.2%</td><td class="num">21.0%</td><td class="num better">18.2%</td><td><div class="bartrack"><div class="bar good" style="width:36%"></div></div></td></tr>
+<tr><td>Donkey</td><td class="num">52.9%</td><td class="num">27.2%</td><td class="num better">19.5%</td><td><div class="bartrack"><div class="bar good" style="width:39%"></div></div></td></tr>
+<tr><td>Deer</td><td class="num worse">생성 실패</td><td class="num">29.8%</td><td class="num better">20.9%</td><td><div class="bartrack"><div class="bar good" style="width:42%"></div></div></td></tr>
+<tr><td>Cow</td><td class="num">54.3%</td><td class="num">44.4%</td><td class="num better">22.9%</td><td><div class="bartrack"><div class="bar good" style="width:46%"></div></div></td></tr>
+<tr><td>ShibaInu</td><td class="num">56.5%</td><td class="num">24.6%</td><td class="num better">23.5%</td><td><div class="bartrack"><div class="bar good" style="width:47%"></div></div></td></tr>
+<tr><td>Bull</td><td class="num">54.3%</td><td class="num">45.8%</td><td class="num better">24.5%</td><td><div class="bartrack"><div class="bar" style="width:49%"></div></div></td></tr>
+<tr><td>Stag</td><td class="num">35.7%</td><td class="num">35.9%</td><td class="num better">24.8%</td><td><div class="bartrack"><div class="bar" style="width:50%"></div></div></td></tr>
+<tr><td>Alpaca</td><td class="num">28.6%</td><td class="num">29.5%</td><td class="num better">25.1%</td><td><div class="bartrack"><div class="bar" style="width:50%"></div></div></td></tr>
+<tr><td>Wolf</td><td class="num">49.5%</td><td class="num">43.1%</td><td class="num better">25.1%</td><td><div class="bartrack"><div class="bar" style="width:50%"></div></div></td></tr>
+<tr><td><strong>평균</strong></td><td class="num">45.4%</td><td class="num">33.3%</td><td class="num better"><strong>20.9%</strong></td><td></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>관절별</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>관절</th><th class="num">q4</th><th class="num">q5</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td><code>DEF-foot</code> 뒷발목(비절)</td><td class="num">44.3%</td><td class="num worse">42.2%</td><td>이제 가장 나쁘다 — 거의 안 변했다</td></tr>
+<tr><td><code>DEF-spine.003</code> 골반</td><td class="num">50.6%</td><td class="num better">19.0%</td><td>요청한 목표</td></tr>
+<tr><td><code>DEF-front_shin</code> 앞팔꿈치</td><td class="num">41.5%</td><td class="num better">18.3%</td><td></td></tr>
+<tr><td><code>DEF-front_thigh</code> 앞어깨</td><td class="num">38.1%</td><td class="num better">18.2%</td><td></td></tr>
+<tr><td><code>DEF-shin</code> 무릎</td><td class="num">14.9%</td><td class="num">15.3%</td><td>거의 그대로</td></tr>
+<tr><td><code>DEF-thigh</code> 고관절</td><td class="num">16.6%</td><td class="num better">12.0%</td><td></td></tr>
+<tr><td><code>DEF-front_foot</code> 앞발목</td><td class="num">44.4%</td><td class="num better">8.7%</td><td>가장 크게 좋아졌다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>4. 남은 문제 — 뒷발목이 개과에 몰려 있다</h2>
+<p>이제 최악은 <code>DEF-foot</code>(뒷발목, 비절) 42%다. 그런데 <strong>고르게 나쁜 게 아니다.</strong></p>
+<pre><code>Horse  DEF-foot.L  우리=[0.389, -0.316, 1.713]  정답=[0.419,  0.259, 1.337]  14.3%
+Wolf   DEF-foot.L  우리=[0.128, -1.105, 1.284]  정답=[0.341,  0.426, 0.828]  60.1%</code></pre>
+<p>말·소는 14%인데 늑대는 60%다. 늑대의 뒷발목이 <strong>앞쪽(y=−1.1)으로 밀려</strong> 앞다리 근처에 가 있다.
+발 검출은 정확하니(늑대 3.0%) <strong>발과 고관절 사이를 나누는 비율</strong>이 개과 체형에서 안 맞는 것이다.
+관습 차이가 아니라 진짜 배치 오류다.</p>
+
+<h3>솔직한 평가</h3>
+<p>20.9%는 <strong>여전히 실용 수준이 아니다.</strong> 키 1m 동물이면 관절이 20cm씩 어긋난다는 뜻이다.
+사람형 최고 기록(mannequiny 1.6%)과 비교하면 열 배 넘게 나쁘다. 다만 기준선 45.4%에서 절반 이하로 줄었고,
+남은 오차가 <strong>어느 관절에 어느 체형에서</strong> 몰려 있는지 숫자로 보인다.</p>
+
+<h2>5. 다음에 할 것</h2>
+<ol>
+  <li><strong>뒷다리 안에서 관절 비율을 체형에 맞춘다.</strong> 늑대 60% vs 말 14% — 지금은 늑대 메타리그 비율을 모든 동물에 그대로 쓴다.</li>
+  <li><strong>척추 높이(z) 맞추기.</strong> 이번엔 y가 커서 뒤로 미뤘지만 13.8%는 남아 있다.</li>
+  <li><strong>실제 Codex 1건.</strong> 지금 숫자는 전부 <code>mock</code>(토큰 0)이다. 진짜 모델은 렌더를 보므로 다를 수 있는데 아직 확인 안 했다.</li>
+  <li><strong>비인간 거절 게이트.</strong> 20.9%를 "된다"고 말하면 안 된다.</li>
+</ol>
+
+<p class="note" style="margin-top:36px">
+검증: 테스트 11개 통과. 이번 변경(<code>metarig_dump</code>의 keep 목록)은 <code>preset == "quadruped"</code> 게이트 안이라
+사람형 경로는 코드가 닿지 않는다. 직전 사람형 17종 실행(b10)은 그 앞 실행과 전 항목 동일했다.
+수치 출처 <code>runs/q1·q4·q5/bench.json</code>.</p>
+
+</div>
+</body>
+</html>
