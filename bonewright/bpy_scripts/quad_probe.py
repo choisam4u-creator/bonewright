@@ -28,10 +28,23 @@ sig = {
     "hz_lo": max((v.z for v in vs if v.y < ymin + (ymax - ymin) * 0.08), default=0) - zmin,
     "hz_hi": max((v.z for v in vs if v.y > ymax - (ymax - ymin) * 0.08), default=0) - zmin,
 }
+# 몸통 단면: 정답 골반 y 에서 등(최고)·배(최저)·무게중심 z 를 재 어느 규칙이 골반 높이를 맞히는지 본다
+def slice_at(y, halfw, band):
+    sel = [v for v in vs if abs(v.y - y) < band and abs(v.x) < halfw]
+    if len(sel) < 6: return None
+    zs = [v.z for v in sel]
+    return {"zmin": round(min(zs), 3), "zmax": round(max(zs), 3),
+            "zmean": round(sum(zs) / len(zs), 3), "n": len(sel)}
 gt = {}
 for ob in bpy.data.objects:
     if ob.type == "ARMATURE":
         for b in ob.data.bones:
             h = ob.matrix_world @ b.head_local
             gt[b.name] = [round(h.x, 3), round(h.y, 3), round(h.z, 3)]
-done({"quad": q, "gt": gt, "height": round(H, 3), "sig": sig}, A["result"])
+xs = [abs(v.x) for v in vs]; halfw = sorted(xs)[int(len(xs) * 0.6)]   # 다리보다 안쪽 폭(몸통만 보기)
+cuts = {}
+for label, bone in (("pelvis", "Back"), ("shoulder", "FrontUpperLeg.L"), ("mid", None)):
+    y = gt.get(bone, [0, None, 0])[1] if bone else (sum(v.y for v in vs) / len(vs))
+    if y is not None:
+        cuts[label] = {"y": round(y, 3), **(slice_at(y, halfw, H * 0.04) or {})}
+done({"quad": q, "gt": gt, "height": round(H, 3), "sig": sig, "halfw": round(halfw, 3), "cuts": cuts}, A["result"])

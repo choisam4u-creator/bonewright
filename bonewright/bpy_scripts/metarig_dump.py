@@ -7,6 +7,8 @@ getattr(bpy.ops.object, op)(); meta = bpy.context.active_object
 mh = max(b.tail_local.z for b in meta.data.bones) - min(b.head_local.z for b in meta.data.bones)
 s = A["height"] / mh if mh else 1.0
 keep = ("spine", "shoulder", "upper_arm", "forearm", "hand", "thigh", "shin", "foot", "toe", "neck", "head")
+if A.get("preset") == "quadruped":   # 늑대 메타리그의 앞다리. 이게 빠져 있어서 앞다리는 목표를 한 번도 못 받았다
+    keep += ("front_thigh", "front_shin", "front_foot", "front_toe")
 bones = {b.name: {"head": [round(c * s, 3) for c in b.head_local] , "tail": [round(c * s, 3) for c in b.tail_local]}
          for b in meta.data.bones if b.name.split(".")[0] in keep and "face" not in b.name}
 for v in bones.values():
