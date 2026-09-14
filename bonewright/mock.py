@@ -2,9 +2,60 @@
 import json
 
 
+# 사족 다리 사슬(Rigify 늑대 메타리그 이름). 앞다리는 front_*, 뒷다리는 사람과 같은 이름을 쓴다
+QCHAIN = {("front", s): [f"front_thigh.{s}", f"front_shin.{s}", f"front_foot.{s}", f"front_toe.{s}"] for s in ("L", "R")}
+QCHAIN.update({("hind", s): [f"thigh.{s}", f"shin.{s}", f"foot.{s}", f"toe.{s}"] for s in ("L", "R")})
+
+
+def _quad_fit(L, meta):
+    """사족: 우리가 잰 건 '발 네 개의 바닥 위치'뿐이다(무릎·발목은 살 안쪽이라 표면에서 안 보인다).
+    그래서 메타리그 다리 사슬의 발끝을 잰 발 자리로 옮기고, 사이 관절은 높이 비율대로 따라오게 한다.
+    관절 비율을 지어내지 않고 Rigify 늑대 메타리그(실제 늑대를 본뜬 모델)에서 그대로 가져오는 셈이다."""
+    feet = L["quad"]["feet"]
+
+    def tip_y(names):
+        for n in names:
+            if n in meta: return meta[n]["tail"][1]
+        return None
+    # 몸 길이 맞추기: 메타리그는 키로만 균일 확대돼 몸 길이가 안 맞는다(늑대 메시에서 고관절 y 가 1.1 어긋났다).
+    # 메타리그의 앞발끝~뒷발끝 y 범위를 우리가 잰 앞발~뒷발 y 범위에 포개면 고관절·어깨가 제자리를 찾는다
+    mf, mh = tip_y(["front_toe.L", "front_foot.L"]), tip_y(["toe.L", "foot.L"])
+    tf = (feet["front_L"][1] + feet["front_R"][1]) / 2
+    th = (feet["hind_L"][1] + feet["hind_R"][1]) / 2
+    ky = (tf - th) / (mf - mh) if (mf is not None and mh is not None and abs(mf - mh) > 1e-6) else None
+    def remap(p):
+        return p if ky is None else [p[0], th + (p[1] - mh) * ky, p[2]]
+
+    out = []
+    # 척추도 같이 옮긴다. 안 옮기면 몸통이 메타리그 길이 그대로 남아 골반이 꼬리 쪽에 박힌다
+    for n, v in meta.items():
+        if n.startswith("spine") and ky is not None:
+            out.append({"name": n, "head": [round(x, 4) for x in remap(v["head"])],
+                        "tail": [round(x, 4) for x in remap(v["tail"])]})
+    for key, names in QCHAIN.items():
+        chain = [n for n in names if n in meta]
+        target = feet.get(f"{key[0]}_{key[1]}")
+        if len(chain) < 2 or not target:
+            continue
+        A = remap(meta[chain[0]]["head"])   # 다리가 몸에 붙는 곳(고관절·어깨) — 몸 길이만 맞춘 자리
+        B = remap(meta[chain[-1]]["tail"])  # 메타리그 발끝
+        span = A[2] - B[2]
+        if abs(span) < 1e-6:
+            continue
+        d = [target[i] - B[i] for i in range(3)]
+        def moved(p):
+            t = min(1.0, max(0.0, (A[2] - p[2]) / span))   # 고관절에서 0, 발끝에서 1
+            return [round(p[i] + d[i] * t, 4) for i in range(3)]
+        for n in chain:
+            out.append({"name": n, "head": moved(remap(meta[n]["head"])), "tail": moved(remap(meta[n]["tail"]))})
+    return {"targets": out, "reasoning": "mock 사족: 잰 발 위치에 메타리그 다리 사슬을 심는다", "confidence": 0.5}
+
+
 def mock_backend(step: str, prompt: str, inputs: dict) -> dict:
     if step == "fit":
         a = json.loads(inputs["analysis.json"]); L = a["landmarks"]
+        if L.get("quad", {}).get("ok"):
+            return _quad_fit(L, json.loads(inputs["metarig_bones.json"]))
         sw, y = L["shoulder_halfwidth"], 0.0
         meta0 = json.loads(inputs["metarig_bones.json"])
         t = {"spine": {"head": [0, y, L["hip_z"]], "tail": meta0.get("spine", {"tail": [0, y, L["hip_z"] + 0.1]})["tail"]}}   # 척추·목·머리는 균일 스케일에 맡긴다

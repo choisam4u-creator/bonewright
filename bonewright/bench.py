@@ -36,7 +36,9 @@ SIDED = ("shoulder", "upper_arm", "forearm", "hand", "thigh", "shin", "foot",
 # BackLowerLeg 0.82=비절, FrontUpperLeg 1.46=어깨 · FrontLowerLeg 1.12=팔꿈치. 그래서 아래처럼 붙인다.
 # 앞발은 이 규약에 대응 본이 없다(FrontLowerLeg 가 발까지 한 본이다) → 매칭 없이 남는다
 QUAD_MAP = {
-    "spine": ["hips", "hip", "pelvis", "root", "back"],   # Quaternius 는 골반을 Back 이라 부른다(Body 는 아마추어 원점이라 뺀다)
+    # 늑대 메타리그에서 'spine' 은 골반이 아니라 꼬리 밑동이다(y=+0.96, 고관절은 +0.34) — 골반 높이의 본은 spine.003 이다.
+    # DEF-spine 을 정답 골반과 맞대면 우리 오차가 아니라 본 이름 관습 차이가 숫자로 찍힌다(실측 102%)
+    "spine.003": ["hips", "hip", "pelvis", "root", "back"],   # Quaternius 는 골반을 Back 이라 부른다(Body 는 아마추어 원점이라 뺀다)
     "front_thigh": ["upperarm", "arm1", "arm", "frontupperleg"],
     "front_shin": ["lowerarm", "forearm", "arm2", "frontlowerleg"],
     "front_foot": ["wrist", "hand", "arm3"],
@@ -100,11 +102,12 @@ def compare(ours: dict, gt_joints: dict, height: float, preset: str = "humanoid"
     look = _gt_lookup(gt_joints)
     # 골반 관습 차이 걸러내기: 어떤 리그는 Hips 본을 아래로 그린다(머리가 넙다리 관절보다 한참 아래).
     # 그런 리그에서 Hips 를 골반으로 비교하면 우리 오차가 아니라 관습 차이가 숫자로 찍힌다 → 비교에서 뺀다
-    pelvis = next((look[(c, None)] for c in joint_map["spine"] if (c, None) in look), None)
+    pelvis_key = "spine" if "spine" in joint_map else "spine.003"   # 사족은 골반 높이의 본이 spine.003 이다
+    pelvis = next((look[(c, None)] for c in joint_map[pelvis_key] if (c, None) in look), None)
     thighs = [look[(c, s)] for c in joint_map["thigh"] for s in ("L", "R") if (c, s) in look]
     if pelvis and thighs and height:
         if pelvis[2] < min(t[2] for t in thighs) - height * 0.05:
-            for c in joint_map["spine"]:
+            for c in joint_map[pelvis_key]:
                 look.pop((c, None), None)
     rows = []
     for ours_base, cands in joint_map.items():
@@ -133,7 +136,7 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         name = Path(mesh).stem
         row = {"asset": name, "mesh": str(mesh)}
         try:
-            gt = run_script("gt_joints", {"mesh": str(Path(mesh).resolve()), "facing": facing}, cfg["blender"], out_dir / "logs")
+            gt = run_script("gt_joints", {"mesh": str(Path(mesh).resolve()), "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
             if not gt.get("joints"):
                 row["error"] = "원본 뼈대 없음 — 벤치마크 대상이 아니다"; results.append(row); continue
             rid = f"{run_id}-{name}"

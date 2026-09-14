@@ -3,7 +3,8 @@ import bpy
 from mathutils import Vector
 from _common import args, done, fresh, import_mesh, mesh_stats, topology, IMPORT_INFO
 A = args(); fresh()
-obj = import_mesh(A["mesh"], facing=A.get("facing", "auto")); st = mesh_stats(obj); st.update(topology(obj)); st["import"] = dict(IMPORT_INFO)
+QUAD = A.get("preset") == "quadruped"
+obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), quad=QUAD); st = mesh_stats(obj); st.update(topology(obj)); st["import"] = dict(IMPORT_INFO)
 vs = [obj.matrix_world @ v.co for v in obj.data.vertices]
 zmin, zmax = st["min"][2], st["max"][2]; H = st["height"]
 el0 = sorted((obj.data.vertices[e.vertices[0]].co - obj.data.vertices[e.vertices[1]].co).length for e in obj.data.edges[:4000])
@@ -235,5 +236,10 @@ land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 
         "vertex_spacing": round(spacing, 4), "symmetry_error": round(sym, 3),
         "pose_guess": "A" if tip["z"] < shoulder["z"] - (shoulder["z"] - cz) * 0.15 else "T",
         "ratio_fallbacks": fallbacks, **axes, **legs}
+if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 한가운데 수직으로 섰다고 본다) → 발 위치를 따로 잰다
+    from _quad import quad_landmarks
+    land["quad"] = quad_landmarks(vs, st, spacing)
+    if not land["quad"]["ok"]:
+        land["suspect"].append("사족 발 검출 실패: " + "; ".join(land["quad"]["notes"])[:80])
 bpy.ops.wm.save_as_mainfile(filepath=A["blend"])
 done({"stats": st, "bands": rows, "landmarks": land, "blend": A["blend"]}, A["result"])

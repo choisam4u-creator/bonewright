@@ -21,7 +21,7 @@ def fresh():
 IMPORT_INFO = {}   # import_mesh 가 정규화한 내용(보고서용)
 
 
-def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False):
+def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, quad: bool = False):
     """어떤 파일이 와도 '리깅할 메시 하나'로 만든다: 스킨된 메시는 REST 자세로 굽고 아마추어·엠프티·보조 구체를 버린다.
     조각을 합치고, cm 단위면 m 로, 좌우 중심을 x=0 으로, 앞이 +Y 면 -Y 로 돌린다. 정규화 내용은 IMPORT_INFO 에 남긴다."""
     from mathutils import Vector, Matrix
@@ -94,6 +94,11 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False):
     # facing="auto" 면 그때 Z 축으로 180도 돌려 앞을 -Y(Rigify 메타리그 방향)로 맞춘다. "neg-y"/"pos-y" 로 강제할 수 있다
     foot = [v.y for v in vs if v.z < zmin + H * 0.08]; ankle = [v.y for v in vs if zmin + H * 0.12 < v.z < zmin + H * 0.18]
     hint = "+Y" if foot and ankle and (sum(foot) / len(foot) - sum(ankle) / len(ankle)) > H * 0.02 else "-Y"
+    if quad:   # 사족은 앞뒤 양쪽에 발이 있어 위 규칙이 흔들린다 → 머리 위치로 판정한다(자산 10종 정답 대조 10/10)
+        from _quad import front_dir_from_mesh
+        fd = front_dir_from_mesh(vs, zmin, H)
+        if fd is not None:
+            hint = "+Y" if fd > 0 else "-Y"
     flip = (facing == "pos-y") or (facing == "auto" and hint == "+Y")
     if flip:
         # glTF 가져오기는 회전 모드를 쿼터니언으로 두므로 rotation_euler 대입은 무시된다 → 행렬로 돌린다

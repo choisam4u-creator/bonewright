@@ -91,7 +91,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     _log(quiet, f"rig {run_id} · {preset} · {mesh}")
     # 1 분석
     r.state("analyze", "running")
-    a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing})
+    a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})
     atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
     _log(quiet, f"[1/6] import: {a['stats'].get('import')}")
     if a["landmarks"].get("suspect"):

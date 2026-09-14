@@ -3,7 +3,8 @@
 import bpy
 from _common import args, done, fresh, import_mesh, IMPORT_INFO
 A = args(); fresh()
-obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), keep_armature=True)
+obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), keep_armature=True,
+                  quad=A.get("preset") == "quadruped")
 arms = [o for o in bpy.data.objects if o.type == "ARMATURE"]
 if not arms:
     done({"joints": {}, "bones": 0, "error": "원본 아마추어 없음"}, A["result"]); raise SystemExit
