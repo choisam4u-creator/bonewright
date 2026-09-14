@@ -1,0 +1,67 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>골반 높이 수정</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:940px;margin:32px auto;padding:0 16px;line-height:1.6;color:#222}
+h1{font-size:1.5em}h2{font-size:1.18em;margin-top:1.7em;border-bottom:1px solid #ddd;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;font-size:.9em;margin:10px 0}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}th{background:#f3f3f3}
+.ok{background:#f2fff5}.mid{background:#fffbe8}.bad{background:#fff4f0}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}
+.note{background:#fff8e1;border-left:4px solid #f0ad4e;padding:10px 14px;margin:14px 0}</style></head><body>
+<h1>골반 높이 수정 — 틈 크기 대신 광선으로</h1>
+<p>2026-09-15. 벤치마크가 가리킨 최대 오차원을 고쳤다. 토큰 0.</p>
+
+<h2>무엇이 문제였나 (비유)</h2>
+<p>다리가 갈라지는 높이(가랑이)를 "몸 한가운데에 틈이 있는가"로 찾고 있었다. 그런데 <b>면이 성긴 몸통은 가슴 높이에도 3~4cm 틈이 생긴다</b>. 원통을 각진 8각형으로 만들면 가운데 근처에 점이 없는 것과 같다. 진짜 가랑이 틈과 구별이 안 됐다.</p>
+<p>고친 방법: <b>몸 한가운데를 앞에서 뒤로 광선을 쏜다.</b> 다리 사이는 뻥 뚫려 있어 아무것도 안 맞고, 몸통은 앞·뒤 벽에 맞는다. 틈의 크기가 아니라 "진짜로 뚫려 있는가"를 본다.</p>
+
+<h2>골반 오차 (전 → 후)</h2>
+<table>
+<tr><th>자산</th><th>전</th><th>후</th></tr>
+<tr class="ok"><td>Godot 플레이어</td><td>34.1 cm</td><td><b>1.3 cm</b></td></tr>
+<tr class="ok"><td>Modular Men A</td><td>12.8 cm</td><td><b>1.7 cm</b></td></tr>
+<tr class="ok"><td>GDQuest 마네킹</td><td>4.7 cm</td><td><b>0.4 cm</b></td></tr>
+<tr class="mid"><td>Adventurer</td><td>0.9 cm</td><td>4.3 cm (나빠짐)</td></tr>
+</table>
+<p>Adventurer 만 골반이 나빠졌다. 대신 같은 자산에서 허벅지가 8.3 → 4.8cm, 무릎이 6.8 → 4.5cm 로 좋아져 전체 평균은 6.56 → 6.08cm 로 내려갔다. 회귀 테스트 기준선도 그에 맞게 갱신했다(평균 7cm 미만, 골반 6cm 미만).</p>
+
+<h2>전체 벤치마크 (17종, 전 → 후)</h2>
+<table>
+<tr><th>자산</th><th>전</th><th>후</th><th>키 대비</th><th>관절</th></tr>
+<tr class="ok"><td>GDQuest 마네킹</td><td>3.44</td><td><b>2.96 cm</b></td><td>1.6%</td><td>17</td></tr>
+<tr class="ok"><td>Adventurer</td><td>6.56</td><td>6.08 cm</td><td>3.3%</td><td>17</td></tr>
+<tr class="ok"><td>Modular Men B</td><td>6.29</td><td>6.91 cm</td><td>3.7%</td><td>17</td></tr>
+<tr class="ok"><td>Modular Men A</td><td>9.50</td><td>7.44 cm</td><td>3.9%</td><td>17</td></tr>
+<tr class="ok"><td>Quaternius 43관절</td><td>16.04</td><td>11.81 cm</td><td>5.3%</td><td>14</td></tr>
+<tr class="ok"><td>CesiumMan</td><td>14.03</td><td>10.95 cm</td><td>7.3%</td><td>9</td></tr>
+<tr class="mid"><td>Quaternius 애니 라이브러리</td><td>13.54</td><td>13.54 cm</td><td>7.4%</td><td>17</td></tr>
+<tr class="mid"><td>RiggedFigure</td><td>26.13</td><td><b>14.69 cm</b></td><td>10.1%</td><td>13</td></tr>
+<tr class="bad"><td>Quaternius 41관절 (키 5.5m)</td><td>88.69</td><td>89.13 cm</td><td>16.1%</td><td>17</td></tr>
+<tr class="bad"><td>Godot 플레이어</td><td>61.54</td><td>55.21 cm</td><td>26.1%</td><td>13</td></tr>
+<tr class="bad"><td>Platformer 토끼 (치비)</td><td>183.95</td><td><b>106.56 cm</b></td><td>28.4%</td><td>15</td></tr>
+<tr class="bad"><td>kira (상반신 전용)</td><td>44.69</td><td>39.22 cm</td><td>47.6%</td><td>6</td></tr>
+<tr class="bad"><td>alien-bug (곤충)</td><td>33.77</td><td>33.02 cm</td><td>57.8%</td><td>1</td></tr>
+<tr class="bad"><td>Fox (사족)</td><td>49.15</td><td>46.44 cm</td><td>58.8%</td><td>13</td></tr>
+<tr class="bad"><td>RobotExpressive</td><td>250.96</td><td>255.89 cm</td><td>297.5%</td><td>14</td></tr>
+</table>
+<p>사람 형태 8종 평균은 <b>키의 6.4%</b>(직전 6.4%와 같지만 개별 자산이 고르게 내려갔다). 전체 평균은 50.94 → 43.78cm.</p>
+
+<h2>고치는 과정에서 부순 것과 되살린 것</h2>
+<div class="note"><b>상반신 전용 모델이 죽었다.</b> kira 는 허리에서 잘린 반신상이라 <b>속이 빈 통</b>이다. 바닥 구멍으로 광선이 그냥 통과해 맨 아래 띠를 가랑이로 읽었고, 다리 관절이 전부 바닥에 몰려 Rigify 가 실패했다.
+<br>→ <b>바로 아래 두 띠도 갈라져 있어야</b> 가랑이로 인정하도록 했다. 다리는 바닥까지 이어지지만 통의 구멍은 한 띠뿐이다. kira 는 이제 정상 동작하고(39.22cm), 가랑이를 못 찾았다고 <code>ratio_fallbacks</code> 에 정직하게 표시한다.</div>
+
+<h2>사족 프리셋 — 미해결로 남겼다</h2>
+<p><code>bw bench --preset quadruped</code> 와 사족용 관절 이름표(앞다리 <code>front_thigh</code> 등)를 넣었지만, <b>여우로 돌리면 Rigify 가 실패한다</b>. 지금까지 확인한 것:</p>
+<table>
+<tr><th>시험</th><th>결과</th></tr>
+<tr class="ok"><td>늑대 메타리그를 그냥 생성</td><td>성공 (823본)</td></tr>
+<tr class="ok"><td>얼굴 본만 제거 후 생성</td><td>성공 (527본)</td></tr>
+<tr class="bad"><td>우리 파이프라인 (목표 0개, 순수 스케일만)</td><td>실패 — <code>spine.003: Cannot connect chain</code></td></tr>
+<tr class="bad"><td>사람 전용 보정 2개(목·머리 사슬, 척추 재배치)를 끈 뒤</td><td>여전히 실패</td></tr>
+</table>
+<p>즉 우리 보정 중 무언가가 늑대 척추를 끊는다. 다음에 이분 탐색할 후보는 <b>길이 0 보정</b>과 <b>표면 안쪽 당기기</b>다. 둘 다 모든 본을 건드린다. 사람 전용 보정 2개는 사족에서 끄도록 이미 고쳤다(그 자체로 맞는 수정이다).</p>
+
+<h2>한계</h2>
+<ul>
+<li>광선 판정은 <b>치마·긴 코트</b>에 막힌다. 그 경우 가랑이가 옷 아래로 잡힌다.</li>
+<li>다리가 완전히 붙은 캐릭터는 여전히 못 찾는다(폴백 + <code>suspect</code> 표시).</li>
+<li>사족은 측정 자체가 아직 불가능하다.</li>
+<li>테스트 10개 통과. 회귀 테스트는 Adventurer 1종에만 걸려 있다.</li>
+</ul>
+</body></html>
