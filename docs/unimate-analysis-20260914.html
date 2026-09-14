@@ -1,0 +1,61 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>UniMate 분석 (2026-09-14)</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:960px;margin:32px auto;padding:0 16px;line-height:1.6;color:#222}
+h1{font-size:1.5em}h2{font-size:1.18em;margin-top:1.7em;border-bottom:1px solid #ddd;padding-bottom:4px}h3{font-size:1.02em;margin-top:1.2em}
+table{border-collapse:collapse;width:100%;font-size:.92em;margin:10px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f3f3f3}
+.ok{background:#f2fff5}.bad{background:#fff4f0}.mid{background:#fffbe8}code{background:#f2f2f2;padding:1px 4px;border-radius:3px}pre{background:#f5f5f5;padding:10px;overflow:auto;font-size:.88em}</style></head><body>
+<h1>UniMate 분석 — 우리(bonewright)에게 무엇인가</h1>
+<p>대상: <a href="https://linzhanmou.com/unimate/">linzhanmou.com/unimate</a> · "UniMate: One Unified Model to Animate Diverse Skeletons" · SIGGRAPH Asia 2026 · Princeton 등 · arXiv 2609.05415(2026-09-04).</p>
+
+<h2>결론 (3줄)</h2>
+<ul>
+<li><b>지금은 못 쓴다.</b> 학습된 모델 파일(체크포인트)이 아직 공개되지 않았고("coming soon"), 코드는 CUDA 12.4 전용 PyTorch 를 요구한다. Mac mini 에서 돌릴 경로가 없다.</li>
+<li><b>당장 쓸 수 있는 건 "데이터"다.</b> 특히 <code>Objaverse-XL-Rigged-Animated</code>(리깅된 GLB 7,373개)는 <b>정답 뼈대가 들어 있는 캐릭터 모음</b>이다. 우리 리깅 정확도를 지금처럼 모델 눈으로가 아니라 <b>센티미터로</b> 잴 수 있다.</li>
+<li><b>방향은 우리와 같다.</b> "리깅된 에셋 + 텍스트 → 동작", 그리고 사람뿐 아니라 사족·조류·해양·곤충·뱀까지. 우리 <code>bw motion</code> 은 아직 휴머노이드 30관절(kimodo.cpp)뿐이고 리타겟도 없다.</li>
+</ul>
+
+<h2>1. 사실 확인 (직접 조회)</h2>
+<table>
+<tr><th>항목</th><th>내용</th><th>확인 방법</th></tr>
+<tr class="ok"><td>코드 라이선스</td><td><b>MIT</b> (Copyright 2026 Linzhan Mou), 별 193개, 최종 푸시 2026-09-11</td><td>GitHub API + LICENSE 원문</td></tr>
+<tr class="ok"><td>논문</td><td>CC BY 4.0, arXiv 2609.05415</td><td>arXiv 페이지</td></tr>
+<tr class="bad"><td>학습된 모델(체크포인트)</td><td><b>미공개</b>. README: "Pretrained checkpoints ... will be released" (TODO). HuggingFace 컬렉션에 모델 항목 0개</td><td>HF API 조회 결과 데이터셋 5개뿐</td></tr>
+<tr class="bad"><td>실행 환경</td><td>requirements.txt 첫 줄이 <code>Python 3.10, CUDA 12.4</code>, PyTorch cu124 휠 고정. 추론 플래그에 <code>--batch_size ... caps GPU memory</code></td><td>requirements.txt 원문</td></tr>
+<tr class="mid"><td>데이터셋</td><td>UniML3D 13,006개 동작(사람·사족·조류·해양·곤충·뱀·관절 물체). 원본: Mixamo, Objaverse-XL, Truebones ZOO</td><td>README + HF</td></tr>
+<tr class="bad"><td>데이터 라이선스</td><td>"other" — Mixamo 는 Adobe 이용약관, Truebones 는 <b>상용 라이선스</b>, Objaverse-XL 은 <b>객체마다 다름</b>. 저장소 NOTICE: "Nothing in this repository grants you any right to them"</td><td>NOTICE.md 원문</td></tr>
+</table>
+<p>즉 <b>코드는 자유롭고(MIT) 데이터는 자유롭지 않다.</b> 우리 저장소에 데이터를 넣는 건 금지, 로컬 테스트 사용은 각 원본 약관 확인 후.</p>
+
+<h2>2. 우리와 겹치는 지점</h2>
+<table>
+<tr><th></th><th>UniMate</th><th>bonewright (지금)</th></tr>
+<tr><td>리깅</td><td>안 한다(이미 리깅된 에셋을 입력으로 받는다)</td><td>이게 우리 본체다(Rigify + Codex 판단 + 게이트)</td></tr>
+<tr><td>동작 생성</td><td>텍스트 → 임의 스켈레톤 동작(사족·조류 포함), 실시간</td><td>텍스트 → 휴머노이드 30관절 BVH(kimodo.cpp, Metal). 사족 불가</td></tr>
+<tr><td>리타겟</td><td>필요 없음(스켈레톤 자체를 조건으로 받음)</td><td><b>없음</b> — v0.2 미완 과제</td></tr>
+<tr><td>실행</td><td>NVIDIA GPU</td><td>Mac mini M4 Pro 로컬</td></tr>
+</table>
+<p>둘은 경쟁이 아니라 <b>붙이면 맞는 조각</b>이다. 우리가 리깅해서 낸 아마추어를 UniMate 가 움직이는 그림. 다만 체크포인트가 나오고, Mac 에서 돌릴 방법이 생겨야 한다.</p>
+
+<h2>3. 당장 할 수 있는 것 (우선순위)</h2>
+<ol>
+<li><b>[최우선] 정답 대조 벤치마크를 만든다.</b> <code>Objaverse-XL-Rigged-Animated</code> 의 GLB 에는 원작자가 만든 스켈레톤이 들어 있다(<code>animations.csv</code> 에 <code>animated_joints</code>, <code>drives_skeleton</code> 열까지 있다). 우리가 그 메시를 <b>뼈대 없이</b> 리깅한 뒤 원본 관절 좌표와 비교하면, 어깨·팔꿈치·무릎이 몇 cm 틀렸는지 숫자로 나온다.
+<br>지금 우리 품질 근거는 게이트(통과/실패)와 모델의 시각 판정뿐이다. 회귀를 숫자로 잡을 수단이 없다 — 이게 그 수단이다. 토큰 0 으로 돌릴 수 있다(mock 배치 + 좌표 비교).</li>
+<li><b>[높음] 사족·조류 테스트 자산 확보.</b> 우리 quadruped 프리셋은 늑대 메타리그 "생성"만 확인했고 실제 네발 메시로는 한 번도 안 돌렸다. 이 데이터셋에 사족·조류가 있다.</li>
+<li><b>[중] 아이디어 차용.</b> MIT 코드라 읽고 베껴도 된다. 특히 관절 사이 <b>측지 거리(뼈를 따라 돌아가는 거리)</b> 로 주의(attention)를 주는 방식은, 우리 가중치 누출 문제(팔이 몸통에 붙는 문제)에 쓰는 Maya 방식과 같은 발상이다.</li>
+<li><b>[보류] UniMate 자체 도입.</b> 체크포인트 공개 + Mac(MPS) 이식 가능성 확인 뒤에 재검토. 지금 손대면 GPU 없이는 학습도 추론도 못 한다.</li>
+</ol>
+
+<h2>4. 하지 말아야 할 것</h2>
+<ul>
+<li>데이터셋 파일을 우리 저장소에 넣기(Mixamo·Truebones 재배포 금지). 받아서 로컬 <code>vendor/</code> 나 캐시에만 두고 <code>.gitignore</code>.</li>
+<li>벤치마크 결과를 공개할 때 원본 에셋 이미지를 그대로 싣기 — 객체별 라이선스를 확인하지 않은 채로는 안 된다.</li>
+<li>체크포인트가 없는 모델을 v0.2/v0.3 기본 경로에 넣기.</li>
+</ul>
+
+<h2>5. 확인 못 한 것</h2>
+<ul>
+<li>추론 속도·메모리 실측 — 체크포인트가 없어 돌려볼 수 없다. "실시간"은 저자 주장이다.</li>
+<li>MPS(Mac) 이식 난이도 — 코드가 CUDA 휠을 고정해 두었을 뿐, 연산 자체가 CUDA 전용인지는 소스를 더 읽어야 한다.</li>
+<li>UniML3D 공개 시점 — README 는 "준비 중"이라고만 한다.</li>
+<li>데이터셋 안에 실제로 몇 개가 상업적으로 쓸 수 있는 라이선스인지(객체별 확인 필요).</li>
+</ul>
+</body></html>
