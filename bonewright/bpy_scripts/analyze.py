@@ -112,10 +112,11 @@ torso_hw = torso_percentile(cz, shoulder["z"])
 
 # 다리 중심선: 팔과 같은 방식으로 가랑이 아래를 세로로 8칸 나눠 칸마다 무게중심·반지름·앞뒤 길이를 잰다.
 # 무릎·발목을 "키의 몇 %" 가 아니라 이 프로필의 모양으로 찾는다
-def leg_axis(sign):
+def leg_axis(sign, lo=None, hi=None):
     pts = [v for v in vs if v.z < cz and v.x * sign > spacing * 0.5]
     if len(pts) < 20: return []
-    lo, hi = min(v.z for v in pts), cz; out = []
+    lo = min(v.z for v in pts) if lo is None else lo
+    hi = cz if hi is None else min(hi, cz); out = []
     for i in range(8):
         z0, z1 = lo + (hi - lo) * i / 8, lo + (hi - lo) * (i + 1) / 8
         sel = [v for v in pts if z0 <= v.z < z1]
@@ -124,7 +125,7 @@ def leg_axis(sign):
         rad = sum(((v - c) - Vector((0, 0, v.z - c.z))).length for v in sel) / len(sel)
         out.append([round(c.x, 3), round(c.y, 3), round(c.z, 3), round(rad, 3), round(max(v.y for v in sel) - min(v.y for v in sel), 3)])
     return out
-legs = {"leg_axis_L": leg_axis(1), "leg_axis_R": leg_axis(-1)}
+legs = {"leg_axis_L": leg_axis(1), "leg_axis_R": leg_axis(-1)}   # 1차: 발목 찾기용(발 포함)
 prof = legs["leg_axis_L"] or legs["leg_axis_R"]
 
 # 발목 = 발 덩어리의 꼭대기. "발"은 다리 중심선에서 앞뒤(y)로 굵기의 1.5배 넘게 튀어나온 점들이다(발끝·발등).
@@ -166,6 +167,17 @@ knee_z = None   # 엉덩관절 계산 뒤에 채운다
 thigh_r = max((sg[3] for sg in prof if sg[2] > (ankle_z + cz) / 2), default=0)
 hip_z = round(cz + thigh_r, 3) if thigh_r else round(cz + H * 0.05, 3)
 if not thigh_r: fallbacks.append("hip")
+
+# 2차 다리 중심선: 발목~가랑이 구간만 담고(발의 앞쪽 치우침이 발목 좌표를 끌어당기는 걸 막는다),
+# 마지막 두 표본의 방향으로 엉덩관절 높이까지 한 점을 연장한다(모델이 허벅지를 놓을 근거가 생긴다)
+def leg_axis_fit(sign):
+    out = leg_axis(sign, ankle_z, cz)
+    if len(out) >= 2 and hip_z > out[-1][2]:
+        a, b = out[-2], out[-1]
+        # 기울기로 늘리면 표본 잡음이 증폭된다(실측: 엉덩이 x 가 0.124 → 0.173 으로 튐). 위쪽 다리는 거의 수직이므로 마지막 두 표본의 평균 위치를 쓴다
+        out.append([round((a[0] + b[0]) / 2, 3), round((a[1] + b[1]) / 2, 3), round(hip_z, 3), b[3], b[4]])
+    return out
+legs = {"leg_axis_L": leg_axis_fit(1), "leg_axis_R": leg_axis_fit(-1)}
 
 leg_len = hip_z - ankle_z
 mid_knee = (hip_z + ankle_z) / 2

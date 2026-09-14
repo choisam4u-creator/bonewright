@@ -279,7 +279,11 @@ def _outside(p):
 FINGER = ("DEF-f_", "DEF-thumb", "DEF-palm")
 _check = [b for b in rig.data.bones if b.use_deform and not b.name.startswith(FINGER)]
 finger_bones_skipped = sum(1 for b in rig.data.bones if b.use_deform and b.name.startswith(FINGER))
-deform_outside_mesh = sorted({b.name for b in _check for pt in (b.head_local, b.tail_local) if _outside(rig.matrix_world @ pt)})
+# 본을 5등분해 중간점도 검사한다: 끝점만 보면 비스듬한 본이 중간에 메시를 뚫고 나가는 걸 놓친다(실측으로 확인)
+def _bone_points(b):
+    h, t = rig.matrix_world @ b.head_local, rig.matrix_world @ b.tail_local
+    return [h + (t - h) * (i / 4.0) for i in range(5)]
+deform_outside_mesh = sorted({b.name for b in _check for pt in _bone_points(b) if _outside(pt)})
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
