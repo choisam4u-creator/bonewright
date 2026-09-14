@@ -62,15 +62,24 @@ def rest_joint_dir(s, c):
     ps, pc = src.data.bones[s], src.data.bones[c]
     return (Ws3 @ (pc.matrix_local.translation - ps.matrix_local.translation)).normalized()
 
-# 팔다리 보정 M: 우리 쉬는 본 방향 → BVH 쉬는 관절→자식 방향의 최소 회전. 그러면 우리 본 방향 = delta·M·dt0 = delta·ds0 = 프레임의 BVH 방향
-# (처음엔 ds→dt 로 거꾸로 넣어 오차가 쉬는 차이의 정확히 2배로 나왔다)
+# 팔다리 보정 M: 우리 쉬는 본 틀 → BVH 쉬는 본 틀. 방향(y)만 맞추는 최소 회전이면 비틀림(롤)이 안 옮겨져 손바닥 방향이 어긋난다.
+# 그래서 두 뼈대에 같은 규칙으로 '기준 틀'을 세운다: y = 본 방향, z = 세계 앞(-Y)을 본 축에 수직으로 투영, x = y × z.
+# 본이 앞을 거의 향하면(발) 앞 대신 위(+Z)를 기준으로 쓴다. M = Fs·Ft⁻¹ 이면 방향과 롤 기준이 함께 맞아 BVH 의 비틀림이 그대로 온다.
+# (처음엔 방향만 맞추는 rotation_difference 를 ds→dt 로 거꾸로 넣어 오차가 쉬는 차이의 정확히 2배로 나왔다)
+def canon_frame(y):
+    y = y.normalized()
+    ref = Vector((0, -1, 0))
+    if abs(ref.dot(y)) > 0.9: ref = Vector((0, 0, 1))
+    z = (ref - y * ref.dot(y)).normalized(); x = y.cross(z).normalized()
+    F = Matrix.Identity(3); F.col[0] = x; F.col[1] = y; F.col[2] = z
+    return F
 M = {}
 for s, t in order:
     c = dir_child(s)
     if t.startswith(LIMB) and c:
         ds = rest_joint_dir(s, c)
         dt = (rest_rot(rig.pose.bones[t], Wt3) @ Vector((0, 1, 0))).normalized()
-        M[t] = dt.rotation_difference(ds).to_matrix()
+        M[t] = canon_frame(ds) @ canon_frame(dt).inverted() if A.get("roll", True) else dt.rotation_difference(ds).to_matrix()
     else:
         M[t] = Matrix.Identity(3)
 
@@ -101,8 +110,10 @@ for s, t in mapping.items():
                     END[s] = d
 dir_err = {d: [] for _, d in DIR.values()}
 dir_rest = {}
+roll_err = {d: [] for _, d in DIR.values() if d.startswith(('DEF-hand', 'DEF-foot'))}
 end_err = {d: [] for d in END.values()}
 src_foot_z = []
+toe_xy, src_toe_xy = {}, {}   # 발 미끄러짐 계산용(프레임별 발끝 xy)
 foot_z = []   # 프레임마다 가장 낮은 발끝 z: 음수면 바닥을 뚫고, 늘 양수면 떠 있다
 
 def joint_dir(s, child):
@@ -135,7 +146,20 @@ for f in range(f0, f1 + 1):
         if t == "torso": pt.keyframe_insert("location", frame=f)
     for s, (c, d) in DIR.items():
         dir_err[d].append(joint_dir(s, c).angle(def_dir(d)))
+    # 롤 검증(손·발): 쉬는 자세의 기준 틀 x 축을 델타로 돌린 것과 지금 본의 x 축(같은 규칙의 틀) 차이 — 방향은 이미 같으니 남는 건 비틀림
+    for s, (c, d) in DIR.items():
+        if not (d.startswith("DEF-hand") or d.startswith("DEF-foot")): continue
+        ps = src.pose.bones[s]; delta = pose_rot(ps, Ws3) @ rest_rot(ps, Ws3).inverted()
+        want_x = delta @ canon_frame(rest_joint_dir(s, c)).col[0]       # BVH 가 요구하는 x(비틀림 포함)
+        Rd = (Wt3 @ rig.pose.bones[d].matrix.to_3x3())
+        Rd0 = (Wt3 @ rig.data.bones[d].matrix_local.to_3x3())
+        have_x = Rd @ Rd0.inverted() @ canon_frame((Wt3 @ (rig.data.bones[d].tail_local - rig.data.bones[d].head_local))).col[0]
+        roll_err[d].append(want_x.angle(have_x) if want_x.length and have_x.length else 0.0)
     feet = [d for d in END.values() if d.startswith("DEF-foot")]
+    for s_, d in END.items():
+        if d.startswith("DEF-foot"):
+            toe_xy.setdefault(d, []).append((Wt @ rig.pose.bones[d].tail).xy.copy())
+            src_toe_xy.setdefault(d, []).append(((Ws @ src.pose.bones[dir_child(s_) or s_].matrix).translation * k).xy.copy())
     if feet:
         foot_z.append(min((Wt @ rig.pose.bones[d].tail).z for d in feet))
         sfeet = [s for s, d in END.items() if d.startswith("DEF-foot")]
@@ -207,17 +231,32 @@ if A.get("render_frames"):
         p = os.path.join(A["out_dir"], f"retarget_f{int(f):04d}.png")
         sc.render.filepath = p; bpy.ops.render.render(write_still=True); frames_out.append(p)
 
+# 발 미끄러짐(토큰 0): BVH 발끝이 거의 안 움직이는 프레임(디딤발, 한 프레임 이동 < 키의 0.5%)에서 우리 발끝이 수평으로 움직인 거리.
+# FK 만 옮기면 비율 차이만큼 디딤발이 밀린다 — 이 값이 크면 IK 발 고정이 필요하다
+slide = None
+if toe_xy:
+    H_ = float(A.get("height", 1.8)); thr = H_ * 0.005
+    ours, theirs, n_st = 0.0, 0.0, 0
+    for d in toe_xy:
+        a, b = toe_xy[d], src_toe_xy[d]
+        for i in range(1, len(a)):
+            if (b[i] - b[i - 1]).length < thr:
+                ours += (a[i] - a[i - 1]).length; theirs += (b[i] - b[i - 1]).length; n_st += 1
+    slide = {"stance_frames": n_st, "our_slide_cm": round(ours * 100, 2), "bvh_slide_cm": round(theirs * 100, 2),
+             "per_stance_frame_mm": round(ours / n_st * 1000, 2) if n_st else None}
+
 from math import degrees
+roll_summary = {d: {"mean_deg": round(degrees(sum(v) / len(v)), 1), "max_deg": round(degrees(max(v)), 1)} for d, v in roll_err.items() if v}
 dir_summary = {d: {"mean_deg": round(degrees(sum(v) / len(v)), 1), "max_deg": round(degrees(max(v)), 1), "rest_deg": dir_rest.get(d)}
                for d, v in dir_err.items() if v}
 end_summary = {d: {"mean_cm": round(sum(v) / len(v) * 100, 2), "max_cm": round(max(v) * 100, 2)} for d, v in end_err.items() if v}
 alld = [x for v in dir_err.values() for x in v]; alle = [x for v in end_err.values() for x in v]
 done({"mapped": mapping, "unmapped": [b.name for b in src.data.bones if b.name not in mapping],
-      "frames": [f0, f1], "scale": round(k, 4), "dir_deg": dir_summary, "end_cm": end_summary,
+      "frames": [f0, f1], "scale": round(k, 4), "dir_deg": dir_summary, "roll_deg": roll_summary, "roll": bool(A.get("roll", True)), "end_cm": end_summary,
       "mean_dir_deg": round(degrees(sum(alld) / len(alld)), 2) if alld else None,
       "mean_end_cm": round(sum(alle) / len(alle) * 100, 2) if alle else None,
       "foot_contact": {"min_toe_z_cm": round(min(foot_z) * 100, 2), "max_min_toe_z_cm": round(max(foot_z) * 100, 2),
                        "bvh_min_toe_z_cm": round(min(src_foot_z) * 100, 2), "bvh_max_min_toe_z_cm": round(max(src_foot_z) * 100, 2),
                        "mean_diff_cm": round(sum(a - b for a, b in zip(foot_z, src_foot_z)) / len(foot_z) * 100, 2),
                        "frames_below_floor": sum(1 for z in foot_z if z < -0.01), "frames": len(foot_z)} if foot_z else None,
-      "stretch": stretch, "renders": frames_out, "out_blend": A["out_blend"]}, A["result"])
+      "stretch": stretch, "foot_slide": slide, "renders": frames_out, "out_blend": A["out_blend"]}, A["result"])

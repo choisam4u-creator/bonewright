@@ -175,7 +175,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
 
 
 def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: str | None = None, quiet: bool = False,
-           rig_run: str | None = None, export: str | None = None) -> Path:
+           rig_run: str | None = None, export: str | None = None, roll: bool = True) -> Path:
     """텍스트 → kimodo.cpp(Metal) → BVH → Blender 가져오기 → (rig_run 이 있으면) 그 리그에 리타겟 → (export 면) 변형 본만 든 GLB. 토큰 0."""
     cfg = load(root)
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
@@ -220,15 +220,17 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         an = json.loads((root / "runs" / rig_run / "analysis.json").read_text()) if (root / "runs" / rig_run / "analysis.json").exists() else {}
         rt = r.blender("retarget_bvh", {"blend": str(blend), "bvh": str(Path(bvh).resolve()), "mapping": mapping,
                                         "out_blend": str(r.dir / "retargeted.blend"), "out_dir": str(r.dir),
-                                        "render_frames": rf, "height": (an.get("landmarks") or {}).get("height", 1.8)})
+                                        "render_frames": rf, "height": (an.get("landmarks") or {}).get("height", 1.8), "roll": roll})
         _log(quiet, f"[4/4] retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
                     f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)")
         report += [f"- retarget → `{rig_run}`: mapped {len(rt['mapped'])} bones, unmapped {rt['unmapped']}",
+                   f"- roll transfer: {rt.get('roll')} · hand/foot twist error vs BVH: " + ", ".join(f"{k} {v['mean_deg']}°(max {v['max_deg']})" for k, v in (rt.get('roll_deg') or {}).items()),
                    f"- bone direction error vs BVH (proportion-free): mean {rt.get('mean_dir_deg')}° · " +
                    ", ".join(f"{k} {v['mean_deg']}°(max {v['max_deg']}, rest offset {v['rest_deg']})" for k, v in (rt.get('dir_deg') or {}).items()),
                    f"- end-effector error vs BVH (hips-relative, scaled {rt['scale']}, proportion-limited): mean {rt.get('mean_end_cm')} cm · " +
                    ", ".join(f"{k} {v['mean_cm']}cm(max {v['max_cm']})" for k, v in (rt.get('end_cm') or {}).items()),
                    f"- foot contact (lowest toe per frame): {rt.get('foot_contact')}",
+                   f"- foot slide during BVH stance frames: {rt.get('foot_slide')}",
                    f"- deformation (edge stretch vs rest at rendered frames): {rt.get('stretch') and {k: v for k, v in rt['stretch'].items() if k != 'per_frame'}}",
                    f"- blend: `{r.dir / 'retargeted.blend'}`",
                    "- frames: " + " ".join(f"`{Path(p).name}`" for p in rt.get("renders", []))]

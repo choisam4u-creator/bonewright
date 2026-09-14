@@ -73,8 +73,10 @@ bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 Rigify FK controls by name (kimodo `LeftLeg/LeftShin` and Mixamo `LeftUpLeg/LeftLeg` conventions both work), the
 limbs are switched to FK, and each bone receives the source joint's **world rotation delta from its rest pose**. Limb
 bones get one extra correction — the minimal rotation from our rest direction to the BVH rest direction — so a rig
-whose rest pose is an A-pose receives the same motion as a T-pose rig. Twist (roll) is not transferred. Root motion
-is copied to `torso`, scaled by the hip-height ratio.
+whose rest pose is an A-pose receives the same motion as a T-pose rig. Twist is carried by the world delta; the
+correction uses a common reference frame so the rest-roll convention offset (1–4°) cancels too (`--no-roll` to A/B).
+Root motion is copied to `torso`, scaled by the hip-height ratio. Foot slide during BVH stance frames measured
+10.4 cm over the clip against 8.6 cm in the BVH itself — FK transfer adds ~1 mm per frame, so no IK foot planting.
 
 Measured on a 60-frame kimodo walk-and-wave clip (`spikes/motion_out/walk_wave.bvh`):
 
