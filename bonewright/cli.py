@@ -51,6 +51,8 @@ def main() -> int:
     r.add_argument("--targets", metavar="targets.json", help="이전 실행의 targets.json 을 그대로 쓴다(모델 호출 0회, 토큰 0)")
     m = sub.add_parser("motion", help="텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다")
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
+    m.add_argument("--rig", help="리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)")
+    m.add_argument("--export", nargs="?", const="auto", help="리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb")
     d = sub.add_parser("demo", help="리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0")
     d.add_argument("run_id"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
     bm = sub.add_parser("bench", help="원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)")
@@ -106,7 +108,7 @@ def main() -> int:
         elif a.cmd == "demo":
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
-            out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet)
+            out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export)
     except pipeline.Blocked as e:
         print("BLOCKED:", e, file=sys.stderr); return 2
     except Exception as e:  # Blender 오류 등

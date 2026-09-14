@@ -333,6 +333,18 @@ if A.get("weight_method") == "proxy" or unweighted > len(obj.data.vertices) * 0.
 # 정규화: 정점별 변형 가중치 합을 1 로(엔벨로프는 합이 1 이 아니다)
 bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
 bpy.ops.object.vertex_group_normalize_all(lock_active=False)
+# 구멍 메우기: Bone Heat·대리 메시 뒤에도 가중치가 전혀 없는 정점(떨어진 손끝 조각 등)이 남는다. 그 정점은 리그가 걸어가도
+# 옛 자리에 남아 메시에서 긴 막대처럼 늘어난다(BVH 리타겟 렌더로 확인: mannequiny A 포즈 152개). 가장 가까운 변형 본(선분 거리)에 1.0 으로 붙인다
+_fill_segs = [(b.name, rig.matrix_world @ b.head_local, rig.matrix_world @ b.tail_local) for b in rig.data.bones if b.use_deform and b.name in obj.vertex_groups]
+def _fill_seg_dist(p, a, b):
+    ab = b - a; t = 0.0 if ab.length_squared < 1e-12 else max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
+    return (p - (a + ab * t)).length
+vg = {g.index: g.name for g in obj.vertex_groups}; filled_unweighted = 0
+for v in obj.data.vertices:
+    if sum(g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")) < 1e-4 and _fill_segs:
+        p = obj.matrix_world @ v.co
+        near = min(_fill_segs, key=lambda sg: _fill_seg_dist(p, sg[1], sg[2]))[0]
+        obj.vertex_groups[near].add([v.index], 1.0, "REPLACE"); filled_unweighted += 1
 vg = {g.index: g.name for g in obj.vertex_groups}; sums = []; unweighted = 0
 for v in obj.data.vertices:
     w = sum(g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")); sums.append(w)
@@ -377,7 +389,7 @@ deform_outside_mesh = sorted({b.name for b in _check for pt in _bone_points(b) i
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])

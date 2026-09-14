@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>bonewright · BVH 리타게팅 (2026-09-15)</title>
+<style>
+body{font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;max-width:900px;margin:32px auto;padding:0 16px;line-height:1.6;color:#222}
+h1{font-size:1.5em}h2{font-size:1.15em;margin-top:1.8em;border-bottom:1px solid #ddd;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;font-size:.93em}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f3f3f3}
+code{background:#f3f3f3;padding:1px 4px;border-radius:3px}.warn{background:#fff4e5;border-left:4px solid #f0a020;padding:8px 12px}
+.ok{background:#eef8ee;border-left:4px solid #3a3;padding:8px 12px}.bad{background:#fdecec;border-left:4px solid #c33;padding:8px 12px}
+small{color:#666}
+</style></head><body>
+<h1>BVH 리타게팅 — 3단계(애니메이션) 진입</h1>
+<p><b>결론 먼저:</b> BVH 동작을 우리 리그에 옮기고 게임용 GLB 로 내보내는 길이 생겼다. 걷다가 손 흔드는 60프레임 클립을
+네 리그(T 포즈 둘, A 포즈 하나, 저폴리 하나)에 옮겨 봤고, 네 장 렌더에서 자세가 BVH 뼈대와 일치한다.
+비율이 다른 뼈대라 손 위치는 10~14cm 어긋나며(상한), 비틀림(손바닥 방향)은 아직 안 옮긴다.
+이 과정에서 <b>스키닝 버그 하나</b>(무가중치 손끝 정점이 2m 막대가 됨)를 잡아 고쳤다.</p>
+
+<h2>1. 어떻게 옮기나 (비유: 관절마다 "얼마나 돌렸나"만 베낀다)</h2>
+<ul>
+<li>BVH 뼈대와 우리 리그는 뼈 길이도, 쉬는 자세도 다르다. 그래서 <b>위치를 베끼지 않고</b> 관절마다
+"쉬는 자세에서 얼마나 돌렸나"(월드 회전 델타)를 구해 우리 뼈의 쉬는 자세에 곱한다. 부모부터 자식 순으로.</li>
+<li>팔다리는 한 번 더 보정한다: 우리 뼈의 쉬는 방향을 BVH 뼈의 쉬는 방향으로 돌리는 최소 회전. 그래야 우리 리그가
+<b>A 포즈로 굳어 있어도</b> T 포즈 BVH 동작이 같은 자세로 나온다. (처음엔 이 회전을 거꾸로 넣어 오차가 정확히
+쉬는 차이의 2배로 나왔다 — 그걸로 부호를 잡았다.)</li>
+<li>몸통·목·머리·어깨는 뼈 축 규약이 서로 달라(torso 는 앞을 보고 Hips 는 위를 본다) 보정 없이 델타만 쓴다.</li>
+<li>Rigify 팔다리는 기본이 IK 라 FK 뼈를 돌려도 메시가 안 움직인다 → <code>IK_FK=1</code> 로 바꾼다.</li>
+<li>루트 이동은 BVH 엉덩이 이동을 (우리 엉덩이 높이 / BVH 엉덩이 높이) 비로 줄여 torso 에 넣는다.</li>
+<li>이름 매핑은 벤치마크의 정규화를 재사용. kimodo(LeftLeg=허벅지, LeftShin) 와 Mixamo(LeftUpLeg, LeftLeg=정강이)
+규약을 둘 다 테스트로 고정했다.</li>
+</ul>
+
+<h2>2. 실측</h2>
+<p>클립: <code>spikes/motion_out/walk_wave.bvh</code>(kimodo 출력, 60프레임 30fps, 루트 3.5m 이동). 모두 <code>BW_BACKEND=mock</code>, 토큰 0.</p>
+<table><tr><th>리그</th><th>본 방향 오차</th><th>손/발 위치 오차<br><small>엉덩이 기준·키 비율</small></th><th>발 높이<br><small>BVH 대비</small></th><th>모서리 늘어남<br><small>쉬는 자세 대비</small></th></tr>
+<tr><td>mannequiny · T 쉬는 자세</td><td>0.0°</td><td>손 10.0 / 11.2 · 발 5.2 cm</td><td>+1.3 cm</td><td>최대 4.8× (2~20mm 모서리 9개, 어깨 이음새)</td></tr>
+<tr><td>mannequiny · <b>A45 쉬는 자세</b></td><td>0.0°</td><td>손 10.2 / 11.4 · 발 5.2 cm</td><td>+1.3 cm</td><td>최대 3.8× (16개)</td></tr>
+<tr><td>Quaternius Adventurer</td><td>0.0°</td><td>손 13.8 / 13.1 · 발 5.1 cm</td><td>+4.1 cm</td><td>최대 2.9× (10개)</td></tr>
+<tr><td>cesium_man</td><td>0.0°</td><td>평균 14.1 cm</td><td>+1.3 cm</td><td>최대 2.0× (2개)</td></tr></table>
+<p class="warn"><b>숫자를 세게 믿지 말 것.</b> 방향 오차 0° 는 구조상 당연한 값이다(우리 뼈 방향을 BVH 방향에 맞추도록 만들었으니).
+이 값이 검증하는 건 전달 경로·IK/FK 전환·계층 순서가 깨지지 않았다는 것뿐이다. 위치 오차 10~14cm 는 BVH 뼈대와 캐릭터의
+<b>팔 길이 비율 차이</b>가 만든 상한이지 리타겟 오류가 아니다. A 포즈 리그와 T 포즈 리그가 0.2cm 차이라는 점이 실제로 의미 있는
+결과다(쉬는 자세 보정이 맞다). 발이 BVH 보다 1~4cm 떠 있는 것은 다리 길이 비율 차이 — 발 고정(IK)은 아직 없다.</p>
+<p class="ok">눈 검증: 매 실행이 프레임 4장을 렌더하고 옆에 BVH 뼈대를 빨간 막대로 같이 그린다(관절→자식 관절 선분, 키 비율 적용).
+네 리그 모두 걷기 자세와 40프레임의 손 흔들기가 빨간 뼈대와 일치했다.</p>
+
+<h2>3. 찾은 버그 — 무가중치 정점이 2m 막대가 된다</h2>
+<p class="bad">A 포즈 mannequiny 렌더에서 손에서 긴 회색 막대가 뻗어 나왔다. 모서리 늘어남 검사로 추적하니 <b>가중치가 전혀 없는 정점
+152개</b>(손끝 조각)가 원인이었다: 리그가 3.5m 걸어가는 동안 이 정점들은 쉬는 자리에 남아, 이웃 정점과의 모서리가 224배로 늘어났다.
+리그의 게이트는 이미 "가중치 없는 정점 152개"로 실패를 냈지만 벤치는 <code>force</code> 로 지나간다.</p>
+<p><b>수정:</b> <code>fit_generate</code> 가 정규화 뒤 가중치 없는 정점을 가장 가까운 변형 본(선분 거리)에 1.0 으로 붙인다.
+게이트는 "메운 수 + 남은 수"로 판정한다(5% 넘으면 실패). 다시 돌리니 막대가 사라지고 최대 늘어남 224× → 3.8×.
+사람형 벤치 16종의 관절 오차는 한 자리도 안 바뀌었고(b13 = b12), 스키닝 지표도 같다. 벤치 자산 중 메운 건 quaternius_ual 224개뿐.</p>
+<p>남은 2~5× 늘어남은 전부 2~20mm 짜리 모서리(어깨–위팔 경계, 얼굴)로 자동 가중치의 정상적인 경계 전이다.</p>
+
+<h2>4. GLB 내보내기</h2>
+<p><code>bw motion --bvh x.bvh --rig &lt;run-id&gt; --export</code> → <code>runs/&lt;id&gt;/animated.glb</code>.
+Rigify 리그는 뼈가 410개라 그대로 내면 엔진에 쓸모없는 뼈가 따라간다 → 변형 본만(사람 73개) 남기고 애니메이션을 프레임마다 구워 넣는다.
+내보낸 파일을 빈 장면에 다시 읽어 중간 프레임 손·발 위치를 대조: 차이 0.0cm, 프레임 [1,60] 유지.</p>
+
+<h2>5. 남은 것 (정직하게)</h2>
+<ul>
+<li><b>비틀림(롤) 미전달</b> — 최소 회전만 쓰므로 손바닥·발 방향이 BVH 와 다를 수 있다. 다음 작업.</li>
+<li><b>발 미끄러짐</b> — FK 만 옮기므로 디딤발이 바닥에서 밀릴 수 있다. IK 발 고정은 미구현.</li>
+<li><b>사족 리타겟 없음</b> — 동물 BVH 가 없다(kimodo 는 사람만).</li>
+<li>클립 하나(kimodo 출력)로만 검증했다. Mixamo 규약은 이름 매핑만 테스트했고 실제 Mixamo 파일은 약관상 쓰지 않는다.</li>
+</ul>
+<p><small>코드: <code>bonewright/retarget.py</code>, <code>bpy_scripts/retarget_bvh.py</code>, <code>bpy_scripts/export_anim.py</code>,
+<code>fit_generate.py</code>(구멍 메우기), <code>gates.py</code>. 실행 결과: scratchpad <code>bwreal/runs/rt5-*, rt6-*, rt7, b13</code>.</small></p>
+</body></html>

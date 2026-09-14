@@ -18,7 +18,7 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 | Quadrupeds (`--preset quadruped`) | **13.5%** over 11 animals | experimental — a 1 m animal is off by ~13 cm |
 | Robots, chibi, insects, non-T-pose, upper-body-only | 10 – 277% | **rejected before any model call** |
 
-No motion retargeting yet. Faces are off by default.
+Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
 
 ## Rejection gate
 
@@ -40,6 +40,7 @@ pip install .            # installs `bw`
 bw doctor                # Blender (app or bpy wheel), Codex login, kimodo.cpp (optional)
 bw rig character.glb --preset humanoid
 bw motion --text "a person walks forward, stops and waves"   # needs kimodo.cpp (Apple Silicon: Metal)
+bw motion --bvh walk.bvh --rig <run-id> --export         # retarget a BVH onto a rig, export deform-only GLB (0 tokens)
 bw demo <run-id>         # mp4/gif of the rig moving through IK controls (0 tokens)
 bw bench a.glb b.glb     # compare against the original skeletons (0 tokens)
 ```
@@ -65,6 +66,35 @@ bw rig character.glb --pin "spine.004=0,0,1.42"            # pin a joint; pins b
 bw rig character.glb --targets runs/<id>/targets.json      # re-run with edited targets, 0 model calls, 0 tokens
 bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 ```
+
+## Motion retargeting
+
+`bw motion --bvh file.bvh --rig <run-id>` moves a BVH clip onto a rig made by `bw rig`. BVH joints are matched to
+Rigify FK controls by name (kimodo `LeftLeg/LeftShin` and Mixamo `LeftUpLeg/LeftLeg` conventions both work), the
+limbs are switched to FK, and each bone receives the source joint's **world rotation delta from its rest pose**. Limb
+bones get one extra correction — the minimal rotation from our rest direction to the BVH rest direction — so a rig
+whose rest pose is an A-pose receives the same motion as a T-pose rig. Twist (roll) is not transferred. Root motion
+is copied to `torso`, scaled by the hip-height ratio.
+
+Measured on a 60-frame kimodo walk-and-wave clip (`spikes/motion_out/walk_wave.bvh`):
+
+| Rig | Bone direction vs BVH | Hand / foot position vs BVH (hip-relative) | Feet vs BVH floor | Edge stretch |
+|---|---|---|---|---|
+| mannequiny, T rest | 0.0° | hands 10.0 / 11.2 cm, feet 5.2 cm | +1.3 cm | max 4.8× (9 tiny edges at shoulder seam) |
+| mannequiny, **A-pose rest** | 0.0° | hands 10.2 / 11.4 cm, feet 5.2 cm | +1.3 cm | max 3.8× |
+| Quaternius Adventurer | 0.0° | hands 13.8 / 13.1 cm, feet 5.1 cm | +4.1 cm | max 2.9× |
+| cesium_man | 0.0° | 14.1 cm mean | +1.3 cm | max 2.0× |
+
+Direction error is zero by construction (it verifies the transfer mechanism, IK/FK switch and hierarchy order).
+Position error is limited by proportion differences between the BVH skeleton and the character, not by the transfer.
+Every run renders four frames next to the BVH skeleton drawn in red, so the pose can be eyeballed.
+
+`--export` writes `runs/<id>/animated.glb` with **deform bones only** (73 instead of 410 for a Rigify human) and the
+animation baked; the file is re-imported and hand/foot positions checked at the middle frame (0.0 cm difference).
+
+The edge-stretch check caught a real bug: vertices that Bone Heat leaves unweighted (152 hand-tip vertices on the
+A-pose mannequiny) stayed at their rest position while the character walked away, turning into 2 m rods. Unweighted
+vertices are now bound to the nearest deform bone, and the gate counts filled holes.
 
 ## How joints are found
 

@@ -212,3 +212,33 @@ class GateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RetargetMappingTests(unittest.TestCase):
+    """BVH 관절 이름 → Rigify FK 컨트롤 매핑(Blender 없이 돈다)"""
+
+    def test_kimodo_names(self):
+        from bonewright.retarget import bvh_mapping
+        names = ["Hips", "Spine1", "Spine2", "Chest", "Neck1", "Neck2", "Head", "Jaw", "LeftEye", "LeftShoulder", "LeftArm",
+                 "LeftForeArm", "LeftHand", "LeftHandThumbEnd", "LeftHandMiddleEnd", "LeftLeg", "LeftShin", "LeftFoot", "LeftToeBase",
+                 "RightLeg", "RightShin", "RightFoot"]
+        m = bvh_mapping(names)
+        self.assertEqual(m["Hips"], "torso"); self.assertEqual(m["Chest"], "chest")
+        self.assertEqual(m["Neck1"], "neck"); self.assertEqual(m["Head"], "head")
+        self.assertEqual(m["LeftArm"], "upper_arm_fk.L"); self.assertEqual(m["LeftForeArm"], "forearm_fk.L"); self.assertEqual(m["LeftHand"], "hand_fk.L")
+        # kimodo: Leg 가 허벅지, Shin 이 정강이
+        self.assertEqual(m["LeftLeg"], "thigh_fk.L"); self.assertEqual(m["LeftShin"], "shin_fk.L"); self.assertEqual(m["RightFoot"], "foot_fk.R")
+        for n in ("Jaw", "LeftEye", "LeftHandThumbEnd", "LeftHandMiddleEnd", "LeftToeBase", "Neck2", "Spine1"):
+            self.assertNotIn(n, m)
+
+    def test_mixamo_names(self):
+        from bonewright.retarget import bvh_mapping
+        names = ["mixamorig:Hips", "mixamorig:Spine", "mixamorig:Spine1", "mixamorig:Spine2", "mixamorig:Neck", "mixamorig:Head",
+                 "mixamorig:LeftShoulder", "mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftHand",
+                 "mixamorig:LeftUpLeg", "mixamorig:LeftLeg", "mixamorig:LeftFoot", "mixamorig:LeftToeBase"]
+        m = bvh_mapping(names)
+        # Mixamo: UpLeg 가 허벅지, Leg 가 정강이(Shin 이 없다)
+        self.assertEqual(m["mixamorig:LeftUpLeg"], "thigh_fk.L"); self.assertEqual(m["mixamorig:LeftLeg"], "shin_fk.L")
+        self.assertEqual(m["mixamorig:Hips"], "torso"); self.assertEqual(m["mixamorig:Spine2"], "chest")
+        self.assertEqual(m["mixamorig:Neck"], "neck"); self.assertEqual(m["mixamorig:LeftFoot"], "foot_fk.L")
+        self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")

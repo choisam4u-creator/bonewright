@@ -45,8 +45,10 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
 
 def rig_gates(stats: dict, g: dict, verts: int) -> list[str]:
     fails = []
-    if verts and stats["unweighted_verts"] / verts > g["max_unweighted_ratio"]:
-        fails.append(f"가중치 없는 정점 {stats['unweighted_verts']}/{verts}")
+    # 가중치 없는 정점은 fit_generate 가 가장 가까운 본으로 메운다 → 메운 수(filled_unweighted)로 판정한다. 메운 뒤에도 남으면 그것도 실패
+    holes = stats["unweighted_verts"] + stats.get("filled_unweighted", 0)
+    if verts and holes / verts > g["max_unweighted_ratio"]:
+        fails.append(f"가중치 없는 정점 {holes}/{verts} (가까운 본으로 메운 {stats.get('filled_unweighted', 0)}개 포함)")
     if stats["weight_sum_min"] < g["weight_sum_min"] or stats["weight_sum_max"] > g["weight_sum_max"]:
         fails.append(f"가중치 합 범위 {stats['weight_sum_min']}~{stats['weight_sum_max']} (허용 {g['weight_sum_min']}~{g['weight_sum_max']})")
     if stats["deform_bones"] < g["deform_bones_min"]:
