@@ -15,7 +15,7 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 | Input | Joint error (% of height) | Verdict |
 |---|---|---|
 | Human-proportioned T-pose, skinned, arms out | **1.6 – 7.4%** | usable (GDQuest mannequiny 1.6%, Quaternius Adventurer 3.3%) |
-| Quadrupeds (`--preset quadruped`) | **13.5%** over 11 animals | experimental — a 1 m animal is off by ~13 cm |
+| Quadrupeds (`--preset quadruped`) | **5.6%** over 11 animals (wolf 3.2%, horse 3.5%, worst cow 7.4%) | usable for dogs/hoofed animals |
 | Robots, chibi, insects, non-T-pose, upper-body-only | 10 – 277% | **rejected before any model call** |
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
@@ -132,9 +132,13 @@ fallbacks and every use is reported in `landmarks.ratio_fallbacks`, with `landma
 be wrong. Inside/outside tests run against a voxel-remeshed volume copy, because game meshes are overlapping shells
 with holes.
 
-Quadrupeds use a separate path: the four foot positions are measured from the mesh (2.6–7.7% error against the
-original rigs) and the Rigify wolf metarig's own leg proportions are stretched onto them. Knees and hocks are *not*
-measured — they sit inside the body, where the surface cannot see them.
+Quadrupeds use a separate path. The four foot positions and two more things are measured from the mesh: the **back
+height** above each leg (hip = 0.80 of it, shoulder = 0.635, both ±0.06 across the 11 reference animals — twice as
+consistent as any ratio of total height) and the **front leg's backward lean**, which splits dog-type legs (lean
+0.089–0.133, elbow high at 24% of the leg) from hoofed ones (−0.05–0.066, elbow at 50%) with no overlap. Joints in
+between are placed at ratios measured from the reference rigs — the knee at 27.4% ± 1.9 of hip-to-toe is the most
+consistent quantity in the whole dataset. What is *not* measured is the pelvis bone's height: reference rigs put it
+anywhere from 0.44 to 0.88 of body height, so that part is convention, not anatomy.
 
 `bw rig` = analyze mesh (0 tokens) → **rejection gate (0 tokens)** → Codex proposes metarig bone targets (1 call) →
 Rigify generate + automatic weights → gates (unweighted vertices, weight sums, symmetry, bones outside the mesh box) →
