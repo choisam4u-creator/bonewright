@@ -77,7 +77,9 @@ def _quad_fit(L, meta):
     out = []
     # 척추도 같이 옮긴다. 안 옮기면 몸통이 메타리그 길이 그대로 남아 골반이 꼬리 쪽에 박힌다
     for n, v in meta.items():
-        if n.startswith("spine") and ky is not None:
+        # pelvis.L/R(엉덩이 벌어짐 본)은 척추 골반 점에 붙어 있다 — 같이 안 옮기면 골반만 움직여 살 밖으로 튀어나온다(게이트 실패로 확인)
+        # breast.L/R(가슴 본)도 갈비뼈에 붙어 있어 척추와 같이 움직여야 한다(소에서 살 밖으로 남았다)
+        if (n.startswith("spine") or n.startswith("pelvis.") or n.startswith("breast.")) and ky is not None:
             out.append({"name": n, "head": [round(x, 4) for x in taper(remap(v["head"]))],
                         "tail": [round(x, 4) for x in taper(remap(v["tail"]))]})
     hip_z = None
@@ -139,6 +141,12 @@ def _quad_fit(L, meta):
                 placed[n]["head"] = list(pts[i]); placed[n]["tail"] = list(pts[i + 1])
         for n in chain:
             out.append({"name": n, "head": placed[n]["head"], "tail": placed[n]["tail"]})
+        # 어깨뼈(shoulder.L/R)는 앞다리의 부모다 — 앞다리를 옮겼으면 꼬리가 새 어깨 자리에 붙도록 통째로 따라와야 한다
+        sh = f"shoulder.{key[1]}"
+        if key[0] == "front" and sh in meta:
+            o = remap(meta[sh]["tail"]); dlt = [pts[0][i] - o[i] for i in range(3)]
+            out.append({"name": sh, "head": [round(remap(meta[sh]["head"])[i] + dlt[i], 4) for i in range(3)],
+                        "tail": [round(pts[0][i], 4) for i in range(3)]})
     return {"targets": out, "reasoning": "mock 사족: 잰 발 위치에 메타리그 다리 사슬을 심는다", "confidence": 0.5}
 
 

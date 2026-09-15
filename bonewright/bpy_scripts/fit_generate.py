@@ -375,10 +375,13 @@ for v in obj.data.vertices:
 mn = Vector(A["stats"]["min"]); mx = Vector(A["stats"]["max"]); pad = 0.12
 outside = [b.name for b in rig.data.bones if b.use_deform and not all(mn[i] - pad <= (rig.matrix_world @ b.head_local)[i] <= mx[i] + pad for i in range(3))]
 def _outside(p):
-    return not is_inside(p, margin=0.003)
+    # 여유값은 판정용 부피 메시의 해상도(복셀 한 칸)만큼 준다 — 말처럼 다리가 얇으면 복셀이 다리를 제대로 못 담아
+    # 제자리에 있는 본도 '밖'으로 읽힌다(말 앞정강이 11개). 복셀 한 칸보다 덜 나간 것은 측정 한계 안이라 통과시킨다
+    return not is_inside(p, margin=max(0.003, volume_voxel))
 # 손가락 본은 이 검사에서 뺀다: 판정용 부피 메시(복셀 1.2cm)가 손가락을 한 덩어리로 뭉개서 전부 "밖"으로 읽힌다.
 # 손가락은 보정 3(손 실루엣 안으로 축소)이 원본 메시 기준으로 이미 처리한다
-FINGER = ("DEF-f_", "DEF-thumb", "DEF-palm")
+# 손가락·발가락 마디: 판정용 부피 메시(복셀)가 뭉개서 전부 '밖'으로 읽힌다. 사족 늑대 메타리그는 뒷발가락을 r_(rear) 로 부른다
+FINGER = ("DEF-f_", "DEF-thumb", "DEF-palm", "DEF-r_")
 _check = [b for b in rig.data.bones if b.use_deform and not b.name.startswith(FINGER)]
 finger_bones_skipped = sum(1 for b in rig.data.bones if b.use_deform and b.name.startswith(FINGER))
 # 본을 5등분해 중간점도 검사한다: 끝점만 보면 비스듬한 본이 중간에 메시를 뚫고 나가는 걸 놓친다(실측으로 확인)
