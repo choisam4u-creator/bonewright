@@ -30,8 +30,10 @@ A mesh is rejected when: an arm or leg centreline is missing on either side · a
 to fall back to a body ratio · the head is over 35% of height (chibi) · left-right asymmetry exceeds 3% of height ·
 size is outside 0.3–20 m. A neck-only fallback is a warning, not a rejection.
 
-Across the 17 benchmark assets this separates cleanly: **7 pass (1.6–7.4% error), 9 are rejected (10.1%+), with no
-mistakes in either direction.** Override with `--force`.
+Across the benchmark assets this separates cleanly: **7 pass (1.6–7.4% error), 9 are rejected (10.1%+), with no
+mistakes in either direction** — re-verified after every change to the importer and the fitter. Override with `--force`.
+What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
+character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
 
 ## Install and run
 
@@ -50,11 +52,18 @@ Cost: one `bw rig` makes **2 model calls** — a fit call (~80k input tokens) an
 Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. A rejected mesh costs nothing, and
 `--no-judge` skips the second call.
 
-A-pose input rigs as well as T-pose (same asset, arms lowered 30–60°: mannequiny 2.96 cm T vs 2.5–2.8 cm A).
-Downstream steps (animation, retargeting) usually expect a T-pose rest, so `--rest-pose t` swings the arms to
-horizontal and bakes that as the rest pose before Rigify runs: an A-pose mannequiny normalised this way lands
-2.62 cm from the original T-pose skeleton. Characters whose "T" already droops a few degrees are left alone
-(threshold 8°).
+A-pose input rigs as well as T-pose. `--rest-pose t` bakes a T-pose rest, which downstream animation usually expects.
+Measured on one asset posed at several arm angles, against its own original T-pose skeleton:
+
+| Arms lowered | Joint error | How it is handled |
+|---|---|---|
+| 30° / 45° | 2.74 / 2.62 cm (1.5%) | arms swung after fitting, using the fitted metarig |
+| 60° | 3.19 cm (1.8%) | mesh straightened **before** analysis, then re-measured |
+| 75° | 6.12 cm (3.4%) | same (was 10.19 cm when analysed in the A-pose) |
+| 90° (arms flat against the body) | — | **rejected**: no arm centreline can be found, so nothing can be straightened |
+
+Below 50° the arms are swung after fitting; above it the mesh is straightened first, because an arm lying against the
+torso makes joint detection unreliable. Characters whose "T" already droops a few degrees are left alone (8°).
 
 ```bash
 bw rig character_apose.glb --rest-pose t     # rest pose becomes T (arms horizontal); default keeps the mesh's own pose
@@ -154,9 +163,14 @@ bw bench bench-assets/quadruped/*.gltf --preset quadruped
 bw bench bench-assets/samples/*.glb --skin     # also compare skin weights against the original author's
 ```
 
-`--skin` reports two numbers per asset: how often our dominant bone matches the original's by name (weak — bone
-conventions differ), and the distance between the "influence centres" of the two weight sets, which is name-free.
-Current baseline: mannequiny 4.1 cm (2.3% of height), typical game characters 10–12 cm (5–8%).
+`--skin` reports, per asset and **per body region**, the distance between the "influence centres" of the two weight
+sets (name-free), plus the weaker name-agreement number. Current baseline: mannequiny 4.1 cm (2.3% of height),
+Quaternius UAL 9.2 cm (5.0%), cesium_man 10.6 cm (7.0%). Read these as a floor, not a score: reference rigs that draw
+every bone as a zero-length marker at the joint (the whole Quaternius family) make any distance-to-bone measure
+pessimistic, and one of them parents the foot to the root rather than the shin, which no reconstruction can repair.
+
+Weights themselves are engine-ready: automatic weighting binds up to 9–10 bones to a single vertex, which glTF and
+most engines silently truncate to 4, so bonewright keeps the largest 4 and renormalises (measured cost: 0.05 cm).
 
 Mixamo/Adobe assets are deliberately excluded: the Adobe terms forbid using their content to test AI systems. Epic's
 own Fab content (Paragon, Game Animation Sample) is excluded too — it is tagged NoAI and ships in Unreal-only format.
