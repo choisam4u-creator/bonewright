@@ -20,7 +20,7 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
         q = landmarks.get("quad") or {}
         if not q.get("ok"):
             block.append("사족: 발 네 개를 못 찾았다 — " + ("; ".join(q.get("notes") or []) or "근거 없음"))
-        warn.append("사족 프리셋은 실험 단계다(자산 11종 정답 대조 평균 오차 키의 13.5%)")
+        warn.append("사족: 자산 11종 정답 대조 평균 오차는 키의 5.6% 다(늑대 3.2%, 소 7.4%). 개과·발굽 체형만 확인했다")
         return block, warn
     # 사람형: 팔·다리 중심선이 양쪽 다 있어야 한다. 하나라도 없으면 관절을 놓을 근거가 없다
     for part, ko, josa in (("arm", "팔", "을"), ("leg", "다리", "를")):

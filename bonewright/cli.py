@@ -65,6 +65,8 @@ def main() -> int:
     bm.add_argument("meshes", nargs="+", help="GLB/FBX 파일 또는 폴더")
     bm.add_argument("--run-id"); bm.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto")
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
+    bm.add_argument("--rest-pose", choices=["keep", "t"], default=None, help="리깅할 때 쉬는 자세를 T 로 굳힌다(포즈 정규화 측정용)")
+    bm.add_argument("--gt-mesh", help="정답 뼈대를 이 파일에서 가져온다(포즈 변형본을 원본 T 포즈와 맞댈 때)")
     bm.add_argument("--quiet", action="store_true")
     bm.add_argument("--skin", action="store_true", help="스키닝 일치도도 잰다(원본 가중치와 대조, 토큰 0)")
     bm.add_argument("--weights", choices=["auto", "proxy"], default=None, help="스키닝 방법 강제(A/B 비교용)")
@@ -110,7 +112,7 @@ def main() -> int:
             for m in a.meshes:
                 p_ = Path(m)
                 files += sorted(str(f) for f in p_.iterdir() if f.suffix.lower() in (".glb", ".gltf", ".fbx")) if p_.is_dir() else [m]
-            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset, skin=a.skin, weights=a.weights)
+            out = bench.run(ROOT, files, run_id=a.run_id, quiet=a.quiet, facing=a.facing, preset=a.preset, skin=a.skin, weights=a.weights, rest_pose=a.rest_pose, gt_mesh=a.gt_mesh)
         elif a.cmd == "export":
             out = pipeline.export_rig(ROOT, a.run_id, out=a.out, quiet=a.quiet)
         elif a.cmd == "demo":

@@ -95,6 +95,22 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})
     atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
     _log(quiet, f"[1/6] import: {a['stats'].get('import')}")
+    # 1a 포즈 정규화(rest_pose=t): 팔이 많이 내려가 있으면 **재기 전에** 수평으로 펴서 다시 잰다.
+    # 팔이 몸에 붙어 있으면 관절 찾기가 흔들린다(실측: 팔 75° 손 22.6cm, 90° 46.2cm 오차에 발목 검출 실패로 거절)
+    want_rest = rest_pose or cfg["rig"].get("rest_pose", "keep")
+    norm = None
+    if want_rest == "t" and preset == "humanoid":
+        r.state("normalize_pose", "running")
+        # 50° 이상에서만 미리 편다: 45° 정도는 fit_generate 의 정규화(정확히 맞춘 메타리그를 쓴다)가 더 낫다(2.62 vs 2.96cm)
+        norm = r.blender("normalize_pose", {"mesh": mesh, "out": str(r.dir / "00_normalized.glb"), "facing": facing,
+                                            "landmarks": a["landmarks"], "threshold_deg": 50.0})
+        if norm.get("applied"):
+            mesh = norm["out"]; facing = "neg-y"   # 이미 정규화된 방향으로 나왔다
+            a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})
+            atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
+            _log(quiet, f"[1/6] 포즈 정규화: 팔 {norm['angles_deg']}° → 수평으로 펴고 다시 분석")
+        else:
+            _log(quiet, f"[1/6] 포즈 정규화: 팔 {norm.get('angles_deg')}° — 이미 수평에 가까워 손대지 않는다")
     if a["landmarks"].get("suspect"):
         _log(quiet, f"  ⚠ 분석을 믿기 어렵다: {'; '.join(a['landmarks']['suspect'])} → 결과가 나쁘면 `--pin 본=x,y,z` 로 관절을 직접 고정하고 재시도하라")
     _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
@@ -135,9 +151,12 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     r.state("generate", "running")
     g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": preset,
                                    "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
-                                   "rest_pose": rest_pose or cfg["rig"].get("rest_pose", "keep"),
+                                   # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
+                                   "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
                                    "weight_method": weights or cfg["rig"].get("weights", "auto")})
     g["preset"] = preset   # bw motion 이 리그의 프리셋을 스스로 알도록 남긴다
+    if norm:
+        g["stats"]["normalize_pose"] = norm
     atomic_write(r.dir / "rig_stats.json", json.dumps(g, ensure_ascii=False, indent=2))
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}(가까운 본으로 메운 {st.get('filled_unweighted', 0)}) · 상자 밖 {len(st['bones_outside_bbox'])}")

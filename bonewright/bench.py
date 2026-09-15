@@ -175,7 +175,8 @@ def skin_score(pairs: list, preset: str = "humanoid") -> dict:
 
 
 def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = False, facing: str = "auto",
-        preset: str = "humanoid", skin: bool = False, weights: str | None = None) -> Path:
+        preset: str = "humanoid", skin: bool = False, weights: str | None = None, rest_pose: str | None = None,
+        gt_mesh: str | None = None) -> Path:
     cfg = load(root)
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
@@ -185,11 +186,13 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         name = Path(mesh).stem
         row = {"asset": name, "mesh": str(mesh)}
         try:
-            gt = run_script("gt_joints", {"mesh": str(Path(mesh).resolve()), "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
+            # gt_mesh: 정답을 '다른 파일'에서 가져온다 — 포즈를 바꾼 변형본(A 포즈)을 원본 T 포즈 뼈대와 맞대려고 쓴다
+            gt = run_script("gt_joints", {"mesh": str(Path(gt_mesh or mesh).resolve()), "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
             if not gt.get("joints"):
                 row["error"] = "원본 뼈대 없음 — 벤치마크 대상이 아니다"; results.append(row); continue
             rid = f"{run_id}-{name}"
-            pipeline.rig(root, mesh, preset, run_id=rid, quiet=True, no_judge=True, facing=facing, force=True, weights=weights)   # 벤치는 거절 대상도 재야 회귀를 본다
+            pipeline.rig(root, mesh, preset, run_id=rid, quiet=True, no_judge=True, facing=facing, force=True, weights=weights,
+                         rest_pose=rest_pose)   # 벤치는 거절 대상도 재야 회귀를 본다
             ours = run_script("dump_bones", {"blend": str(root / "runs" / rid / "02_rigged.blend")}, cfg["blender"], out_dir / "logs")["bones"]
             rows = compare(ours, gt["joints"], gt["height"], preset)
             errs = [r["error_cm"] for r in rows if r.get("error_cm") is not None]
