@@ -100,4 +100,32 @@ def quad_landmarks(vs, st, spacing):
     belly = _belly_z(vs, zmin, zmin + H * 0.9, gap_thr)
     if belly is not None:
         out["belly_z"] = belly
+    # 등 높이: 고관절·어깨 자리(앞뒤 y)에서 몸의 윗면이 얼마나 높은가. 총키로 재면 목 긴 알파카·뿔 달린 사슴이 어긋난다
+    # (정답 11종 대조: 고관절/등 = 0.79±0.06 으로 고관절/키 0.59±0.08 보다 두 배 일정하다). 다리 사슬 높이의 기준이 된다.
+    # 꼭대기 한 점 대신 띠 안 상위 5% 지점을 쓴다 — 뿔·귀·등의 돌기 하나에 휘둘리지 않게
+    if len(feet) == 4:
+        hy = (feet["hind_L"][1] + feet["hind_R"][1]) / 2
+        fy = (feet["front_L"][1] + feet["front_R"][1]) / 2
+        bl = hy - fy
+        # 띠 위치·폭은 정답 대조로 비율을 잰 그 조건 그대로여야 한다(띠가 달라지면 등 높이가 달라져 비율이 안 맞는다)
+        for tag, y in (("back_hind_z", hy - 0.15 * bl), ("back_front_z", fy + 0.10 * bl)):
+            band = sorted(v.z for v in vs if abs(v.y - y) < abs(bl) * 0.10)
+            if len(band) >= 20:
+                out[tag] = round(band[int(len(band) * 0.95)], 4)
+            else:
+                notes.append(f"{tag}: 띠 안 점이 부족하다")
+        # 앞다리 기울기: 앞발 기둥이 위로 갈수록 뒤로 얼마나 기우는가(몸 길이 비). 개과는 팔꿈치가 높고 다리가 뒤로 꺾여 0.089~0.133,
+        # 발굽 동물(소·말·사슴·알파카)은 수직 기둥이라 -0.05~0.066 — 자산 11종에서 0.08 을 경계로 완전히 갈린다.
+        # 이 한 값으로 팔꿈치 높이 비율과 앞다리 굽힘을 무리별로 고를 수 있다(메타리그 한 종 비율의 한계를 메시 측정으로 넘는다)
+        fx = abs(feet["front_L"][0]); lean = None
+        for f in (0.15, 0.20, 0.25, 0.30):
+            z = zmin + f * H
+            col = [v for v in vs if abs(abs(v.x) - fx) < fx * 0.6 and abs(v.y - fy) < abs(bl) * 0.25 and abs(v.z - z) < H * 0.02]
+            if len(col) >= 6:
+                v_ = (sum(v.y for v in col) / len(col) - fy) / bl
+                lean = v_ if lean is None else max(lean, v_)
+        if lean is not None:
+            out["front_lean"] = round(lean, 4)
+        else:
+            notes.append("앞다리 기울기: 기둥 점이 부족하다")
     return out
