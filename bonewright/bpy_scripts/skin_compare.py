@@ -38,9 +38,19 @@ def influence_point(p, groups, weights, segs):
 
 
 def bone_segments(arm_obj, names_filter=None):
+    """본이 실제로 덮는 구간. 꼬리가 아니라 **자식의 머리**까지로 본다 — 리그마다 뼈를 관절에 붙은 짧은 토막으로 그리는 관습이 있어
+    (Quaternius 계열) 꼬리 기준으로 재면 발목 정점의 '영향 중심'이 무릎으로 잡혀 44cm 씩 어긋난다. 자식이 하나일 때만 늘린다
+    (척추처럼 자식이 여럿이면 어느 쪽으로 늘릴지 정할 수 없다)."""
     MW = arm_obj.matrix_world
-    return {b.name: (MW @ b.head_local, MW @ b.tail_local) for b in arm_obj.data.bones
-            if names_filter is None or names_filter(b)}
+    out = {}
+    for b in arm_obj.data.bones:
+        if names_filter is not None and not names_filter(b): continue
+        kids = [c for c in b.children if names_filter is None or names_filter(c)]
+        end = kids[0].head_local if len(kids) == 1 else b.tail_local
+        if (end - b.head_local).length < b.length * 0.5:   # 자식이 뒤로 붙는 경우(꼬리·가슴)는 원래 꼬리를 쓴다
+            end = b.tail_local
+        out[b.name] = (MW @ b.head_local, MW @ end)
+    return out
 
 
 # 1) 원본: 뼈대를 살려서 가져오고 정점마다 (주도 본, 영향 중심) 을 뽑는다
@@ -74,7 +84,7 @@ if rig is None or not any(b.name.startswith("DEF-") for b in rig.data.bones):
     rig = next((o for o in bpy.data.objects if o.type == "ARMATURE" and any(b.name.startswith("DEF-") for b in o.data.bones)), None)
 rsegs = bone_segments(rig, lambda b: b.use_deform) if rig else {}
 og = {g.index: g.name for g in ours.vertex_groups if g.name.startswith("DEF-")}
-pairs, dists, unweighted, no_ip = [], [], 0, 0
+pairs, dists, dist_regions, dist_offsets, dist_ours, unweighted, no_ip = [], [], [], [], [], 0, 0
 for v in ours.data.vertices:
     cand = [g for g in v.groups if g.group in og]
     if not cand:
@@ -88,7 +98,34 @@ for v in ours.data.vertices:
     ip_orig = src[i][2]
     if ip_ours is None or ip_orig is None:
         no_ip += 1; continue
-    dists.append((ip_ours - ip_orig).length)
+    dists.append((ip_ours - ip_orig).length); dist_regions.append(src[i][1])
+    dist_offsets.append(ip_ours - ip_orig); dist_ours.append(og[best.group])
+
+# 부위별로 갈라 본다: 어디를 고쳐야 하는지 알려면 평균 하나로는 부족하다. 원본이 그 정점을 주로 맡긴 본 이름으로 나눈다
+REGION = (("hand", ("hand", "finger", "thumb", "index", "middle", "ring", "pinky", "palm", "wrist")),
+          ("foot", ("foot", "toe", "ankle", "heel", "ball")),
+          ("arm", ("arm", "elbow", "shoulder", "clavicle")),
+          ("leg", ("leg", "thigh", "shin", "calf", "knee", "hip")),
+          ("head", ("head", "neck", "jaw", "eye", "face", "skull")),
+          ("torso", ("spine", "chest", "torso", "pelvis", "back", "breast", "body", "root")))
+def region_of(name):
+    n = (name or "").lower()
+    for tag, words in REGION:
+        if any(w in n for w in words): return tag
+    return "other"
+by_region, off_region, name_region = {}, {}, {}
+for d_, gname, off, oname in zip(dists, dist_regions, dist_offsets, dist_ours):
+    r_ = region_of(gname)
+    by_region.setdefault(r_, []).append(d_)
+    off_region.setdefault(r_, []).append(off)   # 우리 영향 중심 − 원본 영향 중심(어느 쪽으로 쏠렸나)
+    name_region.setdefault(r_, []).append(oname)
+def _avg(v):
+    return [round(sum(x[i] for x in v) / len(v) * 100, 1) for i in range(3)]
+regions = {k: {"verts": len(v), "mean_cm": round(sum(v) / len(v) * 100, 2),
+               "mean_pct_height": round(sum(v) / len(v) / height * 100, 2),
+               "mean_offset_cm": _avg(off_region[k]),
+               "our_bones": sorted({n for n in name_region[k] if n}, key=lambda n: -name_region[k].count(n))[:4]}
+           for k, v in sorted(by_region.items(), key=lambda kv: -sum(kv[1]) / len(kv[1]))}
 
 dists.sort()
 n = len(dists)
@@ -98,4 +135,4 @@ if n:
                  "p90_cm": round(dists[int(n * 0.9)] * 100, 2), "mean_pct_height": round(sum(dists) / n / height * 100, 2),
                  "frac_over_10pct": round(sum(1 for d in dists if d > height * 0.10) / n, 3), "height": round(height, 3)}
 done({"pairs": pairs, "unweighted": unweighted, "verts": len(ours.data.vertices),
-      "influence": influence, "no_influence": no_ip}, A["result"])
+      "influence": influence, "regions": regions, "no_influence": no_ip}, A["result"])

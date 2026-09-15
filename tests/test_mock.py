@@ -31,6 +31,10 @@ class RigMockTests(unittest.TestCase):
         self.assertGreaterEqual(st["deform_bones"], 60)
         self.assertEqual(0, st["unweighted_verts"])
         self.assertEqual("auto", st["weight_method"], st)
+        # 정점당 영향 본은 glTF·엔진 표준인 4개 이하, 가중치 합은 1
+        self.assertLessEqual(st["max_influences"], 4, st)
+        self.assertAlmostEqual(1.0, st["weight_sum_min"], places=2)
+        self.assertAlmostEqual(1.0, st["weight_sum_max"], places=2)
         self.assertEqual([], st["bones_outside_bbox"])
         state = json.loads((self.tmp / "runs/t1/state.json").read_text())
         self.assertEqual("ok", state["status"], (self.tmp / "runs/t1/report.md").read_text())

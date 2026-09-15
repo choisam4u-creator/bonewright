@@ -345,9 +345,29 @@ for v in obj.data.vertices:
         p = obj.matrix_world @ v.co
         near = min(_fill_segs, key=lambda sg: _fill_seg_dist(p, sg[1], sg[2]))[0]
         obj.vertex_groups[near].add([v.index], 1.0, "REPLACE"); filled_unweighted += 1
-vg = {g.index: g.name for g in obj.vertex_groups}; sums = []; unweighted = 0
+# 정점당 영향 본 수 제한: glTF·엔진 표준이 4개다. 넘으면 내보낼 때 잘려 나가면서 가중치 합이 1 이 안 되고, 블렌더 안에서 본
+# 모습과 엔진에서 본 모습이 달라진다. 가장 큰 4개만 남기고 다시 1 로 맞춘다(아주 작은 가중치 0.005 미만도 버린다)
+MAX_INFLUENCES, MIN_W = 4, 0.005
+vg = {g.index: g.name for g in obj.vertex_groups}
+trimmed_verts = trimmed_weights = 0; max_inf_before = 0
 for v in obj.data.vertices:
-    w = sum(g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")); sums.append(w)
+    gs = [(g.weight, g.group) for g in v.groups if vg.get(g.group, "").startswith("DEF-")]
+    max_inf_before = max(max_inf_before, len(gs))
+    keep = sorted(gs, reverse=True)[:MAX_INFLUENCES]
+    keep = [(w, gi) for w, gi in keep if w >= MIN_W] or keep[:1]
+    drop = [gi for _, gi in gs if gi not in {gi2 for _, gi2 in keep}]
+    if drop:
+        trimmed_verts += 1; trimmed_weights += len(drop)
+        for gi in drop: obj.vertex_groups[vg[gi]].remove([v.index])
+    tot = sum(w for w, _ in keep)
+    if tot > 1e-8 and abs(tot - 1.0) > 1e-4:
+        for w, gi in keep: obj.vertex_groups[vg[gi]].add([v.index], w / tot, "REPLACE")
+
+vg = {g.index: g.name for g in obj.vertex_groups}; sums = []; unweighted = 0
+max_influences = 0
+for v in obj.data.vertices:
+    ws = [g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")]
+    w = sum(ws); sums.append(w); max_influences = max(max_influences, len(ws))
     if w < 1e-4: unweighted += 1
 # 가중치 누출 검사(토큰 0): 복셀 대리 메시는 가까운 조각을 붙이므로 팔 본이 몸통으로 샐 수 있다(Maya 는 복셀 위 측지 거리로 막는다).
 # (A) 몸통 한가운데(가슴~배) 정점이 팔 본에게 받는 가중치 — 빗장뼈(shoulder)는 원래 가슴 위를 덮으므로 뺀다.
@@ -392,7 +412,8 @@ deform_outside_mesh = sorted({b.name for b in _check for pt in _bone_points(b) i
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted,
+         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])

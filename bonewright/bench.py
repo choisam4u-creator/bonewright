@@ -206,6 +206,7 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
                                                      "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
                     row["skin"] = skin_score(sc.get("pairs") or [], preset)
                     row["skin"]["influence"] = sc.get("influence")   # 위치 지표(이름 규약과 무관): 영향 중심 거리
+                    row["skin"]["regions"] = sc.get("regions")       # 부위별(손·발·팔·다리·머리·몸통) — 어디를 고쳐야 하는지
                 except Exception as e:
                     row["skin"] = {"error": str(e).splitlines()[0][:120]}
             for r in rows:
