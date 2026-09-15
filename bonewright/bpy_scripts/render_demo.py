@@ -34,6 +34,7 @@ def key_rot(name, deg, frame):
     b.rotation_mode = "XYZ"; b.rotation_euler = [math.radians(a) for a in deg]; b.keyframe_insert("rotation_euler", frame=frame)
 hands = {s: pb[f"hand_ik.{s}"].bone.matrix_local.translation.copy() for s in ("L", "R") if f"hand_ik.{s}" in pb}
 foot = pb["foot_ik.L"].bone.matrix_local.translation.copy() if "foot_ik.L" in pb else None
+QUAD = "front_foot_ik.L" in pb   # 사족: 손 IK 대신 앞발 IK 가 있다
 def pose(frame, hands_fwd, knee_up, twist):
     for s, x in (("L", 1), ("R", -1)):
         if s in hands:
@@ -42,7 +43,24 @@ def pose(frame, hands_fwd, knee_up, twist):
     if foot is not None:
         key_loc("foot_ik.L", (Vector((foot.x + 0.04 * k, 0.22 * k, 0.42 * k)) - foot) if knee_up else (0, 0, 0), frame)   # 발을 뒤로 들어 무릎 굽힘을 보인다
     key_rot("torso", (0, 0, 15) if twist else (0, 0, 0), frame); key_rot("head", (0, 0, -20) if twist else (0, 0, 0), frame)
-pose(1, False, False, False); pose(q, True, False, False); pose(2 * q, True, True, True); pose(3 * q, False, False, False)
+
+def pose_quad(frame, phase):
+    """사족 데모: 대각선 두 발씩 드는 속보(트롯). 사람용 손 IK 가 없어 그냥 서 있던 것을 고친 것이다.
+    드는 높이·앞뒤 폭은 다리 길이(발 IK 컨트롤의 쉬는 높이가 아니라 몸 높이 k)에 비례시킨다"""
+    lift, fwd = 0.16 * k, 0.10 * k
+    pairs = {0: (), 1: ("front_foot_ik.L", "foot_ik.R"), 2: (), 3: ("front_foot_ik.R", "foot_ik.L")}[phase]
+    for n in ("front_foot_ik.L", "front_foot_ik.R", "foot_ik.L", "foot_ik.R"):
+        if n not in pb: continue
+        up = n in pairs
+        key_loc(n, (0, -fwd if up else 0, lift if up else 0), frame)
+    key_rot("torso", (0, 0, 6 if phase == 1 else (-6 if phase == 3 else 0)), frame)
+    key_rot("head", (0, 0, -12 if phase == 1 else (12 if phase == 3 else 0)), frame)
+
+if QUAD:
+    for i in range(4):
+        pose_quad(1 + i * q if i else 1, i)
+else:
+    pose(1, False, False, False); pose(q, True, False, False); pose(2 * q, True, True, True); pose(3 * q, False, False, False)
 bpy.ops.object.mode_set(mode="OBJECT")
 # 턴테이블(마지막 1/4): 새 키의 보간을 선형으로(Blender 5 의 슬롯 액션은 action.fcurves 가 없어 환경설정으로 정한다)
 pref = bpy.context.preferences.edit; old_interp = pref.keyframe_new_interpolation_type; pref.keyframe_new_interpolation_type = "LINEAR"
