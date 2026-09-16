@@ -157,10 +157,13 @@ def mock_backend(step: str, prompt: str, inputs: dict) -> dict:
             return _quad_fit(L, json.loads(inputs["metarig_bones.json"]))
         sw, y = L["shoulder_halfwidth"], 0.0
         meta0 = json.loads(inputs["metarig_bones.json"])
-        t = {"spine": {"head": [0, y, L["hip_z"]], "tail": meta0.get("spine", {"tail": [0, y, L["hip_z"] + 0.1]})["tail"]}}   # 척추·목·머리는 균일 스케일에 맡긴다
+        # 골반: 조각으로 만든 모델이면 가운데 줄 조각 뭉치가 골반 높이를 알려 준다(로봇 1.312, 정답 1.344 — 3cm)
+        _pz = ((L.get("foot_split") or {}).get("pelvis_z")) or L["hip_z"]
+        t = {"spine": {"head": [0, y, _pz], "tail": meta0.get("spine", {"tail": [0, y, _pz + 0.1]})["tail"]}}   # 척추·목·머리는 균일 스케일에 맡긴다
         thw, tx, tz = L["torso_halfwidth"], L["arm_tip_x"], L["arm_tip_z"]
         for s, x in (("L", 1), ("R", -1)):
-            ax = L.get(f"arm_axis_{s}") or []
+            _fs = L.get("foot_split") or {}
+            ax = [] if _fs.get("arm_z") else (L.get(f"arm_axis_{s}") or [])   # 구조를 읽었으면 실루엣 팔 중심선보다 그쪽을 믿는다
             if len(ax) >= 4:   # 중심선 표본 위에 배치: 어깨=첫 표본, 팔꿈치 45%, 손목 82%, 손끝 97%
                 pts = [p[:3] for p in ax]
                 seg = [((pts[i + 1][0] - pts[i][0]) ** 2 + (pts[i + 1][1] - pts[i][1]) ** 2 + (pts[i + 1][2] - pts[i][2]) ** 2) ** 0.5 for i in range(len(pts) - 1)]
@@ -173,11 +176,15 @@ def mock_backend(step: str, prompt: str, inputs: dict) -> dict:
                             return [round(pts[i][j] + (pts[i + 1][j] - pts[i][j]) * k, 3) for j in range(3)]
                         d -= ln
                 sh, el, wr, tip = at(0.0), at(0.45), at(0.82), at(0.97)
+            elif _fs.get("arm_z"):   # 조각 구조: 가장 멀리 나간 조각(손)이 팔 높이, 그 높이의 몸통 반폭이 어깨
+                sh = [x * _fs["arm_root_x"], y, _fs["arm_z"]]; tip = [x * (_fs["arm_tip_x"] - 0.02), y, _fs["arm_z"]]
+                mid = lambda a, b, f: [a[0] + (b[0] - a[0]) * f, y, a[2] + (b[2] - a[2]) * f]
+                el, wr = mid(sh, tip, 0.45), mid(sh, tip, 0.85)
             else:
                 sh = [x * thw * 0.8, y, L["shoulder_z"]]; tip = [x * (tx - 0.02), y, tz]
                 mid = lambda a, b, f: [a[0] + (b[0] - a[0]) * f, y, a[2] + (b[2] - a[2]) * f]
                 el, wr = mid(sh, tip, 0.45), mid(sh, tip, 0.85)
-            t[f"shoulder.{s}"] = {"head": [x * 0.04, y, L["shoulder_z"] + 0.02], "tail": sh}
+            t[f"shoulder.{s}"] = {"head": [x * 0.04, y, (_fs.get("arm_z") or L["shoulder_z"]) + 0.02], "tail": sh}
             t[f"upper_arm.{s}"] = {"head": sh, "tail": el}
             t[f"forearm.{s}"] = {"head": el, "tail": wr}
             t[f"hand.{s}"] = {"head": wr, "tail": tip}

@@ -22,13 +22,21 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
             block.append("사족: 발 네 개를 못 찾았다 — " + ("; ".join(q.get("notes") or []) or "근거 없음"))
         warn.append("사족: 자산 11종 정답 대조 평균 오차는 키의 5.6% 다(늑대 3.2%, 소 7.4%). 개과·발굽 체형만 확인했다")
         return block, warn
-    # 사람형: 팔·다리 중심선이 양쪽 다 있어야 한다. 하나라도 없으면 관절을 놓을 근거가 없다
-    for part, ko, josa in (("arm", "팔", "을"), ("leg", "다리", "를")):
-        miss = [s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}")]
-        if miss:
-            block.append(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다")
+    # 조각으로 만든 모델(로봇)은 실루엣으로 팔다리를 못 가르지만, **조각 자체가 마디라** 관절을 잴 수 있다.
+    # 발목·무릎·고관절·팔 높이가 전부 조각에서 나왔으면 '근거 없음'이 아니다 → 막지 않고 경고로 넘긴다
+    # (RobotExpressive: 이 경로로 키의 7.7%. 사람형 통과 무리가 1.6~7.4% 다)
+    fs = landmarks.get("foot_split") or {}
+    from_parts = all(fs.get(k) is not None for k in ("x", "ankle_z", "knee_z", "hip_z", "arm_z")) and (fs.get("leg_parts") or 0) >= 6
+    if from_parts:
+        warn.append(f"조각 구조에서 관절을 쟀다(다리 조각 {fs['leg_parts']}개) — 실루엣 근거가 아니므로 렌더를 꼭 확인하라")
+    else:
+        # 사람형: 팔·다리 중심선이 양쪽 다 있어야 한다. 하나라도 없으면 관절을 놓을 근거가 없다
+        for part, ko, josa in (("arm", "팔", "을"), ("leg", "다리", "를")):
+            miss = [s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}")]
+            if miss:
+                block.append(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다")
     fb = set(landmarks.get("ratio_fallbacks") or [])
-    hard = sorted(fb & set(BLOCKING_FALLBACKS))
+    hard = [] if from_parts else sorted(fb & set(BLOCKING_FALLBACKS))
     if hard:
         block.append(f"관절을 메시에서 못 찾아 인체 비율로 때웠다: {', '.join(hard)}")
     if fb - set(BLOCKING_FALLBACKS):

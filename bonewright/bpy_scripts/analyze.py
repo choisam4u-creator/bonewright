@@ -198,6 +198,40 @@ if not (legs["leg_axis_L"] and legs["leg_axis_R"]):
                 foot_split["ankle_z"], foot_split["hip_z"] = zs_[0], zs_[-1]
                 foot_split["knee_z"] = zs_[1] if len(zs_) == 3 else round(zs_[0] + (zs_[-1] - zs_[0]) * 0.5, 3)
                 foot_split["leg_parts"] = len(leg_parts)
+                # 가운데 줄(몸통) 조각도 같은 방식으로 묶는다: 골반·가슴·머리가 뭉치로 나온다
+                # (로봇 실측 1.312 / 2.101 / 3.045 — 정답 Hips 1.344 / Torso 2.148 / Head 3.038)
+                mid_parts = []
+                for members in isl.values():
+                    if len(members) < 6: continue
+                    pl = [vs[i] for i in members]
+                    cx = sum(p.x for p in pl) / len(pl); cz_ = sum(p.z for p in pl) / len(pl)
+                    if abs(cx) < fx * 0.45: mid_parts.append((cz_, len(members)))
+                mid_parts.sort()
+                mc, cur_ = [], []
+                for cz_, n in mid_parts:
+                    if cur_ and cz_ - cur_[-1][0] > H * 0.08: mc.append(cur_); cur_ = []
+                    cur_.append((cz_, n))
+                if cur_: mc.append(cur_)
+                cz_list = [round(sum(c * n for c, n in g) / sum(n for _, n in g), 3) for g in mc]
+                if cz_list:
+                    foot_split["center_z"] = cz_list
+                    foot_split["pelvis_z"] = min(cz_list, key=lambda z: abs(z - foot_split["hip_z"]))
+                # 팔 높이: **가장 멀리 나간 조각**(손)이 팔의 높이를 알려 준다. 실루엣 팔 중심선은 머리 둘레의
+                # 장식 고리를 팔로 오해하기 쉽다(로봇: 3.23m 를 어깨로 잡았다. 정답 2.44m, 손 조각은 2.473m)
+                far = None
+                for members in isl.values():
+                    if len(members) < 6: continue
+                    pl = [vs[i] for i in members]
+                    cx = sum(p.x for p in pl) / len(pl)
+                    if abs(cx) > fx * 1.2 and (far is None or abs(cx) > far[0]):
+                        far = (abs(cx), sum(p.z for p in pl) / len(pl), max(abs(p.x) for p in pl))
+                if far:
+                    az_ = round(far[1], 3)
+                    near = min(rows, key=lambda r: abs(r["z"] - az_))
+                    foot_split["arm_z"] = az_
+                    foot_split["arm_tip_x"] = round(far[2], 3)
+                    # 어깨의 좌우 거리는 최소한 다리 줄만큼은 된다 — 그 높이의 몸통 반폭이 더 좁게 읽히면 다리 줄을 쓴다
+                    foot_split["arm_root_x"] = round(max(near.get("torso_hw") or 0.0, fx), 3)
 
 # 발목 = 발 덩어리의 꼭대기. "발"은 다리 중심선에서 앞뒤(y)로 굵기의 1.5배 넘게 튀어나온 점들이다(발끝·발등).
 # 부츠를 신어도 발끝은 앞으로 튀어나오므로 신발 종류와 무관하다

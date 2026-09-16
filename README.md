@@ -17,7 +17,8 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 | Human-proportioned T-pose, skinned, arms out | **1.6 – 7.4%** | usable (GDQuest mannequiny 1.6%, Quaternius Adventurer 3.3%) |
 | Quadrupeds (`--preset quadruped`) | **5.6%** over 11 animals (wolf 3.2%, horse 3.5%, worst cow 7.4%) | usable for dogs/hoofed animals |
 | Robots, stylised, animals **that ship with a skeleton** | joints taken from the file | `--from-skeleton`, 0 tokens, no silhouette guess |
-| The same shapes with **no** skeleton | 10 – 59% | **rejected before any model call**, with an editable `targets_draft.json` |
+| A robot with **no** skeleton, built from separate rigid parts | **7.7%** (RobotExpressive) | rigs normally — the parts themselves give the joints |
+| Everything else with no skeleton | 10 – 59% | **rejected before any model call**, with an editable `targets_draft.json` |
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
 
@@ -35,19 +36,34 @@ A rejection is not a dead end. The run directory keeps `targets_draft.json` — 
 the mesh did give up — so you can drag the joints that are wrong and re-run with `--targets`, still at zero tokens.
 If the file has a skeleton the message says so and points at `--from-skeleton` first.
 
-The draft is more than the metarig at default proportions. Even when no leg centreline can be traced, **the bottom of
-a character almost always splits into two feet**, so the lowest slice is clustered along X and the two groups give the
-foot line. And a model built from separate rigid parts carries its own articulation: cluster the loose parts sitting
-on that foot line by height, and the clusters *are* the ankle, knee and hip. On RobotExpressive, whose legs read as a
-single column in silhouette, that lands 0.111 / 0.900 / 1.672 m against a true 0.025 / 0.935 / 1.537 — 2.2%, 0.9% and
-3.4% of height, the same range the ordinary humanoid path achieves. Its whole rig now measures **48 cm (12.3%)**
-instead of 183 cm, and it is still rejected, correctly, because 12.3% is over the line.
+**The bottom of a character almost always splits into two feet.** Clustering the lowest slice along X gives the foot
+line even when nothing else can be traced. From there, a model built from separate rigid parts hands over the rest:
+cluster the loose parts sitting on that foot line by height and the clusters *are* the ankle, knee and hip; the parts
+on the centre line give the pelvis and the head; the part that reaches furthest out sideways is the hand, and its
+height is the arm's. On RobotExpressive, whose legs read as a single column in silhouette:
 
-Across the benchmark assets this separates **7 pass (1.6–7.4% error) from 9 rejected (10.1–58.8%)**, re-verified after
-every change to the importer and the fitter. There is now one honest miss: once the 90° turn described below was
-corrected, `quat_pp_41j` dropped from 89 cm to 35 cm (6.3% of height) and would have been usable, yet it is still
-rejected because its crotch and ankle came from body ratios. The gate keeps the safer answer — and that file ships
-with a skeleton, so `--from-skeleton` rigs it anyway. Override with `--force`.
+| | measured | author's rig | of height |
+|---|---|---|---|
+| foot line (x) | 0.635 | 0.641 | 0.2% |
+| ankle | 0.111 | 0.025 | 2.2% |
+| knee | 0.900 | 0.935 | 0.9% |
+| hip | 1.672 | 1.537 | 3.4% |
+| pelvis | 1.312 | 1.344 | 0.8% |
+| arm height | 2.473 | 2.439 | 0.9% |
+
+The whole rig measures **30 cm, 7.7% of height** — down from 183 cm, and inside the band where the ordinary humanoid
+path lands. One attempt failed and is worth recording: taking the *top* of the leg parts as the hip gives 2.07 m, because
+the robot's skirt covers the leg line that high, and feeding that to the fitter made the benchmark worse.
+
+Across the benchmark assets this separates **8 pass (1.6–7.7% error) from 8 rejected (10.1–58.8%)**, re-verified after
+every change to the importer and the fitter. One honest miss remains: once the 90° turn described below was corrected,
+`quat_pp_41j` dropped from 89 cm to 35 cm (6.3% of height) and would have been usable, yet it is still rejected
+because its crotch and ankle came from body ratios. The gate keeps the safer answer — and that file ships with a
+skeleton, so `--from-skeleton` rigs it anyway. Override with `--force`.
+
+The gate asks whether the joints rest on **evidence**, not on which evidence. A model built from separate rigid parts
+has no traceable leg centreline, yet its parts are its articulation, so a full structural read (foot line, ankle, knee,
+hip, arm height, at least six leg parts) satisfies the gate and carries a warning to look at the renders instead.
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
 character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
 
