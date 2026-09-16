@@ -271,3 +271,106 @@ class RetargetMappingTests(unittest.TestCase):
         self.assertEqual(m["mixamorig:Hips"], "torso"); self.assertEqual(m["mixamorig:Spine2"], "chest")
         self.assertEqual(m["mixamorig:Neck"], "neck"); self.assertEqual(m["mixamorig:LeftFoot"], "foot_fk.L")
         self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
+
+
+class FromSkeletonTests(unittest.TestCase):
+    """원본 뼈대를 그대로 받는 경로(--from-skeleton, Blender 불필요).
+    자산으로 확인한 실패들이 다시 나오지 않게 고정한다"""
+
+    def _humanoid(self, flip=False):
+        """간단한 사람형 뼈대. flip=True 면 가져오기가 180° 돌린 상황(원본 Left 가 우리 -X 로 간다)"""
+        s = -1 if flip else 1
+        return {"Hips": {"head": [0, 0, 1.0], "tail": [0, 0, 1.2], "parent": None},
+                "Spine": {"head": [0, 0, 1.2], "tail": [0, 0, 1.4], "parent": "Hips"},
+                "Neck": {"head": [0, 0, 1.5], "tail": [0, 0, 1.6], "parent": "Spine"},
+                "Head": {"head": [0, 0, 1.6], "tail": [0, 0, 1.75], "parent": "Neck"},
+                "UpperArm.L": {"head": [0.2 * s, 0, 1.45], "tail": [0.45 * s, 0, 1.45], "parent": "Neck"},
+                "LowerArm.L": {"head": [0.45 * s, 0, 1.45], "tail": [0.7 * s, 0, 1.45], "parent": "UpperArm.L"},
+                "UpperArm.R": {"head": [-0.2 * s, 0, 1.45], "tail": [-0.45 * s, 0, 1.45], "parent": "Neck"},
+                "LowerArm.R": {"head": [-0.45 * s, 0, 1.45], "tail": [-0.7 * s, 0, 1.45], "parent": "UpperArm.R"},
+                "UpperLeg.L": {"head": [0.1 * s, 0, 0.95], "tail": [0.1 * s, 0, 0.5], "parent": "Hips"},
+                "LowerLeg.L": {"head": [0.1 * s, 0, 0.5], "tail": [0.1 * s, 0, 0.1], "parent": "UpperLeg.L"},
+                "Foot.L": {"head": [0.1 * s, 0, 0.1], "tail": [0.1 * s, -0.1, 0.0], "parent": "LowerLeg.L"},
+                "UpperLeg.R": {"head": [-0.1 * s, 0, 0.95], "tail": [-0.1 * s, 0, 0.5], "parent": "Hips"},
+                "LowerLeg.R": {"head": [-0.1 * s, 0, 0.5], "tail": [-0.1 * s, 0, 0.1], "parent": "UpperLeg.R"},
+                "Foot.R": {"head": [-0.1 * s, 0, 0.1], "tail": [-0.1 * s, -0.1, 0.0], "parent": "LowerLeg.R"}}
+
+    def test_sides_follow_coordinates_not_names(self):
+        """가져오기가 메시를 180° 돌리면 원본 'Left' 가 우리 -X 로 온다. 이름만 믿으면 팔이 교차한다"""
+        from bonewright.from_skeleton import targets_from_skeleton
+        for flip in (False, True):
+            tg, _ = targets_from_skeleton(self._humanoid(flip), "humanoid", 1.8)
+            self.assertGreater(tg["upper_arm.L"]["head"][0], 0, f"flip={flip}: 왼팔은 +X 여야 한다")
+            self.assertLess(tg["upper_arm.R"]["head"][0], 0, f"flip={flip}: 오른팔은 -X 여야 한다")
+            self.assertGreater(tg["thigh.L"]["head"][0], 0, f"flip={flip}")
+
+    def test_missing_wrist_uses_previous_bone_tail(self):
+        """손목 관절이 없는 뼈대(로봇)는 팔뚝 본의 tail 이 곧 손목이다 — 기본 자리에 남으면 몸을 가로지른다"""
+        from bonewright.from_skeleton import targets_from_skeleton
+        tg, info = targets_from_skeleton(self._humanoid(), "humanoid", 1.8)
+        self.assertAlmostEqual(0.7, tg["hand.L"]["head"][0], places=3)   # LowerArm.L 의 tail
+        self.assertAlmostEqual(0.7, tg["forearm.L"]["tail"][0], places=3)
+        self.assertEqual([], info["limbs_absent"])
+
+    def test_palm_counts_as_wrist(self):
+        """손목 이름 없이 손바닥만 있는 리그(three.js RobotExpressive)도 손이 제자리에 와야 한다"""
+        j = self._humanoid()
+        j["Palm1.L"] = {"head": [0.8, 0, 1.45], "tail": [0.9, 0, 1.45], "parent": "LowerArm.L"}
+        j["Palm1.R"] = {"head": [-0.8, 0, 1.45], "tail": [-0.9, 0, 1.45], "parent": "LowerArm.R"}
+        from bonewright.from_skeleton import targets_from_skeleton
+        tg, _ = targets_from_skeleton(j, "humanoid", 1.8)
+        self.assertAlmostEqual(0.8, tg["hand.L"]["head"][0], places=3)
+
+    def test_half_rigged_source_is_mirrored(self):
+        """한쪽만 리깅한 자산은 몸 한가운데를 기준으로 비춰 채운다(안 그러면 반대쪽이 기본 자리에 남는다)"""
+        from bonewright.from_skeleton import targets_from_skeleton
+        j = {k: v for k, v in self._humanoid().items() if not k.endswith(".R")}
+        tg, info = targets_from_skeleton(j, "humanoid", 1.8)
+        self.assertIn("upper_arm.R", tg)
+        self.assertAlmostEqual(-tg["upper_arm.L"]["head"][0], tg["upper_arm.R"]["head"][0], places=4)
+        self.assertIn("upper_arm.R", info["mirrored"])
+
+    def test_absent_limb_is_reported(self):
+        """팔다리가 통째로 없는 뼈대(반쪽 자산)는 채울 근거가 없다 → 파이프라인이 0 토큰으로 막을 수 있게 알린다"""
+        from bonewright.from_skeleton import targets_from_skeleton
+        j = {k: v for k, v in self._humanoid().items() if "Leg" not in k and "Foot" not in k}
+        _, info = targets_from_skeleton(j, "humanoid", 1.8)
+        self.assertEqual(["thigh"], info["limbs_absent"])
+
+    def test_quadruped_chain_follows_source_spine(self):
+        """사족: 등·꼬리는 휘어 있다. 양 끝만 이으면 본이 몸 밖으로 나가고, 꼬리 사슬은 골반과 같은 점에서 시작해야
+        Rigify 가 'disjoint' 로 실패하지 않는다(늑대로 확인)"""
+        from bonewright.from_skeleton import targets_from_skeleton
+        j = {"Body": {"head": [0, -0.8, 0.5], "tail": [0, -0.8, 0.6], "parent": None},
+             "Back": {"head": [0, 0, 2.0], "tail": [0, -0.4, 1.95], "parent": "Body"},
+             "Torso": {"head": [0, -0.7, 1.9], "tail": [0, -1.1, 1.87], "parent": "Back"},
+             "Torso2": {"head": [0, -1.1, 1.87], "tail": [0, -1.7, 1.83], "parent": "Torso"},
+             "Neck1": {"head": [0, -1.95, 1.88], "tail": [0, -2.2, 1.95], "parent": "Torso2"},
+             "Head": {"head": [0, -2.7, 2.12], "tail": [0, -3.0, 2.03], "parent": "Neck1"},
+             "Tail1": {"head": [0, 0.0, 1.88], "tail": [0, 0.2, 1.99], "parent": "Back"},
+             "Tail2": {"head": [0, 0.2, 1.99], "tail": [0, 0.9, 1.94], "parent": "Tail1"},
+             "FrontUpperLeg.L": {"head": [0.33, -1.76, 1.47], "tail": [0.33, -1.65, 1.13], "parent": "Torso2"},
+             "FrontLowerLeg.L": {"head": [0.33, -1.65, 1.13], "tail": [0.33, -1.73, 0.28], "parent": "FrontUpperLeg.L"},
+             "FrontUpperLeg.R": {"head": [-0.33, -1.76, 1.47], "tail": [-0.33, -1.65, 1.13], "parent": "Torso2"},
+             "FrontLowerLeg.R": {"head": [-0.33, -1.65, 1.13], "tail": [-0.33, -1.73, 0.28], "parent": "FrontUpperLeg.R"},
+             "BackLeg.L": {"head": [0.34, -0.2, 1.77], "tail": [0.34, -0.45, 1.35], "parent": "Back"},
+             "BackUpperLeg.L": {"head": [0.34, -0.45, 1.35], "tail": [0.34, 0.43, 0.83], "parent": "BackLeg.L"},
+             "BackLowerLeg.L": {"head": [0.34, 0.43, 0.83], "tail": [0.34, 0.09, 0.2], "parent": "BackUpperLeg.L"},
+             "BackLeg.R": {"head": [-0.34, -0.2, 1.77], "tail": [-0.34, -0.45, 1.35], "parent": "Back"},
+             "BackUpperLeg.R": {"head": [-0.34, -0.45, 1.35], "tail": [-0.34, 0.43, 0.83], "parent": "BackLeg.R"},
+             "BackLowerLeg.R": {"head": [-0.34, 0.43, 0.83], "tail": [-0.34, 0.09, 0.2], "parent": "BackUpperLeg.R"}}
+        tg, info = targets_from_skeleton(j, "quadruped", 2.2)
+        self.assertEqual([], info["limbs_absent"])
+        # 등 사슬: 골반에서 시작해 목 밑에서 끝나고, 마디가 서로 붙어 있어야 한다
+        back = ["spine.004", "spine.005", "spine.006", "spine.007", "spine.008"]
+        self.assertEqual([0, 0, 2.0], tg["spine.004"]["head"])
+        for a, b in zip(back, back[1:]):
+            self.assertEqual(tg[a]["tail"], tg[b]["head"], f"{a}→{b} 가 끊겼다")
+        self.assertAlmostEqual(-1.95, tg["spine.008"]["tail"][1], places=2)   # 목 밑
+        # 꼬리 사슬은 골반과 같은 점에서 시작한다(Rigify 요구)
+        self.assertEqual(tg["spine.004"]["head"], tg["spine.003"]["head"])
+        # 앞발: 원본에 발 관절이 없으니 마지막 본의 tail 을 쓴다(방향 외삽이면 공중에 뜬다)
+        self.assertAlmostEqual(0.28, tg["front_shin.L"]["tail"][2], places=2)
+        # 사족 앞다리 좌우도 좌표 부호로 정한다
+        self.assertGreater(tg["front_thigh.L"]["head"][0], 0)
+        self.assertLess(tg["front_thigh.R"]["head"][0], 0)

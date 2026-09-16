@@ -10,6 +10,7 @@ from . import schemas
 from .blender import run_script
 from .codex import CodexError, UsageLimit, run_step
 from .config import load
+from .from_skeleton import targets_from_skeleton
 from .gates import judge_gates, preflight, rig_gates
 from .ledger import append as ledger_append
 from .manifest import atomic_write
@@ -82,7 +83,7 @@ class Run:
 
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
         budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
-        force: bool = False, rest_pose: str | None = None, weights: str | None = None) -> Path:
+        force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False) -> Path:
     cfg = load(root, lang)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
@@ -116,7 +117,9 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
     # 1b 거절 게이트: 모델을 부르기 전에 이 메시가 이 프리셋에 맞는지 본다.
     # 여기서 막으면 토큰이 0 이다(리그 1건 입력 8만 토큰). --force 로 넘길 수 있다
-    block, warn = preflight(a["landmarks"], a["stats"], preset, cfg["gates"])
+    block, warn = ([], []) if from_skeleton else preflight(a["landmarks"], a["stats"], preset, cfg["gates"])
+    if from_skeleton:
+        warn.append("--from-skeleton: 관절을 원본 뼈대에서 그대로 받는다 — 실루엣 기반 거절 게이트는 건너뛴다")
     for w in warn:
         _log(quiet, f"  ⚠ {w}")
     if block and not force:
@@ -126,10 +129,26 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     if block:
         _log(quiet, "  ⚠ --force: 거절 사유를 무시하고 진행한다 — " + "; ".join(block))
 
-    # 2 맞춤 판단(모델). --targets 가 있으면 모델을 부르지 않는다(토큰 0)
+    # 2 맞춤 판단(모델). --targets / --from-skeleton 이면 모델을 부르지 않는다(토큰 0)
     r.state("fit", "running")
     pins = dict(pins or {})
-    if targets_file:
+    source_symmetry = 0.0
+    if from_skeleton:
+        gt = r.blender("gt_joints", {"mesh": mesh, "facing": facing, "preset": preset})
+        if not gt.get("joints"):
+            raise Blocked("--from-skeleton: 이 파일에 원본 뼈대가 없다")
+        tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"])
+        if info["limbs_absent"]:
+            raise Blocked("--from-skeleton: 원본 뼈대에 " + ", ".join(info["limbs_absent"]) + " 가 아예 없다 — 반쪽만 리깅한 자산이라\n"
+                          "  그 팔다리는 메타리그 기본 자리에 남아 몸을 뚫는다. 기본 경로(--from-skeleton 없이)로 돌리거나 --pin 으로 직접 찍어라")
+        if len(tg) < 6:
+            raise Blocked(f"--from-skeleton: 원본 뼈대에서 알아볼 수 있는 관절이 너무 적다({sorted(tg)}) — 이름 규약이 낯설다")
+        fit = {"targets": tg, "reasoning": f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", "confidence": None}
+        source_symmetry = info.get("source_symmetry", 0.0)
+        _log(quiet, f"[2/6] fit: 원본 뼈대에서 목표 {len(tg)}개 · 모델 호출 0회 · 못 찾은 관절 {info['missing']}" +
+             (f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}" if info["mirrored"] else "") +
+             (f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)" if source_symmetry > 0.01 else ""))
+    elif targets_file:
         fit = {"targets": json.loads(Path(targets_file).read_text(encoding="utf-8")), "reasoning": f"재사용: {targets_file}", "confidence": None}
         _log(quiet, f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회")
     else:
@@ -153,7 +172,10 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                                    "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
                                    # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
                                    "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
-                                   "weight_method": weights or cfg["rig"].get("weights", "auto")})
+                                   "weight_method": weights or cfg["rig"].get("weights", "auto"),
+                                   # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
+                                   # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
+                                   "propagate_helpers": from_skeleton and preset == "humanoid"})
     g["preset"] = preset   # bw motion 이 리그의 프리셋을 스스로 알도록 남긴다
     if norm:
         g["stats"]["normalize_pose"] = norm
@@ -161,7 +183,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}(가까운 본으로 메운 {st.get('filled_unweighted', 0)}) · 상자 밖 {len(st['bones_outside_bbox'])}")
     # 4 게이트
-    fails = rig_gates(st, cfg["gates"], a["stats"]["verts"])
+    fails = rig_gates(st, cfg["gates"], a["stats"]["verts"], source_symmetry)
     _log(quiet, f"[4/6] gates: {'통과' if not fails else fails}")
     # 5 렌더
     r.state("render", "running")
@@ -183,7 +205,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
               f"- landmarks: chibi={a['landmarks'].get('chibi')} · head_ratio={a['landmarks'].get('head_ratio')} · neck={a['landmarks'].get('neck_from')} · suspect={a['landmarks'].get('suspect')}",
               f"- rig: `{g['blend']}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
               f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} (filled by nearest bone {st.get('filled_unweighted', 0)}) · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
-              f"- gates: {'PASS' if not fails else 'FAIL: ' + '; '.join(fails)}",
+              f"- gates: {'PASS' if not fails else 'FAIL: ' + '; '.join(fails)}" +
+              (f" · ⚠ 조각 사이 빈틈을 지나는 본 {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}" if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
               f"- targets: `{r.dir / 'targets.json'}` (손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)" + (f" · 고정 {sorted(pins)}" if pins else ""),

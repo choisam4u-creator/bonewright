@@ -1,5 +1,5 @@
 """2~3단계: 메타리그 추가 → 관절 목표(JSON)대로 주요 본 이동 → Rigify 생성 → 자동 가중치 → 통계."""
-import bpy, json
+import bpy, json, re
 from mathutils import Vector, Matrix
 from _common import args, done
 A = args()
@@ -59,6 +59,7 @@ def clamp(name, v):
     if (c - Vector(v)).length > 1e-6: clamped.append(name)
     return c
 before = {n: (eb[n].head.copy(), eb[n].tail.copy()) for n in T if n in eb}   # 자식 본을 같이 옮기기 위해 원래 위치를 기억
+pre_sym = {b.name: (b.head.copy(), b.tail.copy()) for b in eb}               # 보정 전 좌우 대칭 여부를 판정하려고 전부 기억
 for name, t in T.items():
     if name in eb:
         if "head" in t: eb[name].head = clamp(name, t["head"])   # 목표가 메시 상자를 벗어나면 안쪽으로 자른다(모델 답도 동일)
@@ -108,14 +109,23 @@ for side in (("L", "R") if AXIS_OK else ()):
 # 보정 2: 목표에 없는 자식 본(손가락·발가락·뒤꿈치)은 가장 가까운 목표 조상 본의 이동(평행이동+회전+길이 비율)을 그대로 따른다.
 # 이걸 안 하면 손가락이 메타리그 기본 위치에 남아 메시 밖에 뜬다
 propagated = []
+helpers = bool(A.get("propagate_helpers"))   # 척추에 달린 살집 보조 본(breast/pelvis)도 따라가게 할지
 for b in (() if "propagate" in SKIP else list(eb)):
     if b.name in before or b.name in PINNED: continue
     anc = b.parent
     while anc is not None and anc.name not in before: anc = anc.parent
-    if anc is None or anc.name.startswith("spine"): continue   # 척추 목표의 길이 비율을 상체 전체에 번지게 하지 않는다(팔다리·손발 하위만)
+    # 척추 목표의 길이 비율을 상체 사슬 전체에 번지게 하지 않는다(팔다리·손발 하위만).
+    # 예외: breast/pelvis 는 척추에 매달린 살집 보조 본이라, 사람 비율이 안 통하는 모델(--from-skeleton)에서는
+    # 부모 척추를 따라가야 한다. 안 따라가면 사람 기본 자리에 남아 엉뚱한 데를 잡는다(로봇: breast 가 머리 정점 117개를
+    # 가져갔다). 반대로 사람형 기본 경로에서는 기본 자리가 이미 맞아, 따라가게 하면 오히려 나빠진다
+    # (cesium_man 좌우 일치 0.999 → 0.853) → 그래서 이 예외는 helpers 옵션이 켜졌을 때만이다
+    if anc is None or (anc.name.startswith("spine") and not (helpers and b.name.startswith(("breast", "pelvis")))): continue
     h0, t0 = before[anc.name]; h1, t1 = anc.head.copy(), anc.tail.copy(); d0, d1 = t0 - h0, t1 - h1
     if d0.length < 1e-6 or d1.length < 1e-6: continue
-    M = Matrix.Translation(h1) @ d0.rotation_difference(d1).to_matrix().to_4x4() @ Matrix.Scale(d1.length / d0.length, 4) @ Matrix.Translation(-h0)
+    # breast/pelvis 는 회전을 빼고 평행이동+길이 비율만 따른다. 척추 방향이 조금만 틀어져도
+    # rotation_difference 가 축 둘레로 아무 방향이나 골라서 좌우가 뒤집힌다(좌우 일치 0.675 로 확인)
+    rot = Matrix.Identity(4) if b.name.startswith(("breast", "pelvis")) else d0.rotation_difference(d1).to_matrix().to_4x4()
+    M = Matrix.Translation(h1) @ rot @ Matrix.Scale(d1.length / d0.length, 4) @ Matrix.Translation(-h0)
     b.transform(M, scale=True, roll=True); propagated.append(b.name)
 # 보정 2b: 척추 중간 본(spine.001~.003)은 양 끝(spine tail ↔ spine.004 head) 사이에 원래 길이 비율대로 다시 편다
 mid = ["spine.001", "spine.002", "spine.003"]
@@ -159,14 +169,30 @@ def pull_inside(p, inset=0.012):
     return loc - nrm * (inset / 8), True
 snapped_inside = []
 skip_inside = {b.name for h in ("hand.L", "hand.R") if h in eb for b in eb if any(pb.name == h for pb in b.parent_recursive)}
+
 # 우리가 옮긴 본과 그 자식만 당긴다. 예전엔 메타리그의 모든 본을 당겼는데, 손대지 않은 본까지 표면으로 끌려가
 # 사슬이 끊겼다(사족 프리셋이 Rigify 생성에서 통째로 실패한 원인 — 이분 탐색으로 확인)
-touched = set(T) | set(propagated)
+# breast/pelvis 는 목표를 안 줘도 몸 안으로 당긴다 — 메타리그 기본 자리가 몸 밖일 수 있다(말: 둘 다 몸 밖)
+touched = set(T) | set(propagated) | {b.name for b in eb if b.name.startswith(("breast", "pelvis"))}
 for b in (() if "inside" in SKIP else [x for x in eb if x.name in touched]):
     if b.name in skip_inside or b.name in PINNED: continue   # 손가락: 보정 3 이 손 실루엣 안으로 넣었다. 부피 메시(복셀 1.2cm)는 손가락을 뭉개서 잘못 당긴다
     for attr in ("head", "tail"):
         q, moved_pt = pull_inside(getattr(b, attr))
         if moved_pt: setattr(b, attr, q); snapped_inside.append(f"{b.name}.{attr}")
+# 보정 4b: 손대기 전에 좌우가 딱 대칭이던 짝은 보정 뒤에도 대칭으로 되돌린다. pull_inside 는 좌우가 각자
+# '가장 가까운 면'을 골라서, 같은 자리에서 시작한 본도 서로 다른 데로 보낸다(말: pelvis 좌우가 47cm 어긋났다)
+_MIR = Vector((-1, 1, 1))
+resymmetrized = []
+for lb in [b for b in eb if b.name.endswith(".L") and b.name[:-1] + "R" in eb and b.name in pre_sym]:
+    rb = eb[lb.name[:-1] + "R"]
+    if rb.name not in pre_sym or lb.name in PINNED or rb.name in PINNED:
+        continue
+    (hl, tl), (hr, tr) = pre_sym[lb.name], pre_sym[rb.name]
+    if (hl * _MIR - hr).length > 1e-5 or (tl * _MIR - tr).length > 1e-5:
+        continue   # 처음부터 비대칭이던 짝(목표가 그렇게 시켰다)은 건드리지 않는다
+    if (lb.head * _MIR - rb.head).length > 1e-5 or (lb.tail * _MIR - rb.tail).length > 1e-5:
+        rb.head = lb.head * _MIR; rb.tail = lb.tail * _MIR; resymmetrized.append(rb.name)
+
 # 안전장치: 길이 0 에 가까운 본은 부모 방향으로 살짝 늘린다(Rigify 는 0 길이 본에서 실패한다)
 fixed = []
 for b in (() if "zerolen" in SKIP else eb):
@@ -408,13 +434,32 @@ finger_bones_skipped = sum(1 for b in rig.data.bones if b.use_deform and b.name.
 def _bone_points(b):
     h, t = rig.matrix_world @ b.head_local, rig.matrix_world @ b.tail_local
     return [h + (t - h) * (i / 4.0) for i in range(5)]
-deform_outside_mesh = sorted({b.name for b in _check for pt in _bone_points(b) if _outside(pt)})
+# 조각으로 나뉜 모델(로봇 등)은 본이 '몸 밖'이 아니라 '조각 사이 빈틈'을 지난다. 관절 양끝이 메시 안이면
+# 스키닝에 문제가 없으므로 실패가 아니라 경고로 따로 센다 — 실제로 못 붙는 본은 끝이 허공에 뜬 본이다.
+# 판정 단위는 DEF 본 하나가 아니라 '메타리그 본 하나'다: Rigify 는 팔다리를 B-본 두 마디로 쪼개므로
+# (DEF-forearm.L + DEF-forearm.L.001) 쪼갠 이음매가 마침 빈틈에 떨어지면 멀쩡한 관절도 밖으로 읽힌다.
+# 쪼갠 마디는 이름이 '...[.LR].숫자' 라서 골라낼 수 있다(척추의 DEF-spine.001 은 좌우 표시가 없어 안 걸린다)
+_SPLIT = re.compile(r"^(.*\.[LR])\.\d+$")
+_group = {}
+for b in _check:
+    m = _SPLIT.match(b.name)
+    _group.setdefault(m.group(1) if m and m.group(1) in rig.data.bones else b.name, []).append(b)
+deform_outside_mesh, deform_gap_mesh = [], []
+for base, members in _group.items():
+    members.sort(key=lambda b: b.name)
+    pts = [pt for b in members for pt in _bone_points(b)]
+    if not any(_outside(pt) for pt in pts):
+        continue
+    names = [b.name for b in members]
+    (deform_gap_mesh if not (_outside(pts[0]) or _outside(pts[-1])) else deform_outside_mesh).extend(names)
+deform_outside_mesh.sort(); deform_gap_mesh.sort()
 pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and b.name.endswith(".L") and (b.name[:-1] + "R") in rig.data.bones]
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
+worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted,
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted,
          "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
-         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0}
+         "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
 done({"stats": stats, "rig": rig.name, "blend": A["out_blend"]}, A["result"])

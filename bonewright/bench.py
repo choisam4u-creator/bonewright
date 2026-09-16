@@ -22,7 +22,9 @@ JOINT_MAP = {
     # 숫자 체인 규약(CesiumMan 의 arm_joint_L_1/2/3)은 번호로 어깨·팔꿈치·손목을 구분한다 → 번호 붙은 후보를 먼저 본다
     "upper_arm": ["upperarm", "armjoint1", "arm1", "arm"],
     "forearm": ["lowerarm", "forearm", "armjoint2", "arm2"],
-    "hand": ["wrist", "hand", "armjoint3", "arm3"],
+    # 손목 이름이 없고 손바닥만 있는 리그가 있다(three.js RobotExpressive: LowerArm → Palm1/2/3).
+    # "palm" 을 맨 뒤에 두어 진짜 손목이 있으면 그쪽이 먼저 잡히게 한다
+    "hand": ["wrist", "hand", "armjoint3", "arm3", "palm"],
     "thigh": ["upperleg", "upleg", "thigh", "legjoint1", "leg1"],
     "shin": ["lowerleg", "shin", "calf", "legjoint2", "leg2", "leg"],
     "foot": ["foot", "ankle", "legjoint3", "leg3"],

@@ -44,6 +44,7 @@ def main() -> int:
     r.add_argument("--run-id"); r.add_argument("--lang", choices=["ko", "en"]); r.add_argument("--budget", type=int)
     r.add_argument("--no-judge", action="store_true", help="시각 판정(모델 호출) 생략"); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help="캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤"); r.add_argument("--quiet", action="store_true")
     r.add_argument("--force", action="store_true", help="거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)")
+    r.add_argument("--from-skeleton", action="store_true", help="파일에 든 원본 뼈대의 관절을 그대로 써서 Rigify 리그를 만든다(토큰 0). 실루엣으로 관절을 못 찾는 로봇·양식화 캐릭터에 쓴다")
     r.add_argument("--rest-pose", choices=["keep", "t"], default=None, help="쉬는 자세: keep=메시 자세 그대로(기본), t=팔을 수평으로 굳혀 T 포즈로")
     r.add_argument("--weights", choices=["auto", "proxy"], default=None, help="스키닝: auto=Bone Heat(비면 복셀 대리), proxy=항상 복셀 대리")
     r.add_argument("--pin", action="append", metavar="본=x,y,z[/x,y,z]",
@@ -106,7 +107,7 @@ def main() -> int:
 
     try:
         if a.cmd == "rig":
-            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose, weights=a.weights)
+            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose, weights=a.weights, from_skeleton=a.from_skeleton)
         elif a.cmd == "bench":
             files = []
             for m in a.meshes:

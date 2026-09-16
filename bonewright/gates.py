@@ -43,7 +43,7 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
 
 
 
-def rig_gates(stats: dict, g: dict, verts: int) -> list[str]:
+def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) -> list[str]:
     fails = []
     # 가중치 없는 정점은 fit_generate 가 가장 가까운 본으로 메운다 → 메운 수(filled_unweighted)로 판정한다. 메운 뒤에도 남으면 그것도 실패
     holes = stats["unweighted_verts"] + stats.get("filled_unweighted", 0)
@@ -56,6 +56,9 @@ def rig_gates(stats: dict, g: dict, verts: int) -> list[str]:
     if len(stats["bones_outside_bbox"]) > g["max_bones_outside_bbox"]:
         fails.append(f"메시 상자 밖 변형 본 {len(stats['bones_outside_bbox'])}: {stats['bones_outside_bbox'][:5]}")
     tol = g["symmetry_max_error"] * max(0.2, stats.get("height", 1.8) / 1.8)   # 키 비례(1.8m 기준값)
+    # --from-skeleton 은 원본 뼈대 좌표를 그대로 쓴다. 원본이 이미 비대칭이면 그 비대칭은 우리 오차가 아니다
+    # (three.js RobotExpressive: 어깨 좌우가 6.7cm 다르다) → 원본만큼은 봐준다
+    tol = max(tol, source_symmetry * 1.05)
     out_mesh = stats.get("deform_outside_mesh", 0)
     if out_mesh > g.get("max_deform_outside_mesh", 0):
         fails.append(f"메시 밖 변형 본 {out_mesh}: {stats.get('deform_outside_mesh_bones', [])[:4]}")
@@ -63,7 +66,7 @@ def rig_gates(stats: dict, g: dict, verts: int) -> list[str]:
     if tv and stats.get("weight_leak_arm_torso", 0) / tv > g.get("max_weight_leak_ratio", 0.005):
         fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}")
     if stats["symmetry_max_error"] > tol:
-        fails.append(f"좌우 대칭 오차 {stats['symmetry_max_error']} > {round(tol, 4)}")
+        fails.append(f"좌우 대칭 오차 {stats['symmetry_max_error']} > {round(tol, 4)} (최악 {stats.get('symmetry_worst')})")
     return fails
 
 

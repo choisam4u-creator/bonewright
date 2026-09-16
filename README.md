@@ -35,6 +35,38 @@ mistakes in either direction** — re-verified after every change to the importe
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
 character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
 
+## Already rigged? Use its own skeleton
+
+The rejection gate above turns away anything the silhouette cannot read — robots, stylised characters, animals in a
+pose. Most of those files are not unrigged: the author already placed the joints. `--from-skeleton` reads that
+skeleton and maps it onto the Rigify metarig, so you get the **controls** (IK/FK, motion retargeting, deform-only
+export) without guessing at anatomy, and without a model call.
+
+```bash
+bw rig robot.glb --from-skeleton              # 0 tokens, silhouette gate skipped
+bw rig wolf.gltf --preset quadruped --from-skeleton
+```
+
+Name conventions are the same dictionary the benchmark uses (Mixamo, Biped, VRM, Quaternius, Godot). Beyond straight
+name matching it handles what real files actually do wrong:
+
+- **Sides come from coordinates, not names.** Importing flips many files 180°, which puts the author's `Left` bone on
+  our −X. Trusting the name crosses the arms.
+- **Chain ends missing.** Some rigs stop at the elbow and let one bone run to the foot (Quaternius animals), or have
+  no wrist at all (three.js RobotExpressive stops at `Palm`). The previous bone's *tail* is that joint.
+- **Curved chains.** The back and tail of an animal are not straight lines, so the spine is resampled along the source
+  chain's own path rather than interpolated end to end. Rigify also requires the tail chain to start exactly where the
+  pelvis does; otherwise generation fails outright with `Cannot connect chain - disjoint`.
+- **Half-rigged files.** If only one side exists it is mirrored about the skeleton's own midline — not about x = 0,
+  which is wrong when the file bundles a chair or a prop and shifts the mesh centre.
+- **A missing limb is refused.** If both legs (or both arms) are absent there is nothing to infer from, and the run
+  stops at 0 tokens rather than leaving those bones at metarig defaults, poking through the mesh.
+
+Measured on the assets the normal path rejects: **wolf and horse pass every gate; the Godot demo player and
+RobotExpressive come back `needs_review`** — the robot's arms and legs are floating boxes with real gaps, so some
+bones legitimately cross empty space. Those are now reported separately from bones that stick out of the body, because
+a bone bridging a gap still skins correctly while a bone with a loose end does not.
+
 ## Install and run
 
 ```bash
