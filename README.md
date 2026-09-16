@@ -64,8 +64,11 @@ bw rig robot.glb --from-skeleton              # 0 tokens, silhouette gate skippe
 bw rig wolf.gltf --preset quadruped --from-skeleton
 ```
 
-Name conventions are the same dictionary the benchmark uses (Mixamo, Biped, VRM, Quaternius, Godot). Verified on
-`.glb`, `.gltf` and `.fbx` — the same character exported as FBX rigs to the same result and passes the same gates. Beyond straight
+Name conventions are the same dictionary the benchmark uses. Six are covered end to end and held by a test: Mixamo,
+the Unreal mannequin, Unity Humanoid, DAZ Genesis, Character Creator, and a file that was already rigged with Rigify.
+DAZ glues the side letter straight onto the name (`lShldr`), which is only safe to strip when what remains is a joint
+name we know — `leg` must not become `eg`. Verified on `.glb`, `.gltf` and `.fbx`: the same character exported as FBX
+rigs to the same result and passes the same gates. Beyond straight
 name matching it handles what real files actually do wrong:
 
 - **Sides come from coordinates, not names.** Importing flips many files 180°, which puts the author's `Left` bone on

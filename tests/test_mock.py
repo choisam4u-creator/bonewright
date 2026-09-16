@@ -162,6 +162,28 @@ class BenchMappingTests(unittest.TestCase):
             core, side = bench._norm(name)
             self.assertIn("upperarm", bench._cores(core), name); self.assertEqual("L", side, name)
 
+    def test_rig_name_conventions(self):
+        """리깅 도구마다 뼈 이름 규약이 다르다. --from-skeleton 이 통하려면 이게 다 잡혀야 한다.
+        DAZ 는 구분자 없이 l/r 을 앞에 붙이고(lShldr), Character Creator 는 CC_Base_L_ 접두사를 쓴다"""
+        want = {c: b for b, cs in bench.JOINT_MAP.items() for c in cs}
+        suites = {
+            "Unreal": ["pelvis", "neck_01", "head", "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l", "thigh_l", "calf_l", "foot_l"],
+            "DAZ": ["hip", "neck", "head", "lCollar", "lShldr", "lForeArm", "lHand", "lThigh", "lShin", "lFoot"],
+            "Unity": ["Hips", "Neck", "Head", "LeftShoulder", "LeftUpperArm", "LeftLowerArm", "LeftHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot"],
+            "Rigify": ["DEF-spine", "DEF-shoulder.L", "DEF-upper_arm.L", "DEF-forearm.L", "DEF-hand.L", "DEF-thigh.L", "DEF-shin.L", "DEF-foot.L"],
+            "CharacterCreator": ["CC_Base_Hip", "CC_Base_NeckTwist01", "CC_Base_Head", "CC_Base_L_Clavicle", "CC_Base_L_Upperarm",
+                                 "CC_Base_L_Forearm", "CC_Base_L_Hand", "CC_Base_L_Thigh", "CC_Base_L_Calf", "CC_Base_L_Foot"],
+            "Mixamo": ["mixamorig:Hips", "mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftUpLeg", "mixamorig:LeftLeg", "mixamorig:LeftFoot"],
+        }
+        for suite, names in suites.items():
+            for n in names:
+                core, side = bench._norm(n)
+                base = next((want[c] for c in bench._cores(core) if c in want), None)
+                self.assertIsNotNone(base, f"{suite}: {n} 을 못 찾았다")
+        # 'leg' 의 l 을 좌우 표시로 잘못 떼면 안 된다
+        self.assertEqual(("leg", None), bench._norm("leg"))
+        self.assertEqual(("lowerleg", None), bench._norm("lowerleg"))
+
     def test_preflight_rejects_non_human(self):
         """거절 게이트: 사람 전제가 깨진 메시는 모델을 부르기 전에 막는다(토큰 0).
         기준값은 자산 17종의 분석 신호와 정답 대조 오차를 맞춰 고른 것이라, 경계가 바뀌면 여기서 걸린다"""

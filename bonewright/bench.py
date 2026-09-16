@@ -15,10 +15,12 @@ from .manifest import atomic_write
 
 # 우리 변형 본 → 원본 뼈대 이름 후보(정규화된 핵심 이름). 앞에서부터 우선 매칭
 JOINT_MAP = {
-    "spine": ["hips", "hip", "pelvis"],   # Godot 데모는 단수형 hip 을 쓴다
+    # Godot 데모는 단수형 hip 을 쓴다. "spine" 은 맨 뒤다 — 골반 이름이 따로 있으면 그쪽이 먼저 잡히고,
+    # 없을 때만(Rigify 로 리깅된 파일을 다시 읽을 때) 척추 밑동을 골반으로 본다
+    "spine": ["hips", "hip", "pelvis", "spine"],
     "spine.004": ["neck"],
     "spine.006": ["head"],
-    "shoulder": ["shoulder", "clavicle"],
+    "shoulder": ["shoulder", "clavicle", "shldr", "collar"],   # DAZ 는 lShldr / lCollar 로 쓴다
     # 숫자 체인 규약(CesiumMan 의 arm_joint_L_1/2/3)은 번호로 어깨·팔꿈치·손목을 구분한다 → 번호 붙은 후보를 먼저 본다
     "upper_arm": ["upperarm", "armjoint1", "arm1", "arm"],
     "forearm": ["lowerarm", "forearm", "armjoint2", "arm2"],
@@ -62,12 +64,19 @@ def _norm(name: str) -> tuple[str, str | None]:
                    (r"[._-]l[._-]", "L"), (r"[._-]r[._-]", "R")):
         if re.search(pat, n):
             side = s; n = re.sub(pat, "", n); break
-    return re.sub(r"[^a-z]", "", n), side
+    core = re.sub(r"[^a-z]", "", n)
+    # DAZ 규약은 구분자 없이 l/r 을 앞에 붙인다(lShldr, lForeArm). 'leg' 의 l 까지 떼면 안 되므로,
+    # 떼고 남은 것이 **우리가 아는 관절 이름일 때만** 좌우로 인정한다
+    if side is None and len(core) > 3 and core[0] in "lr" and core not in KEYWORDS:
+        rest = core[1:]
+        if rest in KEYWORDS or (_cores(rest) & KEYWORDS):
+            return rest, ("L" if core[0] == "l" else "R")
+    return core, side
 
 
 KEYWORDS = {k for v in JOINT_MAP.values() for k in v}
-PREFIXES = ("mixamorig", "valvebiped", "bip01", "bip", "def", "org", "ctrl", "skeleton", "b", "j", "cc", "ch", "character", "root")
-DECOR = ("joint", "jnt", "bind", "bone", "ctrl", "skin")   # 뼈 이름에 붙는 장식어
+PREFIXES = ("mixamorig", "valvebiped", "bip01", "bip", "def", "org", "ctrl", "skeleton", "b", "j", "cc", "ch", "character", "root", "base")
+DECOR = ("joint", "jnt", "bind", "bone", "ctrl", "skin", "twist")   # 뼈 이름에 붙는 장식어
 
 
 def _cores(core: str) -> set[str]:
