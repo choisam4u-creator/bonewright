@@ -73,6 +73,7 @@ a bone bridging a gap still skins correctly while a bone with a loose end does n
 pip install .            # installs `bw`
 bw doctor                # Blender (app or bpy wheel), Codex login, kimodo.cpp (optional)
 bw rig character.glb --preset humanoid
+bw rig already_rigged.glb --from-skeleton   # use the file's own skeleton, no model call (0 tokens)
 bw motion --text "a person walks forward, stops and waves"   # needs kimodo.cpp (Apple Silicon: Metal)
 bw motion --bvh walk.bvh --rig <run-id> --export         # retarget a BVH onto a rig, export deform-only GLB (0 tokens)
 bw demo <run-id>         # mp4/gif of the rig moving through IK controls (0 tokens)
@@ -111,11 +112,17 @@ bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 
 ## Motion retargeting
 
-`bw motion --bvh file.bvh --rig <run-id> [--bvh-up z] [--export]` moves a BVH clip onto a rig made by `bw rig`
+`bw motion --bvh file.bvh --rig <run-id> [--export]` moves a BVH clip onto a rig made by `bw rig`
 (the rig's preset is read from its run; `--preset` overrides). BVH joints are matched to Rigify controls by name (kimodo `LeftLeg/LeftShin`, Mixamo
 `LeftUpLeg/LeftLeg`, CMU and Quaternius animal `BackLeg/FrontUpperLeg` conventions are covered by tests or runs).
 Units and frame rate are taken from the file (CMU's 16.7-unit hip height becomes a 0.06 scale); zero-length joints
 (CMU hands) take their direction from the first non-thumb child bone.
+
+The **up axis is detected** from the file, because getting it wrong fails silently rather than loudly: the standard
+says Y, Blender exports Z, and feeding a Z-up clip as Y-up moved the wolf's feet a metre off the floor while every
+step still ran to completion (bone direction error 2.8° → 14.9°). Detection reads the rest hierarchy and picks the
+axis on which the head sits above the feet; with no recognisable head or feet it falls back to the standard Y.
+`--bvh-up y|z` overrides it.
 
 - **Arms, body:** each bone receives the source joint's world rotation delta. Limbs get a rest-pose correction (a
   common reference frame built from the bone direction and world forward), so an A-pose rig receives the same motion

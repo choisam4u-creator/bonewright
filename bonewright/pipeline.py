@@ -124,8 +124,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         _log(quiet, f"  ⚠ {w}")
     if block and not force:
         r.state("preflight", "rejected", reasons=block)
-        raise Blocked("이 메시는 " + preset + " 프리셋에 맞지 않는다(토큰 0 으로 중단):\n  - " + "\n  - ".join(block) +
-                      "\n  그래도 돌리려면 --force, 관절을 직접 찍으려면 --pin 본=x,y,z")
+        # 파일에 원본 뼈대가 있으면 그게 가장 나은 탈출구다 — 추정할 필요 없이 관절을 그대로 받으면 된다
+        hint = ("\n  이 파일에는 원본 뼈대가 있다 → `--from-skeleton` 으로 관절을 그대로 받아라(토큰 0, 실루엣 추정 없음)"
+                if (a["stats"].get("import") or {}).get("had_armature") else "")
+        raise Blocked("이 메시는 " + preset + " 프리셋에 맞지 않는다(토큰 0 으로 중단):\n  - " + "\n  - ".join(block) + hint +
+                      "\n  그래도 추정으로 돌리려면 --force, 관절을 직접 찍으려면 --pin 본=x,y,z")
     if block:
         _log(quiet, "  ⚠ --force: 거절 사유를 무시하고 진행한다 — " + "; ".join(block))
 
@@ -134,15 +137,20 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     pins = dict(pins or {})
     source_symmetry = 0.0
     if from_skeleton:
+        def _reject(why: str, reasons: list[str]):
+            r.state("fit", "rejected", reasons=reasons)   # 거절도 상태로 남긴다(중간에 멈춘 실행과 구분)
+            raise Blocked(why)
         gt = r.blender("gt_joints", {"mesh": mesh, "facing": facing, "preset": preset})
         if not gt.get("joints"):
-            raise Blocked("--from-skeleton: 이 파일에 원본 뼈대가 없다")
-        tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"])
+            _reject("--from-skeleton: 이 파일에 원본 뼈대가 없다 — 기본 경로(--from-skeleton 없이)로 돌려라", ["뼈대 없음"])
+        tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"], a["landmarks"].get("ground_z", 0.0))
         if info["limbs_absent"]:
-            raise Blocked("--from-skeleton: 원본 뼈대에 " + ", ".join(info["limbs_absent"]) + " 가 아예 없다 — 반쪽만 리깅한 자산이라\n"
-                          "  그 팔다리는 메타리그 기본 자리에 남아 몸을 뚫는다. 기본 경로(--from-skeleton 없이)로 돌리거나 --pin 으로 직접 찍어라")
+            _reject("--from-skeleton: 원본 뼈대에 " + ", ".join(info["limbs_absent"]) + " 가 아예 없다 — 반쪽만 리깅한 자산이라\n"
+                    "  그 팔다리는 메타리그 기본 자리에 남아 몸을 뚫는다. 기본 경로(--from-skeleton 없이)로 돌리거나 --pin 으로 직접 찍어라",
+                    ["팔다리 없음: " + ", ".join(info["limbs_absent"])])
         if len(tg) < 6:
-            raise Blocked(f"--from-skeleton: 원본 뼈대에서 알아볼 수 있는 관절이 너무 적다({sorted(tg)}) — 이름 규약이 낯설다")
+            _reject(f"--from-skeleton: 원본 뼈대에서 알아볼 수 있는 관절이 너무 적다({sorted(tg)}) — 이름 규약이 낯설다",
+                    [f"관절 {len(tg)}개"])
         fit = {"targets": tg, "reasoning": f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", "confidence": None}
         source_symmetry = info.get("source_symmetry", 0.0)
         _log(quiet, f"[2/6] fit: 원본 뼈대에서 목표 {len(tg)}개 · 모델 호출 0회 · 못 찾은 관절 {info['missing']}" +
@@ -246,6 +254,13 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     if not bvh:
         raise Blocked("--text 또는 --bvh 가 필요하다")
     r.state("import", "running")
+    from .retarget import detect_bvh_up
+    if rig_run and preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid). 위 축 판단에도 필요하다
+        rs = root / "runs" / rig_run / "rig_stats.json"
+        preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
+    if bvh_up == "auto":   # 위 축을 틀리면 조용히 망가진다(늑대 걷기: 발이 바닥에서 1m 뜸) → 머리·발 위치로 정한다
+        bvh_up = detect_bvh_up(str(Path(bvh).resolve()), preset or "humanoid")
+        _log(quiet, f"[3/3] bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)")
     imp = r.blender("import_bvh", {"bvh": str(Path(bvh).resolve()), "out_blend": str(r.dir / "motion.blend"), "bvh_up": bvh_up})
     _log(quiet, f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m")
     report = [f"# bonewright motion report · {run_id}", "", f"- source: {'text: ' + text if text else 'bvh: ' + bvh}",
@@ -256,9 +271,6 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         blend = root / "runs" / rig_run / "02_rigged.blend"
         if not blend.exists():
             raise Blocked(f"리깅 결과가 없다: {blend}")
-        if preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid)
-            rs = root / "runs" / rig_run / "rig_stats.json"
-            preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
         mapping = bvh_mapping(imp["bone_names"], preset)
         r.state("retarget", "running")
         fa, fb = imp["frames"] if imp.get("frames") else (1, 1)

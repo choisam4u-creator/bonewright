@@ -43,7 +43,7 @@ def _lerp(a, b, t):
     return [a[i] + (b[i] - a[i]) * t for i in range(3)]
 
 
-def targets_from_skeleton(joints: dict, preset: str = "humanoid", height: float = 1.8) -> tuple[dict, dict]:
+def targets_from_skeleton(joints: dict, preset: str = "humanoid", height: float = 1.8, ground: float = 0.0) -> tuple[dict, dict]:
     """정답 뼈대 관절 → {메타리그 본: {head, tail}} 과 진단 정보. 못 찾은 본은 빼고 돌려준다(메타리그 기본값이 남는다)."""
     from .bench import JOINT_MAP, QUAD_MAP, SIDED   # bench 가 pipeline 을 부르므로 늦게 들여온다(순환 방지)
     quad = preset == "quadruped"
@@ -166,10 +166,15 @@ def targets_from_skeleton(joints: dict, preset: str = "humanoid", height: float 
                          ("thigh", "shin"), ("shin", "foot")):
                 put(f"{a}.{side}", pos.get(f"{a}.{side}"), pos.get(f"{b}.{side}"))
             for foot, toe in ((f"front_foot.{side}", f"front_toe.{side}"), (f"foot.{side}", f"toe.{side}")):
-                f_ = pos.get(foot)
-                if f_:   # 발끝: 앞(-Y)으로 발 길이만큼, 바닥에 붙인다
-                    a_ = [f_[0], f_[1] - height * 0.05, max(0.0, f_[2] - height * 0.04)]
-                    put(foot, f_, a_); put(toe, a_, [a_[0], a_[1] - height * 0.04, a_[2]])
+                ank = pos.get(foot)
+                if not ank:
+                    continue
+                # 발바닥은 **바닥에 닿는다**. 동물 뼈대는 보통 발목 아래 본이 없어서(늑대: BackLowerLeg 가 비절에서
+                # 끝난다) 앞 본 길이의 비율로 이으면 발이 73cm 공중에 뜬다 — 리타게팅에서 짐승이 떠다닌다
+                tip = tail_of.get(foot) or ank
+                paw = [tip[0], tip[1], ground]
+                put(foot, ank, paw)
+                put(toe, paw, [paw[0], paw[1] - height * 0.04, ground])
     else:
         # 척추: 골반(spine) ~ 목(spine.004) ~ 머리(spine.006) 사이를 고르게 나눈다 — 원본에 척추 마디가 몇 개든 상관없다
         pelvis, neck, head = pos.get("spine"), pos.get("spine.004"), pos.get("spine.006")

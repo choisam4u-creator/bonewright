@@ -63,3 +63,50 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
             continue
         out[n] = tgt; taken.add(tgt)
     return out
+
+
+def bvh_rest_joints(path: str) -> dict[str, list[float]]:
+    """BVH 의 HIERARCHY 만 읽어 관절의 쉬는 자세 좌표를 만든다(OFFSET 누적). End Site 는 부모이름+'_end'."""
+    pos, stack, name = {}, [], None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for raw in fh:
+            tok = raw.split()
+            if not tok:
+                continue
+            w = tok[0].upper()
+            if w in ("ROOT", "JOINT") and len(tok) > 1:
+                name = tok[1]
+            elif w == "END":
+                name = (stack[-1] if stack else "root") + "_end"
+            elif w == "OFFSET" and name and len(tok) >= 4:
+                base = pos.get(stack[-1], [0.0, 0.0, 0.0]) if stack else [0.0, 0.0, 0.0]
+                pos[name] = [base[i] + float(tok[i + 1]) for i in range(3)]
+            elif w == "{":
+                stack.append(name)
+            elif w == "}":
+                if stack:
+                    stack.pop()
+            elif w == "MOTION":
+                break
+    return pos
+
+
+def detect_bvh_up(path: str, preset: str = "humanoid") -> str:
+    """BVH 의 위 축을 알아낸다. 규약은 Y 위지만 블렌더가 내보낸 파일은 Z 가 위다.
+    틀리면 조용히 망가진다(늑대 걷기: 방향 오차 2.75° → 14.9°, 발이 바닥에서 1m 뜸) — 그래서 이름이 아니라
+    **머리가 발보다 위에 있는 축**으로 정한다. 머리·발을 못 찾으면 규약대로 'y'."""
+    joint_map = {**QUAD_MAP, **QUAD_EXTRA} if preset == "quadruped" else JOINT_MAP
+    want_top = set(joint_map.get("spine.006", []) + joint_map.get("head", []) + ["neck"])
+    want_low = set(joint_map.get("foot", []) + joint_map.get("front_foot", []) + ["toe", "ankle"])
+    pos = bvh_rest_joints(path)
+    top, low = [], []
+    for n, p in pos.items():
+        cores = _cores(_norm(n.removesuffix("_end"))[0])
+        if cores & want_top:
+            top.append(p)
+        if cores & want_low:
+            low.append(p)
+    if not (top and low):
+        return "y"
+    scores = {ax: min(t[ax] for t in top) - max(l[ax] for l in low) for ax in (1, 2)}
+    return "z" if scores[2] >= scores[1] else "y"

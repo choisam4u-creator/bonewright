@@ -54,7 +54,7 @@ def main() -> int:
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
     m.add_argument("--rig", help="리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)")
     m.add_argument("--preset", choices=["humanoid", "quadruped"], default=None, help="리그의 프리셋. 생략하면 리그 실행 기록(rig_stats.json)에서 읽는다")
-    m.add_argument("--bvh-up", choices=["y", "z"], default="y", help="BVH 의 위 축. 표준은 y, Blender 가 내보낸 BVH 는 z")
+    m.add_argument("--bvh-up", choices=["auto", "y", "z"], default="auto", help="BVH 의 위 축. auto=머리와 발 위치로 판단(기본). 표준은 y, Blender 가 내보낸 BVH 는 z")
     m.add_argument("--legs", choices=["auto", "fk", "ik"], default="auto", help="다리 전달: auto(소스에 발끝 관절이 있는 다리만 IK) | fk(회전만) | ik(발 IK 로 BVH 발끝을 좇음, 비율 차이 흡수)")
     m.add_argument("--no-roll", action="store_true", help="리타겟에서 비틀림(롤)을 옮기지 않는다(방향만, A/B 비교용)")
     m.add_argument("--export", nargs="?", const="auto", help="리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb")

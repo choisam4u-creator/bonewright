@@ -234,6 +234,9 @@ class GateTests(unittest.TestCase):
                 "bones_outside_bbox": [], "symmetry_max_error": 0.0, "weight_leak_torso_verts": 200}
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_arm_torso": 0}, g, 1000))
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_arm_torso": 1}, g, 1000))   # 0.5% 는 통과
+        # 저폴리: 몸통 표본이 63개뿐이면 정점 하나는 잡음이다(비율로는 1.6%) — 실패로 세지 않는다
+        self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 63, "weight_leak_arm_torso": 1}, g, 1000))
+        self.assertTrue(gates.rig_gates({**base, "weight_leak_torso_verts": 63, "weight_leak_arm_torso": 5}, g, 1000))
         fails = gates.rig_gates({**base, "weight_leak_arm_torso": 10}, g, 1000)                # 5% 는 실패
         self.assertEqual(1, len(fails)); self.assertIn("샌 정점 10/200", fails[0])
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 0, "weight_leak_arm_torso": 0}, g, 1000))
@@ -271,6 +274,65 @@ class RetargetMappingTests(unittest.TestCase):
         self.assertEqual(m["mixamorig:Hips"], "torso"); self.assertEqual(m["mixamorig:Spine2"], "chest")
         self.assertEqual(m["mixamorig:Neck"], "neck"); self.assertEqual(m["mixamorig:LeftFoot"], "foot_fk.L")
         self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
+
+
+class BvhUpAxisTests(unittest.TestCase):
+    """BVH 위 축 자동 판단. 틀리면 조용히 망가진다 — 늑대 걷기에서 방향 오차 2.75° → 14.9°, 발이 바닥에서 1m 떴다"""
+
+    def _write(self, up):
+        """머리가 위, 발이 아래인 최소 BVH. up='z' 면 블렌더 규약(Z 가 위)"""
+        def off(fwd, height):
+            return f"{0.0} {height if up == 'y' else fwd} {fwd if up == 'y' else height}"
+        txt = f"""HIERARCHY
+ROOT Hips
+{{
+OFFSET {off(0, 1.0)}
+CHANNELS 6 Xposition Yposition Zposition Xrotation Yrotation Zrotation
+JOINT Neck
+{{
+OFFSET {off(0, 0.5)}
+CHANNELS 3 Xrotation Yrotation Zrotation
+JOINT Head
+{{
+OFFSET {off(0, 0.2)}
+CHANNELS 3 Xrotation Yrotation Zrotation
+End Site
+{{
+OFFSET {off(0, 0.2)}
+}}
+}}
+}}
+JOINT LeftFoot
+{{
+OFFSET {off(0, -0.9)}
+CHANNELS 3 Xrotation Yrotation Zrotation
+End Site
+{{
+OFFSET {off(0.1, -0.1)}
+}}
+}}
+}}
+MOTION
+Frames: 1
+Frame Time: 0.0333
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+"""
+        f = Path(tempfile.mkdtemp(prefix="bw-bvh-")) / "t.bvh"
+        f.write_text(txt, encoding="utf-8")
+        return str(f)
+
+    def test_detects_both_conventions(self):
+        from bonewright.retarget import detect_bvh_up
+        for up in ("y", "z"):
+            self.assertEqual(up, detect_bvh_up(self._write(up)), f"{up} 위 축을 못 알아봤다")
+
+    def test_unknown_names_fall_back_to_standard(self):
+        """머리·발을 못 찾으면 BVH 규약대로 y 를 쓴다(추측으로 망가뜨리지 않는다)"""
+        from bonewright.retarget import detect_bvh_up
+        path = self._write("z")
+        txt = Path(path).read_text(encoding="utf-8").replace("Head", "Bone9").replace("Neck", "Bone8").replace("LeftFoot", "Bone7")
+        Path(path).write_text(txt, encoding="utf-8")
+        self.assertEqual("y", detect_bvh_up(path))
 
 
 class FromSkeletonTests(unittest.TestCase):
@@ -374,3 +436,8 @@ class FromSkeletonTests(unittest.TestCase):
         # 사족 앞다리 좌우도 좌표 부호로 정한다
         self.assertGreater(tg["front_thigh.L"]["head"][0], 0)
         self.assertLess(tg["front_thigh.R"]["head"][0], 0)
+        # 발바닥은 바닥(z=0)에 닿아야 한다. 동물 뼈대는 발목 아래 본이 없어서 비율로 이으면 짐승이 공중에 뜬다
+        for n in ("toe.L", "toe.R", "front_toe.L", "front_toe.R"):
+            self.assertAlmostEqual(0.0, tg[n]["head"][2], places=6, msg=n)
+            self.assertAlmostEqual(0.0, tg[n]["tail"][2], places=6, msg=n)
+        self.assertAlmostEqual(0.0, tg["foot.L"]["tail"][2], places=6)
