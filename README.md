@@ -129,6 +129,9 @@ axis on which the head sits above the feet; with no recognisable head or feet it
   as a T-pose rig (0.2 cm difference) and twist comes along. Spine, neck and head take their reference from the
   clip's most typical frame instead of the bind pose — animal rigs are often bound with the head raised, and a pure
   bind-pose delta then makes the character stare at the ground.
+- **Tail (quadrupeds):** the wolf metarig's tail chain is numbered backwards from the pelvis (`spine.003` → `spine`),
+  and source rigs carry anywhere from two to eight tail joints, so they are spread evenly over the four controls.
+  Without this every `Tail*` joint collided on one control and the tail stayed frozen.
 - **Legs (`--legs auto`, default):** legs whose source chain ends at a foot tip are driven by Rigify's foot IK: the
   tip follows the BVH tip relative to the hip, scaled by the leg-length ratio, with the clip's lowest foot point taken
   as the floor. Legs whose source chain stops at the wrist (the Quaternius wolf's front legs — the paw is a detached

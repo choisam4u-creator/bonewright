@@ -20,6 +20,9 @@ FK_TARGET_QUAD = {
     "thigh": "thigh_fk", "shin": "shin_fk", "foot": "foot_fk",
 }
 QUAD_EXTRA = {"neck": ["neck"], "head": ["head"]}
+# 꼬리: 늑대 메타리그의 꼬리 사슬은 골반 쪽부터 spine.003 → .002 → .001 → spine 이다(번호가 거꾸로 붙어 있다).
+# 원본 꼬리 마디 수는 제각각이라(Quaternius 늑대 8마디) 길이 비례로 4개에 나눠 준다
+TAIL_TARGETS = ["spine.003", "spine.002", "spine.001", "spine"]
 SIDED = {"shoulder", "upper_arm_fk", "forearm_fk", "hand_fk", "thigh_fk", "shin_fk", "foot_fk",
          "front_thigh_fk", "front_shin_fk", "front_foot_fk"}
 CHEST_WORDS = ("chest", "spine2", "spine3", "upperchest")
@@ -62,6 +65,14 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
         if tgt in taken:
             continue
         out[n] = tgt; taken.add(tgt)
+    if quad:
+        tails = sorted((n for n in bvh_names if re.fullmatch(r"tail\d*", raw[n])),
+                       key=lambda n: int(re.search(r"\d+", raw[n]).group() or 0) if re.search(r"\d+", raw[n]) else 0)
+        if tails:   # 원본 마디가 4개보다 적으면 밑동부터 순서대로, 많으면 고르게 골라 4개에 나눈다
+            n = min(len(TAIL_TARGETS), len(tails))
+            for tgt, src_name in zip(TAIL_TARGETS, [tails[i * len(tails) // n] for i in range(n)]):
+                if tgt not in taken and src_name not in out:
+                    out[src_name] = tgt; taken.add(tgt)
     return out
 
 

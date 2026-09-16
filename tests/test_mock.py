@@ -276,6 +276,29 @@ class RetargetMappingTests(unittest.TestCase):
         self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
 
 
+class QuadTailMappingTests(unittest.TestCase):
+    """사족 꼬리: 늑대 메타리그 꼬리 사슬은 골반 쪽부터 spine.003 → .002 → .001 → spine 이다(번호가 거꾸로).
+    원본 마디 수가 제각각이라 길이 비례로 나눠 준다 — 안 하면 Tail1~8 이 전부 같은 컨트롤로 몰려 꼬리가 안 움직인다"""
+
+    def test_tail_chain_is_spread_over_four_controls(self):
+        from bonewright.retarget import bvh_mapping
+        names = ["Back", "Torso", "Torso3", "Neck1", "Head", "BackLeg.L", "BackUpperLeg.L", "BackLowerLeg.L",
+                 "BackLeg.R", "BackUpperLeg.R", "BackLowerLeg.R"] + [f"Tail{i}" for i in range(1, 9)]
+        m = bvh_mapping(names, "quadruped")
+        tail = {k: v for k, v in m.items() if k.startswith("Tail")}
+        self.assertEqual(4, len(tail), "꼬리 컨트롤 4개가 모두 쓰여야 한다")
+        self.assertEqual("spine.003", m["Tail1"])          # 밑동이 골반 쪽
+        self.assertEqual(["spine.003", "spine.002", "spine.001", "spine"],
+                         [m[k] for k in sorted(tail, key=lambda n: int(n[4:]))])   # 번호 순 = 밑동→끝
+        self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
+
+    def test_short_tail_maps_from_the_base(self):
+        """마디가 4개보다 적은 꼬리는 밑동부터 순서대로 채운다(가운데를 비우면 사슬이 끊겨 보인다)"""
+        from bonewright.retarget import bvh_mapping
+        m = bvh_mapping(["Back", "Tail1", "Tail2"], "quadruped")
+        self.assertEqual("spine.003", m["Tail1"]); self.assertEqual("spine.002", m["Tail2"])
+
+
 class BvhUpAxisTests(unittest.TestCase):
     """BVH 위 축 자동 판단. 틀리면 조용히 망가진다 — 늑대 걷기에서 방향 오차 2.75° → 14.9°, 발이 바닥에서 1m 떴다"""
 
