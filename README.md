@@ -74,8 +74,8 @@ Run over every benchmark asset (25 files, 0 tokens):
 
 | Preset | Gates pass | Needs review | Refused at 0 tokens |
 |---|---|---|---|
-| Quadruped (10 animals) | **8** — wolf, horse, cow, bull, deer, donkey, husky, stag | 2 — alpaca, shiba inu (one bone outside) | 0 |
-| Humanoid (15 files) | **6** | 4 — robot, chibi, cesium_man, rigged_figure | 5 — insect, upper-body-only, two limbless test rigs |
+| Quadruped (10 animals) | **8** — wolf, horse, cow, bull, deer, donkey, husky, stag | 2 — alpaca, shiba inu (one bone of 110 outside) | 0 |
+| Humanoid (15 files) | **8** | 2 — robot, chibi (arm weight reaching the chest centre) | 5 — insect, upper-body-only, two limbless test rigs, an animal fed to the humanoid preset |
 
 Cow and bull are worth singling out: they are the two worst assets for the silhouette path (7.4%), because a thick
 body breaks the hip-over-back ratio. Reading their own skeleton sidesteps the ratio entirely.

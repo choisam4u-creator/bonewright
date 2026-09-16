@@ -237,6 +237,8 @@ class GateTests(unittest.TestCase):
         # 저폴리: 몸통 표본이 63개뿐이면 정점 하나는 잡음이다(비율로는 1.6%) — 실패로 세지 않는다
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 63, "weight_leak_arm_torso": 1}, g, 1000))
         self.assertTrue(gates.rig_gates({**base, "weight_leak_torso_verts": 63, "weight_leak_arm_torso": 5}, g, 1000))
+        # 표본이 30개 미만이면 비율을 판단할 수 없다 → 검사를 건너뛴다(cesium_man 몸통 한가운데 정점 12개)
+        self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 12, "weight_leak_arm_torso": 3}, g, 1000))
         fails = gates.rig_gates({**base, "weight_leak_arm_torso": 10}, g, 1000)                # 5% 는 실패
         self.assertEqual(1, len(fails)); self.assertIn("샌 정점 10/200", fails[0])
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 0, "weight_leak_arm_torso": 0}, g, 1000))

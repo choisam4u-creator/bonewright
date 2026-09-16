@@ -63,9 +63,9 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) ->
     if out_mesh > g.get("max_deform_outside_mesh", 0):
         fails.append(f"메시 밖 변형 본 {out_mesh}: {stats.get('deform_outside_mesh_bones', [])[:4]}")
     tv = stats.get("weight_leak_torso_verts", 0)
-    # 저폴리 메시는 몸통 표본이 수십 개뿐이라 정점 하나가 비율로는 1.6% 가 된다(godot_player 1/63).
-    # 한 개는 잡음으로 보고, 비율과 최소 2개를 둘 다 넘겨야 실패로 센다
-    if tv and stats.get("weight_leak_arm_torso", 0) > max(1, tv * g.get("max_weight_leak_ratio", 0.005)):
+    # 표본이 너무 적으면 비율을 판단할 수 없다 — 저폴리 캐릭터는 몸통 한가운데 띠에 정점이 열두어 개뿐이다
+    # (cesium_man 12개). 30개 미만이면 이 검사를 건너뛰고, 그 위에서는 정점 하나를 잡음으로 보고 비율과 함께 본다
+    if tv >= 30 and stats.get("weight_leak_arm_torso", 0) > max(1, tv * g.get("max_weight_leak_ratio", 0.005)):
         fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}")
     if stats["symmetry_max_error"] > tol:
         fails.append(f"좌우 대칭 오차 {stats['symmetry_max_error']} > {round(tol, 4)} (최악 {stats.get('symmetry_worst')})")

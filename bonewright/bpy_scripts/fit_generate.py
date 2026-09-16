@@ -190,7 +190,10 @@ for lb in [b for b in eb if b.name.endswith(".L") and b.name[:-1] + "R" in eb an
     (hl, tl), (hr, tr) = pre_sym[lb.name], pre_sym[rb.name]
     if (hl * _MIR - hr).length > 1e-5 or (tl * _MIR - tr).length > 1e-5:
         continue   # 처음부터 비대칭이던 짝(목표가 그렇게 시켰다)은 건드리지 않는다
-    if (lb.head * _MIR - rb.head).length > 1e-5 or (lb.tail * _MIR - rb.tail).length > 1e-5:
+    # 되돌리는 기준은 대칭 게이트가 실패로 보는 선(키의 1.67%)보다 조금 아래로 둔다 — 게이트가 잡을 어긋남은 다 고치되,
+    # 그보다 작은 차이는 메시 자신의 비대칭이라 억지로 맞추지 않는다
+    _tol = L["height"] * 0.0133
+    if (lb.head * _MIR - rb.head).length > _tol or (lb.tail * _MIR - rb.tail).length > _tol:
         rb.head = lb.head * _MIR; rb.tail = lb.tail * _MIR; resymmetrized.append(rb.name)
 
 # 안전장치: 길이 0 에 가까운 본은 부모 방향으로 살짝 늘린다(Rigify 는 0 길이 본에서 실패한다)

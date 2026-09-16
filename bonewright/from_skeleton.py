@@ -184,7 +184,11 @@ def targets_from_skeleton(joints: dict, preset: str = "humanoid", height: float 
         if head:
             put("spine.006", head, [head[0], head[1], head[2] + height * 0.12])
         for side in ("L", "R"):
-            put(f"shoulder.{side}", pos.get(f"shoulder.{side}"), pos.get(f"upper_arm.{side}"))
+            # 쇄골 관절이 없는 뼈대가 많다(Khronos CesiumMan 은 arm_joint_L_1 부터 시작한다). 그냥 두면 사람 비율
+            # 기본 자리에 남아 메시 밖으로 나간다 → 어깨 높이에서 중심선 쪽 1/4 지점을 뿌리로 삼는다
+            ua = pos.get(f"upper_arm.{side}")
+            sh = pos.get(f"shoulder.{side}") or ([ua[0] * 0.25, ua[1], ua[2]] if ua else None)
+            put(f"shoulder.{side}", sh, ua)
             for a, b in (("upper_arm", "forearm"), ("forearm", "hand"), ("thigh", "shin"), ("shin", "foot")):
                 put(f"{a}.{side}", pos.get(f"{a}.{side}"), pos.get(f"{b}.{side}"))
             hand = pos.get(f"hand.{side}")
