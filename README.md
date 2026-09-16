@@ -55,7 +55,8 @@ bw rig robot.glb --from-skeleton              # 0 tokens, silhouette gate skippe
 bw rig wolf.gltf --preset quadruped --from-skeleton
 ```
 
-Name conventions are the same dictionary the benchmark uses (Mixamo, Biped, VRM, Quaternius, Godot). Beyond straight
+Name conventions are the same dictionary the benchmark uses (Mixamo, Biped, VRM, Quaternius, Godot). Verified on
+`.glb`, `.gltf` and `.fbx` — the same character exported as FBX rigs to the same result and passes the same gates. Beyond straight
 name matching it handles what real files actually do wrong:
 
 - **Sides come from coordinates, not names.** Importing flips many files 180°, which puts the author's `Left` bone on
