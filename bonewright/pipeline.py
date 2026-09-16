@@ -127,8 +127,16 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         # 파일에 원본 뼈대가 있으면 그게 가장 나은 탈출구다 — 추정할 필요 없이 관절을 그대로 받으면 된다
         hint = ("\n  이 파일에는 원본 뼈대가 있다 → `--from-skeleton` 으로 관절을 그대로 받아라(토큰 0, 실루엣 추정 없음)"
                 if (a["stats"].get("import") or {}).get("had_armature") else "")
+        # 손으로 고칠 출발점을 남긴다: 메타리그를 이 메시 크기로 맞춘 목표표. 거절된 메시도 사람이 관절만 옮기면 리깅된다(토큰 0)
+        try:
+            meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
+            atomic_write(r.dir / "targets_draft.json", json.dumps(meta["bones"], ensure_ascii=False, indent=2))
+            hint += (f"\n  손으로 고칠 출발점을 남겼다: {r.dir / 'targets_draft.json'} (메타리그를 이 메시 크기로 맞춘 것)"
+                     f"\n  관절을 옮긴 뒤 `bw rig <mesh> --targets {r.dir / 'targets_draft.json'}` 로 돌리면 토큰 0 이다")
+        except Exception as e:   # 초안은 부가 기능이다 — 실패해도 거절 이유는 그대로 알린다
+            hint += f"\n  (목표표 초안을 만들지 못했다: {e})"
         raise Blocked("이 메시는 " + preset + " 프리셋에 맞지 않는다(토큰 0 으로 중단):\n  - " + "\n  - ".join(block) + hint +
-                      "\n  그래도 추정으로 돌리려면 --force, 관절을 직접 찍으려면 --pin 본=x,y,z")
+                      "\n  그래도 추정으로 돌리려면 --force")
     if block:
         _log(quiet, "  ⚠ --force: 거절 사유를 무시하고 진행한다 — " + "; ".join(block))
 

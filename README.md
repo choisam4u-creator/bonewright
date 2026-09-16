@@ -30,6 +30,10 @@ A mesh is rejected when: an arm or leg centreline is missing on either side · a
 to fall back to a body ratio · the head is over 35% of height (chibi) · left-right asymmetry exceeds 3% of height ·
 size is outside 0.3–20 m. A neck-only fallback is a warning, not a rejection.
 
+A rejection is not a dead end. The run directory keeps `targets_draft.json` — the metarig scaled to this mesh — so
+you can drag the joints where they belong and re-run with `--targets`, still at zero tokens. If the file has a
+skeleton the message says so and points at `--from-skeleton` first.
+
 Across the benchmark assets this separates cleanly: **7 pass (1.6–7.4% error), 9 are rejected (10.1%+), with no
 mistakes in either direction** — re-verified after every change to the importer and the fitter. Override with `--force`.
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
@@ -173,6 +177,15 @@ already has geometry around its bone (antlers, shoulder armour, a separate head 
 it is skinned but ignored when locating joints and measuring height — a stag's antlers would otherwise add 30% to its
 height and push every leg joint. A part whose bone region is empty in the skinned mesh (a robot's arms and legs) is
 structural and takes part in everything. Files without an armature are used whole.
+
+## Which way the character faces
+
+Importing has to put the character upright, on the floor, facing −Y, with left at +X. Front-to-back is read from the
+mesh (feet point forward; for quadrupeds the head decides). **Left-to-right cannot be read from a silhouette** — a
+T-pose's arm span and a body's depth are both just "the wide axis". When the file has a skeleton, the answer is in it:
+the axis on which left/right bone pairs are furthest apart is the lateral one, and if that is Y the character is
+turned 90°. One benchmark asset was built this way and had been rigged sideways ever since — bones crossed in an X
+through the legs, 89 cm mean joint error, the worst asset in the set. With the turn corrected it passes every gate.
 
 ## How joints are found
 

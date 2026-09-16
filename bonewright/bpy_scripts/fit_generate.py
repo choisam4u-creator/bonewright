@@ -406,6 +406,10 @@ def _dist(name, p):
     t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
     return (p - (a + ab * t)).length
 _ARM = ("DEF-upper_arm", "DEF-forearm", "DEF-hand")
+# '몸통 한가운데' 띠의 폭. 키 비례(4%)만 쓰면 치비처럼 어깨가 몸 가까이 붙은 캐릭터에서 띠가 어깨까지 덮어
+# 팔 본이 정상적으로 잡은 정점을 '샜다'고 센다(quat_pp_43j 108/271). 어깨 위치로도 제한한다
+_ax = [abs((rig.matrix_world @ rig.data.bones[n].head_local).x) for n in ("DEF-upper_arm.L", "DEF-upper_arm.R") if n in rig.data.bones]
+_band = min(0.04 * _H, 0.35 * (sum(_ax) / len(_ax))) if _ax else 0.04 * _H
 vgn = {g.index: g.name for g in obj.vertex_groups}
 leak_arm, torso_verts, far_dom = 0, 0, 0
 for v in obj.data.vertices:
@@ -413,7 +417,7 @@ for v in obj.data.vertices:
     w = {vgn.get(g.group, ""): g.weight for g in v.groups if vgn.get(g.group, "").startswith("DEF-")}
     if not w: continue
     t = sum(w.values()) or 1.0
-    if abs(pw.x) < 0.04 * _H and _z0 + 0.45 * _H < pw.z < _z0 + 0.70 * _H:
+    if abs(pw.x) < _band and _z0 + 0.45 * _H < pw.z < _z0 + 0.70 * _H:
         torso_verts += 1
         if sum(val for k, val in w.items() if k.startswith(_ARM)) / t > 0.15: leak_arm += 1
     dom = max(w, key=w.get)

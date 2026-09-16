@@ -1,5 +1,5 @@
 """bpy 스크립트 공통: 인자(JSON 파일) 읽기, 결과 JSON 쓰기, 메시 불러오기. Blender 안(bpy)에서만 실행된다."""
-import bpy, json, os, sys
+import bpy, json, os, re, sys
 
 
 def args():
@@ -47,6 +47,17 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
     for a in arms:
         a.data.pose_position = "REST"   # 애니메이션 첫 프레임이 아니라 바인드 자세(A/T 포즈)로
     bpy.context.view_layer.update()
+    # 좌우 짝이 벌어지는 축(합계). 메시를 합치면 아마추어 객체가 사라지므로 여기서 미리 재 둔다
+    _pairs = {}
+    for a in arms:
+        for b in a.data.bones:
+            n = b.name.lower().split(":")[-1]
+            # 'LeftArm' 처럼 구분자 없이 붙는 형태와 'arm.L' 처럼 뒤에 붙는 형태를 모두 본다
+            m_ = re.search(r"(?:^|[._\- ])(left|right)", n) or re.search(r"(?:^|[._\- ])(l|r)(?:$|[._\- ])", n)
+            if m_:
+                _pairs.setdefault((a.name, n[:m_.start()] + n[m_.end():]), {})[m_.group(1)[0].upper()] = a.matrix_world @ b.head_local
+    _both = [v for v in _pairs.values() if "L" in v and "R" in v]
+    _LATERAL = (sum(abs(v["L"].x - v["R"].x) for v in _both), sum(abs(v["L"].y - v["R"].y) for v in _both))
     meshes = [o for o in new if o.type == "MESH"]
     skinned = [m for m in meshes if any(md.type == "ARMATURE" for md in m.modifiers)]
     # 본에 통째로 붙은 부품(로봇 팔·머리, 저폴리 캐릭터의 머리)도 캐릭터다 — 스킨된 메시만 고르면 robot_expressive 는 손만,
@@ -123,6 +134,16 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
         unit = 0.001 if H > 500 else 0.01
         obj.scale = (unit, unit, unit); bpy.ops.object.transform_apply(scale=True); M = Matrix.Scale(unit, 4) @ M
         vs = [v.co for v in obj.data.vertices]; zmin, zmax = min(v.z for v in vs), max(v.z for v in vs); H = zmax - zmin
+    # 좌우 축이 X 가 아닌 파일(가로로 90° 돌아간 자산)은 먼저 세운다. 실루엣으로는 T 포즈의 팔 너비와 몸 깊이를
+    # 구분할 수 없으니, 원본 뼈대의 **좌우 짝이 가장 크게 벌어지는 축**을 좌우로 본다
+    # (quat_pp_41j: 팔이 Y 로 뻗어 있어 옆모습이 정면으로 잡히고 팔다리 본이 X 자로 꼬였다 — 렌더로 확인)
+    yaw = _LATERAL[1] > _LATERAL[0] * 1.5   # Y 쪽이 확실히 클 때만 돌린다(애매하면 건드리지 않는다)
+    if yaw:
+        R90 = Matrix.Rotation(1.5707963267948966, 4, "Z")
+        obj.matrix_world = R90 @ obj.matrix_world
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        M = R90 @ M
+        vs = [v.co for v in obj.data.vertices]
     # 좌우 중심을 x=0 으로
     xmin, xmax = min(v.x for v in vs), max(v.x for v in vs); off_x = (xmin + xmax) / 2
     if abs(off_x) > 1e-4:
@@ -157,7 +178,7 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
     bpy.ops.mesh.remove_doubles(threshold=max(0.0001, H * 0.00005)); bpy.ops.object.mode_set(mode="OBJECT")
     IMPORT_INFO.update({"meshes_used": len(meshes), "meshes_attached": attached_names[:10], "attachments": attachment_roles,
                         "meshes_dropped": dropped[:10], "had_armature": len(arms), "unit_scale": unit,
-                        "offset_x": round(off_x, 4), "offset_y": round(off_y, 4), "ground_shift": True, "foot_direction_hint": hint, "facing": facing, "rotated_180": flip,
+                        "offset_x": round(off_x, 4), "offset_y": round(off_y, 4), "ground_shift": True, "foot_direction_hint": hint, "facing": facing, "rotated_180": flip, "rotated_90": yaw,
                         "matrix": [list(row) for row in M]})
     return obj
 
