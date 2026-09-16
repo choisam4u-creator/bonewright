@@ -410,6 +410,35 @@ for i in _bare:
         p = obj.matrix_world @ obj.data.vertices[i].co
         near = min(_fill_segs, key=lambda sg: _fill_seg_dist(p, sg[1], sg[2]))[0]
         obj.vertex_groups[near].add([i], 1.0, "REPLACE"); filled_unweighted += 1
+# 먼 본이 남긴 가중치 떨어내기: 자동 가중치는 어깨가 몸에 붙은 체형에서 팔 본에 **가슴 한가운데** 정점까지 준다
+# (치비 44/115, 로봇 15/217 — 움직이면 가슴이 팔을 따라 밀린다). 그 정점에서 가장 가까운 변형 본보다
+# FAR_RATIO 배 넘게 먼 본은 그 정점을 움직일 이유가 없다. 관절 근처의 자연스러운 섞임(팔꿈치·어깨)은
+# 두 본 거리가 비슷해서 그대로 남는다
+FAR_RATIO = 2.5
+_seg_by_name = {n: (a, b) for n, a, b in _fill_segs}
+vg = {g.index: g.name for g in obj.vertex_groups}
+far_trimmed_verts = far_trimmed_weights = 0
+for v in obj.data.vertices:
+    gs = [(g, vg.get(g.group, "")) for g in v.groups if vg.get(g.group, "").startswith("DEF-") and g.weight > 0]
+    if len(gs) < 2:
+        continue
+    pw = obj.matrix_world @ v.co
+    d = {n: _fill_seg_dist(pw, *_seg_by_name[n]) for _, n in gs if n in _seg_by_name}
+    if len(d) < 2:
+        continue
+    lim = min(d.values()) * FAR_RATIO
+    drop = [n for n, dist in d.items() if dist > lim]
+    if not drop:
+        continue
+    keep = sum(g.weight for g, n in gs if n not in drop)
+    if keep <= 1e-6:
+        continue   # 전부 멀면 손대지 않는다(떨어진 조각 등)
+    for n in drop:
+        obj.vertex_groups[n].remove([v.index]); far_trimmed_weights += 1
+    far_trimmed_verts += 1
+bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+bpy.ops.object.vertex_group_normalize_all(lock_active=False)
+
 # 정점당 영향 본 수 제한: glTF·엔진 표준이 4개다. 넘으면 내보낼 때 잘려 나가면서 가중치 합이 1 이 안 되고, 블렌더 안에서 본
 # 모습과 엔진에서 본 모습이 달라진다. 가장 큰 4개만 남기고 다시 1 로 맞춘다(아주 작은 가중치 0.005 미만도 버린다)
 MAX_INFLUENCES, MIN_W = 4, 0.005
@@ -501,7 +530,7 @@ asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bo
 worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
          "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "rigid_islands_bound": rigid_bound,
-         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])

@@ -132,6 +132,12 @@ bw rig character.glb --targets runs/<id>/targets.json      # re-run with edited 
 bw rig character.glb --targets runs/<id>/targets.json --pin "shin.L=0.09,0,0.48"
 ```
 
+Weights get one cleanup pass before the 4-influence trim: a bone more than 2.5× farther from a vertex than that
+vertex's nearest deform bone is dropped from it. Automatic weights hand arm bones a share of chest-centre vertices on
+bodies whose shoulders sit close in; a natural blend at an elbow or shoulder keeps both bones because their distances
+are comparable. Measured effect on skinning agreement with the original rigs: mannequiny 0.600 → 0.605, cesium_man
+side agreement 0.997 → 0.998, Quaternius Adventurer unchanged.
+
 ## Motion retargeting
 
 `bw motion --bvh file.bvh --rig <run-id> [--export]` moves a BVH clip onto a rig made by `bw rig`
