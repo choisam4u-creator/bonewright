@@ -17,7 +17,7 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 | Human-proportioned T-pose, skinned, arms out | **1.6 – 7.4%** | usable (GDQuest mannequiny 1.6%, Quaternius Adventurer 3.3%) |
 | Quadrupeds (`--preset quadruped`) | **5.6%** over 11 animals (wolf 3.2%, horse 3.5%, worst cow 7.4%) | usable for dogs/hoofed animals |
 | Robots, stylised, animals **that ship with a skeleton** | joints taken from the file | `--from-skeleton`, 0 tokens, no silhouette guess |
-| The same shapes with **no** skeleton | 10 – 277% | **rejected before any model call**, with an editable `targets_draft.json` |
+| The same shapes with **no** skeleton | 10 – 59% | **rejected before any model call**, with an editable `targets_draft.json` |
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
 
@@ -37,14 +37,13 @@ If the file has a skeleton the message says so and points at `--from-skeleton` f
 
 The draft is more than the metarig at default proportions. Even when no leg centreline can be traced, **the bottom of
 a character almost always splits into two feet**, so the lowest slice is clustered along X and the two groups give the
-foot line; where the model is built from separate parts, the top of the parts on that line gives a rough hip. On
-RobotExpressive, whose legs read as one column in silhouette, that moves the draft's leg from x = 0.08 to x = 0.635
-against a true 0.641, and the wrist lands at 2.72 against a true 2.689. The hip is still 0.5 m high — the robot's
-skirt covers the leg line up to 2.07 m, so the silhouette has nothing better to offer, and that joint is one of the
-few you will move by hand. This measurement feeds the draft only; the deterministic fitter that the benchmark scores
-is deliberately left untouched by it.
+foot line. And a model built from separate rigid parts carries its own articulation: cluster the loose parts sitting
+on that foot line by height, and the clusters *are* the ankle, knee and hip. On RobotExpressive, whose legs read as a
+single column in silhouette, that lands 0.111 / 0.900 / 1.672 m against a true 0.025 / 0.935 / 1.537 — 2.2%, 0.9% and
+3.4% of height, the same range the ordinary humanoid path achieves. Its whole rig now measures **48 cm (12.3%)**
+instead of 183 cm, and it is still rejected, correctly, because 12.3% is over the line.
 
-Across the benchmark assets this separates **7 pass (1.6–7.4% error) from 9 rejected (10.1%+)**, re-verified after
+Across the benchmark assets this separates **7 pass (1.6–7.4% error) from 9 rejected (10.1–58.8%)**, re-verified after
 every change to the importer and the fitter. There is now one honest miss: once the 90° turn described below was
 corrected, `quat_pp_41j` dropped from 89 cm to 35 cm (6.3% of height) and would have been usable, yet it is still
 rejected because its crotch and ankle came from body ratios. The gate keeps the safer answer — and that file ships

@@ -141,8 +141,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                 fs = a["landmarks"].get("foot_split") or {}
                 if fs.get("x"):
                     gz = a["landmarks"]["ground_z"]
-                    az = fs.get("top_z", gz); hz = fs.get("hip_z") or a["landmarks"]["hip_z"]
-                    kz = az + (hz - az) * 0.5
+                    az = fs.get("ankle_z", fs.get("top_z", gz)); hz = fs.get("hip_z") or a["landmarks"]["hip_z"]
+                    kz = fs.get("knee_z") or az + (hz - az) * 0.5
                     for side, sg in (("L", 1), ("R", -1)):
                         lx = sg * fs["x"]
                         draft[f"thigh.{side}"] = {"head": [lx, 0.0, round(hz, 3)], "tail": [lx, 0.0, round(kz, 3)]}

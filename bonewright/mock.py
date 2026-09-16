@@ -181,10 +181,14 @@ def mock_backend(step: str, prompt: str, inputs: dict) -> dict:
             t[f"upper_arm.{s}"] = {"head": sh, "tail": el}
             t[f"forearm.{s}"] = {"head": el, "tail": wr}
             t[f"hand.{s}"] = {"head": wr, "tail": tip}
-            lx = x * max(0.08, thw * 0.6)
-            t[f"thigh.{s}"] = {"head": [lx, y, L["hip_z"]], "tail": [lx, y, L["knee_z"]]}
-            t[f"shin.{s}"] = {"head": [lx, y, L["knee_z"]], "tail": [lx, y, L["ankle_z"]]}
-            t[f"foot.{s}"] = {"head": [lx, y, L["ankle_z"]], "tail": [lx, y - 0.12, L["ground_z"] + 0.02]}
+            # 다리 중심선을 못 찾은 메시라도, 조각으로 만든 모델이면 조각 뭉치가 곧 마디다(analyze 의 foot_split).
+            # 그게 있으면 사람 비율로 때운 값 대신 그걸 쓴다(로봇: x 0.08 → 0.635, 고관절 0.44 → 1.67, 정답 0.641 / 1.537)
+            fs = L.get("foot_split") or {}
+            lx = x * (fs["x"] if fs.get("x") else max(0.08, thw * 0.6))
+            hz = fs.get("hip_z") or L["hip_z"]; kz = fs.get("knee_z") or L["knee_z"]; az = fs.get("ankle_z") or L["ankle_z"]
+            t[f"thigh.{s}"] = {"head": [lx, y, hz], "tail": [lx, y, kz]}
+            t[f"shin.{s}"] = {"head": [lx, y, kz], "tail": [lx, y, az]}
+            t[f"foot.{s}"] = {"head": [lx, y, az], "tail": [lx, y - 0.12, L["ground_z"] + 0.02]}
         meta = json.loads(inputs["metarig_bones.json"])
         out = []
         for name, v in t.items():

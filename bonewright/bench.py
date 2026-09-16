@@ -122,6 +122,16 @@ def compare(ours: dict, gt_joints: dict, height: float, preset: str = "humanoid"
         if pelvis[2] < min(t[2] for t in thighs) - height * 0.05:
             for c in joint_map[pelvis_key]:
                 look.pop((c, None), None)
+    # 좌우는 **이름이 아니라 좌표 부호**로 정한다. 가져오기가 메시를 180° 돌리면 원본의 'Left' 본이 우리 -X 로 가서,
+    # 이름만 믿고 맞대면 우리 왼다리를 원본 오른다리와 비교하게 된다 — 멀쩡한 리그가 다리 너비만큼 틀린 것으로 찍힌다
+    # (RobotExpressive: DEF-thigh.L 실제 오차 13cm 인데 128cm 로 나왔다)
+    for base in joint_map:
+        if base not in SIDED:
+            continue
+        for c in joint_map[base]:
+            l, r = look.get((c, "L")), look.get((c, "R"))
+            if l and r and l[0] < r[0]:
+                look[(c, "L")], look[(c, "R")] = r, l
     rows = []
     for ours_base, cands in joint_map.items():
         for side in (("L", "R") if ours_base in SIDED else (None,)):

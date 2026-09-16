@@ -167,8 +167,9 @@ if not (legs["leg_axis_L"] and legs["leg_axis_R"]):
             band = [v for v in lowest if v.x > 0] or lowest
             foot_split = {"x": fx, "top_z": round(max(v.z for v in band), 3)}
             fallbacks.append("leg_axis(발 위치만 잼)")
-            # 고관절 높이: 실루엣이 다리와 몸통을 못 가르는 메시(로봇)라도, 조각으로 나뉜 모델이면
-            # **다리 쪽 조각들의 꼭대기**가 곧 고관절이다. 발 x 와 같은 쪽·같은 줄에 있는 조각만 모은다
+            # 관절 높이: 실루엣이 다리와 몸통을 못 가르는 메시(로봇)라도, **조각으로 만든 모델이면 조각 자체가 마디다**.
+            # 발 x 와 같은 줄에 있는 느슨한 조각들을 높이로 묶으면 그 뭉치 중심이 발목·무릎·고관절이다
+            # (RobotExpressive 실측 0.111 / 0.900 / 1.672 — 정답 0.025 / 0.935 / 1.537, 키의 2.2 / 0.9 / 3.4%)
             par = list(range(len(obj.data.vertices)))
             def _root(i):
                 while par[i] != i: par[i] = par[par[i]]; i = par[i]
@@ -179,15 +180,24 @@ if not (legs["leg_axis_L"] and legs["leg_axis_R"]):
             isl = {}
             for i in range(len(obj.data.vertices)):
                 isl.setdefault(_root(i), []).append(i)
-            tops = []
+            leg_parts = []
             for members in isl.values():
-                if len(members) < 8: continue
+                if len(members) < 6: continue
                 pl = [vs[i] for i in members]
                 cx = sum(p.x for p in pl) / len(pl); cz_ = sum(p.z for p in pl) / len(pl)
-                if abs(abs(cx) - fx) < fx * 0.6 and cz_ < zmin + H * 0.55:   # 발과 같은 줄, 아래쪽 절반
-                    tops.append(max(p.z for p in pl))
-            if len(tops) >= 4:   # 좌우 다리에 조각이 최소 둘씩은 있어야 믿는다
-                foot_split["hip_z"] = round(max(tops), 3)
+                if fx * 0.45 < abs(cx) < fx * 1.6 and cz_ < zmin + H * 0.78:   # 발과 같은 줄
+                    leg_parts.append((cz_, len(members)))
+            leg_parts.sort()
+            clusters, cur_ = [], []
+            for cz_, n in leg_parts:   # 높이로 묶는다: 키의 8% 이상 벌어지면 다른 마디
+                if cur_ and cz_ - cur_[-1][0] > H * 0.08: clusters.append(cur_); cur_ = []
+                cur_.append((cz_, n))
+            if cur_: clusters.append(cur_)
+            zs_ = [round(sum(c * n for c, n in g) / sum(n for _, n in g), 3) for g in clusters][:3]   # 아래 3뭉치 = 발목·무릎·고관절
+            if len(zs_) >= 2:
+                foot_split["ankle_z"], foot_split["hip_z"] = zs_[0], zs_[-1]
+                foot_split["knee_z"] = zs_[1] if len(zs_) == 3 else round(zs_[0] + (zs_[-1] - zs_[0]) * 0.5, 3)
+                foot_split["leg_parts"] = len(leg_parts)
 
 # 발목 = 발 덩어리의 꼭대기. "발"은 다리 중심선에서 앞뒤(y)로 굵기의 1.5배 넘게 튀어나온 점들이다(발끝·발등).
 # 부츠를 신어도 발끝은 앞으로 튀어나오므로 신발 종류와 무관하다
