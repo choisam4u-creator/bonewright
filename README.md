@@ -31,9 +31,18 @@ A mesh is rejected when: an arm or leg centreline is missing on either side · a
 to fall back to a body ratio · the head is over 35% of height (chibi) · left-right asymmetry exceeds 3% of height ·
 size is outside 0.3–20 m. A neck-only fallback is a warning, not a rejection.
 
-A rejection is not a dead end. The run directory keeps `targets_draft.json` — the metarig scaled to this mesh — so
-you can drag the joints where they belong and re-run with `--targets`, still at zero tokens. If the file has a
-skeleton the message says so and points at `--from-skeleton` first.
+A rejection is not a dead end. The run directory keeps `targets_draft.json` — a starting point built from whatever
+the mesh did give up — so you can drag the joints that are wrong and re-run with `--targets`, still at zero tokens.
+If the file has a skeleton the message says so and points at `--from-skeleton` first.
+
+The draft is more than the metarig at default proportions. Even when no leg centreline can be traced, **the bottom of
+a character almost always splits into two feet**, so the lowest slice is clustered along X and the two groups give the
+foot line; where the model is built from separate parts, the top of the parts on that line gives a rough hip. On
+RobotExpressive, whose legs read as one column in silhouette, that moves the draft's leg from x = 0.08 to x = 0.635
+against a true 0.641, and the wrist lands at 2.72 against a true 2.689. The hip is still 0.5 m high — the robot's
+skirt covers the leg line up to 2.07 m, so the silhouette has nothing better to offer, and that joint is one of the
+few you will move by hand. This measurement feeds the draft only; the deterministic fitter that the benchmark scores
+is deliberately left untouched by it.
 
 Across the benchmark assets this separates **7 pass (1.6–7.4% error) from 9 rejected (10.1%+)**, re-verified after
 every change to the importer and the fitter. There is now one honest miss: once the 90° turn described below was

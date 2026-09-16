@@ -148,6 +148,47 @@ def leg_axis(sign, lo=None, hi=None):
 legs = {"leg_axis_L": leg_axis(1), "leg_axis_R": leg_axis(-1)}   # 1차: 발목 찾기용(발 포함)
 prof = legs["leg_axis_L"] or legs["leg_axis_R"]
 
+# 다리 중심선을 못 찾은 메시(로봇처럼 다리가 떨어진 상자거나 실루엣에서 몸통과 붙어 보이는 경우)라도,
+# **바닥 근처는 거의 언제나 두 발로 갈라져 있다**. 맨 아래 띠에서 x 를 묶어 좌우 한 덩어리씩이면 그게 두 발이다.
+# 이 값은 거절 게이트를 통과시키는 데 쓰지 않는다(여전히 '중심선 없음'으로 막힌다) — 손으로 고칠 출발점을 낫게 하는 용도다
+foot_split = None
+if not (legs["leg_axis_L"] and legs["leg_axis_R"]):
+    lowest = [v for v in vs if v.z < zmin + H * 0.08]
+    xs = sorted(v.x for v in lowest)
+    if len(xs) >= 12:
+        gs, cur = [], [xs[0]]
+        for x in xs[1:]:
+            if x - cur[-1] > gap_thr * 2: gs.append(cur); cur = [x]
+            else: cur.append(x)
+        gs.append(cur)
+        gs = [g for g in gs if len(g) >= 6]
+        if len(gs) == 2 and (gs[0][0] + gs[0][-1]) / 2 < 0 < (gs[1][0] + gs[1][-1]) / 2:
+            fx = round((gs[1][0] + gs[1][-1]) / 2, 3)          # 왼발(+X) 중심
+            band = [v for v in lowest if v.x > 0] or lowest
+            foot_split = {"x": fx, "top_z": round(max(v.z for v in band), 3)}
+            fallbacks.append("leg_axis(발 위치만 잼)")
+            # 고관절 높이: 실루엣이 다리와 몸통을 못 가르는 메시(로봇)라도, 조각으로 나뉜 모델이면
+            # **다리 쪽 조각들의 꼭대기**가 곧 고관절이다. 발 x 와 같은 쪽·같은 줄에 있는 조각만 모은다
+            par = list(range(len(obj.data.vertices)))
+            def _root(i):
+                while par[i] != i: par[i] = par[par[i]]; i = par[i]
+                return i
+            for e in obj.data.edges:
+                a, b = _root(e.vertices[0]), _root(e.vertices[1])
+                if a != b: par[a] = b
+            isl = {}
+            for i in range(len(obj.data.vertices)):
+                isl.setdefault(_root(i), []).append(i)
+            tops = []
+            for members in isl.values():
+                if len(members) < 8: continue
+                pl = [vs[i] for i in members]
+                cx = sum(p.x for p in pl) / len(pl); cz_ = sum(p.z for p in pl) / len(pl)
+                if abs(abs(cx) - fx) < fx * 0.6 and cz_ < zmin + H * 0.55:   # 발과 같은 줄, 아래쪽 절반
+                    tops.append(max(p.z for p in pl))
+            if len(tops) >= 4:   # 좌우 다리에 조각이 최소 둘씩은 있어야 믿는다
+                foot_split["hip_z"] = round(max(tops), 3)
+
 # 발목 = 발 덩어리의 꼭대기. "발"은 다리 중심선에서 앞뒤(y)로 굵기의 1.5배 넘게 튀어나온 점들이다(발끝·발등).
 # 부츠를 신어도 발끝은 앞으로 튀어나오므로 신발 종류와 무관하다
 def radius_at(z):
@@ -243,7 +284,7 @@ land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 
         "torso_halfwidth": torso_hw, "arm_tip_x": tip["right"], "arm_tip_z": tip["z"],
         "vertex_spacing": round(spacing, 4), "symmetry_error": round(sym, 3),
         "pose_guess": "A" if tip["z"] < shoulder["z"] - (shoulder["z"] - cz) * 0.15 else "T",
-        "ratio_fallbacks": fallbacks, **axes, **legs}
+        "ratio_fallbacks": fallbacks, "foot_split": foot_split, **axes, **legs}
 if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 한가운데 수직으로 섰다고 본다) → 발 위치를 따로 잰다
     from _quad import quad_landmarks
     land["quad"] = quad_landmarks(vs, st, spacing)

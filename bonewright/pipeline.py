@@ -130,7 +130,27 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         # 손으로 고칠 출발점을 남긴다: 메타리그를 이 메시 크기로 맞춘 목표표. 거절된 메시도 사람이 관절만 옮기면 리깅된다(토큰 0)
         try:
             meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
-            atomic_write(r.dir / "targets_draft.json", json.dumps(meta["bones"], ensure_ascii=False, indent=2))
+            draft = meta["bones"]
+            try:   # 메타리그 기본값보다, 메시에서 잰 것(어깨 높이·팔다리 중심선)을 반영한 결정적 추정이 출발점으로 낫다
+                from .mock import mock_backend
+                guess = mock_backend("fit", "", {"analysis.json": json.dumps({"stats": a["stats"], "landmarks": a["landmarks"], "bands": a["bands"][::2]}, ensure_ascii=False),
+                                                 "metarig_bones.json": json.dumps(meta["bones"], ensure_ascii=False)})
+                draft = {**draft, **{t["name"]: {"head": t["head"], "tail": t["tail"]} for t in guess["targets"]}}
+                # 다리 중심선을 못 찾은 메시라도 바닥 띠에서 두 발 위치는 잰다(로봇 x 0.08 → 0.635, 정답 0.641).
+                # 이 값은 초안에만 쓴다 — 결정적 추정기(벤치 기준선)는 건드리지 않는다
+                fs = a["landmarks"].get("foot_split") or {}
+                if fs.get("x"):
+                    gz = a["landmarks"]["ground_z"]
+                    az = fs.get("top_z", gz); hz = fs.get("hip_z") or a["landmarks"]["hip_z"]
+                    kz = az + (hz - az) * 0.5
+                    for side, sg in (("L", 1), ("R", -1)):
+                        lx = sg * fs["x"]
+                        draft[f"thigh.{side}"] = {"head": [lx, 0.0, round(hz, 3)], "tail": [lx, 0.0, round(kz, 3)]}
+                        draft[f"shin.{side}"] = {"head": [lx, 0.0, round(kz, 3)], "tail": [lx, 0.0, round(az, 3)]}
+                        draft[f"foot.{side}"] = {"head": [lx, 0.0, round(az, 3)], "tail": [lx, -0.12, round(gz + 0.02, 3)]}
+            except Exception:
+                pass   # 추정이 실패해도 메타리그 기본값은 남긴다
+            atomic_write(r.dir / "targets_draft.json", json.dumps(draft, ensure_ascii=False, indent=2))
             hint += (f"\n  손으로 고칠 출발점을 남겼다: {r.dir / 'targets_draft.json'} (메타리그를 이 메시 크기로 맞춘 것)"
                      f"\n  관절을 옮긴 뒤 `bw rig <mesh> --targets {r.dir / 'targets_draft.json'}` 로 돌리면 토큰 0 이다")
         except Exception as e:   # 초안은 부가 기능이다 — 실패해도 거절 이유는 그대로 알린다
