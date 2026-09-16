@@ -80,6 +80,11 @@ Run over every benchmark asset (25 files, 0 tokens):
 Cow and bull are worth singling out: they are the two worst assets for the silhouette path (7.4%), because a thick
 body breaks the hip-over-back ratio. Reading their own skeleton sidesteps the ratio entirely.
 
+A model built from separate parts gets one more thing: when automatic weights leave a **whole** disconnected island
+empty, that island is bound to a single nearest bone rather than filled vertex by vertex. That is what a rigid part
+wants — the robot's 40 stray vertices and the chibi's 130 (a head modelled as its own mesh) stop counting as holes,
+because they are not holes. An island that is only *partly* empty is still a hole and still counted.
+
 `needs_review` here is usually the asset, not the rig. The robot's arms and legs are floating boxes with real gaps, so
 some bones legitimately cross empty space; those are now counted separately from bones that stick out of the body,
 because a bone bridging a gap still skins correctly while a bone with a loose end does not.

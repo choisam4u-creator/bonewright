@@ -220,7 +220,9 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
               f"- import: {json.dumps(a['stats'].get('import'), ensure_ascii=False)}",
               f"- landmarks: chibi={a['landmarks'].get('chibi')} · head_ratio={a['landmarks'].get('head_ratio')} · neck={a['landmarks'].get('neck_from')} · suspect={a['landmarks'].get('suspect')}",
               f"- rig: `{g['blend']}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
-              f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} (filled by nearest bone {st.get('filled_unweighted', 0)}) · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
+              f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} (filled by nearest bone {st.get('filled_unweighted', 0)}"
+              + (f", rigid parts bound whole {st['rigid_islands_bound']}" if st.get("rigid_islands_bound") else "")
+              + f") · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
               f"- gates: {'PASS' if not fails else 'FAIL: ' + '; '.join(fails)}" +
               (f" · ⚠ 조각 사이 빈틈을 지나는 본 {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}" if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
