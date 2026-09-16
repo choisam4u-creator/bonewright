@@ -35,6 +35,17 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
             miss = [s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}")]
             if miss:
                 block.append(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다")
+    # 메시 **속**(_medial)에서 채운 관절도 근거다 — 지어낸 비율이 아니라 잰 값이다. 어디서 왔는지는 밝힌다
+    med = landmarks.get("medial") or {}
+    supplied = med.get("supplied") or []
+    if supplied:
+        warn.append("메시 속 중심선에서 채운 값이 있다(" + ", ".join(supplied) + ") — 실루엣 근거가 아니므로 렌더를 꼭 확인하라")
+    # 속-읽기가 좌우로 어긋났으면 그 값으로 만든 중심선은 근거로 치지 않는다.
+    # (godot_player: 어깨 견갑을 손으로 잡아 손 높이가 좌 0.73 / 우 1.96 — 그대로 통과시키면 오차 18%)
+    if supplied and not med.get("consistent"):
+        bad = [k for k in supplied if k.startswith("arm_axis")]
+        if bad:
+            block.append("메시 속에서 찾은 팔이 좌우로 어긋난다(" + ", ".join(bad) + ") — 자세가 있거나 좌우가 다른 메시다")
     fb = set(landmarks.get("ratio_fallbacks") or [])
     hard = [] if from_parts else sorted(fb & set(BLOCKING_FALLBACKS))
     if hard:

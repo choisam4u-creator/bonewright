@@ -56,6 +56,27 @@ for r in rows:
     if not mid: mid = [min(segs, key=lambda sg: min(abs(sg[0]), abs(sg[1])))] if segs else []
     r["torso_hw"] = round((mid[0][1] - mid[0][0]) / 2, 3) if mid else 0
     r["arm_segments"] = len(segs) - 1
+# 실루엣이 팔이나 다리를 못 찾았으면 **메시 속**을 본다(_medial). 겉모양 대신 속을 채워 가장 깊은 길을
+# 따라가면, 팔이 몸에 붙어 있거나 자세가 있거나 사람 비례가 아니어도 팔다리 끝을 찾을 수 있다.
+# 실루엣이 제대로 읽은 메시에서는 아예 돌리지 않는다 — 잘 되던 8종의 결과를 흔들지 않기 위해서다
+medial = None; med_roles = {}; _supplied = set(); _med_done = False
+def _med():
+    """처음 필요할 때 한 번만 읽는다(복셀 채우기가 몇 초 걸린다). 실루엣이 다 읽은 메시에서는 아예 안 돈다"""
+    global medial, med_roles, _med_done
+    if _med_done:
+        return med_roles
+    _med_done = True
+    try:
+        from _medial import read_shape, classify, consistent
+        medial = read_shape(obj, st["min"], st["max"], grid=int(A.get("medial_grid", 56)))
+        if medial:
+            med_roles = classify(medial, H, zmin, quad=QUAD)
+            medial["consistent"] = bool(med_roles) and (QUAD or consistent(med_roles, H))
+    except Exception as _e:      # 분석 전체를 죽이지 않는다 — 실루엣 값으로 계속 간다
+        medial = {"error": str(_e)[:120]}
+    return med_roles
+
+
 # 가랑이 = 바닥에서 이어지는 "갈라진 띠 구간"의 꼭대기. 다리는 바닥까지 계속 갈라져 있으므로,
 # 어떤 띠까지 볼 때 갈라진 띠 비율이 60% 아래로 떨어지면 거기서 끊는다. 저폴리 단면이 한두 띠 튀어도 견딘다(높이 상수 없음)
 split = [r for r in rows if r["center_split"]]
@@ -72,6 +93,16 @@ for i, r in enumerate(rows):
         crotch = r
 if crotch is None: fallbacks.append("crotch")
 cz = crotch["z"] if crotch else zmin + H * 0.47
+# 실루엣이 가랑이를 못 찾았으면 메시 속 두 다리 경로가 처음 맞닿는 높이를 쓴다.
+# "키의 47%" 라는 지어낸 상수보다 낫다(mannequiny 실측 0.915, 정답 고관절 0.926 — 1cm)
+if crotch is None and not QUAD and _med():
+    try:
+        from _medial import crotch_from
+        _cz = crotch_from(med_roles.get("foot.L"), med_roles.get("foot.R"))
+        if _cz is not None and medial.get("consistent") and zmin + H * 0.15 < _cz < zmin + H * 0.75:
+            cz = _cz; fallbacks.remove("crotch"); _supplied.add("crotch_z")
+    except Exception:
+        pass
 
 def torso_percentile(lo, hi):
     """구간 안 띠들의 몸통 반폭 하위 25%(팔이 붙는 띠는 넓게 나오므로 중앙값 대신 하위값)"""
@@ -122,6 +153,18 @@ def arm_axis(sign):
         out.insert(0, [round(out[0][i] - d[i] * k, 3) for i in range(3)] + [out[0][3]])
     return out
 axes = {"arm_axis_L": arm_axis(1), "arm_axis_R": arm_axis(-1)}
+
+if not (axes["arm_axis_L"] and axes["arm_axis_R"]) and not QUAD and _med():
+    from _medial import arm_axis as med_arm_axis
+    for _s in ("L", "R"):
+        if axes[f"arm_axis_{_s}"]:
+            continue
+        _t = med_roles.get(f"hand.{_s}")
+        if not _t:
+            continue
+        _ax = med_arm_axis(_t, torso_hw)
+        if len(_ax) >= 4:
+            axes[f"arm_axis_{_s}"] = _ax; _supplied.add(f"arm_axis_{_s}")
 # 어깨 관절 높이는 중심선 첫 표본(팔 뿌리)에서 잰다. 실루엣 띠로는 팔이 몸통과 붙는 높이밖에 못 잡는다
 roots = [ax[0] for ax in axes.values() if ax]
 if roots:
@@ -263,6 +306,19 @@ foot_z.sort()
 ankle_z = round(foot_z[int(len(foot_z) * 0.97)], 3) if len(foot_z) >= 10 else None
 if ankle_z is None or ankle_z > cz * 0.5:
     ankle_z = zmin + H * 0.05; fallbacks.append("ankle")   # 최후 폴백(인체 비율)
+# 비율로 때운 발목은 메시 속 경로의 **꺾이는 자리**로 바꿔 본다. 다리에서 발로 넘어가는 모서리는
+# 자세와 무관한 기하학적 신호다(사람 비례를 가정하지 않는다). 꺾임이 없으면 비율 값을 그대로 둔다
+if "ankle" in fallbacks and not QUAD and _med():
+    try:
+        from _medial import ankle_from
+        _az = [ankle_from(med_roles[k], zmin, H) for k in ("foot.L", "foot.R") if med_roles.get(k)]
+        _az = [p[2] for p in _az if p]
+        if _az:
+            ankle_z = round(sum(_az) / len(_az), 3); _supplied.add("ankle_z")
+            if medial.get("consistent"):        # 좌우가 어긋난 읽기는 값만 보태고 폴백 표시는 남긴다
+                fallbacks.remove("ankle")
+    except Exception:
+        pass
 
 # 무릎 = 엉덩관절과 발목의 중간. 이건 사람 키 비례가 아니라 "두 마디 팔다리는 위·아래 마디 길이가 비슷하다"는 구조 사실이다
 # (넓다리뼈 ≈ 정강뼈). 그 근처에서 다리가 가장 잘록한 칸이 있으면 그쪽으로 붙인다
@@ -328,11 +384,35 @@ land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 
         "torso_halfwidth": torso_hw, "arm_tip_x": tip["right"], "arm_tip_z": tip["z"],
         "vertex_spacing": round(spacing, 4), "symmetry_error": round(sym, 3),
         "pose_guess": "A" if tip["z"] < shoulder["z"] - (shoulder["z"] - cz) * 0.15 else "T",
-        "ratio_fallbacks": fallbacks, "foot_split": foot_split, **axes, **legs}
+        "ratio_fallbacks": fallbacks, "foot_split": foot_split,
+        "medial": ({"root": [round(v, 3) for v in medial["root"]], "voxel": medial.get("voxel"),
+                    "spheres": medial.get("spheres"), "bridges": medial.get("bridges"),
+                    "roles": {k: [round(v, 3) for v in t["p"]] for k, t in med_roles.items()},
+                    "consistent": bool(medial.get("consistent")), "supplied": sorted(_supplied)}
+                   if medial and "error" not in medial else medial),
+        **axes, **legs}
 if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 한가운데 수직으로 섰다고 본다) → 발 위치를 따로 잰다
     from _quad import quad_landmarks
     land["quad"] = quad_landmarks(vs, st, spacing)
+    if not land["quad"]["ok"] and _med():
+        # 실루엣이 앞뒤 다리를 못 가르면(앉은 자세, 다리가 붙은 저폴리) 메시 속 중심선의 발 네 개를 쓴다.
+        # 앞뒤는 머리 쪽이 앞이다 — 머리와 꼬리는 경로 굵기로 가른다(꼬리가 가늘다)
+        _f = {}
+        for _k, _role in (("front_L", "front.L"), ("front_R", "front.R"), ("hind_L", "hind.L"), ("hind_R", "hind.R")):
+            _t = med_roles.get(_role)
+            if _t:
+                _f[_k] = [round(_t["p"][0], 3), round(_t["p"][1], 3), round(zmin, 3)]
+        if len(_f) == 4:
+            _hd = med_roles.get("head")
+            land["quad"]["feet"] = _f; land["quad"]["ok"] = True
+            land["quad"]["notes"].append("발 네 개를 메시 속 중심선에서 찾았다(실루엣 실패)")
+            if _hd:
+                _my = sum(v.y for v in vs) / len(vs)
+                land["quad"]["front_dir"] = 1.0 if _hd["p"][1] > _my else -1.0
+            _supplied.add("quad_feet")
     if not land["quad"]["ok"]:
         land["suspect"].append("사족 발 검출 실패: " + "; ".join(land["quad"]["notes"])[:80])
+if isinstance(land.get("medial"), dict) and "error" not in land["medial"]:
+    land["medial"]["supplied"] = sorted(_supplied)
 bpy.ops.wm.save_as_mainfile(filepath=A["blend"])
 done({"stats": st, "bands": rows, "landmarks": land, "blend": A["blend"]}, A["result"])

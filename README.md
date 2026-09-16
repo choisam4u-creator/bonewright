@@ -18,7 +18,8 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 | Quadrupeds (`--preset quadruped`) | **5.6%** over 11 animals (wolf 3.2%, horse 3.5%, worst cow 7.4%) | usable for dogs/hoofed animals |
 | Robots, stylised, animals **that ship with a skeleton** | joints taken from the file | `--from-skeleton`, 0 tokens, no silhouette guess |
 | A robot with **no** skeleton, built from separate rigid parts | **7.7%** (RobotExpressive) | rigs normally — the parts themselves give the joints |
-| Everything else with no skeleton | 10 – 59% | **rejected before any model call**, with an editable `targets_draft.json` |
+| A stylised character with no skeleton whose crotch or ankle only the **inside** of the mesh shows | **5.7%** (quat_pp_41j) | rigs normally — see below |
+| Everything else with no skeleton | 11 – 56% | **rejected before any model call**, with an editable `targets_draft.json` |
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
 
@@ -55,17 +56,50 @@ The whole rig measures **30 cm, 7.7% of height** — down from 183 cm, and insid
 path lands. One attempt failed and is worth recording: taking the *top* of the leg parts as the hip gives 2.07 m, because
 the robot's skirt covers the leg line that high, and feeding that to the fitter made the benchmark worse.
 
-Across the benchmark assets this separates **8 pass (1.6–7.7% error) from 8 rejected (10.1–58.8%)**, re-verified after
-every change to the importer and the fitter. One honest miss remains: once the 90° turn described below was corrected,
-`quat_pp_41j` dropped from 89 cm to 35 cm (6.3% of height) and would have been usable, yet it is still rejected
-because its crotch and ankle came from body ratios. The gate keeps the safer answer — and that file ships with a
-skeleton, so `--from-skeleton` rigs it anyway. Override with `--force`.
+Across the benchmark assets this separates **9 pass (1.6–7.7% error) from 7 rejected (11.0–55.8%)**, re-verified after
+every change to the importer and the fitter. The honest miss that used to sit in this paragraph is gone: `quat_pp_41j`
+was rejected at 6.3% of height because its crotch and ankle came from body ratios, and reading those two joints from
+the inside of the mesh (next section) both let it through and improved it to 31.34 cm, **5.7%**. Override with `--force`.
 
 The gate asks whether the joints rest on **evidence**, not on which evidence. A model built from separate rigid parts
 has no traceable leg centreline, yet its parts are its articulation, so a full structural read (foot line, ankle, knee,
 hip, arm height, at least six leg parts) satisfies the gate and carries a warning to look at the renders instead.
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
 character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
+
+## When the outline says nothing, read the inside
+
+Silhouette bands slice the body by height and measure width. That works on a T-posed human and fails on everything
+else: arms held against the body merge into the torso, a seated figure has no vertical leg column, and a stylised
+character has no human proportions to fall back on.
+
+So when a limb cannot be traced from the outside, the mesh is read from the **inside** instead. Rays down each grid
+column fill the volume with voxels, a distance transform says how deep each voxel sits, and maximal spheres packed
+from the deepest voxels outward trace the body's centre. Link the overlapping spheres, walk out from the middle, and
+the farthest points *are* the fingertips, toes, head and tail — with the path back to the body attached to each one.
+
+**What this gives, and what it does not.** Tips were found on all ten assets tried; on the six checked against the
+authors' own rigs they land within 1–4% of height, whatever the pose or the proportions. Interior joints do not: a torso's medial axis is a *sheet*, not a
+curve, so each limb's path crosses it by a different route. Taking the point where the two leg paths meet as the
+pelvis was off by 18 cm on `godot_player` (0.81 m against a true 0.63 m), so that value is not produced at all. What
+the inside read supplies is limited to what it actually measures:
+
+| supplied | how | measured |
+|---|---|---|
+| arm centreline | the part of the hand's path outside the torso half-width | `kira` wrist 4.1%, hand 3.0% of height |
+| crotch | the height where the two leg paths first touch | `mannequiny` 0.915 against a true hip of 0.926 — 1.1 cm |
+| ankle | the corner where the leg path turns into the foot | `quat_pp_41j` 0.207 against a true 0.201 — 0.6 cm |
+| four paws | quadruped tips clustered front/hind, head told from tail by path thickness | wolf, fox, horse all four |
+
+The read only runs when the silhouette came up short, so the assets that already passed are untouched — and it costs
+no model call either way.
+
+**A read that disagrees with itself is not evidence.** On `godot_player` the reader grabbed a shoulder pauldron as one
+hand, putting the two hands at 0.73 m and 1.96 m. Filling in an ankle from that and waving the mesh through would have
+shipped a rig off by 18% of height with no warning. So the values are only allowed to clear a blocking gate when the
+read is mirror-consistent — both feet and both hands present and matching within 5% of height. An inconsistent read
+still improves `targets_draft.json`; it just does not buy a pass. A genuinely posed character fails this check, which
+is the right answer: it fails the left-right gate anyway.
 
 ## Already rigged? Use its own skeleton
 

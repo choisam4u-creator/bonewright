@@ -488,3 +488,111 @@ class FromSkeletonTests(unittest.TestCase):
             self.assertAlmostEqual(0.0, tg[n]["head"][2], places=6, msg=n)
             self.assertAlmostEqual(0.0, tg[n]["tail"][2], places=6, msg=n)
         self.assertAlmostEqual(0.0, tg["foot.L"]["tail"][2], places=6)
+
+
+class MedialShapeTests(unittest.TestCase):
+    """메시 속 중심선 읽기(_medial)의 순수 기하 부분. Blender 없이 돈다"""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(ROOT / "bonewright" / "bpy_scripts"))
+        import _medial
+        cls.M = _medial
+
+    @staticmethod
+    def _tip(pts, r=0.05):
+        """[(x,y,z)…] 를 끝점 구조로. path 는 '끝 → 몸통' 순서다(read_shape 와 같다)"""
+        path = [[p[0], p[1], p[2], r] for p in pts]
+        return {"p": list(pts[0]), "r": r, "branch": 1.0, "path": path}
+
+    def test_resample_is_evenly_spaced(self):
+        pts = [[0, 0, 0], [0, 0, 1], [0, 0, 3]]
+        out = self.M.resample(pts, 5)
+        self.assertEqual(len(out), 5)
+        gaps = [((out[i + 1][2] - out[i][2]) ** 2) ** 0.5 for i in range(4)]
+        self.assertLess(max(gaps) - min(gaps), 0.05, f"간격이 고르지 않다: {gaps}")
+
+    def test_classify_assigns_roles_by_coordinate_not_name(self):
+        """좌우는 x 부호로 정한다 — 가져오기가 메시를 180° 돌려도 팔다리가 교차하지 않는다"""
+        shape = {"root": [0, 0, 0.9, 0.1], "tips": [
+            self._tip([(0.15, 0, 0.02), (0.15, 0, 0.5), (0, 0, 0.9)]),     # 왼발(+x)
+            self._tip([(-0.15, 0, 0.02), (-0.15, 0, 0.5), (0, 0, 0.9)]),   # 오른발(-x)
+            self._tip([(0.7, 0, 1.4), (0.3, 0, 1.4), (0, 0, 1.2)]),        # 왼손
+            self._tip([(-0.7, 0, 1.4), (-0.3, 0, 1.4), (0, 0, 1.2)]),      # 오른손
+            self._tip([(0.0, 0, 1.75), (0, 0, 1.5), (0, 0, 1.2)]),         # 머리
+        ]}
+        roles = self.M.classify(shape, height=1.8, ground=0.0)
+        self.assertEqual(set(roles), {"foot.L", "foot.R", "hand.L", "hand.R", "head"})
+        self.assertGreater(roles["foot.L"]["p"][0], 0)
+        self.assertLess(roles["foot.R"]["p"][0], 0)
+        self.assertGreater(roles["hand.L"]["p"][0], 0)
+        self.assertAlmostEqual(roles["head"]["p"][2], 1.75, places=3)
+
+    def test_crotch_is_where_the_two_legs_meet(self):
+        L = self._tip([(0.15, 0, 0.02), (0.15, 0, 0.4), (0.06, 0, 0.9), (0.0, 0, 1.0)], r=0.05)
+        R = self._tip([(-0.15, 0, 0.02), (-0.15, 0, 0.4), (-0.06, 0, 0.9), (0.0, 0, 1.0)], r=0.05)
+        cz = self.M.crotch_from(L, R)
+        self.assertIsNotNone(cz)
+        self.assertAlmostEqual(cz, 0.9, delta=0.12)
+
+    def test_ankle_is_the_corner_and_a_straight_leg_has_none(self):
+        bent = self._tip([(0.15, -0.2, 0.02), (0.15, 0.0, 0.02), (0.15, 0.0, 0.45), (0.15, 0.0, 0.9)])
+        p = self.M.ankle_from(bent, ground=0.0, height=1.8)
+        self.assertIsNotNone(p, "다리→발 모서리를 못 찾았다")
+        self.assertLess(p[2], 1.8 * 0.25)
+        straight = self._tip([(0.15, 0, 0.02), (0.15, 0, 0.45), (0.15, 0, 0.9)])
+        self.assertIsNone(self.M.ankle_from(straight, ground=0.0, height=1.8),
+                          "곧은 다리에 없는 모서리를 지어내면 안 된다")
+
+    def test_arm_axis_keeps_only_what_is_outside_the_torso(self):
+        arm = self._tip([(0.8, 0, 1.4), (0.6, 0, 1.4), (0.4, 0, 1.4), (0.2, 0, 1.4), (0.05, 0, 1.3), (0, 0, 1.0)])
+        ax = self.M.arm_axis(arm, torso_hw=0.15, samples=6)
+        self.assertEqual(len(ax), 6)
+        self.assertTrue(all(abs(p[0]) > 0.15 - 1e-6 for p in ax), f"몸통 안쪽 표본이 남았다: {ax}")
+        self.assertLess(ax[0][0], ax[-1][0], "어깨 쪽에서 손끝 쪽 순서여야 한다")
+        self.assertEqual(self.M.arm_axis(self._tip([(0.05, 0, 1.3), (0, 0, 1.0)]), torso_hw=0.15), [])
+
+    def test_classify_quadruped_finds_four_paws_head_and_tail(self):
+        """네 발·머리·꼬리. 머리와 꼬리는 이름이 아니라 **경로 굵기**로 가른다(꼬리가 가늘다)"""
+        def paw(x, y):
+            return self._tip([(x, y, 0.02), (x, y, 0.3), (x * 0.5, y, 0.6)], r=0.03)
+        shape = {"root": [0, 0, 0.6, 0.15], "tips": [
+            paw(0.2, 0.5), paw(-0.2, 0.5),      # 앞발
+            paw(0.2, -0.5), paw(-0.2, -0.5),    # 뒷발
+            self._tip([(0, 1.1, 0.75), (0, 0.8, 0.7), (0, 0.4, 0.65)], r=0.12),   # 머리(굵다)
+            self._tip([(0, -1.1, 0.7), (0, -0.8, 0.65), (0, -0.4, 0.62)], r=0.02),  # 꼬리(가늘다)
+        ]}
+        roles = self.M.classify(shape, height=0.9, ground=0.0, quad=True)
+        self.assertEqual(set(roles), {"front.L", "front.R", "hind.L", "hind.R", "head", "tail"})
+        self.assertGreater(roles["head"]["p"][1], roles["tail"]["p"][1], "머리와 꼬리가 뒤바뀌었다")
+        self.assertGreater(roles["front.L"]["p"][1], roles["hind.L"]["p"][1], "앞뒤 다리가 뒤바뀌었다")
+        self.assertGreater(roles["front.L"]["p"][0], 0)
+        self.assertLess(roles["front.R"]["p"][0], 0)
+
+    def test_inconsistent_read_supplies_values_but_does_not_clear_the_gate(self):
+        """좌우가 어긋난 읽기(견갑을 손으로 잡은 경우)는 값만 보태고 통과시키지는 않는다"""
+        good = {"foot.L": self._tip([(0.2, 0, 0.02)]), "foot.R": self._tip([(-0.2, 0, 0.02)]),
+                "hand.L": self._tip([(0.7, 0, 1.4)]), "hand.R": self._tip([(-0.7, 0, 1.4)]),
+                "head": self._tip([(0, 0, 1.75)])}
+        self.assertTrue(self.M.consistent(good, 1.8))
+        bad = dict(good, **{"hand.R": self._tip([(-0.5, 0, 1.96)])})   # 높이가 56cm 어긋난다
+        self.assertFalse(self.M.consistent(bad, 1.8))
+        self.assertFalse(self.M.consistent({k: v for k, v in good.items() if k != "hand.R"}, 1.8))
+        land = {"height": 1.8, "arm_axis_L": [[1, 0, 1, 0.1]], "arm_axis_R": [[-1, 0, 1, 0.1]],
+                "leg_axis_L": [[0.1, 0, 0.5, 0.1]], "leg_axis_R": [[-0.1, 0, 0.5, 0.1]],
+                "ratio_fallbacks": [], "symmetry_error": 0.0,
+                "medial": {"supplied": ["arm_axis_L", "arm_axis_R"], "consistent": False}}
+        block, _w = gates.preflight(land, {}, "humanoid", {"min_height_m": 0.3, "max_height_m": 20.0,
+                                                           "max_symmetry_error_ratio": 0.03})
+        self.assertTrue(any("좌우로 어긋난다" in b for b in block), block)
+
+    def test_medial_evidence_is_reported_by_the_gate(self):
+        """속에서 채운 값은 막지 않되, 어디서 왔는지 경고로 남긴다"""
+        land = {"height": 1.8, "arm_axis_L": [[1, 0, 1, 0.1]], "arm_axis_R": [[-1, 0, 1, 0.1]],
+                "leg_axis_L": [[0.1, 0, 0.5, 0.1]], "leg_axis_R": [[-0.1, 0, 0.5, 0.1]],
+                "ratio_fallbacks": [], "symmetry_error": 0.0,
+                "medial": {"supplied": ["ankle_z", "crotch_z"]}}
+        block, warn = gates.preflight(land, {}, "humanoid", {"min_height_m": 0.3, "max_height_m": 20.0,
+                                                             "max_symmetry_error_ratio": 0.03})
+        self.assertEqual(block, [])
+        self.assertTrue(any("메시 속" in w for w in warn), warn)
