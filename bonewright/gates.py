@@ -57,8 +57,9 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) ->
         fails.append(f"메시 상자 밖 변형 본 {len(stats['bones_outside_bbox'])}: {stats['bones_outside_bbox'][:5]}")
     tol = g["symmetry_max_error"] * max(0.2, stats.get("height", 1.8) / 1.8)   # 키 비례(1.8m 기준값)
     # --from-skeleton 은 원본 뼈대 좌표를 그대로 쓴다. 원본이 이미 비대칭이면 그 비대칭은 우리 오차가 아니다
-    # (three.js RobotExpressive: 어깨 좌우가 6.7cm 다르다) → 원본만큼은 봐준다
-    tol = max(tol, source_symmetry * 1.05)
+    # (three.js RobotExpressive 어깨 6.7cm, Quaternius 알파카 앞다리 8.5cm) → 원본만큼은 봐준다.
+    # 사슬 아래로 내려가며 조금 커지므로(알파카 8.5 → 발끝 9.7cm) 1/4 을 더 둔다
+    tol = max(tol, source_symmetry * 1.25)
     out_mesh = stats.get("deform_outside_mesh", 0)
     if out_mesh > g.get("max_deform_outside_mesh", 0):
         fails.append(f"메시 밖 변형 본 {out_mesh}: {stats.get('deform_outside_mesh_bones', [])[:4]}")

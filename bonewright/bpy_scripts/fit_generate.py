@@ -59,7 +59,7 @@ def clamp(name, v):
     if (c - Vector(v)).length > 1e-6: clamped.append(name)
     return c
 before = {n: (eb[n].head.copy(), eb[n].tail.copy()) for n in T if n in eb}   # 자식 본을 같이 옮기기 위해 원래 위치를 기억
-pre_sym = {b.name: (b.head.copy(), b.tail.copy()) for b in eb}               # 보정 전 좌우 대칭 여부를 판정하려고 전부 기억
+meta_sym = {b.name: (b.head.copy(), b.tail.copy()) for b in eb}              # 손대기 전 메타리그(좌우 대칭 판정용)
 for name, t in T.items():
     if name in eb:
         if "head" in t: eb[name].head = clamp(name, t["head"])   # 목표가 메시 상자를 벗어나면 안쪽으로 자른다(모델 답도 동일)
@@ -167,6 +167,9 @@ def pull_inside(p, inset=0.012):
         q = p + (axis - p) * (k / 10.0)
         if is_inside(q): return q, True
     return loc - nrm * (inset / 8), True
+# 안쪽으로 당기기 **직전** 상태를 기억한다. 4b 가 되돌릴 대상은 '당기기가 만든 좌우 어긋남' 뿐이다 —
+# 목표(--pin 으로 한쪽만 고정한 경우 등)가 만든 어긋남까지 되돌리면 사용자가 찍은 좌표가 반대쪽으로 번진다
+pre_sym = {b.name: (b.head.copy(), b.tail.copy()) for b in eb}
 snapped_inside = []
 skip_inside = {b.name for h in ("hand.L", "hand.R") if h in eb for b in eb if any(pb.name == h for pb in b.parent_recursive)}
 
@@ -187,9 +190,16 @@ for lb in [b for b in eb if b.name.endswith(".L") and b.name[:-1] + "R" in eb an
     rb = eb[lb.name[:-1] + "R"]
     if rb.name not in pre_sym or lb.name in PINNED or rb.name in PINNED:
         continue
-    (hl, tl), (hr, tr) = pre_sym[lb.name], pre_sym[rb.name]
-    if (hl * _MIR - hr).length > 1e-5 or (tl * _MIR - tr).length > 1e-5:
-        continue   # 처음부터 비대칭이던 짝(목표가 그렇게 시켰다)은 건드리지 않는다
+    def _same(snap, eps=L["height"] * 0.01):
+        """좌우가 '사실상 같은 자리'였는가. 원본 뼈대가 1~3cm 어긋나 있는 자산이 흔해서(알파카 앞발 x 2.7cm)
+        정확히 같은 값만 인정하면 되돌리기가 아예 안 걸린다 — 키의 1% 안이면 같은 것으로 본다"""
+        (hl, tl), (hr, tr) = snap[lb.name], snap[rb.name]
+        return (hl * _MIR - hr).length <= eps and (tl * _MIR - tr).length <= eps
+    # 되돌릴 대상은 둘이다: (1) 안쪽으로 당기기가 만든 어긋남, (2) 목표를 안 준 딸린 본(발가락 마디 등)이
+    # 부모를 따라가다 좌우로 벌어진 것. 목표를 준 본의 어긋남은 사용자가 시킨 것이라 손대지 않는다
+    free = lb.name not in T and rb.name not in T
+    if not (_same(pre_sym) or (free and _same(meta_sym))):
+        continue
     # 되돌리는 기준은 대칭 게이트가 실패로 보는 선(키의 1.67%)보다 조금 아래로 둔다 — 게이트가 잡을 어긋남은 다 고치되,
     # 그보다 작은 차이는 메시 자신의 비대칭이라 억지로 맞추지 않는다
     _tol = L["height"] * 0.0133
