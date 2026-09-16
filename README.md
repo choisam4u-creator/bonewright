@@ -16,7 +16,8 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 |---|---|---|
 | Human-proportioned T-pose, skinned, arms out | **1.6 – 7.4%** | usable (GDQuest mannequiny 1.6%, Quaternius Adventurer 3.3%) |
 | Quadrupeds (`--preset quadruped`) | **5.6%** over 11 animals (wolf 3.2%, horse 3.5%, worst cow 7.4%) | usable for dogs/hoofed animals |
-| Robots, chibi, insects, non-T-pose, upper-body-only | 10 – 277% | **rejected before any model call** |
+| Robots, stylised, animals **that ship with a skeleton** | joints taken from the file | `--from-skeleton`, 0 tokens, no silhouette guess |
+| The same shapes with **no** skeleton | 10 – 277% | **rejected before any model call**, with an editable `targets_draft.json` |
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
 
@@ -34,8 +35,11 @@ A rejection is not a dead end. The run directory keeps `targets_draft.json` — 
 you can drag the joints where they belong and re-run with `--targets`, still at zero tokens. If the file has a
 skeleton the message says so and points at `--from-skeleton` first.
 
-Across the benchmark assets this separates cleanly: **7 pass (1.6–7.4% error), 9 are rejected (10.1%+), with no
-mistakes in either direction** — re-verified after every change to the importer and the fitter. Override with `--force`.
+Across the benchmark assets this separates **7 pass (1.6–7.4% error) from 9 rejected (10.1%+)**, re-verified after
+every change to the importer and the fitter. There is now one honest miss: once the 90° turn described below was
+corrected, `quat_pp_41j` dropped from 89 cm to 35 cm (6.3% of height) and would have been usable, yet it is still
+rejected because its crotch and ankle came from body ratios. The gate keeps the safer answer — and that file ships
+with a skeleton, so `--from-skeleton` rigs it anyway. Override with `--force`.
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
 character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
 
@@ -66,10 +70,19 @@ name matching it handles what real files actually do wrong:
 - **A missing limb is refused.** If both legs (or both arms) are absent there is nothing to infer from, and the run
   stops at 0 tokens rather than leaving those bones at metarig defaults, poking through the mesh.
 
-Measured on the assets the normal path rejects: **wolf and horse pass every gate; the Godot demo player and
-RobotExpressive come back `needs_review`** — the robot's arms and legs are floating boxes with real gaps, so some
-bones legitimately cross empty space. Those are now reported separately from bones that stick out of the body, because
-a bone bridging a gap still skins correctly while a bone with a loose end does not.
+Run over every benchmark asset (25 files, 0 tokens):
+
+| Preset | Gates pass | Needs review | Refused at 0 tokens |
+|---|---|---|---|
+| Quadruped (10 animals) | **8** — wolf, horse, cow, bull, deer, donkey, husky, stag | 2 — alpaca, shiba inu (one bone outside) | 0 |
+| Humanoid (15 files) | **6** | 4 — robot, chibi, cesium_man, rigged_figure | 5 — insect, upper-body-only, two limbless test rigs |
+
+Cow and bull are worth singling out: they are the two worst assets for the silhouette path (7.4%), because a thick
+body breaks the hip-over-back ratio. Reading their own skeleton sidesteps the ratio entirely.
+
+`needs_review` here is usually the asset, not the rig. The robot's arms and legs are floating boxes with real gaps, so
+some bones legitimately cross empty space; those are now counted separately from bones that stick out of the body,
+because a bone bridging a gap still skins correctly while a bone with a loose end does not.
 
 ## Install and run
 
