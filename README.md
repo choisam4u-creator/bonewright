@@ -67,6 +67,44 @@ hip, arm height, at least six leg parts) satisfies the gate and carries a warnin
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
 character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
 
+## Anything with a skeleton: if it is a chain, it gets controls
+
+A dragon has no legs. A ghost has no legs and a trailing body chain. A squid has tentacles. A blob has four bones
+total. None of them fit the human or wolf metarig, and until now they were turned away with "no limbs found".
+
+They are not turned away any more. When the source skeleton cannot be mapped onto a preset, the metarig is built by
+**copying that skeleton bone for bone**: every bone gets `basic.super_copy` so it keeps a control and a deform bone,
+and any run of bones already joined head-to-tail is promoted to `limbs.simple_tentacle` so it bends as one piece. No
+joint names to recognise, no proportions to assume.
+
+Two details make it hold up. Whether a bone deforms is decided by **the weights actually painted on it in the source**,
+not by a flag — glTF marks every joint deformable, which would drag an organisational `Root` bone at the origin into
+the rig and flag it as a bone outside the mesh. And the weights are not recomputed: the deform bones are named
+`DEF-<source name>`, a one-to-one match, so the original weights are carried straight over. Bone Heat left 39% of
+`orc_blob` unpainted (464 of 1203 vertices); the source had all of them.
+
+Measured on 43 CC0 creatures (Quaternius *Ultimate Monsters* 40, KayKit *Skeletons* 3) — wings, tentacles, no legs,
+four-bone blobs:
+
+| | before | after |
+|---|---|---|
+| rigged | 14 / 43 | **43 / 43** |
+| clean | 7 | **40** |
+| needs a human look | 7 | 3 |
+| refused | 29 | **0** |
+
+The three that still want a look: an orc whose weapon island leaves 121 vertices to be filled, and two KayKit
+skeletons whose arm weights leak through the gap between the ribs. Both are exactly what `needs_review` is for.
+
+Three bugs surfaced on the way, all found by the new assets. A **held prop** — a trident, a weapon, a carrot — ships
+as its own skinned mesh and was being merged into the body, moving the centre line by 2.5 m; a mesh whose weight is
+over 90% on hand and finger bones is now treated as held, kept in the skinning and dropped from every size and centre
+measurement. **Left-right repair** now fires whenever the source rig is symmetric, since any asymmetry left in ours is
+then ours to fix, and it averages the two sides instead of copying one onto the other — copying pushed the repaired
+side out through the mesh on a slightly asymmetric model. And **source symmetry is measured about the source rig's own
+centre line**, not about x=0: an armature sitting 2 cm off the mesh centre was reporting that offset as 4 cm of
+asymmetry, inflating the gate's tolerance so our own errors slipped under it.
+
 ## When the outline says nothing, read the inside
 
 Silhouette bands slice the body by height and measure width. That works on a T-posed human and fails on everything
