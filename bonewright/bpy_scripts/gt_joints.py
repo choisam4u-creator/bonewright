@@ -9,11 +9,22 @@ arms = [o for o in bpy.data.objects if o.type == "ARMATURE"]
 if not arms:
     done({"joints": {}, "bones": 0, "error": "원본 아마추어 없음"}, A["result"]); raise SystemExit
 arm = max(arms, key=lambda a: len(a.data.bones))
+# 원본에서 **실제로 살을 움직이는 본**만 골라 둔다. glTF 가져오기는 모든 관절에 use_deform 을 켜 두므로
+# 그 표시로는 정리용 본(Root)을 못 가른다 — 정점 가중치가 실제로 붙어 있는지로 본다
+_gi = {g.index: g.name for g in obj.vertex_groups}
+_used = set()
+for v in obj.data.vertices:
+    for g in v.groups:
+        if g.weight > 1e-4:
+            n_ = _gi.get(g.group)
+            if n_: _used.add(n_)
 joints = {}
 for b in arm.data.bones:
     h = arm.matrix_world @ b.head_local; t = arm.matrix_world @ b.tail_local
     joints[b.name] = {"head": [round(v, 4) for v in h], "tail": [round(v, 4) for v in t],
-                      "parent": b.parent.name if b.parent else None}
+                      "parent": b.parent.name if b.parent else None,
+                      # 원본이 살을 안 움직이는 본(Root 같은 정리용)은 일반 리그에서도 변형 본으로 만들지 않는다
+                      "deform": (b.name in _used) if _used else bool(b.use_deform)}
 vs = [obj.matrix_world @ v.co for v in obj.data.vertices]
 zs = [v.z for v in vs]
 done({"joints": joints, "bones": len(joints), "armature": arm.name,

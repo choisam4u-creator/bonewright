@@ -164,6 +164,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     r.state("fit", "running")
     pins = dict(pins or {})
     source_symmetry = 0.0
+    gen_preset = preset; source_joints = None
     if from_skeleton:
         def _reject(why: str, reasons: list[str]):
             r.state("fit", "rejected", reasons=reasons)   # 거절도 상태로 남긴다(중간에 멈춘 실행과 구분)
@@ -172,18 +173,22 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         if not gt.get("joints"):
             _reject("--from-skeleton: 이 파일에 원본 뼈대가 없다 — 기본 경로(--from-skeleton 없이)로 돌려라", ["뼈대 없음"])
         tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"], a["landmarks"].get("ground_z", 0.0))
-        if info["limbs_absent"]:
-            _reject("--from-skeleton: 원본 뼈대에 " + ", ".join(info["limbs_absent"]) + " 가 아예 없다 — 반쪽만 리깅한 자산이라\n"
-                    "  그 팔다리는 메타리그 기본 자리에 남아 몸을 뚫는다. 기본 경로(--from-skeleton 없이)로 돌리거나 --pin 으로 직접 찍어라",
-                    ["팔다리 없음: " + ", ".join(info["limbs_absent"])])
-        if len(tg) < 6:
-            _reject(f"--from-skeleton: 원본 뼈대에서 알아볼 수 있는 관절이 너무 적다({sorted(tg)}) — 이름 규약이 낯설다",
-                    [f"관절 {len(tg)}개"])
-        fit = {"targets": tg, "reasoning": f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", "confidence": None}
+        # 사람·개과 메타리그에 맞출 수 없는 몸(용·유령·문어·블롭)은 거절하는 대신 **원본 뼈대를 그대로 베낀
+        # 일반 리그**로 간다. 관절 이름을 못 알아봐도, 팔다리가 없어도, 사슬이면 컨트롤을 만들 수 있다
+        if info["limbs_absent"] or len(tg) < 6:
+            why = ("팔다리 없음: " + ", ".join(info["limbs_absent"])) if info["limbs_absent"] else f"알아본 관절 {len(tg)}개"
+            gen_preset = "generic"; source_joints = gt["joints"]
+            fit = {"targets": {}, "reasoning": f"일반 리그: 원본 뼈대 {len(gt['joints'])}본을 그대로 베낌({why})", "confidence": None}
+            _log(quiet, f"[2/6] fit: 사람·개과 메타리그에 못 맞춘다({why}) → **일반 리그**로 간다 · 원본 본 {len(gt['joints'])}개 · 모델 호출 0회")
+        else:
+            fit = {"targets": tg, "reasoning": f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", "confidence": None}
         source_symmetry = info.get("source_symmetry", 0.0)
-        _log(quiet, f"[2/6] fit: 원본 뼈대에서 목표 {len(tg)}개 · 모델 호출 0회 · 못 찾은 관절 {info['missing']}" +
-             (f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}" if info["mirrored"] else "") +
-             (f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)" if source_symmetry > 0.01 else ""))
+        if gen_preset == "generic":
+            source_symmetry = 0.0
+        else:
+            _log(quiet, f"[2/6] fit: 원본 뼈대에서 목표 {len(tg)}개 · 모델 호출 0회 · 못 찾은 관절 {info['missing']}" +
+                 (f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}" if info["mirrored"] else "") +
+                 (f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)" if source_symmetry > 0.01 else ""))
     elif targets_file:
         fit = {"targets": json.loads(Path(targets_file).read_text(encoding="utf-8")), "reasoning": f"재사용: {targets_file}", "confidence": None}
         _log(quiet, f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회")
@@ -204,14 +209,17 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     atomic_write(r.dir / "targets.json", json.dumps(fit["targets"], ensure_ascii=False, indent=2))   # 손으로 고쳐 --targets 로 재사용
     # 3 생성·스키닝·통계
     r.state("generate", "running")
-    g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": preset,
+    g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": gen_preset,
+                                   "source_joints": source_joints,
+                                   # 원본이 좌우 대칭인 뼈대면 우리 결과도 대칭이어야 한다(보정이 만든 어긋남은 되돌린다)
+                                   "source_symmetric": bool(from_skeleton and source_symmetry <= a["landmarks"]["height"] * 0.005),
                                    "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
                                    # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
                                    "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
                                    "weight_method": weights or cfg["rig"].get("weights", "auto"),
                                    # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
                                    # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
-                                   "propagate_helpers": from_skeleton and preset == "humanoid"})
+                                   "propagate_helpers": from_skeleton and gen_preset == "humanoid"})
     g["preset"] = preset   # bw motion 이 리그의 프리셋을 스스로 알도록 남긴다
     if norm:
         g["stats"]["normalize_pose"] = norm

@@ -220,7 +220,10 @@ def targets_from_skeleton(joints: dict, preset: str = "humanoid", height: float 
             if pal and wrist:
                 put(f"{pal}.{side}", wrist, list(parts[0][1]["head"]))
     # 원본 뼈대 자체의 좌우 어긋남. 우리가 만든 오차와 구분하려고 잰다(게이트가 이만큼은 봐준다)
-    sym = [((pos[f"{b}.L"][0] + pos[f"{b}.R"][0]) ** 2 + sum((pos[f"{b}.L"][i] - pos[f"{b}.R"][i]) ** 2 for i in (1, 2))) ** 0.5
+    # 대칭은 x=0 이 아니라 **그 뼈대 자신의 중심선(mx)** 기준으로 잰다. 원본 아마추어가 메시 중심에서 몇 cm
+    # 치우쳐 있는 자산이 흔한데(Quaternius 오크 2cm), x=0 으로 재면 그 치우침이 통째로 '비대칭'으로 찍혀
+    # 게이트 허용치가 부풀고 우리 보정이 안 걸린다
+    sym = [((pos[f"{b}.L"][0] + pos[f"{b}.R"][0] - 2 * mx) ** 2 + sum((pos[f"{b}.L"][i] - pos[f"{b}.R"][i]) ** 2 for i in (1, 2))) ** 0.5
            for b in jm if f"{b}.L" in pos and f"{b}.R" in pos]
     # 원본 뼈대가 통째로 빠뜨린 팔다리는 채워 넣을 근거가 없다 — 메타리그 기본 자리에 남아 몸을 뚫는다
     need = ("front_thigh", "thigh") if quad else ("upper_arm", "thigh")

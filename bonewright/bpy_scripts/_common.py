@@ -71,6 +71,21 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
             if p.type == "ARMATURE": return True
             p = p.parent
         return False
+    def _skinned_prop(m):
+        """스킨된 메시인데 가중치가 손·손가락 본에 거의 다 몰려 있으면 **들고 있는 소품**이다(삼지창·칼·지팡이).
+        소품을 몸으로 세면 좌우 중심과 상자가 통째로 밀린다(Quaternius 데몬: 삼지창 때문에 중심이 2.5m 밀렸다)."""
+        gi = {g.index: g.name.lower() for g in m.vertex_groups}
+        tot = hand = 0.0
+        for v in m.data.vertices:
+            for g in v.groups:
+                nm = gi.get(g.group, "")
+                tot += g.weight
+                if any(w in nm for w in HAND_WORDS):
+                    hand += g.weight
+        return tot > 0 and hand / tot >= 0.9
+    props = [m for m in skinned if len(skinned) > 1 and _skinned_prop(m)] if len(skinned) > 1 else []
+    if props and len(props) == len(skinned):      # 전부 소품일 리 없다 — 가장 큰 것은 몸으로 둔다
+        props.remove(max(props, key=lambda m: len(m.data.vertices)))
     attached = [m for m in meshes if m not in skinned and _on_armature(m) and not _held(m)]
     attached_names = [m.name for m in attached] if skinned else []   # join 뒤에는 오브젝트가 사라져 이름을 못 읽는다
     # 붙은 부품이 '몸의 빈 자리를 채우는 구조'(43j 의 머리, 로봇의 팔다리)인지 '장식'(사슴뿔·어깨 갑옷)인지 가른다:
@@ -93,6 +108,9 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
             attachment_roles[m.name] = {"bone": m.parent_bone if m.parent_type == "BONE" else None, "near": near, "role": role}
             if role == "decor":
                 g = m.vertex_groups.new(name="bw_attachment"); g.add(list(range(len(m.data.vertices))), 1.0, "REPLACE")
+    for m in props:
+        g = m.vertex_groups.new(name="bw_attachment"); g.add(list(range(len(m.data.vertices))), 1.0, "REPLACE")
+        attachment_roles[m.name] = {"bone": None, "near": 0, "role": "held"}
     if skinned:
         meshes = skinned + attached   # 스킨된 메시가 있으면 그것과 본에 붙은 부품만 캐릭터로 본다(내보내기가 남긴 보조 구체·프로브·가구 제외)
     else:
@@ -127,13 +145,20 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
     obj = bpy.context.view_layer.objects.active
     obj.name = "character"
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-    vs = [v.co for v in obj.data.vertices]
+    # 소품·장식(bw_attachment)은 몸이 아니다 → 크기·중심·바닥·방향은 몸 정점만으로 잰다
+    _att = obj.vertex_groups.get("bw_attachment"); _ai = _att.index if _att else None
+    def _body():
+        if _ai is None:
+            return [v.co for v in obj.data.vertices]
+        b = [v.co for v in obj.data.vertices if not any(g.group == _ai for g in v.groups)]
+        return b or [v.co for v in obj.data.vertices]
+    vs = _body()
     zmin, zmax = min(v.z for v in vs), max(v.z for v in vs); H = zmax - zmin
     unit = 1.0
     if H > 20:      # cm 단위로 보인다(사람 키 1800 = mm 면 1.8 로 맞춘다)
         unit = 0.001 if H > 500 else 0.01
         obj.scale = (unit, unit, unit); bpy.ops.object.transform_apply(scale=True); M = Matrix.Scale(unit, 4) @ M
-        vs = [v.co for v in obj.data.vertices]; zmin, zmax = min(v.z for v in vs), max(v.z for v in vs); H = zmax - zmin
+        vs = _body(); zmin, zmax = min(v.z for v in vs), max(v.z for v in vs); H = zmax - zmin
     # 좌우 축이 X 가 아닌 파일(가로로 90° 돌아간 자산)은 먼저 세운다. 실루엣으로는 T 포즈의 팔 너비와 몸 깊이를
     # 구분할 수 없으니, 원본 뼈대의 **좌우 짝이 가장 크게 벌어지는 축**을 좌우로 본다
     # (quat_pp_41j: 팔이 Y 로 뻗어 있어 옆모습이 정면으로 잡히고 팔다리 본이 X 자로 꼬였다 — 렌더로 확인)
@@ -143,11 +168,12 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
         obj.matrix_world = R90 @ obj.matrix_world
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         M = R90 @ M
-        vs = [v.co for v in obj.data.vertices]
+        vs = _body()
     # 좌우 중심을 x=0 으로
     xmin, xmax = min(v.x for v in vs), max(v.x for v in vs); off_x = (xmin + xmax) / 2
     if abs(off_x) > 1e-4:
         obj.location.x -= off_x; bpy.ops.object.transform_apply(location=True); M = Matrix.Translation((-off_x, 0, 0)) @ M
+        vs = _body()
     # 앞뒤: 발은 앞으로 뻗는다. 바닥 8% 띠의 y 무게중심이 발목 띠(12~18%)보다 키의 2% 이상 +Y 쪽이면 앞이 +Y 로 본다.
     # facing="auto" 면 그때 Z 축으로 180도 돌려 앞을 -Y(Rigify 메타리그 방향)로 맞춘다. "neg-y"/"pos-y" 로 강제할 수 있다
     foot = [v.y for v in vs if v.z < zmin + H * 0.08]; ankle = [v.y for v in vs if zmin + H * 0.12 < v.z < zmin + H * 0.18]
@@ -166,6 +192,7 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
         M = Matrix.Rotation(3.141592653589793, 4, "Z") @ M
         vs = [v.co for v in obj.data.vertices]
     # 앞뒤 중심: 다리 구간(키의 10~40%) 정점의 y 중앙값을 0 으로(가방·머리카락이 있어도 다리는 몸 축에 있다). 바닥은 z=0
+    vs = _body()
     legs = sorted(v.y for v in vs if zmin + H * 0.10 < v.z < zmin + H * 0.40) or sorted(v.y for v in vs)
     off_y = legs[len(legs) // 2]
     obj.location.y -= off_y; obj.location.z -= zmin; bpy.ops.object.transform_apply(location=True)

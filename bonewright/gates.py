@@ -70,9 +70,18 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) ->
         fails.append(f"가중치 없는 정점 {holes}/{verts} (가까운 본으로 메운 {stats.get('filled_unweighted', 0)}개 포함)")
     if stats["weight_sum_min"] < g["weight_sum_min"] or stats["weight_sum_max"] > g["weight_sum_max"]:
         fails.append(f"가중치 합 범위 {stats['weight_sum_min']}~{stats['weight_sum_max']} (허용 {g['weight_sum_min']}~{g['weight_sum_max']})")
-    if stats["deform_bones"] < g["deform_bones_min"]:
+    # 변형 본 최소치는 사람 메타리그(410본) 기준이다. 원본 뼈대를 그대로 베낀 **일반 리그**는 본 수가
+    # 원본을 따라가므로(관절 4개짜리 블롭도 있다) 그 기준을 그대로 대면 멀쩡한 리그가 실패로 찍힌다.
+    # 일반 리그에서는 "원본 본이 전부 변형 본이 됐는가"로 대신 본다
+    src_bones = stats.get("generic_source_bones")
+    if src_bones:
+        if stats["deform_bones"] < src_bones:
+            fails.append(f"일반 리그: 변형 본 {stats['deform_bones']} < 원본이 살을 움직이던 본 {src_bones} — 옮겨지지 않은 본이 있다")
+    elif stats["deform_bones"] < g["deform_bones_min"]:
         fails.append(f"변형 본 {stats['deform_bones']} < {g['deform_bones_min']}")
-    if len(stats["bones_outside_bbox"]) > g["max_bones_outside_bbox"]:
+    # 일반 리그는 원본 뼈대를 **그대로** 베낀다 — 본이 메시 밖에 있다면 원작자가 거기에 둔 것이지 우리가 옮긴 게 아니다
+    # (Quaternius 유령: 꼬리 끝 Body3/Body4 가 반투명 부분이라 메시 없이 본만 있다). 실패가 아니라 경고로 남긴다
+    if len(stats["bones_outside_bbox"]) > g["max_bones_outside_bbox"] and not src_bones:
         fails.append(f"메시 상자 밖 변형 본 {len(stats['bones_outside_bbox'])}: {stats['bones_outside_bbox'][:5]}")
     tol = g["symmetry_max_error"] * max(0.2, stats.get("height", 1.8) / 1.8)   # 키 비례(1.8m 기준값)
     # --from-skeleton 은 원본 뼈대 좌표를 그대로 쓴다. 원본이 이미 비대칭이면 그 비대칭은 우리 오차가 아니다
@@ -80,7 +89,7 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) ->
     # 사슬 아래로 내려가며 조금 커지므로(알파카 8.5 → 발끝 9.7cm) 1/4 을 더 둔다
     tol = max(tol, source_symmetry * 1.25)
     out_mesh = stats.get("deform_outside_mesh", 0)
-    if out_mesh > g.get("max_deform_outside_mesh", 0):
+    if out_mesh > g.get("max_deform_outside_mesh", 0) and not src_bones:
         fails.append(f"메시 밖 변형 본 {out_mesh}: {stats.get('deform_outside_mesh_bones', [])[:4]}")
     tv = stats.get("weight_leak_torso_verts", 0)
     # 표본이 너무 적으면 비율을 판단할 수 없다 — 저폴리 캐릭터는 몸통 한가운데 띠에 정점이 열두어 개뿐이다
