@@ -1,0 +1,106 @@
+<!doctype html><html lang="ko"><meta charset="utf-8">
+<title>bonewright 2026-09-18 — 사슬이면 컨트롤을 만든다</title>
+<style>
+ body{font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;max-width:880px;margin:0 auto;padding:28px 20px 60px;color:#1c1c1e;background:#fff}
+ h1{font-size:25px;margin:0 0 4px} h2{font-size:19px;margin:34px 0 10px;padding-top:14px;border-top:1px solid #e5e5ea}
+ .sub{color:#6e6e73;margin:0 0 22px;font-size:14px}
+ table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+ th,td{border:1px solid #e5e5ea;padding:7px 9px;text-align:left} th{background:#f5f5f7;font-weight:600}
+ td.n{text-align:right;font-variant-numeric:tabular-nums}
+ .ok{color:#1d7a3c;font-weight:600} .no{color:#b3261e;font-weight:600}
+ .box{background:#f5f5f7;border-radius:10px;padding:14px 18px;margin:16px 0}
+ .warn{background:#fff4e5;border-left:4px solid #e08600;border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0}
+ code{background:#f0f0f3;padding:1px 5px;border-radius:4px;font-size:13px}
+ li{margin:5px 0} .big{font-size:22px;font-weight:700}
+</style>
+<h1>사슬이면 컨트롤을 만든다</h1>
+<p class="sub">bonewright · 2026-09-18 · 커밋 <code>82d00f4</code>, <code>8f45829</code> (로컬만, 푸시 안 함)</p>
+
+<div class="box">
+<b>한 줄:</b> CC0 괴물·비인간 43종을 새로 받아 돌렸더니 14종만 리깅됐습니다. 원인을 고쳐
+<b class="big">43종 전부</b> 리깅되게 했습니다(40 ok / 3 사람확인 / 0 거절).
+</div>
+
+<h2>1. 자산부터 — 일부러 사람이 아닌 것들</h2>
+<ul>
+<li><b>Quaternius <i>Ultimate Monsters</i> 40종</b> — CC0. poly.pizza 번들 페이지에서 모델별로 받았습니다.
+날개 달린 악마(관절 129개), 다리 없는 유령, 문어, 물고기, 새, 관절 4개짜리 블롭까지 들어 있습니다.</li>
+<li><b>KayKit <i>Character Pack: Skeletons</i> 3종</b> — CC0(저장소 LICENSE.txt 원문 확인). 살이 없는 뼈 캐릭터입니다.</li>
+</ul>
+<p>출처·라이선스는 <code>bench-assets/ASSETS.md</code> 장부에 적었습니다. 자산 파일은 저장소에 안 넣습니다.</p>
+
+<h2>2. 왜 14종밖에 안 됐나</h2>
+<p>사람 메타리그에는 다리가 있습니다. 용·유령·문어는 <b>다리가 없습니다</b>. 블롭은 <b>팔다리가 아예 없고</b>
+몸통과 머리만 있는 본 4개짜리입니다. 그래서 "팔다리 없음"으로 거절됐습니다. 거절 자체는 틀리지 않았지만,
+<b>할 수 있는 일을 안 한 것</b>입니다.</p>
+
+<h2>3. 고친 방법 — 원본 뼈대를 그대로 베낀다</h2>
+<p>관절 이름을 알아보려 하지 않습니다. 사람 비율도 가정하지 않습니다. 원칙은 하나입니다:
+<b>사슬이면 컨트롤을 만든다.</b></p>
+<ul>
+<li>본마다 컨트롤 하나(<code>basic.super_copy</code>) → 원본 본이 전부 변형 본이 됩니다</li>
+<li>부모 끝에 이미 붙어 있는 사슬은 촉수 리그(<code>limbs.simple_tentacle</code>)로 올립니다 → 한 덩어리로 휩니다</li>
+</ul>
+<p>두 가지가 이걸 쓸 만하게 만들었습니다.</p>
+<ul>
+<li><b>어떤 본이 살을 움직이는지는 이름이 아니라 원본 가중치로 가릅니다.</b> glTF는 모든 관절에 "변형함" 표시를
+켜 두기 때문에, 그 표시만 믿으면 원점에 있는 정리용 <code>Root</code> 본이 "메시 밖 본"으로 잡힙니다.</li>
+<li><b>가중치를 다시 계산하지 않고 원본 것을 그대로 옮깁니다.</b> 변형 본 이름이 <code>DEF-&lt;원본이름&gt;</code>으로
+1:1이라 가능합니다. 자동 계산(Bone Heat)은 눈·장식이 따로 떨어진 블롭에서 정점의 39%를 비워 놨습니다
+(orc_blob 1203개 중 464개). 원본은 전부 칠해져 있었습니다.</li>
+</ul>
+
+<h2>4. 숫자</h2>
+<table>
+<tr><th></th><th>이전</th><th>지금</th></tr>
+<tr><td>리깅됨</td><td class="n">14 / 43</td><td class="n"><b>43 / 43</b></td></tr>
+<tr><td>손 안 대도 됨(ok)</td><td class="n">7</td><td class="n"><b>40</b></td></tr>
+<tr><td>사람이 볼 것</td><td class="n">7</td><td class="n">3</td></tr>
+<tr><td>거절</td><td class="n">29</td><td class="n"><b>0</b></td></tr>
+</table>
+<p>회귀 없습니다: mannequiny 2.96cm · cesium 10.95 · robot 30.24 · quat_pp_41j 31.34 — 전부 그대로입니다.
+테스트 34개 전부 통과(325초).</p>
+
+<h2>5. 새 자산이 드러낸 버그 3개</h2>
+<p>기존 자산으로는 안 보이던 것들입니다. 자산을 넓힌 진짜 소득입니다.</p>
+<ol>
+<li><b>들고 있는 소품이 몸으로 합쳐졌다.</b> 데몬의 삼지창, 오크의 무기, 토끼의 당근이 각각 <b>스킨된 메시</b>라
+기존 소품 판정(본에 부모로 묶인 메시만 봄)에 안 걸렸습니다. 삼지창 때문에 좌우 중심이 <b>2.5m</b> 밀려 있었습니다.
+→ 가중치가 손·손가락 본에 90% 넘게 몰리면 소품으로 봅니다(스키닝에는 넣되 크기·중심 계산에서 뺍니다).</li>
+<li><b>좌우 되돌리기에 구멍이 있었다.</b> 원본이 완벽히 대칭인데 우리 결과가 새끼손가락에서 14cm 어긋났습니다.
+보정 중간에 이미 벌어져서 기존 대조에 안 걸렸습니다. → 원본이 대칭이면 어긋남은 전부 우리 탓이므로 그때는
+대조를 건너뜁니다. 되돌릴 때 한쪽을 베끼지 않고 <b>가운데로 모읍니다</b>(베끼면 메시가 조금 비대칭인 자산에서
+되돌린 쪽 본이 메시 밖으로 나갑니다).</li>
+<li><b>원본 대칭을 엉뚱한 기준으로 쟀다.</b> 오크는 원본 뼈대가 메시 중심에서 2cm 치우쳐 있을 뿐인데,
+x=0 기준으로 재니 그게 통째로 4cm "비대칭"으로 찍혔습니다. 그러면 게이트 허용치가 부풀어 <b>우리 진짜 오차가
+그 밑으로 숨습니다</b>. → 그 뼈대 자신의 중심선 기준으로 잽니다.</li>
+</ol>
+
+<h2>6. 점수 — 정직하게 두 개로 나눕니다</h2>
+<p>점수 기준: 손 안 대고 리깅되면 1점, 사람이 봐야 하면 0.5점, 거절이면 0점.</p>
+<table>
+<tr><th>입력</th><th>자산</th><th>점수</th></tr>
+<tr><td><b>뼈대가 들어 있는 파일</b>(현실 모델 대부분)</td><td class="n">43종</td><td class="n"><b class="ok">96.5점</b> (40 + 3×0.5)/43</td></tr>
+<tr><td><b>뼈대가 없는 파일</b>(실루엣으로 관절을 찾아야 함)</td><td class="n">16종</td><td class="n"><b class="no">56점</b> (9통과 / 7거절)</td></tr>
+</table>
+<div class="warn">
+<b>95점은 "뼈대가 있는 파일"에서만 넘었습니다.</b> 뼈대 없는 메시는 아직 56점입니다. 거절된 7종은
+억지로 리깅하면 실제로 키의 11~56%가 어긋나므로 거절이 맞습니다 — 즉 <b>게이트가 관대해서가 아니라
+관절을 못 찾아서</b> 낮습니다. 다음 작업은 여기입니다.
+</div>
+
+<h2>7. 아직 안 되는 것</h2>
+<ul>
+<li>남은 3종: 오크(무기 조각 121정점을 가까운 본으로 메움), KayKit 해골 2종(갈비뼈 사이 빈틈으로 팔 가중치가 샘)</li>
+<li>뼈대 없는 비인간 메시 — 실루엣도 속 읽기도 관절을 못 찾습니다</li>
+<li>검증 범위가 CC0 자산 68종입니다. "어떤 모델이든"은 이 범위 안에서만 확인된 말입니다</li>
+<li>영어 문서·CI·리눅스 미검증. 실제 Codex 경로는 이번 변경 이후 안 돌렸습니다(토큰 절약)</li>
+</ul>
+
+<h2>8. 다음</h2>
+<ol>
+<li>뼈대 없는 비인간 메시(56점 쪽) — 속 읽기가 찾은 끝점으로 <b>일반 리그를 직접 세우는</b> 길</li>
+<li>오크 무기 조각: 소품으로 판정했으니 그 덩어리를 통째로 손 본에 붙이면 됩니다</li>
+<li>자산 더 넓히기(CC0 탈것·기계·식물)</li>
+</ol>
+</html>
