@@ -1,0 +1,175 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>bonewright 진행 보고 · 2026-09-17</title>
+<style>
+:root{--bg:#fbfaf8;--fg:#1d1c1a;--mut:#6b6762;--line:#e3ded6;--ok:#2f7d4f;--warn:#a2680a;--bad:#a33;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#16151a;--fg:#ece9e4;--mut:#9b958d;--line:#312e36;--ok:#6cc48c;--warn:#d9a441;--bad:#e08080;--card:#1e1d23}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo",sans-serif}
+main{max-width:920px;margin:0 auto;padding:40px 24px 80px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mut);margin:0 0 32px;font-size:14px}
+h2{font-size:19px;margin:38px 0 10px;letter-spacing:-.01em}
+h3{font-size:15px;margin:22px 0 6px;color:var(--mut);text-transform:none}
+p{margin:0 0 12px}
+ul{margin:0 0 14px;padding-left:20px}li{margin:0 0 6px}
+.lead{font-size:17px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:8px;padding:16px 18px;margin:0 0 28px}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0 18px;display:block;overflow-x:auto}
+th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;white-space:nowrap}
+th{color:var(--mut);font-weight:600;font-size:12.5px;letter-spacing:.02em}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok);font-weight:600}.warn{color:var(--warn);font-weight:600}.bad{color:var(--bad);font-weight:600}
+code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0 24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.card b{display:block;font-size:24px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card span{color:var(--mut);font-size:13px}
+.note{color:var(--mut);font-size:13.5px}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+</style>
+<main>
+<h1>bonewright 진행 보고</h1>
+<p class="sub">2026-09-17 · 실측은 전부 <code>BW_BACKEND=mock</code> (Codex 토큰 0)</p>
+
+<p class="lead"><b>오늘 한 줄:</b> 이미 뼈대가 들어 있는 파일이면 관절을 추측하지 않고 그대로 받아 씁니다.
+그래서 지금까지 “못 한다”고 돌려보내던 로봇·양식화 캐릭터·동물이 리깅됩니다. 토큰은 0원입니다.</p>
+
+<h2>1. 무엇이 바뀌었나</h2>
+<p>리깅은 “관절이 어디 있나”를 맞히는 일입니다. 지금까지는 <b>실루엣</b>(겉모양)만 보고 맞혔습니다.
+사람 모양이면 잘 맞고, 로봇이면 못 맞힙니다. 그래서 못 맞힐 것 같으면 아예 거절했습니다.</p>
+<p>그런데 거절하던 파일을 다시 보니 <b>대부분 이미 뼈대가 들어 있었습니다.</b> 원작자가 관절을 이미 찍어 둔 겁니다.
+맞힐 필요가 없습니다. 받아서 쓰면 됩니다. 그게 <code>--from-skeleton</code> 입니다.</p>
+<p>우리가 보태는 건 관절 위치가 아니라 <b>조작 장치</b>입니다. IK/FK 손잡이, 동작(BVH) 옮겨 붙이기,
+게임에 넣을 수 있게 변형 본만 남긴 GLB 내보내기.</p>
+<h2>2. 실제 파일에서 걸린 것들</h2>
+<p class="note">전부 렌더와 게이트(자동 검사)로 확인한 것만 적습니다.</p>
+<table>
+<tr><th>증상</th><th>원인</th><th>대응</th></tr>
+<tr><td>팔이 가위처럼 교차</td><td>가져오기가 모델을 180° 돌려서 원본의 ‘Left’ 가 우리 기준 오른쪽으로 옴</td><td>좌우를 이름이 아니라 <b>좌표 부호</b>로 판단</td></tr>
+<tr><td>팔뚝이 허공에서 끊김</td><td>로봇에 손목 본이 없음 (LowerArm → Palm)</td><td><code>palm</code> 을 손목 후보에 추가, 앞 본의 끝점을 사슬 끝으로 사용</td></tr>
+<tr><td>앞발이 공중에 뜸</td><td>동물 뼈대는 발목 아래 본이 없음</td><td>발바닥은 바닥에 닿는다는 사실을 사용 (73cm → 0cm)</td></tr>
+<tr><td>등뼈가 몸 밖으로</td><td>동물의 등·꼬리는 곡선인데 양 끝만 직선으로 이었음</td><td>원본 사슬의 꺾은선 위에 길이 비례로 재배치</td></tr>
+<tr><td>늑대 리그 생성 자체가 실패</td><td>Rigify 는 꼬리 사슬이 골반과 같은 점에서 시작하길 요구</td><td>꼬리 시작점을 골반에 고정</td></tr>
+<tr><td>반대쪽 팔다리가 기본 자리에</td><td>한쪽만 리깅된 자산</td><td>뼈대 자신의 중심선 기준 거울 반사 (x=0 이 아님 — 의자가 붙어 있으면 중심이 밀림)</td></tr>
+<tr><td>다리가 통째로 없음</td><td>상반신만 리깅된 자산 (kira)</td><td>채울 근거가 없으므로 <b>토큰 0으로 거절</b>하고 이유를 말함</td></tr>
+<tr><td>머리가 가슴 본을 따라감</td><td>사람 메타리그의 가슴 보조 본이 사람 비율 기본 자리에 남음 (로봇 머리 정점 117개)</td><td>사람 프리셋에서만 부모 척추를 따라가게 함 (회전은 제외 — 회전까지 따라가면 좌우가 뒤집힘)</td></tr>
+<tr><td>말 골반 좌우 47cm 어긋남</td><td>메시 안으로 당기는 보정이 좌우 각자 가장 가까운 면을 고름</td><td>보정 전 대칭이던 짝은 보정 뒤 대칭으로 되돌림</td></tr>
+<tr><td>옆모습이 정면으로 잡히고 팔다리 본이 X 자로 꼬임</td><td>파일이 가로로 90° 돌아가 있음 (좌우축이 Y)</td><td>원본 뼈대의 좌우 짝이 가장 크게 벌어지는 축을 좌우로 판단해 90° 회전</td></tr>
+<tr><td>동물이 공중에 떠서 걸음</td><td>BVH 위 축을 Y 로 잘못 읽음 (블렌더 내보내기는 Z)</td><td>머리가 발보다 위인 축을 찾아 <b>자동 판단</b></td></tr>
+<tr><td>꼬리가 안 움직임</td><td>Tail1~Tail8 이 전부 같은 컨트롤로 몰림</td><td>마디 수에 맞춰 컨트롤 4개에 나눔</td></tr>
+</table>
+<h2>3. 얼마나 되나 — 자산 25개 전부에 돌린 결과</h2>
+<p class="note">전부 <code>--from-skeleton</code>, Codex 호출 0회.</p>
+<div class="grid">
+<div class="card"><b>8 / 10</b><span>사족 동물, 자동 검사 전부 통과</span></div>
+<div class="card"><b>8 / 15</b><span>사람형, 자동 검사 전부 통과</span></div>
+<div class="card"><b>5</b><span>토큰 0으로 거절 (이유를 말하고 멈춤)</span></div>
+<div class="card"><b>0원</b><span>25개 전부 모델 호출 없음</span></div>
+</div>
+<table>
+<tr><th>프리셋</th><th>통과</th><th>검토 필요</th><th>거절(토큰 0)</th></tr>
+<tr><td>사족 10종</td><td class="ok">8 — 늑대·말·소·황소·사슴·당나귀·허스키·수사슴</td><td class="warn">2 — 알파카·시바(본 110개 중 1개가 메시 밖)</td><td>0</td></tr>
+<tr><td>사람형 15종</td><td class="ok">8</td><td class="warn">2 — 로봇·치비(팔 가중치가 가슴 가운데까지)</td><td>5 — 곤충·상반신만·팔다리 없는 시험 리그 2종·사람 프리셋에 넣은 동물</td></tr>
+</table>
+<p><b>소와 황소가 의미 있습니다.</b> 실루엣 방식에서 가장 나빴던 두 종(키 대비 7.4%)입니다.
+몸이 두꺼워서 “고관절은 등 높이의 80%” 규칙이 안 맞았거든요. 자기 뼈대를 읽으면 그 규칙을 아예 안 씁니다.</p>
+
+<h2>4. 회귀 검사 (기존 경로가 나빠지지 않았나)</h2>
+<table>
+<tr><th>자산</th><th class="num">이전(b17)</th><th class="num">지금(b18)</th><th>판정</th></tr>
+<tr><td>quat_pp_41j</td><td class="num">89.13 cm</td><td class="num ok">35.13 cm</td><td>90° 돌려 세운 효과. 키 대비 6.3%</td></tr>
+<tr><td>robot_expressive</td><td class="num">135.32 cm</td><td class="num warn">183.14 cm</td><td><b>나빠진 게 아님</b> — 손목 후보에 <code>palm</code> 을 넣어 대조 관절이 15→17개가 됐습니다. 실루엣 방식은 로봇 손을 못 찾는데, 그게 이제 숫자로 드러난 것입니다</td></tr>
+<tr><td>나머지 13종</td><td class="num">—</td><td class="num">동일</td><td class="ok">회귀 없음</td></tr>
+</table>
+<p>스키닝 일치도도 그대로입니다(mannequiny 0.600 / adventurer 0.702 / cesium_man 0.097 — 세 자산 모두 소수점 셋째 자리까지 동일).</p>
+<p><b>거절 게이트 재검증:</b> 통과 7종(키 대비 1.6~7.4%) / 거절 9종으로 구분은 유지됩니다.
+다만 <b>놓치는 게 하나 생겼습니다</b> — quat_pp_41j 는 이제 6.3%로 쓸 만한데도 거절됩니다(사타구니·발목을 사람 비율로 때웠다는 이유).
+같은 이유로 거절되는 godot_player 는 26%라 그 신호 자체는 여전히 맞습니다. 게이트는 안전한 쪽을 남기고,
+그 자산은 뼈대가 있으니 <code>--from-skeleton</code> 이 받습니다.</p>
+<h2>7. 오후 추가분 — 이름 규약과 "뼈대 없는 로봇"</h2>
+<h3>이름 규약 6종을 다 잡았습니다</h3>
+<p><code>--from-skeleton</code> 은 이름 대조가 전부입니다. 실제 규약으로 재 보니 구멍이 컸습니다.</p>
+<table>
+<tr><th>규약</th><th class="num">전</th><th class="num">후</th><th>무엇이 문제였나</th></tr>
+<tr><td>DAZ Genesis</td><td class="num bad">0/10</td><td class="num ok">10/10</td><td>구분자 없이 l/r 을 앞에 붙임(<code>lShldr</code>)</td></tr>
+<tr><td>Character Creator</td><td class="num bad">0/10</td><td class="num ok">10/10</td><td><code>CC_Base_L_</code> 접두사, <code>NeckTwist01</code> 장식어</td></tr>
+<tr><td>Rigify 결과물</td><td class="num warn">7/10</td><td class="num ok">8/8</td><td>이미 Rigify 로 리깅된 파일을 다시 읽는 경우</td></tr>
+<tr><td>Unreal 마네킹</td><td class="num warn">10/12</td><td class="num ok">12/12</td><td><code>spine_01</code> 같은 중간 척추</td></tr>
+<tr><td>Unity Humanoid</td><td class="num warn">10/13</td><td class="num ok">10/10</td><td>같은 이유</td></tr>
+<tr><td>Mixamo</td><td class="num ok">6/6</td><td class="num ok">6/6</td><td>회귀 없음</td></tr>
+</table>
+<p class="note">주의: <code>lShldr</code> 의 l 을 떼는 규칙은 위험합니다. <code>leg</code> 의 l 을 떼면 <code>eg</code> 가 됩니다.
+그래서 <b>떼고 남은 것이 아는 관절 이름일 때만</b> 좌우로 인정하고, 이걸 테스트로 고정했습니다.</p>
+
+<h3>뼈대 없는 로봇 — 어디까지 되고 어디서 막히나</h3>
+<p>복셀 부피를 가로로 48칸 썰어 보면 로봇 구조가 그대로 읽힙니다.
+바닥은 두 덩어리(두 발), 중간은 한 덩어리(다리가 몸통과 붙어 보임), 위쪽 절반은 세 덩어리(몸통 + 양팔), 맨 위는 머리.</p>
+<ul>
+<li><b>되는 것</b>: 바닥 띠에서 두 발 위치. 로봇 x = 0.635, 정답 0.641 — <b>오차 0.6cm</b>.</li>
+<li><b>막히는 것</b>: 고관절 높이. 로봇은 몸통이 다리 줄을 2.07m 까지 덮어서, 실루엣에 1.537m 라는 증거가 아예 없습니다.</li>
+</ul>
+<p>그래서 이 측정은 <b>거절 초안에만</b> 씁니다. 결정적 추정기(벤치 기준선)에 넣어 봤더니 로봇 벤치가 183 → 195cm 로
+<b>나빠졌습니다</b>. 목표가 살짝 몸 밖에 떨어지면 "메시 안으로 당기기" 보정이 엉뚱한 데로 끌고 갑니다.
+실패한 시도도 문서에 그대로 남겼습니다.</p>
+<p>초안 품질: 다리 x 0.08 → 0.635, 손목 2.72(정답 2.689). 고관절만 손으로 옮기면 됩니다.</p>
+<p class="note">벤치 b20: kira 43.24 → 39.41cm(대조 관절 6 → 7개), 나머지 15종 동일. 전체 31.58 → 31.33cm.
+테스트 26개 전부 통과(Blender 포함).</p>
+<h2>8. 저녁 추가분 — 뼈대 없는 로봇이 그냥 리깅됩니다</h2>
+<p class="lead"><b>오전에 "원리적으로 못 한다"고 적었던 걸 취소합니다.</b> 실루엣으로는 못 찾는 게 맞습니다.
+그런데 로봇은 <b>조각으로 만든 모델</b>입니다. 그러면 조각 자체가 마디입니다.
+발 줄 위의 조각들을 높이로 묶으면 그 뭉치가 발목·무릎·고관절입니다.</p>
+<table>
+<tr><th>관절</th><th class="num">우리가 잰 값</th><th class="num">원작자 리그</th><th class="num">키 대비</th></tr>
+<tr><td>발 줄 (x)</td><td class="num">0.635</td><td class="num">0.641</td><td class="num ok">0.2%</td></tr>
+<tr><td>발목</td><td class="num">0.111</td><td class="num">0.025</td><td class="num ok">2.2%</td></tr>
+<tr><td>무릎</td><td class="num">0.900</td><td class="num">0.935</td><td class="num ok">0.9%</td></tr>
+<tr><td>고관절</td><td class="num">1.672</td><td class="num">1.537</td><td class="num ok">3.4%</td></tr>
+<tr><td>골반</td><td class="num">1.312</td><td class="num">1.344</td><td class="num ok">0.8%</td></tr>
+<tr><td>팔 높이</td><td class="num">2.473</td><td class="num">2.439</td><td class="num ok">0.9%</td></tr>
+</table>
+<p>리그 전체가 <b>183cm → 30.24cm(키의 7.7%)</b>가 됐습니다. 사람 캐릭터가 통과하는 범위(1.6~7.4%)와 같은 자리입니다.
+그래서 거절 게이트도 고쳤습니다. 게이트가 묻는 건 "어떤 근거냐"가 아니라 <b>"근거가 있느냐"</b>입니다.
+이제 <code>bw rig robot.glb</code> 가 아무 옵션 없이 됩니다. 렌더로 확인했습니다 — 팔·다리·척추가 전부 제자리입니다.</p>
+
+<h3>같이 나온 측정 버그</h3>
+<p>이걸 쫓다가 <b>벤치마크 자체의 버그</b>를 찾았습니다. 가져오기가 180° 돌린 파일에서, 대조가 이름만 믿고
+우리 <b>왼</b>다리를 원본 <b>오른</b>다리와 맞대고 있었습니다. 멀쩡한 리그가 다리 너비만큼 틀린 것으로 찍혔습니다.</p>
+<table>
+<tr><th>자산</th><th class="num">버그 있을 때</th><th class="num">고친 뒤</th></tr>
+<tr><td>robot_expressive</td><td class="num">183.15 cm</td><td class="num ok">48.39 cm</td></tr>
+<tr><td>godot_player</td><td class="num">56.02 cm</td><td class="num ok">37.89 cm</td></tr>
+<tr><td>나머지 14종</td><td class="num">—</td><td class="num">동일</td></tr>
+</table>
+<p class="note">지금까지 문서에 "로봇 135~277%"라고 적어 온 숫자에는 이 버그가 섞여 있었습니다. 문서를 고쳤습니다.
+실패한 시도도 남겼습니다 — 처음엔 "조각 꼭대기 = 고관절"로 봤다가 2.07m(정답 1.537)로 빗나갔고, 그걸 추정기에 넣으니
+벤치가 오히려 나빠졌습니다.</p>
+<p class="note">거절 게이트 재검증: 통과 8종(1.6~7.7%) / 거절 8종(10.1~58.8%). 전체 평균 31.33 → 19.92cm.
+테스트 26개 전부 통과(Blender 포함).</p>
+<h2>5. 쓰는 법</h2>
+<pre>bw rig robot.glb --from-skeleton                      # 파일에 든 뼈대로 리깅 (토큰 0)
+bw rig wolf.gltf --preset quadruped --from-skeleton
+bw motion --bvh walk.bvh --rig &lt;run-id&gt; --export      # 동작 옮겨 붙이고 GLB 로 (위 축 자동)
+bw export &lt;run-id&gt;                                    # 게임용 GLB (변형 본만)</pre>
+<p>거절돼도 막다른 길이 아닙니다. 실행 폴더에 <code>targets_draft.json</code> 을 남깁니다.
+메타리그를 이 메시 크기에 맞춘 좌표표라, 관절만 손으로 옮긴 뒤
+<code>bw rig &lt;mesh&gt; --targets &lt;그 파일&gt;</code> 로 다시 돌리면 됩니다. 이것도 토큰 0입니다.</p>
+
+<h2>6. 남은 것 (정직하게)</h2>
+<ul>
+<li><b>뼈대도 없고 조각도 아닌 비인간 메시</b> — 한 덩어리로 조각된 로봇·괴물은 여전히 거절합니다.
+조각이 없으면 마디를 읽을 근거가 없습니다. 답은 <code>targets_draft.json</code> 을 손으로 고치거나 <code>--pin</code> 입니다.
+(조각으로 만든 로봇은 이제 그냥 됩니다 — 8절 참고.)</li>
+<li><b>로봇·치비의 팔 가중치</b> — 남은 <code>needs_review</code> 2건은 원인이 하나입니다.
+어깨가 몸에 붙은 체형이라 팔 본이 가슴 한가운데 정점까지 잡습니다(로봇 15/217, 치비 44/115).
+리그 모양 자체는 렌더로 확인했고 맞습니다. 움직이면 가슴이 팔 따라 조금 밀립니다.</li>
+<li><b>알파카·시바</b> — 본 110개 중 1개가 메시 밖입니다(알파카 오른쪽 발끝, 시바 오른쪽 골반).
+알파카는 원본 뼈대 자체가 앞다리 좌우 8.5cm 어긋나 있습니다.</li>
+<li><b>여우 12.5% · 소 7.4%</b> — 실루엣 사족 경로의 남은 오차. 소는 몸이 두꺼워 고관절/등 비율이 평균과 어긋납니다.</li>
+<li><b>영문 문서 · CI · 리눅스</b> — 아직 macOS 에서만 확인했습니다.</li>
+<li><b>실제 Codex 호출</b> — 오늘 작업은 전부 mock 입니다. 토큰을 아끼라는 지시를 지켰습니다.</li>
+</ul>
+<hr>
+<p class="note">저장소: <code>~/Desktop/Gpt_Codex/bonewright</code> · 원격 없음(로컬 커밋만) ·
+실행 결과는 스크래치패드(<code>bwreal/runs</code>)에 있고 저장소에 커밋하지 않습니다.</p>
+</main>

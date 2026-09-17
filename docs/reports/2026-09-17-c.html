@@ -1,0 +1,92 @@
+<!doctype html><html lang="ko"><meta charset="utf-8">
+<title>bonewright 2026-09-17 (3차) — 새 커밋 없음</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;max-width:860px;margin:0 auto;padding:28px 20px 60px;color:#1c1c1e;background:#fff}
+h1{font-size:25px;margin:0 0 4px} h2{font-size:19px;margin:34px 0 10px;padding-top:14px;border-top:1px solid #e5e5ea}
+.sub{color:#6e6e73;margin:0 0 22px;font-size:14px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid #e5e5ea;padding:7px 9px;text-align:left} th{background:#f5f5f7;font-weight:600}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.ok{color:#1d7a3c;font-weight:600} .no{color:#b3261e;font-weight:600}
+.box{background:#f5f5f7;border-radius:10px;padding:14px 18px;margin:16px 0}
+.warn{background:#fff4e5;border-left:4px solid #e08600;border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0}
+code{background:#f0f0f3;padding:1px 5px;border-radius:4px;font-size:13px}
+li{margin:5px 0}
+</style>
+<h1>오늘은 새로 된 게 없습니다</h1>
+<p class="sub">bonewright · 2026-09-17 세 번째 보고(예약 09:00) · HEAD <code>fb25668</code> · 로컬만, 푸시 안 함</p>
+
+<div class="box">
+<b>한 줄:</b> 마지막 보고(오늘 새벽 3시 52분) 이후 <b>새 커밋이 0건</b>입니다. 없는 진전을 지어내지 않겠습니다.
+대신 지금 코드가 멀쩡한지 테스트를 처음부터 다시 돌렸고, <b>34개 전부 통과(318.6초)</b>했습니다.
+</div>
+
+<h2>1. 오늘 된 것 — 코드는 없음, 정리 하나</h2>
+<p>커밋 기록을 그대로 옮깁니다. 오늘 새벽까지 11건이 들어왔고, <b>04:00 이후로는 한 건도 없습니다.</b></p>
+<table>
+<tr><th>시각</th><th>커밋</th><th>내용</th></tr>
+<tr><td>03:51</td><td><code>fb25668</code></td><td>실루엣이 못 읽으면 메시 속을 본다 (← 여기가 지금 HEAD)</td></tr>
+<tr><td>03:15</td><td><code>9290792</code></td><td>뼈대 없는 로봇이 그냥 리깅된다</td></tr>
+<tr><td colspan="3" style="text-align:center;color:#6e6e73">— 이 아래는 2차 보고에서 이미 다룬 내용 —</td></tr>
+<tr><td>04:00 ~ 09:09</td><td>—</td><td class="no">새 커밋 없음. 작업 트리도 깨끗함(<code>nothing to commit</code>)</td></tr>
+</table>
+
+<p>코드 변경은 없었지만, <b>보고서가 사라질 자리에 쌓이고 있던 문제</b>를 하나 고쳤습니다.
+지금까지 일일 보고 HTML 은 임시 폴더(<code>/private/tmp</code>)에만 있었습니다. 맥을 껐다 켜면 지워지는 자리입니다.
+그래서 <code>docs/reports/</code> 를 만들고 오늘 1·2차 보고서를 옮겨 두었습니다. 내일 예약 작업이 "마지막 보고가 언제였나"를
+찾을 때 헤매지 않습니다.</p>
+
+<h2>2. 숫자로 확인한 것 — 오늘 직접 돌린 것만</h2>
+<table>
+<tr><th>확인</th><th>결과</th><th>언제 잰 값인가</th></tr>
+<tr><td>테스트 전체 (<code>python3 -m unittest tests.test_mock</code>, <code>BW_BACKEND=mock</code>)</td>
+    <td class="ok">34개 전부 통과 · 318.6초 · 종료코드 0</td><td><b>오늘 09:11 직접 실행</b></td></tr>
+<tr><td>회귀 감시 테스트 (원본 뼈대 대조)</td><td class="ok">통과 (<code>test_bench_against_original_rig</code>)</td><td><b>오늘 직접 실행</b></td></tr>
+<tr><td>모션 리타게팅 (BVH→리그→GLB)</td><td class="ok">통과 (본 방향 오차 0, 발이 바닥 아래로 안 감)</td><td><b>오늘 직접 실행</b></td></tr>
+<tr><td>Codex 실제 호출</td><td>0회 (전부 mock)</td><td>토큰 소모 없음</td></tr>
+</table>
+
+<div class="warn">
+<b>재측정 못 한 것을 분명히 합니다.</b> 게이트 <b>9통과 / 7거절</b>, 사족 5.6%, 로봇 7.7% 같은 숫자는
+<b>오늘 다시 재지 않았습니다.</b> 벤치 자산 25종이 저장소에 없기 때문입니다 — 라이선스상 재배포가 안 돼서
+커밋하지 않고 <code>scripts/fetch_bench_assets.py</code> 로 그때그때 내려받는 구조인데, 지금 로컬에 폴더가 없습니다.
+내려받는 건 외부 다운로드라 확인 없이 하지 않았습니다. <b>그 숫자들은 어제·새벽 기록값 인용이지 오늘 실측이 아닙니다.</b>
+</div>
+
+<h2>3. 아직 안 되는 것 — README 표 그대로</h2>
+<table>
+<tr><th>입력</th><th>관절 오차(키 대비)</th><th>판정</th></tr>
+<tr><td>사람 비율 T 포즈, 스킨 있음, 팔 벌림</td><td class="n">1.6 ~ 7.4%</td><td class="ok">쓸 만함</td></tr>
+<tr><td>사족 (<code>--preset quadruped</code>, 11종)</td><td class="n">5.6%</td><td class="ok">개·발굽동물은 쓸 만함 (최악 소 7.4%)</td></tr>
+<tr><td>뼈대가 <b>들어 있는</b> 파일 (로봇·양식화·동물)</td><td class="n">파일에서 그대로</td><td class="ok"><code>--from-skeleton</code>, 토큰 0</td></tr>
+<tr><td>뼈대 <b>없는</b> 조각 로봇</td><td class="n">7.7%</td><td class="ok">조각이 곧 마디</td></tr>
+<tr><td>속을 봐야 가랑이·발목이 보이는 양식화 캐릭터</td><td class="n">5.7%</td><td class="ok">통과</td></tr>
+<tr><td>그 밖에 뼈대 없는 것 전부</td><td class="n">11 ~ 56%</td><td class="no">모델 부르기 전에 거절 (토큰 0)</td></tr>
+</table>
+
+<p>구체적으로 막힌 곳들입니다. 어제와 같습니다 — 고친 게 없으니 당연합니다.</p>
+<ul>
+<li><b>앉거나 기운 캐릭터</b>(kira 19.7%) — 팔 끝은 정확히 찾는데(손 3.0%) 자세 때문에 좌우가 안 맞아 게이트에서 걸립니다.</li>
+<li><b>godot_player</b>(18.0%) — 어깨 견갑을 손으로 오인. 거절은 맞지만 원인을 못 고쳤습니다.</li>
+<li><b>골반·어깨·무릎·팔꿈치는 속 읽기로 못 찾습니다.</b> 몸통 중심선이 선이 아니라 면이라서요. 여긴 계속 실루엣·비율이 담당합니다.</li>
+<li><b>스키닝 needs_review 2건</b> — 로봇 15/217, 치비 44/115 정점에서 팔 본이 가슴 가운데를 잡습니다.
+치비는 <b>가방</b> 정점인데 척추(0.31)와 팔(0.35) 거리가 비슷해서 자동으로 못 가릅니다. 사람이 봐야 합니다.</li>
+<li><b>곤충·상반신만 있는 메시</b> — 사람/사족 메타리그 자체가 안 맞습니다.</li>
+<li><b>검증 범위가 좁습니다.</b> 벤치 자산 25종뿐입니다. "어떤 모델이든"은 아직 이 25종 안에서만 확인된 말입니다.</li>
+<li><b>영어 문서·CI·리눅스 미검증.</b> CI 설정은 테스트 34개 중 2개 묶음만 돌리게 돼 있고, 원격 저장소가 없어 실제로 돈 적이 없습니다.</li>
+</ul>
+
+<h2>4. 다음에 할 것</h2>
+<ol>
+<li><b>벤치 자산 넓히기</b> — 25종은 "어떤 모델이든"을 뒷받침하기엔 좁습니다. CC0 괴물·비인간 팩이 필요합니다.
+(내려받기는 승인이 필요해서 대기 중입니다.)</li>
+<li><b>앉은 자세</b> — 자세 정규화(<code>--rest-pose t</code>)를 속 읽기 결과로 돌려 보기.</li>
+<li><b>사족 실제 Codex 1건</b> — 핵심 주장이 사족에서 아직 실제 호출로 검증되지 않았습니다. (토큰 쓰는 일이라 요청 있을 때만.)</li>
+<li><b>스키닝 needs_review 2건</b> — 거리로 못 가르는 경우라 규칙이 아니라 사람 판단이 필요합니다.</li>
+</ol>
+
+<div class="box">
+<b>오늘 만진 것:</b> <code>docs/reports/</code> 폴더 생성 + 지난 보고서 2건 복사. 코드는 한 줄도 안 건드렸습니다.
+푸시·외부 게시·설정 변경 없음. Codex 실제 호출 0회.
+</div>
