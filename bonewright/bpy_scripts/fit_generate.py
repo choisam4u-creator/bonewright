@@ -7,6 +7,9 @@ bpy.ops.wm.open_mainfile(filepath=A["blend"])
 bpy.ops.preferences.addon_enable(module="rigify")
 obj = bpy.data.objects["character"]
 T = A["targets"]            # {"bone": {"head":[x,y,z], "tail":[x,y,z]}} 일부만 와도 된다
+# 들고 있는 소품·장식 정점(bw_attachment). 스키닝 단계에서 정점 그룹이 통째로 지워지므로 여기서 떠 둔다
+_attg = obj.vertex_groups.get("bw_attachment")
+ATTACH_VERTS = {v.index for v in obj.data.vertices if _attg and any(g.group == _attg.index for g in v.groups)}
 preset = A.get("preset", "humanoid")
 # 판정 기준면: 원본 메시는 옷·신발·머리가 겹친 여러 껍질이고 목·소매에 구멍이 뚫려 있어 안/밖 판정이 둘 다 틀린다
 # (법선 방식은 몸 안의 점을 밖으로, 광선 방식은 구멍으로 새어 밖으로 읽는다 — 둘 다 실측으로 확인).
@@ -502,8 +505,13 @@ if _bare and _fill_segs:
         island.setdefault(_root(i), []).append(i)
     bare_set = set(_bare)
     for members in island.values():
-        if len(members) < 4 or not bare_set.issuperset(members):
-            continue   # 일부만 빈 조각은 아래에서 정점별로
+        if len(members) < 4:
+            continue
+        # 들고 있는 소품(칼·삼지창)은 **강체**다 — 일부만 비어도 조각 전체를 한 본에 붙이는 게 맞다.
+        # 정점별로 메우면 같은 무기가 여러 본에 흩어져 붙고, 메운 정점이 '구멍'으로 세어져 게이트가 실패한다(오크 121/3836)
+        held = len(members) >= 4 and sum(1 for i in members if i in ATTACH_VERTS) >= len(members) * 0.9
+        if not (bare_set.issuperset(members) or (held and any(i in bare_set for i in members))):
+            continue   # 일부만 빈 보통 조각은 아래에서 정점별로
         c = sum((obj.matrix_world @ obj.data.vertices[i].co for i in members), Vector()) / len(members)
         near = min(_fill_segs, key=lambda sg: _fill_seg_dist(c, sg[1], sg[2]))[0]
         obj.vertex_groups[near].add(members, 1.0, "REPLACE")
