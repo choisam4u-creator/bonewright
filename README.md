@@ -67,6 +67,29 @@ hip, arm height, at least six leg parts) satisfies the gate and carries a warnin
 What gets rejected, and why, is worth knowing: two robots, an insect, a quadruped fed to the humanoid preset, a
 character sitting in a furnished room, a 6 cm test cube, and three Khronos test rigs that have no limbs to find.
 
+## No skeleton either? Build one from the shape
+
+The rejection gate turns away a mesh whose joints cannot be read, and the inside read (below) only fills in gaps in a
+human or quadruped reading. An insect, a seated girl, a fox fed to the wrong preset — none of those have joints to
+find, so they were refused outright.
+
+`--from-shape` builds the skeleton instead of looking for one. The inside read already finds every limb tip and the
+path back to the body; resample each path into three segments, hang them off a body bone, and that *is* a skeleton.
+The generic rig above then turns it into controls. Zero model calls.
+
+```bash
+bw rig scorpion.glb --from-shape     # 팔다리 10개, 본 31개, 게이트 통과
+```
+
+Every asset the silhouette gate used to refuse now rigs this way — the insect, `kira` seated in her room, `fox` under
+the humanoid preset, `godot_player`, and the three Khronos test shapes: bones inside the mesh, no unweighted vertices,
+gates green.
+
+**Read the limit before using it.** This is a *shape* rig, not an anatomical one. The bones follow the mesh, but the
+joints sit at equal fractions of each limb, not at the knee and the elbow, and they are named `Limb3_2`, not
+`thigh.L`. So motion retargeting, which matches bone names, does not apply — that still needs a preset or a real
+skeleton. What you get is a rigged, deformable, poseable mesh for a body no preset describes.
+
 ## Anything with a skeleton: if it is a chain, it gets controls
 
 A dragon has no legs. A ghost has no legs and a trailing body chain. A squid has tentacles. A blob has four bones

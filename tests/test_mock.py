@@ -72,6 +72,19 @@ class RigMockTests(unittest.TestCase):
         rep = (self.tmp / "runs/m3/report.md").read_text()
         self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
 
+    def test_shape_rig_follows_the_mesh_when_there_is_no_skeleton(self):
+        """--from-shape: 메시 속 중심선에서 뼈대를 직접 만든다. 해부학 이름은 없지만 모든 정점이 붙고
+        본이 메시 안에 있어야 한다(사람·개과 비율을 못 쓰는 곤충·괴물을 위한 길)"""
+        out = pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="shape1", quiet=True, from_shape=True, no_judge=True)
+        self.assertTrue(out.exists())
+        st = json.loads((self.tmp / "runs/shape1/rig_stats.json").read_text())["stats"]
+        self.assertGreaterEqual(st["deform_bones"], 6, st)          # 팔다리마다 사슬이 생겨야 한다
+        self.assertEqual(st["deform_bones"], st["generic_source_bones"], "만든 본이 전부 변형 본이 되어야 한다")
+        self.assertEqual(0, st["unweighted_verts"], st)
+        self.assertEqual([], st["bones_outside_bbox"], st)
+        state = json.loads((self.tmp / "runs/shape1/state.json").read_text())
+        self.assertIn(state["status"], ("ok", "needs_review"), (self.tmp / "runs/shape1/report.md").read_text())
+
     def test_bad_elbow_is_snapped_to_axis(self):
         """모델이 팔꿈치를 팔 중심선에서 15cm 아래로 찍어도 중심선으로 되돌리고(axis_snapped) 변형 본이 메시 밖에 남지 않는다."""
         pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t2", quiet=True, no_judge=True)

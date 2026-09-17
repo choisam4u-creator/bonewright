@@ -83,7 +83,7 @@ class Run:
 
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
         budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
-        force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False) -> Path:
+        force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False, from_shape: bool = False) -> Path:
     cfg = load(root, lang)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
@@ -117,9 +117,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
     # 1b 거절 게이트: 모델을 부르기 전에 이 메시가 이 프리셋에 맞는지 본다.
     # 여기서 막으면 토큰이 0 이다(리그 1건 입력 8만 토큰). --force 로 넘길 수 있다
-    block, warn = ([], []) if from_skeleton else preflight(a["landmarks"], a["stats"], preset, cfg["gates"])
+    block, warn = ([], []) if (from_skeleton or from_shape) else preflight(a["landmarks"], a["stats"], preset, cfg["gates"])
     if from_skeleton:
         warn.append("--from-skeleton: 관절을 원본 뼈대에서 그대로 받는다 — 실루엣 기반 거절 게이트는 건너뛴다")
+    if from_shape:
+        warn.append("--from-shape: 메시 모양에서 뼈대를 만든다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다. 렌더를 꼭 확인하라")
     for w in warn:
         _log(quiet, f"  ⚠ {w}")
     if block and not force:
@@ -165,7 +167,18 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     pins = dict(pins or {})
     source_symmetry = 0.0
     gen_preset = preset; source_joints = None
-    if from_skeleton:
+    if from_shape:
+        # 원본 뼈대가 없고 사람·개과 비율도 아닌 메시: 속 읽기가 찾은 팔다리 길을 따라 **뼈대를 직접 만든다**.
+        # 해부학적 관절이 아니라 모양을 따라가는 조작 장치다 — 그 뒤는 일반 리그가 그대로 받는다
+        sj = r.blender("shape_joints", {"mesh": mesh, "facing": facing, "preset": preset,
+                                        "segments": cfg.get("shape", {}).get("segments", 3)})
+        if not sj.get("joints"):
+            r.state("fit", "rejected", reasons=[sj.get("error") or "모양에서 뼈대를 못 만들었다"])
+            raise Blocked("--from-shape: " + (sj.get("error") or "메시 속에서 중심선을 못 찾았다"))
+        gen_preset = "generic"; source_joints = sj["joints"]
+        fit = {"targets": {}, "reasoning": f"모양 리그: 속 중심선에서 팔다리 {sj['limbs']}개 · 본 {sj['bones']}개", "confidence": None}
+        _log(quiet, f"[2/6] fit: 모양에서 뼈대를 만들었다 — 팔다리 {sj['limbs']}개 · 마디 {sj['segments']}개씩 · 본 {sj['bones']}개 · 모델 호출 0회")
+    elif from_skeleton:
         def _reject(why: str, reasons: list[str]):
             r.state("fit", "rejected", reasons=reasons)   # 거절도 상태로 남긴다(중간에 멈춘 실행과 구분)
             raise Blocked(why)
