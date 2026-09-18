@@ -7,12 +7,12 @@ name = "bonewright"
 version = "0.2.0"
 description = "Rig and animate Blender characters with Codex: Python drives the steps, codex exec judges, gates verify."
 readme = "README.md"
-license = "MIT"
+license = "MIT AND GPL-3.0-or-later"   # 본체 MIT, bonewright/bpy_scripts/ 는 bpy 를 쓰므로 GPL
 requires-python = ">=3.11"
 authors = [{name = "samchoi"}]
 dependencies = []
 keywords = ["blender", "rigging", "animation", "codex", "rigify"]
-classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "Operating System :: MacOS", "Operating System :: POSIX :: Linux"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)", "Operating System :: MacOS", "Operating System :: POSIX :: Linux"]
 
 [project.optional-dependencies]
 headless = ["bpy==5.2.1"]

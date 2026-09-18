@@ -5,6 +5,40 @@ Rig and animate Blender characters with Codex. **Python drives the steps, `codex
 Status: **v0.2 (alpha).** Humanoid and quadruped Rigify presets. Developed and tested on macOS with Blender 5.2 LTS
 and Codex CLI 0.153. **Linux is untested. Windows is unsupported.**
 
+## Install
+
+Blender 5.2 LTS (or the `bpy` wheel) does the work; the CLI is plain Python with no dependencies.
+
+```bash
+pip install .                 # or: pip install ".[headless]" to pull the bpy wheel instead of Blender.app
+bw doctor                     # checks that Blender and Rigify are reachable
+bw rig character.glb          # rig it; add --from-skeleton if the file already has one
+```
+
+Developed and tested on macOS with Blender 5.2 LTS and Codex CLI 0.153. **Linux is untested, Windows unsupported.**
+Everything except the `fit` and `judge` steps costs zero model tokens; `BW_BACKEND=mock` runs the whole pipeline
+deterministically with no model calls at all, which is what the tests and the benchmark use.
+
+## Which flag do I want?
+
+| your file | command |
+|---|---|
+| human or dog proportions, no skeleton, T- or A-pose | `bw rig x.glb` (add `--preset quadruped` for animals) |
+| already has a skeleton — robot, stylised, posed, anything | `bw rig x.glb --from-skeleton` |
+| no skeleton and no preset fits — insect, monster, seated | `bw rig x.glb --from-shape` |
+| the gate refused it and you disagree | `bw rig x.glb --force`, or edit `targets_draft.json` and pass `--targets` |
+
+## License
+
+**MIT, except `bonewright/bpy_scripts/`, which is GPL-3.0-or-later.** Those files `import bpy` and run inside
+Blender, and the Blender Foundation's position is that such code is a derivative work of Blender. The MIT core
+never imports a Blender module — `scripts/check_license_boundary.py` enforces that in CI — and reaches Blender
+only by running it as a child process and reading back a JSON file. See `bonewright/bpy_scripts/README.md`.
+This is a reading of a published position, not legal advice.
+
+Benchmark assets are **not** in this repository. `scripts/fetch_bench_assets.py` downloads CC0 / CC-BY models
+from their original hosts; each one's source and license is recorded in the ledger the script writes.
+
 ## What it does well, and what it does not
 
 `bw bench` strips a character's original skeleton, re-rigs it, and measures joint positions against what the original
