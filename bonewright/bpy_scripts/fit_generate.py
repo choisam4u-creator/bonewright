@@ -556,6 +556,49 @@ for v in obj.data.vertices:
     for n in drop:
         obj.vertex_groups[n].remove([v.index]); far_trimmed_weights += 1
     far_trimmed_verts += 1
+# 살을 가로지르지 않는 본 떼어내기: 자동 가중치는 거리로만 판단해서, **속이 빈** 메시(해골 갈비뼈)에서는
+# 텅 빈 가슴을 가로질러 팔 본이 갈비뼈를 가져간다. 팔을 들면 갈비뼈가 따라 올라간다.
+# 판정은 간단하다: 정점에서 그 본까지 가는 **직선이 메시 껍질을 뚫고 나가면** 둘은 같은 살덩이가 아니다.
+# 시작점은 표면이라 법선 방향으로 살짝 안쪽에서 쏜다. 옷·머리카락처럼 껍질이 겹친 메시에서 오판하지
+# 않도록 **주된 본은 절대 떼지 않고**, 떼고 나서도 남는 가중치가 있을 때만 적용한다
+_sd = {n: (a, b) for n, a, b in _fill_segs}
+_winv = obj.matrix_world.inverted()
+_eps = A["landmarks"]["height"] * 0.004
+cross_trimmed_verts = cross_trimmed_weights = 0
+
+
+def _blocked(pw, nrm, target):
+    """정점 pw 에서 target 까지 가는 길이 메시 밖으로 나가는가"""
+    d = target - pw
+    L = d.length
+    if L < _eps * 2:
+        return False
+    o = pw - nrm * _eps
+    hit, _loc, _n2, _i = obj.ray_cast(_winv @ o, (_winv.to_3x3() @ d).normalized(), distance=L - _eps)
+    return bool(hit)
+
+
+for v in obj.data.vertices:
+    gs = [(g, vg.get(g.group, "")) for g in v.groups if vg.get(g.group, "").startswith("DEF-") and g.weight > 0]
+    if len(gs) < 2:
+        continue
+    dom = max(gs, key=lambda q: q[0].weight)[1]
+    pw = obj.matrix_world @ v.co
+    nrm = (obj.matrix_world.to_3x3() @ v.normal).normalized()
+    drop = []
+    for g, n in gs:
+        if n == dom or n not in _sd:
+            continue
+        a, b = _sd[n]
+        ab = b - a
+        t = 0.0 if ab.length_squared < 1e-12 else max(0.0, min(1.0, (pw - a).dot(ab) / ab.length_squared))
+        if _blocked(pw, nrm, a + ab * t):
+            drop.append(n)
+    if not drop or sum(g.weight for g, n in gs if n not in drop) <= 1e-6:
+        continue
+    for n in drop:
+        obj.vertex_groups[n].remove([v.index]); cross_trimmed_weights += 1
+    cross_trimmed_verts += 1
 bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
 bpy.ops.object.vertex_group_normalize_all(lock_active=False)
 
@@ -650,7 +693,7 @@ asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bo
 worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"generic_source_bones": (sum(1 for v in A["source_joints"].values() if v.get("deform") is not False) if GENERIC else None), "metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
          "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "rigid_islands_bound": rigid_bound,
-         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "cross_trimmed_verts": cross_trimmed_verts, "cross_trimmed_weights": cross_trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
