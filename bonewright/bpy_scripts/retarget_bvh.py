@@ -29,7 +29,21 @@ sc = bpy.context.scene
 act = src.animation_data.action
 f0, f1 = int(act.frame_range[0]), int(act.frame_range[1])
 mapping = A["mapping"]   # BVH 본 → 우리 FK 본 (pipeline 이 bench 정규화로 만든다)
-mapping = {s: t for s, t in mapping.items() if s in src.pose.bones and t in rig.pose.bones}
+# 모양 리그(--from-shape)는 Rigify 팔다리 리그가 아니라 본마다 컨트롤 하나라서, 컨트롤 이름이
+# 'thigh_fk.L' 이 아니라 본 이름 그대로인 'thigh.L' 이다. 없으면 그 이름으로 한 번 더 찾는다
+_ALIAS = {"torso": "spine", "chest": "chest", "neck": "neck", "head": "head"}
+
+
+def _resolve(t):
+    if t in rig.pose.bones:
+        return t
+    for alt in (t.replace("_fk", ""), _ALIAS.get(t, "")):
+        if alt and alt in rig.pose.bones:
+            return alt
+    return None
+
+
+mapping = {s: r for s, t in mapping.items() if s in src.pose.bones for r in [_resolve(t)] if r}
 Ws, Wt = src.matrix_world, rig.matrix_world
 Ws3, Wt3 = Ws.to_3x3(), Wt.to_3x3()
 LIMB = ("upper_arm_fk", "forearm_fk", "hand_fk", "thigh_fk", "shin_fk", "foot_fk", "front_thigh_fk", "front_shin_fk", "front_foot_fk")

@@ -96,7 +96,9 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) ->
     # (cesium_man 12개). 30개 미만이면 이 검사를 건너뛰고, 그 위에서는 정점 하나를 잡음으로 보고 비율과 함께 본다
     if tv >= 30 and stats.get("weight_leak_arm_torso", 0) > max(1, tv * g.get("max_weight_leak_ratio", 0.005)):
         fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}")
-    if stats["symmetry_max_error"] > tol:
+    # 일반·모양 리그는 본이 원본 뼈대나 메시 자신의 중심선 위에 놓인다 — 좌우가 어긋났다면 **몸이 그렇게 생긴 것**이지
+    # 우리가 옮긴 게 아니다(kira 는 앉아서 한 팔을 앞으로 뻗고 있어 손이 0.76m 어긋난다). 실패가 아니라 경고로 내린다
+    if stats["symmetry_max_error"] > tol and not src_bones:
         fails.append(f"좌우 대칭 오차 {stats['symmetry_max_error']} > {round(tol, 4)} (최악 {stats.get('symmetry_worst')})")
     return fails
 

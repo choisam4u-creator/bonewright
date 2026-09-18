@@ -33,6 +33,10 @@ propagated = []; rejoined = []; resymmetrized = []; removed_face = 0; finger_sca
 PINNED = set(); pin_applied = {}; rest_pose = {"applied": False}
 
 
+_ANATOMY = {"spine", "chest", "neck", "head", "shoulder", "upper_arm", "forearm", "hand",
+            "thigh", "shin", "foot", "toe", "front_thigh", "front_shin", "front_foot", "tail"}
+
+
 def build_generic_metarig(joints):
     """원본 뼈대를 **그대로 베낀** 메타리그. 사람·개과 메타리그에 맞출 수 없는 몸(용·유령·문어·블롭)을 위한 길이다.
 
@@ -70,6 +74,10 @@ def build_generic_metarig(joints):
         ch = [s]
         while len(kids.get(ch[-1], [])) == 1 and conn.get(kids[ch[-1]][0]):
             ch.append(kids[ch[-1]][0])
+        # 역할 이름이 붙은 사슬(thigh.L, forearm.R …)은 촉수 리그로 묶지 않는다.
+        # 촉수 리그는 컨트롤 이름을 새로 지어서, 이름으로 본을 찾는 동작 리타겟이 못 찾는다
+        if any(x.split(".")[0] in _ANATOMY for x in ch):
+            continue
         if len(ch) >= 2 and all(assign.get(x) == "basic.super_copy" for x in ch):
             assign[ch[0]] = "limbs.simple_tentacle"
             for x in ch[1:]:

@@ -12,7 +12,7 @@
 import bpy
 
 from _common import args, done, fresh, import_mesh, mesh_stats
-from _medial import read_shape, resample
+from _medial import classify, read_shape, resample
 
 A = args(); fresh()
 QUAD = A.get("preset") == "quadruped"
@@ -25,29 +25,85 @@ if not shape:
     raise SystemExit
 
 SEG = max(2, int(A.get("segments", 3)))      # 팔다리 하나를 몇 마디로 나눌지
+# 역할을 알아낸 팔다리에는 **리그 이름**을 붙인다. 이름이 있어야 BVH 동작 리타겟이 이름으로 본을 찾을 수 있다.
+# 마디 위치는 여전히 균등 분할이라 무릎·팔꿈치가 정확하지는 않다 — 이름은 '어느 사슬인가'만 알려 준다
+NAMED = {
+    "foot.L": ["thigh.L", "shin.L", "foot.L"], "foot.R": ["thigh.R", "shin.R", "foot.R"],
+    "hand.L": ["upper_arm.L", "forearm.L", "hand.L"], "hand.R": ["upper_arm.R", "forearm.R", "hand.R"],
+    "head": ["chest", "neck", "head"],
+    "hind.L": ["thigh.L", "shin.L", "foot.L"], "hind.R": ["thigh.R", "shin.R", "foot.R"],
+    "front.L": ["front_thigh.L", "front_shin.L", "front_foot.L"],
+    "front.R": ["front_thigh.R", "front_shin.R", "front_foot.R"],
+    "tail": ["tail.001", "tail.002", "tail.003"],
+}
+roles = classify(shape, H, st["min"][2], quad=QUAD) or {}
+role_of = {}
+for _r, _t in roles.items():
+    role_of[id(_t)] = _r
 root = [round(v, 5) for v in shape["root"][:3]]
 joints = {}
 # 몸통 본: 뿌리에서 위로. 팔다리 사슬이 전부 여기에 매달린다
-joints["Body"] = {"head": root, "tail": [root[0], root[1], round(root[2] + H * 0.08, 5)], "parent": None, "deform": True}
+joints["spine"] = {"head": root, "tail": [root[0], root[1], round(root[2] + H * 0.08, 5)], "parent": None, "deform": True}
 limbs = []
-for i, tip in enumerate(shape["tips"]):
-    pts = resample([q for q in tip["path"]][::-1], SEG + 1)   # 몸통 쪽 → 끝 쪽
+# 순서가 중요하다: 머리 사슬을 먼저 만들어야 팔을 **가슴**에 매달 수 있다.
+# 팔을 골반(spine)에 바로 매달면 척추가 돌 때 가슴이 통째로 끌려가 메시가 찢어진다(걷기 리타겟 렌더로 확인)
+_order = {"head": 0, "hand.L": 1, "hand.R": 1, "front.L": 1, "front.R": 1,
+          "foot.L": 2, "foot.R": 2, "hind.L": 2, "hind.R": 2, "tail": 3}
+# 역할이 **다 밝혀졌으면** 나머지 끝점은 메시 돌기(어깨 봉우리·옷 주름)이지 팔다리가 아니다 → 버린다.
+# 안 버리면 그 사슬이 제자리에 붙들려 있어 몸이 움직일 때 메시를 찢는다(걷기 리타겟에서 변형 65배)
+# 끝점을 **버리지 않는다.** 사람 메시에서는 어깨 봉우리·옷 주름이 가짜 팔다리로 잡혀 군더더기가 생기지만,
+# 길이로 걸러 보니 전갈 다리 10개 중 2~4개가 같이 잘렸다(중앙값 기준 4개, 최솟값 기준 2개). 군더더기 사슬은
+# 자세·내보내기에 해롭지 않고, 진짜 팔다리를 잃는 건 해롭다 — 그래서 남긴다.
+_tips = list(enumerate(shape["tips"]))
+_tips.sort(key=lambda it: _order.get(role_of.get(id(it[1])), 9))
+_ROOT_R = shape["root"][3] if len(shape["root"]) > 3 else 0.0
+
+
+def _outside_torso(path):
+    """경로에서 **몸통 안쪽 구간을 잘라낸다**. 몸통 구는 굵고 팔다리 구는 가늘다 — 굵기가 몸통의 60% 아래로
+    떨어지는 첫 지점부터가 팔다리다. 안 자르면 '위팔' 본이 가슴 한가운데서 시작해, 돌 때 몸통을 통째로
+    끌고 간다(걷기 리타겟 변형 44배). 머리·꼬리 사슬은 몸통을 포함해야 하므로 자르지 않는다"""
+    if _ROOT_R <= 0:
+        return path
+    thr = _ROOT_R * 0.6
+    for k, q in enumerate(path):
+        if len(q) > 3 and q[3] < thr:
+            return path[max(0, k - 1):] if len(path) - k >= 2 else path
+    return path
+
+
+for i, tip in _tips:
+    _raw = [q for q in tip["path"]][::-1]                     # 몸통 쪽 → 끝 쪽
+    _role = role_of.get(id(tip))
+    if _role not in ("head", "tail"):
+        _raw = _outside_torso(_raw)
+    pts = resample(_raw, SEG + 1)
     if len(pts) < SEG + 1:
         continue
-    parent = "Body"
+    role = role_of.get(id(tip))
+    names = NAMED.get(role) if role else None
+    # 팔은 가슴에, 나머지는 골반에 매단다(가슴이 아직 없으면 골반)
+    parent = "chest" if (role in ("hand.L", "hand.R", "front.L", "front.R") and "chest" in joints) else "spine"
     made = []
     for j in range(SEG):
         a, b = pts[j], pts[j + 1]
         if (sum((b[k] - a[k]) ** 2 for k in range(3))) ** 0.5 < H * 1e-3:
             continue                                          # 길이 0 에 가까운 마디는 건너뛴다
-        n = f"Limb{i + 1}_{j + 1}"
+        n = names[j] if (names and j < len(names)) else f"Limb{i + 1}_{j + 1}"
+        if n in joints:
+            n = f"Limb{i + 1}_{j + 1}"
         joints[n] = {"head": [round(v, 5) for v in a], "tail": [round(v, 5) for v in b],
                      "parent": parent, "deform": True}
         parent = n; made.append(n)
     if made:
-        limbs.append({"bones": made, "tip": [round(v, 3) for v in tip["p"]], "branch": round(tip["branch"], 4)})
+        limbs.append({"role": role, "bones": made, "tip": [round(v, 3) for v in tip["p"]], "branch": round(tip["branch"], 4)})
 
+if "chest" in joints:      # 골반 → 가슴이 이어지도록 골반 본 꼬리를 가슴 머리에 맞춘다
+    joints["spine"]["tail"] = list(joints["chest"]["head"])
 done({"joints": joints, "bones": len(joints), "limbs": len(limbs), "segments": SEG,
+      "roles": {k: [round(v, 3) for v in t["p"]] for k, t in roles.items()},
+      "named": sorted(n for n in joints if not n.startswith("Limb")),
+      "tips_found": len(shape["tips"]), "tips_used": len(_tips),
       "root": root, "voxel": shape.get("voxel"), "spheres": shape.get("spheres"),
       "bridges": shape.get("bridges"), "limb_info": limbs,
       "height": round(H, 4)}, A["result"])
