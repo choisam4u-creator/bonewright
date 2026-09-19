@@ -38,10 +38,23 @@ def run(cli_args, home, sub="rig"):
 
 
 MIN_MAPPED = 4      # 이만큼도 안 붙었으면 동작이 리그에 닿지 않은 것이다
+WIDE = 0.01         # 2배 넘게 늘어난 모서리가 이 비율을 넘으면 '넓게' 망가진 것이다
+
+
+def verdict(st, a):
+    """늘어남을 **깊이와 넓이 둘 다**로 판정한다.
+
+    가장 늘어난 모서리 하나(깊이)만 보면 순위가 뒤집힌다 — Bull 은 11.63배지만 망가진 모서리가
+    3635개 중 8개(0.22%)뿐이고, frog 는 4.55배인데 7540개 중 90개(1.19%)다. 정점 몇 개가 튀는 것과
+    메시가 넓게 찢기는 것은 다른 문제라 따로 부른다."""
+    deep, wide = st
+    if wide >= WIDE:
+        return "찢김"
+    return "국소 튐" if deep >= a.stretch_max else "통과"
 
 
 def stretch(home, run_id):
-    """리타겟 결과의 메시 늘어남(최대 모서리 비). **못 재면 None**.
+    """리타겟 결과의 (가장 늘어난 모서리 배수, 2배 넘게 늘어난 모서리 비율). **못 재면 None**.
 
     붙은 본 수를 먼저 본다. 이름 없는 일반 사슬 리그(`Limb3_2`)는 BVH 이름과 안 맞아 **본이 하나도
     안 붙는다**. 그러면 메시가 아예 안 움직여 늘어남이 정확히 1.00 으로 나오고, 그걸 '통과'로 세면
@@ -52,7 +65,8 @@ def stretch(home, run_id):
         return None
     if len(d.get("mapped") or {}) < MIN_MAPPED:
         return None
-    return d["stretch"]["max_edge_ratio"]
+    st = d["stretch"]
+    return st["max_edge_ratio"], st["edges_over_2x"] / max(1, st["edges"])
 
 
 def status(home, run_id):
@@ -100,22 +114,25 @@ def main():
             run(["--bvh", bvh, "--rig", won_rid, "--run-id", mid], a.home, sub="motion")
             st = stretch(a.home, mid)
         rows.append((name, preset, won or "실패", st, round(time.time() - t0, 1)))
-        mark = "-" if st is None else ("통과" if st < a.stretch_max else "찢김")
-        sv = "  -  " if st is None else f"{st:5.2f}"
-        print(f"[{i:3d}/{len(files)}] {name:28s} {preset:10s} {won or '실패':6s} 늘어남 {sv} {mark:4s} {rows[-1][4]:6.1f}s",
+        mark = "-" if st is None else verdict(st, a)
+        sv = "  -  " if st is None else f"{st[0]:5.2f}"
+        wv = "   - " if st is None else f"{100 * st[1]:4.1f}%"
+        print(f"[{i:3d}/{len(files)}] {name:28s} {preset:10s} {won or '실패':6s} 늘어남 {sv} 넓이 {wv} {mark:7s} {rows[-1][4]:6.1f}s",
               file=out, flush=True)
     moved = [r for r in rows if r[3] is not None]
-    good = [r for r in moved if r[3] < a.stretch_max]
+    good = [r for r in moved if verdict(r[3], a) == "통과"]
     print(f"\n리깅 점수     {ok}/{len(files)} = {100 * ok / max(1, len(files)):.1f}%", file=out, flush=True)
     if moved:
         print(f"동작까지 통과 {len(good)}/{len(moved)} = {100 * len(good) / len(moved):.1f}%"
-              f"  (늘어남 {a.stretch_max}배 미만 · 본이 {MIN_MAPPED}개 이상 붙어 실제로 움직인 자산만)", file=out, flush=True)
+              f"  (깊이 {a.stretch_max}배 미만 + 넓이 {100 * WIDE:.0f}% 미만 · 본이 {MIN_MAPPED}개 이상 붙어 실제로 움직인 자산만)", file=out, flush=True)
     for n, p, w, st, _t in rows:
         if w == "실패":
             print(f"  리깅 실패: {n} ({p})", file=out, flush=True)
-    for n, p, w, st, _t in rows:
-        if st is not None and st >= a.stretch_max:
-            print(f"  동작에서 찢김: {n} ({p}) 늘어남 {st}배", file=out, flush=True)
+    for label in ("찢김", "국소 튐"):
+        for n, p, w, st, _t in rows:
+            if st is not None and verdict(st, a) == label:
+                print(f"  동작 {label}: {n} ({p}) 늘어남 {st[0]}배 · 망가진 모서리 {100 * st[1]:.2f}%",
+                      file=out, flush=True)
 
 
 if __name__ == "__main__":
