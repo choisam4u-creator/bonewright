@@ -38,4 +38,7 @@ jobs:
       - name: bpy 가 실제로 올라오는지
         run: python -c "import bpy; print('Blender', bpy.app.version_string)"
       - name: 전체 테스트(리그·가중치·리타겟 포함)
+        # 렌더는 끈다: 화면 없는 러너에서 렌더러가 죽는다(-6). 렌더는 사람이 볼 그림이지 판정이 아니다
+        env:
+          BW_NO_RENDER: "1"
         run: python -m unittest -v tests.test_mock

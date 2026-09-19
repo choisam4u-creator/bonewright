@@ -246,10 +246,18 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     # 4 게이트
     fails = rig_gates(st, cfg["gates"], a["stats"]["verts"], source_symmetry, source_leak)
     _log(quiet, f"[4/6] gates: {'통과' if not fails else fails}")
-    # 5 렌더
-    r.state("render", "running")
-    views = r.blender("render_views", {"blend": str(r.dir / "02_rigged.blend"), "out_dir": str(r.dir), "stats": a["stats"], "size": cfg["render"]["size"]})
-    _log(quiet, f"[5/6] render: {len(views['images'])}장 · 본 기둥 {views['bone_proxies']}")
+    # 5 렌더 — `BW_NO_RENDER=1` 이면 건너뛴다.
+    # 렌더는 **사람이 눈으로 보라고** 만드는 것이지 정확성 판정이 아니다(게이트는 위에서 이미 끝났다).
+    # 화면 없는 CI 서버에서는 렌더러가 죽어 버려서(종료코드 -6), 이게 없으면 리깅이 멀쩡히 돌았는데도
+    # 테스트가 통째로 실패한다. 시각 판정(judge)은 그림이 필요하므로 이때 함께 꺼진다.
+    if os.environ.get("BW_NO_RENDER") == "1":
+        views = {"images": [], "bone_proxies": 0, "skipped": "BW_NO_RENDER"}
+        no_judge = True
+        _log(quiet, "[5/6] render: 건너뜀(BW_NO_RENDER=1) — 시각 판정도 함께 꺼진다")
+    else:
+        r.state("render", "running")
+        views = r.blender("render_views", {"blend": str(r.dir / "02_rigged.blend"), "out_dir": str(r.dir), "stats": a["stats"], "size": cfg["render"]["size"]})
+        _log(quiet, f"[5/6] render: {len(views['images'])}장 · 본 기둥 {views['bone_proxies']}")
     # 6 시각 판정(모델)
     judge = {"skipped": True}
     if not no_judge:
@@ -385,6 +393,9 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     blend = r.dir / "02_rigged.blend"
     if not blend.exists():
         raise Blocked(f"리그 결과가 없다: {blend}")
+    if os.environ.get("BW_NO_RENDER") == "1":
+        # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
+        raise Blocked("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다")
     a = json.loads((r.dir / "analysis.json").read_text(encoding="utf-8"))
     d = r.blender("render_demo", {"blend": str(blend), "out_dir": str(r.dir), "stats": a["stats"], "height": a["landmarks"]["height"], "size": size, "frames": frames})
     out = Path(d["frames_dir"])

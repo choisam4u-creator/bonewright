@@ -392,6 +392,8 @@ if A.get("render_frames"):
         c2 = (Wt @ torso.matrix).translation.copy() if torso is not None else center
         c2.z = H / 2; c2.x += 0.45 * H; cam.location = c2 + (loc - center)
         p = os.path.join(A["out_dir"], f"retarget_f{int(f):04d}.png")
+        if os.environ.get("BW_NO_RENDER") == "1":
+            continue        # 그림만 건너뛴다 — 늘어남 측정은 아래에서 그대로 한다(화면 없는 서버 대비)
         sc.render.filepath = p; bpy.ops.render.render(write_still=True); frames_out.append(p)
 
 # 발 미끄러짐(토큰 0): BVH 발끝이 거의 안 움직이는 프레임(디딤발, 한 프레임 이동 < 키의 0.5%)에서 우리 발끝이 수평으로 움직인 거리.

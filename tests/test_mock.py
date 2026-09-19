@@ -38,14 +38,18 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual([], st["bones_outside_bbox"])
         state = json.loads((self.tmp / "runs/t1/state.json").read_text())
         self.assertEqual("ok", state["status"], (self.tmp / "runs/t1/report.md").read_text())
-        for v in ("front", "side", "iso"):
-            self.assertTrue((self.tmp / f"runs/t1/view_{v}.png").exists())
+        # 렌더는 사람이 볼 그림이라 `BW_NO_RENDER=1` 로 끌 수 있다(화면 없는 CI 서버에서 렌더러가 죽는다).
+        # 꺼져 있으면 그림이 없는 게 정상이고, 켜져 있으면 세 장이 다 나와야 한다
+        if os.environ.get("BW_NO_RENDER") != "1":
+            for v in ("front", "side", "iso"):
+                self.assertTrue((self.tmp / f"runs/t1/view_{v}.png").exists())
         self.assertIn("targets", json.loads((self.tmp / "runs/t1/fit.json").read_text()))
         self.assertEqual(0, st["deform_outside_mesh"], st.get("deform_outside_mesh_bones"))   # 변형 본 끝점이 메시 표면 밖에 없어야 한다
         # 데모 영상(짧게): IK 컨트롤이 존재하고 mp4 가 만들어진다
-        video = pipeline.demo(self.tmp, "t1", quiet=True, size=128, frames=16)
-        self.assertTrue(video.exists(), video)   # ffmpeg 있으면 demo.mp4, 없으면 PNG 프레임 폴더
-        self.assertTrue((self.tmp / "runs/t1/demo_frames/f_0016.png").exists())
+        if os.environ.get("BW_NO_RENDER") != "1":       # 데모는 그림이 목적이라 렌더가 꺼지면 건너뛴다
+            video = pipeline.demo(self.tmp, "t1", quiet=True, size=128, frames=16)
+            self.assertTrue(video.exists(), video)   # ffmpeg 있으면 demo.mp4, 없으면 PNG 프레임 폴더
+            self.assertTrue((self.tmp / "runs/t1/demo_frames/f_0016.png").exists())
         # 게임용 GLB: 변형 본만(컨트롤 400여 개 제외), 다시 읽어 본 위치 일치. 정점은 glTF 가 UV·법선 경계에서 쪼개므로 원본 이상
         glb = pipeline.export_rig(self.tmp, "t1", quiet=True)
         ex = json.loads((self.tmp / "runs/t1/export.json").read_text())
