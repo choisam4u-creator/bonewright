@@ -29,7 +29,7 @@ def is_inside(p, margin=0.0):
 GENERIC = preset == "generic"
 # 보고용 기본값. 일반 리그 경로에서는 아래 사람·개과 전용 보정이 통째로 건너뛴다
 moved = []; clamped = []; fixed = []; bent = []; axis_snapped = []; snapped_inside = []
-propagated = []; rejoined = []; resymmetrized = []; removed_face = 0; removed_fingers = 0; finger_scale = None
+propagated = []; rejoined = []; resymmetrized = []; removed_face = 0; finger_scale = None
 PINNED = set(); pin_applied = {}; rest_pose = {"applied": False}
 
 
@@ -125,22 +125,15 @@ else:
         # 첫 토큰으로 판별한다("ear" 부분 일치는 forearm 까지 지운다)
         for b in [b for b in eb if b.name.split(".")[0].split("_")[0] in FACE]:
             eb.remove(b); removed_face += 1
-    # 원본 뼈대를 받아 왔을 때, **원본에 없는 손가락 마디**는 지운다. 메타리그는 손가락을 세 마디로
-    # 두는데 원본이 두 마디만 주는 일이 흔하다. 남은 마디는 사람 손 기준 기본 자리에 그대로 떠 있다가
-    # 살을 가져간다 — 토끼(bunny)는 `DEF-thumb.03.L` 이 정점을 가중치 1.00 으로 물었고, 걷게 하니
-    # 그 자리만 12.2배로 튀었다. 손가락은 '메시 밖 본' 검사에서 빠져 있어(복셀 대리가 뭉갠다)
-    # 아무도 못 잡는 구멍이었다. 사슬이 끊기지 않게 **끝 마디부터** 지운다.
-    # 프리셋 경로(원본 없이 비율로 추정)는 사람 메시 전제라 그대로 둔다
-    FINGERS = ("f_", "thumb", "palm")
-    removed_fingers = 0
-    if A.get("from_skeleton"):
-        tg_ = set(A.get("targets") or {})
-        while True:
-            gone = [b for b in eb if b.name.startswith(FINGERS) and b.name not in tg_ and not b.children]
-            if not gone:
-                break
-            for b in gone:
-                eb.remove(b); removed_fingers += 1
+    # **실패 기록(2026-09-19): 원본에 없는 손가락 마디 지우기.** 여기에 그 코드가 있었다.
+    # 착상: 메타리그는 손가락을 세 마디로 두는데 원본이 두 마디만 주면 남은 마디가 사람 손 기준
+    # 기본 자리에 떠 있으면서 살을 가져간다(토끼 `DEF-thumb.03.L` 가중치 1.00). 타깃 없는 끝 마디를
+    # 지웠더니 토끼는 늘어남 12.19 → 11.30배로 **조금** 나아졌다.
+    # **그런데 다른 자산이 크게 나빠졌다**: godot_player 1.87배/0.0% → 8.46배/3.17%,
+    # quat_pp_41j 2.09/0.04% → 11.85/2.13%, rigged_figure 1.61/0.0% → 3.72/6.51%.
+    # 손가락에 흩어져 있던 손 살이 손 본 하나로 뭉치면서 손목·손등이 통째로 끌린 것이다.
+    # (KayKit 마법사는 변형 본이 35개로 줄어 리깅 게이트까지 실패했다)
+    # 남은 마디가 떠 있는 건 사실이지만, 지우는 것보다 **손 살을 나눠 가지는 값**이 더 컸다.
     # 머리·목 사슬을 메시 높이에 맞춘다: 목 밑 = 어깨 위, 정수리 = 메시 꼭대기. 사슬이 끊기지 않게 앞 본 tail 과 다음 본 head 를 함께 맞춘다
     L = A["landmarks"]
     # 사람 메타리그 전용: 늑대(사족)는 척추가 spine..spine.011 이라 spine.003 이 등 한가운데다.
@@ -765,7 +758,7 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"generic_source_bones": (sum(1 for v in A["source_joints"].values() if v.get("deform") is not False) if GENERIC else None), "metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "removed_finger_bones": removed_fingers, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
          "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "cross_trimmed_verts": cross_trimmed_verts, "cross_trimmed_weights": cross_trimmed_weights, "cross_detour": cross_detour, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다

@@ -35,6 +35,16 @@ All notable changes to this project. Numbers are measured against the original a
   single shell and never showed the cost above; the real asset fails at 9.34x with the trim on.
 
 ### Fixed
+- **Tried and reverted: dropping metarig finger segments the source skeleton never had.** A source rig that stops
+  at two thumb joints leaves the metarig's third floating at human-hand proportions, where it grabs flesh (a bunny
+  had `DEF-thumb.03.L` owning vertices at weight 1.00). Removing the untargeted tips helped that one asset
+  (12.19x → 11.30x) and hurt several others badly: godot_player 1.87x/0.0% → **8.46x/3.17%**, quat_pp_41j
+  2.09x → **11.85x**, rigged_figure 1.61x/0.0% → 3.72x/**6.51%**, and the KayKit mage dropped below the
+  deform-bone minimum. Hand flesh spread across finger bones is worth more than the floating tip costs.
+- **Motion is judged by depth *and* breadth.** The single worst edge ranks assets almost backwards: Bull stretches
+  11.63x but on 0.22% of its edges, while frog stretches 4.55x on 1.19%. Results are now split into pass, a
+  localised spike, and a real tear.
+
 - **The arm-into-torso check is now calibrated against the author.** Running the same rule over the file's own
   weights shows how much of the "leak" is the body's shape rather than our error: on a chibi whose arms are fused
   to the body the author himself gives 39.2% of chest-midline vertices to arm bones, while on a hollow KayKit
