@@ -6,6 +6,12 @@ All notable changes to this project. Numbers are measured against the original a
 ## [Unreleased]
 
 ### Added
+- **Human-only metarig bones are dropped when the source skeleton has no counterpart.** Rigify's `breast.L/R`
+  has nothing to map to on a frog, so it floats at human-chest proportions and takes shoulder flesh; the seam
+  between it and the upper arm tore at 4.6x over 1.19% of the mesh. Removing it fixes that asset outright
+  (4.55x/1.19% → **2.58x/0.0%**) and leaves six control assets untouched. The same idea applied to finger
+  segments failed (see Fixed) — fingers are a chain, so their flesh piles onto a distant hand bone, while the
+  breast pair hands its flesh to the chest bone right beside it.
 - **Unweighted vertices are filled from their connected neighbours** instead of from the nearest bone. A
   nearest-bone guess makes one vertex follow a different bone than the flesh around it and the shell cracks;
   copying the weights of the closest vertex *along the mesh* is interpolation, not a guess. Orc: 12 stragglers
