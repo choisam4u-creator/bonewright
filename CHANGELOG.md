@@ -35,6 +35,12 @@ All notable changes to this project. Numbers are measured against the original a
   single shell and never showed the cost above; the real asset fails at 9.34x with the trim on.
 
 ### Fixed
+- **The arm-into-torso check is now calibrated against the author.** Running the same rule over the file's own
+  weights shows how much of the "leak" is the body's shape rather than our error: on a chibi whose arms are fused
+  to the body the author himself gives 39.2% of chest-midline vertices to arm bones, while on a hollow KayKit
+  skeleton the author gives **0%**. The gate now allows what the author allowed and fails anything worse — the
+  same trick already used for left/right symmetry. It changed no pass/fail in the benchmark.
+
 - **Tried and reverted: reusing the author's painted weights.** Bone names differ between rigs but the positions
   came from the same skeleton, so each source bone was paired with the DEF bone nearest to it. The leak metric
   loved it (KayKit skeleton warrior 11 of 94 chest vertices → 0). Animating it told a different story: the same

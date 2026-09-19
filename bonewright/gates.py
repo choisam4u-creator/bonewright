@@ -62,7 +62,7 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
 
 
 
-def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) -> list[str]:
+def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0, source_leak: float | None = None) -> list[str]:
     fails = []
     # 가중치 없는 정점은 fit_generate 가 메운다. **어떻게 메웠는지로 나눠 본다**:
     #   · 가장 가까운 본에 붙였다(filled_unweighted) → 추측이다. 그 정점만 따로 움직여 껍질에 금이 갈 수 있다 → 구멍으로 센다
@@ -100,8 +100,14 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) ->
     tv = stats.get("weight_leak_torso_verts", 0)
     # 표본이 너무 적으면 비율을 판단할 수 없다 — 저폴리 캐릭터는 몸통 한가운데 띠에 정점이 열두어 개뿐이다
     # (cesium_man 12개). 30개 미만이면 이 검사를 건너뛰고, 그 위에서는 정점 하나를 잡음으로 보고 비율과 함께 본다
-    if tv >= 30 and stats.get("weight_leak_arm_torso", 0) > max(1, tv * g.get("max_weight_leak_ratio", 0.005)):
-        fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}")
+    # 원본 파일에 뼈대가 있으면 **원작자 자신의 누수**를 같은 규칙으로 재 뒀다. 체형에 따라 사람이
+    # 일부러 그렇게 칠한다 — 치비(quat_pp_43j)는 팔이 몸에 붙어 원작자가 39.2% 를 칠했고, 그런 자산에서
+    # 우리 2.9% 를 결함이라 부르면 거짓이다. 반대로 KayKit 해골 전사는 원작자가 0% 라 변명이 안 된다.
+    # 즉 **원작자만큼은 봐주고 그보다 더 새면 실패**다(좌우 대칭에서 이미 쓰는 방식과 같다)
+    _lim = max(g.get("max_weight_leak_ratio", 0.005), source_leak or 0.0)
+    if tv >= 30 and stats.get("weight_leak_arm_torso", 0) > max(1, tv * _lim):
+        extra = f" (원작자 자신은 {round(100 * source_leak, 1)}%)" if source_leak else ""
+        fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}{extra}")
     # 일반·모양 리그는 본이 원본 뼈대나 메시 자신의 중심선 위에 놓인다 — 좌우가 어긋났다면 **몸이 그렇게 생긴 것**이지
     # 우리가 옮긴 게 아니다(kira 는 앉아서 한 팔을 앞으로 뻗고 있어 손이 0.76m 어긋난다). 실패가 아니라 경고로 내린다
     if stats["symmetry_max_error"] > tol and not src_bones:

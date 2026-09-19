@@ -165,7 +165,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     # 2 맞춤 판단(모델). --targets / --from-skeleton 이면 모델을 부르지 않는다(토큰 0)
     r.state("fit", "running")
     pins = dict(pins or {})
-    source_symmetry = 0.0
+    source_symmetry = 0.0; source_leak = None
     gen_preset = preset; source_joints = None
     if from_shape:
         # 원본 뼈대가 없고 사람·개과 비율도 아닌 메시: 속 읽기가 찾은 팔다리 길을 따라 **뼈대를 직접 만든다**.
@@ -187,6 +187,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             _reject("--from-skeleton: 이 파일에 원본 뼈대가 없다 — 기본 경로(--from-skeleton 없이)로 돌려라", ["뼈대 없음"])
         tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"], a["landmarks"].get("ground_z", 0.0))
         source_joints = gt["joints"]   # 메타리그 경로에서도 원작자 가중치를 자리로 옮길 수 있게 넘긴다
+        source_leak = (gt.get("source_leak") or {}).get("ratio")   # 원작자 자신의 팔→몸통 누수(보정용)
         # 사람·개과 메타리그에 맞출 수 없는 몸(용·유령·문어·블롭)은 거절하는 대신 **원본 뼈대를 그대로 베낀
         # 일반 리그**로 간다. 관절 이름을 못 알아봐도, 팔다리가 없어도, 사슬이면 컨트롤을 만들 수 있다
         if info["limbs_absent"] or len(tg) < 6:
@@ -242,7 +243,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     st = g["stats"]
     _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}(가까운 본으로 메운 {st.get('filled_unweighted', 0)}) · 상자 밖 {len(st['bones_outside_bbox'])}")
     # 4 게이트
-    fails = rig_gates(st, cfg["gates"], a["stats"]["verts"], source_symmetry)
+    fails = rig_gates(st, cfg["gates"], a["stats"]["verts"], source_symmetry, source_leak)
     _log(quiet, f"[4/6] gates: {'통과' if not fails else fails}")
     # 5 렌더
     r.state("render", "running")
