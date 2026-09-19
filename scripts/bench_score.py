@@ -37,12 +37,22 @@ def run(cli_args, home, sub="rig"):
     return p.returncode, (p.stdout + p.stderr)[-400:]
 
 
+MIN_MAPPED = 4      # 이만큼도 안 붙었으면 동작이 리그에 닿지 않은 것이다
+
+
 def stretch(home, run_id):
-    """리타겟 결과의 메시 늘어남(최대 모서리 비). 못 재면 None"""
+    """리타겟 결과의 메시 늘어남(최대 모서리 비). **못 재면 None**.
+
+    붙은 본 수를 먼저 본다. 이름 없는 일반 사슬 리그(`Limb3_2`)는 BVH 이름과 안 맞아 **본이 하나도
+    안 붙는다**. 그러면 메시가 아예 안 움직여 늘어남이 정확히 1.00 으로 나오고, 그걸 '통과'로 세면
+    **동작을 못 옮긴 자산이 만점을 받는다**(실제로 66종 중 32종이 그랬다). 측정 불가로 돌린다."""
     try:
-        return json.loads((Path(home) / "runs" / run_id / "retarget.json").read_text())["stretch"]["max_edge_ratio"]
+        d = json.loads((Path(home) / "runs" / run_id / "retarget.json").read_text())
     except Exception:
         return None
+    if len(d.get("mapped") or {}) < MIN_MAPPED:
+        return None
+    return d["stretch"]["max_edge_ratio"]
 
 
 def status(home, run_id):
@@ -99,7 +109,7 @@ def main():
     print(f"\n리깅 점수     {ok}/{len(files)} = {100 * ok / max(1, len(files)):.1f}%", file=out, flush=True)
     if moved:
         print(f"동작까지 통과 {len(good)}/{len(moved)} = {100 * len(good) / len(moved):.1f}%"
-              f"  (늘어남 {a.stretch_max}배 미만 · 동작을 옮길 수 있었던 자산만)", file=out, flush=True)
+              f"  (늘어남 {a.stretch_max}배 미만 · 본이 {MIN_MAPPED}개 이상 붙어 실제로 움직인 자산만)", file=out, flush=True)
     for n, p, w, st, _t in rows:
         if w == "실패":
             print(f"  리깅 실패: {n} ({p})", file=out, flush=True)
