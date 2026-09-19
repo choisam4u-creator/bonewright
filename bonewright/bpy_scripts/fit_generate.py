@@ -29,6 +29,7 @@ def is_inside(p, margin=0.0):
 GENERIC = preset == "generic"
 # 보고용 기본값. 일반 리그 경로에서는 아래 사람·개과 전용 보정이 통째로 건너뛴다
 moved = []; clamped = []; fixed = []; bent = []; axis_snapped = []; snapped_inside = []
+transfer_unweighted = None
 propagated = []; rejoined = []; resymmetrized = []; removed_face = 0; removed_breast = 0; finger_scale = None
 PINNED = set(); pin_applied = {}; rest_pose = {"applied": False}
 
@@ -512,7 +513,15 @@ else:
         for v in obj.data.vertices:
             w = sum(g.weight for g in v.groups if vg.get(g.group, "").startswith("DEF-")); sums.append(w)
             if w < 1e-4: unweighted += 1
-        if weight_method != "auto_proxy" or unweighted > len(obj.data.vertices) * 0.05:
+        transfer_unweighted = unweighted if weight_method == "auto_proxy" else None
+        # 대리 메시에서 원본으로 가중치를 옮길 때 조금 남는 건 **이제 문제가 아니다**: 남은 정점은
+        # 아래에서 이어진 이웃 살의 가중치를 복사해 메운다(추측이 아니라 보간). 예전 5% 기준은 그
+        # 메우기가 없던 시절 값이라, 대리 메시가 거의 성공했는데도 통째로 버리고 있었다 —
+        # quaternius_ual 은 자동 가중치가 6994정점 중 3464개를 비웠고 대리 메시는 16개만 비웠는데,
+        # 옮긴 뒤 406개(5.8%)가 남았다는 이유로 **엔벨로프**로 떨어졌다. 엔벨로프는 한 정점에 양쪽
+        # 발 본을 0.25씩 주는 식이라 걷게 하면 찢어진다(늘어남 13.9배).
+        PROXY_LEFTOVER = 0.15
+        if weight_method != "auto_proxy" or unweighted > len(obj.data.vertices) * PROXY_LEFTOVER:
             clear_groups(); weight_method = "envelope_fallback"   # 대리 메시도 실패 → 엔벨로프(항상 붙지만 품질 낮음). 보고서에 표시
             unweighted, sums = weigh("ARMATURE_ENVELOPE")
 # 정규화: 정점별 변형 가중치 합을 1 로(엔벨로프는 합이 1 이 아니다)
@@ -772,7 +781,7 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"generic_source_bones": (sum(1 for v in A["source_joints"].values() if v.get("deform") is not False) if GENERIC else None), "metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "removed_extra_bones": removed_breast, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "transfer_unweighted": transfer_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "removed_extra_bones": removed_breast, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
          "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "cross_trimmed_verts": cross_trimmed_verts, "cross_trimmed_weights": cross_trimmed_weights, "cross_detour": cross_detour, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다

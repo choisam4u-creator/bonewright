@@ -45,6 +45,13 @@ All notable changes to this project. Numbers are measured against the original a
   single shell and never showed the cost above; the real asset fails at 9.34x with the trim on.
 
 ### Fixed
+- **A nearly-successful voxel-proxy bind was being thrown away over a hair's breadth.** On one asset automatic
+  weighting left 3464 of 6994 vertices empty while the voxel proxy left 16 — but transferring those weights back
+  to the original mesh left 406 (5.8%), just over the 5% cutoff, so the whole thing was discarded for envelope
+  weighting, which hands a single vertex 0.25 of each foot. That cutoff predates the neighbour fill, which now
+  interpolates leftovers instead of guessing, so it is 15%. The asset goes from 13.94x/0.89% to **3.37x/0.0%**,
+  and of the 406 leftovers 356 bind as whole rigid pieces, 50 interpolate, and none are guessed.
+
 - **Tried and reverted: dropping metarig finger segments the source skeleton never had.** A source rig that stops
   at two thumb joints leaves the metarig's third floating at human-hand proportions, where it grabs flesh (a bunny
   had `DEF-thumb.03.L` owning vertices at weight 1.00). Removing the untargeted tips helped that one asset
