@@ -11,7 +11,11 @@ All notable changes to this project. Numbers are measured against the original a
   between it and the upper arm tore at 4.6x over 1.19% of the mesh. Removing it fixes that asset outright
   (4.55x/1.19% → **2.58x/0.0%**) and leaves six control assets untouched. The same idea applied to finger
   segments failed (see Fixed) — fingers are a chain, so their flesh piles onto a distant hand bone, while the
-  breast pair hands its flesh to the chest bone right beside it.
+  breast pair hands its flesh to the chest bone right beside it. On a quadruped `pelvis.L/R` behaves the same
+  way — Bull's worst seam was exactly `DEF-spine.001` / `DEF-pelvis.L` — and removing it improved or held every
+  one of the ten animals (Bull 11.63x → **1.93x**, Cow 11.63 → 2.44, Shiba Inu 7.47 → 2.44, motion pass rate
+  7/10 → **9/10**). On a human it is the opposite: those bones sit correctly on the hips and doing the same
+  thing pushed cesium_man from 3.72x/0.9% to 5.38x/1.1%, so `pelvis` is only dropped under the quadruped preset.
 - **Unweighted vertices are filled from their connected neighbours** instead of from the nearest bone. A
   nearest-bone guess makes one vertex follow a different bone than the flesh around it and the shell cracks;
   copying the weights of the closest vertex *along the mesh* is interpolation, not a guess. Orc: 12 stragglers
