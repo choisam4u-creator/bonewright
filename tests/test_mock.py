@@ -72,6 +72,20 @@ class RigMockTests(unittest.TestCase):
         rep = (self.tmp / "runs/m3/report.md").read_text()
         self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
 
+    def test_human_only_bones_go_when_the_source_has_no_counterpart(self):
+        """원본 뼈대에 대응 관절이 없는 **사람 전용 본**은 지운다 — 떠 있으면 살을 가져간다.
+
+        `breast.L/R` 은 어느 게임 리그에도 없어서 항상 사라진다(사람·네발 모두).
+        `pelvis.L/R` 은 **네발일 때만** 지운다 — 사람 몸에서는 제 자리에 앉아 엉덩이 살을 맡는다
+        (사람에게도 지웠더니 cesium_man 리타겟이 3.72 → 5.38배로 나빠졌다). 그래서 사람 리그에서
+        사라지는 건 가슴 한 쌍뿐이고, 이 숫자가 2 를 넘으면 골반까지 지운 것이다."""
+        asset = ROOT / "tests/assets/quaternius_adventurer.glb"
+        if not asset.exists():
+            self.skipTest("CC0 자산 없음")
+        pipeline.rig(self.tmp, str(asset), "humanoid", run_id="hb1", quiet=True, no_judge=True, from_skeleton=True)
+        st = json.loads((self.tmp / "runs/hb1/rig_stats.json").read_text())["stats"]
+        self.assertEqual(st["removed_extra_bones"], 2, st)
+
     def test_real_asset_survives_retarget_without_tearing(self):
         """**실제 자산**으로 리타겟 후 메시 늘어남을 잰다.
 
