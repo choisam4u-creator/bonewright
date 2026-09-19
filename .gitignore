@@ -3,6 +3,7 @@ runs/
 vendor/
 spikes/motion_out/
 docs/internal/
+research/
 __pycache__/
 *.pyc
 .DS_Store
