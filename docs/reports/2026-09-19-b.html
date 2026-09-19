@@ -1,0 +1,108 @@
+<!doctype html><html lang="ko"><meta charset="utf-8">
+<title>bonewright 2026-09-19 — 오픈소스 준비와 실패 하나, 성공 하나</title>
+<style>
+ body{font:16px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;max-width:880px;margin:0 auto;padding:28px 20px 60px;color:#1c1c1e;background:#fff}
+ h1{font-size:25px;margin:0 0 4px} h2{font-size:19px;margin:34px 0 10px;padding-top:14px;border-top:1px solid #e5e5ea}
+ .sub{color:#6e6e73;margin:0 0 22px;font-size:14px}
+ table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+ th,td{border:1px solid #e5e5ea;padding:7px 9px;text-align:left} th{background:#f5f5f7;font-weight:600}
+ td.n{text-align:right;font-variant-numeric:tabular-nums}
+ .ok{color:#1d7a3c;font-weight:600} .no{color:#b3261e;font-weight:600}
+ .box{background:#f5f5f7;border-radius:10px;padding:14px 18px;margin:16px 0}
+ .warn{background:#fff4e5;border-left:4px solid #e08600;border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0}
+ code{background:#f0f0f3;padding:1px 5px;border-radius:4px;font-size:13px}
+ li{margin:5px 0} .big{font-size:24px;font-weight:700}
+</style>
+<h1>지표를 믿었다가 두 번 속았습니다</h1>
+<p class="sub">bonewright · 2026-09-19 저녁 · 커밋 <code>35758da</code>…<code>dd4a147</code> (로컬만, 공개 보류)</p>
+
+<div class="box">
+<b>한 줄:</b> 점수는 <b class="big">95.5점</b>(66종 중 63종)입니다. 그런데 오늘 더 중요한 건 점수가 아니라,
+<b>게이트를 통과하면서 품질은 나빠지는 변경을 두 번</b> 만들었고 두 번 다 <b>움직여 재서</b> 잡았다는 것입니다.
+</div>
+
+<h2>1. 점수 — 자산도 경로도 손으로 고르지 않게 바꿨습니다</h2>
+<p>어제까지 점수는 제가 자산 59종을 세 무리로 <b>손으로 나눠</b> 센 것이었습니다. 어느 자산에 어느 경로를
+쓸지 제가 고를 수 있으니, 유리한 쪽을 고를 여지가 있습니다.</p>
+<p><code>scripts/bench_score.py</code>를 만들었습니다. 폴더를 훑어 자산을 모으고, 자산마다 문서에 적힌
+사다리를 <b>그대로</b> 탑니다 — ①원본 뼈대 ②실루엣 프리셋 ③메시 속 모양. 한 단계라도 <code>ok</code>면 통과입니다.</p>
+<table>
+<tr><th>측정</th><th>값</th><th>비고</th></tr>
+<tr><td>사다리 점수(새 기준)</td><td class="n"><b class="ok">63 / 66 = 95.5%</b></td><td>자산·경로 자동 선택</td></tr>
+<tr><td>손으로 나눈 옛 표</td><td class="n">55 / 59 = 93.2%</td><td>비교 불가 — 분모와 경로 배정이 다릅니다</td></tr>
+</table>
+<p>남은 3종은 <b>전부 같은 결함</b>입니다: 팔 본이 몸통 살을 가져갑니다(quat_pp_43j, robot_expressive,
+KayKit 해골 전사).</p>
+
+<div class="warn"><b>이 점수의 약점을 먼저 말씀드립니다.</b> 이 점수는 <b>정지 자세만</b> 봅니다.
+아래 2번이 정확히 그 구멍에 빠진 이야기입니다. 움직였을 때의 품질은 아직 점수에 안 들어 있습니다.</div>
+
+<h2>2. 두 번 속았습니다 — 둘 다 "지표는 좋아졌는데 움직이면 나쁨"</h2>
+<p><b>첫 번째(어제 것을 오늘 정정).</b> "살을 가로지르는 본 떼기"를 어제 성공이라 적었습니다. 해골의
+누수가 11→0이 됐으니까요. 그런데 정식 경로로 실제 자산을 걷게 해 보니:</p>
+<table>
+<tr><th>mannequiny + CMU 걷기</th><th>늘어남(최대)</th><th>2배 넘는 모서리</th><th>누수</th></tr>
+<tr><td>트림 끔</td><td class="n"><b class="ok">4.71배</b></td><td class="n"><b class="ok">6개</b></td><td class="n">0 / 249</td></tr>
+<tr><td>트림 켬</td><td class="n">7.88배</td><td class="n">87개</td><td class="n">0 / 249</td></tr>
+</table>
+<p>이득 없이 해만 있었습니다. 광선 한 번으로 "껍질을 뚫으면 남"이라 본 게 원인입니다 — 옷·머리카락이
+겹친 메시에서 스침을 오판합니다.</p>
+<p><b>고친 방법</b>: 광선을 버리고 <b>복셀 측지 거리</b>로 바꿨습니다(메시 속을 작은 상자로 채워 그 안으로만
+길을 잽니다). 조각 사이 실틈은 상자 한 칸에 묻히고, 해골의 텅 빈 가슴은 그대로 남습니다 —
+<b>해상도 자체가</b> "무시할 틈"과 "진짜 빈 속"을 갈라 줍니다. mannequiny 4.71배/6개로 <b>무해</b>하면서
+잘못된 영향 650개를 정리합니다.</p>
+
+<p><b>두 번째(오늘 만들고 오늘 되돌림).</b> "원본 뼈대가 있으면 <b>원작자가 칠한 가중치</b>도 그대로 쓰자"는
+기능입니다. 누수 지표는 훌륭했습니다. 그런데 걷게 해 보니 정반대였습니다.</p>
+<table>
+<tr><th>CMU 걷기 리타겟</th><th>누수</th><th>늘어남(최대)</th><th>2배 넘는 모서리</th></tr>
+<tr><td>해골 전사 · 자동</td><td class="n">11 / 94</td><td class="n"><b class="ok">5.78배</b></td><td class="n"><b class="ok">34</b></td></tr>
+<tr><td>해골 전사 · 원작자</td><td class="n"><b>0 / 94</b></td><td class="n"><b class="no">11.25배</b></td><td class="n">70</td></tr>
+<tr><td>cesium_man · 자동</td><td class="n">—</td><td class="n"><b class="ok">3.72배</b></td><td class="n">62</td></tr>
+<tr><td>cesium_man · 원작자</td><td class="n">—</td><td class="n"><b class="no">20.71배</b></td><td class="n">125</td></tr>
+</table>
+<p><b>왜 무너지나</b>: 관절마다 <b>길이 0짜리 표식</b>만 두는 뼈대가 흔합니다(cesium_man 전체). 선분이 점이 되면
+"가장 가까운 자리" 짝짓기가 의미를 잃습니다 — 실제로 몸통 관절 하나가 <b>왼손 살을 통째로</b> 받아 갔고,
+팔 마디 두 개는 텅 비어 팔을 못 따라갔습니다. 세 번 고쳐 봤고 세 번 다 실측이 막아서 <b>되돌렸습니다</b>.</p>
+
+<h2>3. 검사가 정말 결함을 재는지, 원작자에 대고 확인했습니다</h2>
+<p>"팔 본이 몸통으로 샜다"는 검사를 <b>원작자의 가중치에 그대로</b> 돌려 봤습니다. 사람이 만든 리그가
+몇 점을 받는지 보면, 우리 기준이 현실적인지 알 수 있습니다.</p>
+<table>
+<tr><th>자산</th><th>원작자 자신의 누수</th><th>표본</th><th>뜻</th></tr>
+<tr><td>mannequiny</td><td class="n">0.0%</td><td class="n">1221</td><td>기준이 현실적</td></tr>
+<tr><td>KayKit 해골 전사</td><td class="n"><b>0.0%</b></td><td class="n">208</td><td>우리 11.7%는 <b>진짜 결함</b></td></tr>
+<tr><td>cesium_man</td><td class="n">5.9%</td><td class="n">34</td><td>저폴리라 표본이 적음</td></tr>
+<tr><td>quat_pp_43j(치비)</td><td class="n"><b>39.2%</b></td><td class="n">283</td><td>팔이 몸에 붙은 체형 — <b>사람도 그렇게 칠함</b></td></tr>
+</table>
+<p>그래서 게이트를 <b>"원작자만큼은 봐주고 그보다 더 새면 실패"</b>로 바꿨습니다(좌우 대칭에 이미 쓰던 방식).
+<b>점수는 하나도 안 바뀌었습니다</b> — 해골 전사도 치비도 여전히 실패입니다(치비는 우리 38.3% > 원작자 22%).
+지표를 제 편으로 만들려고 넣은 게 아니라는 증거이기도 합니다.</p>
+
+<h2>4. 그 밖에 남긴 개선</h2>
+<ul>
+<li><b>구멍은 이웃한 살에서 메웁니다.</b> 가장 가까운 본에 붙이면 그 정점만 따로 움직여 껍질에 금이 갑니다.
+메시 모서리를 타고 가장 가까운 정점의 가중치를 복사합니다 — 추측이 아니라 보간입니다.
+오크 12정점 <code>needs_review</code> → <b>ok</b>. <b>허용치는 0 그대로</b> 두고 메우는 방법만 고쳤습니다.</li>
+<li><b>팔→몸통 검사가 스스로 꺼질 수 있었습니다.</b> 표본 30개 미만이면 판정을 건너뛰는데, 결함이 있어도
+표본만 줄면 통과합니다. 실제로 모양 리그의 팔을 밖으로 밀었더니 17/31 → 표본 21 → <b>판정 없음 → 통과</b>가
+됐습니다(실제 누수는 오히려 늘어 24/30). 중심선에 가까운 순서로 30개까지 채우게 고쳤습니다.</li>
+<li><b>가중치 없는 본은 "메시 밖 본"에서 뺍니다.</b> 살을 못 움직이는 본은 밖에 있어도 결함이 아닙니다.</li>
+<li><b>모양 리그: 굵기가 가장 가파르게 꺾이는 자리</b>를 팔다리 목으로 삼습니다(네 번째 시도).
+리타겟 늘어남 67.2 → <b>38.2배</b>. 절반 가까이 줄었지만 <b>여전히 못 씁니다</b>(정상은 6배 미만).</li>
+</ul>
+
+<h2>5. 남은 숙제</h2>
+<ol>
+<li><b>점수에 "움직임"을 넣어야 합니다.</b> 오늘 두 번 속은 이유가 그것입니다. 정지 게이트만으로는
+가중치 변경의 손해를 못 봅니다.</li>
+<li><b>해골 전사의 누수 11/94</b> — 원작자가 0%라 변명이 안 되는 진짜 결함입니다. 네 가지 방법으로
+실패했고 전부 기록해 뒀습니다.</li>
+<li><b>모양 리그 동작 리타겟</b> — 팔 본이 가슴 안쪽에서 시작하는 구조적 한계. 네 번째 시도도 절반만.</li>
+<li><b>공개</b> — 말씀만 주시면 바로 합니다(준비는 끝나 있습니다).</li>
+</ol>
+
+<div class="box">
+<b>오늘의 교훈 한 줄:</b> 게이트가 초록불이어도 품질은 나빠질 수 있습니다.
+<b>가중치를 건드리면 반드시 움직여서 재야 합니다.</b>
+</div>
