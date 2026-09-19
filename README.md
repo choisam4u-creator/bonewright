@@ -2,6 +2,30 @@
 
 Rig and animate Blender characters with Codex. **Python drives the steps, `codex exec` judges, gates verify.**
 
+> **License: MIT, except `bonewright/bpy_scripts/`, which is GPL-3.0-or-later.** Anything that `import bpy` is a
+> derivative work of Blender, so it has to be GPL; the MIT core reaches Blender only by launching it as a child
+> process and exchanging JSON. `scripts/check_license_boundary.py` enforces that split in CI, so the boundary
+> cannot rot. GitHub shows no license badge because it cannot read a repository with two — that is expected.
+
+## Where it stands
+
+| What is measured | Score |
+|---|---|
+| **Rigging** — every gate green, no human review flagged | **63 / 66 = 95.5%** |
+| **Motion** — a walk retargeted onto the rig, mesh stretch under 6x and under 1% of edges | **25 / 29 = 86.2%** |
+
+Both numbers come from `python3 scripts/bench_score.py`, which picks neither the assets nor the path: it walks the
+asset folder and tries the documented ladder (`--from-skeleton` → silhouette preset → `--from-shape`) in order.
+
+**Read the second number with its denominator.** Of the 63 rigs that pass, **34 cannot receive motion at all** — a
+chain rig built from a blob's own shape has bones named `Limb3_2`, which no BVH maps onto, and a human walk on a
+blob is meaningless anyway. Those are excluded rather than counted as passes. An earlier version of this benchmark
+did count them, and 32 assets scored a perfect 1.00x stretch by never moving.
+
+**The rigging gates only look at a character standing still.** On 2026-09-19 four separate changes passed every gate
+while making the actual deformation worse — the worst took one asset from 3.72x to 20.7x stretch. Each one was
+caught by animating, not by the gates. If you touch weights, run the motion bench.
+
 Status: **v0.2 (alpha).** Humanoid and quadruped Rigify presets. Developed and tested on macOS with Blender 5.2 LTS
 and Codex CLI 0.153. **Linux is untested. Windows is unsupported.**
 
@@ -431,8 +455,14 @@ comparable: it assigned each asset to a path by hand, which leaves room to choos
 Mixamo/Adobe assets are deliberately excluded: the Adobe terms forbid using their content to test AI systems. Epic's
 own Fab content (Paragon, Game Animation Sample) is excluded too — it is tagged NoAI and ships in Unreal-only format.
 
-## License
+## License, again
 
-MIT (this CLI). Anything that runs inside Blender as an add-on must be GPL; bonewright runs Blender headless and ships
-no add-on. Rigify (GPL) is used through Blender, not vendored. Model weights for kimodo.cpp keep their own licenses
-(SOMA/G1: NVIDIA Open Model License).
+Stated at the top of this file and in full under [License](#license) above: **MIT, except
+`bonewright/bpy_scripts/`, which is GPL-3.0-or-later** because those files import `bpy` and run inside Blender.
+
+`addon/` holds a design note only — there is no add-on code in this repository, and bonewright drives Blender
+headless as a child process rather than installing into it. `scripts/check_license_boundary.py` checks the split on
+every push, so it is verified rather than asserted.
+
+Rigify (GPL) is used through Blender, not vendored. Model weights for kimodo.cpp keep their own licenses
+(SOMA/G1: NVIDIA Open Model License). This is a reading of published positions, not legal advice.

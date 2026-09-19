@@ -1,3 +1,12 @@
+This repository is dual-licensed. See README.md for the rationale.
+
+  * Everything here, unless noted below ........ MIT License (this file)
+  * bonewright/bpy_scripts/ ................... GPL-3.0-or-later
+    (those files run inside Blender and import bpy, which makes them a
+     derivative work of Blender; see bonewright/bpy_scripts/LICENSE)
+
+----------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2026 samchoi
