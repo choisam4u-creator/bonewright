@@ -72,6 +72,21 @@ class RigMockTests(unittest.TestCase):
         rep = (self.tmp / "runs/m3/report.md").read_text()
         self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
 
+    def test_real_asset_survives_retarget_without_tearing(self):
+        """**실제 자산**으로 리타겟 후 메시 늘어남을 잰다.
+
+        절차 생성 테스트 메시는 껍질이 하나라 가중치 손해를 못 잡는다. 실제 게임 메시는 옷·머리카락이
+        겹친 여러 껍질이라, 가중치를 건드리는 변경이 여기서만 드러난다(cross_trim 을 켰을 때
+        mannequiny 가 4.71 → 7.88배로 나빠진 걸 이 종류의 검사만 잡았다)."""
+        asset = ROOT / "tests/assets/quaternius_adventurer.glb"
+        if not asset.exists():
+            self.skipTest("CC0 자산 없음")
+        pipeline.rig(self.tmp, str(asset), "humanoid", run_id="rt1", quiet=True, no_judge=True)
+        pipeline.motion(self.tmp, bvh=str(ROOT / "spikes/motion_out/walk_wave.bvh"), run_id="rm1", quiet=True, rig_run="rt1")
+        rt = json.loads((self.tmp / "runs/rm1/retarget.json").read_text())
+        self.assertLess(rt["stretch"]["max_edge_ratio"], 6.0, rt["stretch"])
+        self.assertLess(rt["stretch"]["edges_over_2x"], rt["stretch"]["edges"] * 0.01, rt["stretch"])
+
     def test_shape_rig_follows_the_mesh_when_there_is_no_skeleton(self):
         """--from-shape: 메시 속 중심선에서 뼈대를 직접 만든다. 해부학 이름은 없지만 모든 정점이 붙고
         본이 메시 안에 있어야 한다(사람·개과 비율을 못 쓰는 곤충·괴물을 위한 길)"""

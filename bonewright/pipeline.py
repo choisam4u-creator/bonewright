@@ -230,6 +230,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                                    # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
                                    "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
                                    "weight_method": weights or cfg["rig"].get("weights", "auto"),
+                                   "cross_trim": cfg["rig"].get("cross_trim", True),
                                    # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
                                    # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
                                    "propagate_helpers": from_skeleton and gen_preset == "humanoid"})

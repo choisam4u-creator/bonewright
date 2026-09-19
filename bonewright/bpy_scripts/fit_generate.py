@@ -556,11 +556,13 @@ for v in obj.data.vertices:
     for n in drop:
         obj.vertex_groups[n].remove([v.index]); far_trimmed_weights += 1
     far_trimmed_verts += 1
-# 살을 가로지르지 않는 본 떼어내기: 자동 가중치는 거리로만 판단해서, **속이 빈** 메시(해골 갈비뼈)에서는
-# 텅 빈 가슴을 가로질러 팔 본이 갈비뼈를 가져간다. 팔을 들면 갈비뼈가 따라 올라간다.
-# 판정은 간단하다: 정점에서 그 본까지 가는 **직선이 메시 껍질을 뚫고 나가면** 둘은 같은 살덩이가 아니다.
-# 시작점은 표면이라 법선 방향으로 살짝 안쪽에서 쏜다. 옷·머리카락처럼 껍질이 겹친 메시에서 오판하지
-# 않도록 **주된 본은 절대 떼지 않고**, 떼고 나서도 남는 가중치가 있을 때만 적용한다
+# 살을 가로지르지 않는 본 떼어내기 — **기본 꺼짐**(`rig.cross_trim`).
+# 규칙 자체는 맞다: 정점에서 그 본까지 가는 직선이 메시 껍질을 뚫고 나가면 둘은 같은 살덩이가 아니다.
+# 속이 빈 메시(KayKit 해골)에서 팔 본이 텅 빈 가슴을 가로질러 갈비뼈를 가져가는 걸 없앤다(누수 11/94 → 0).
+# **그런데 보통 게임 메시에서는 손해다**: 옷·머리카락이 겹친 껍질을 광선이 스치면서 정상적인 영향까지 뗀다.
+# mannequiny A/B(정식 프리셋 경로 + CMU 걷기): 끄면 늘어남 4.71배·2배 넘는 모서리 6개, 켜면 7.88배·87개.
+# 누수는 양쪽 다 0/249 — **이득 없이 해만 있었다.** 그래서 기본은 끄고 속 빈 메시에서만 켠다.
+# (절차 생성 테스트 메시는 껍질이 하나라 이 손해를 못 잡았다 — 실제 자산이 잡았다)
 _sd = {n: (a, b) for n, a, b in _fill_segs}
 _winv = obj.matrix_world.inverted()
 _eps = A["landmarks"]["height"] * 0.004
@@ -578,7 +580,7 @@ def _blocked(pw, nrm, target):
     return bool(hit)
 
 
-for v in obj.data.vertices:
+for v in (obj.data.vertices if A.get("cross_trim", False) else []):   # 기본 꺼짐(아래 주석의 A/B 근거)
     gs = [(g, vg.get(g.group, "")) for g in v.groups if vg.get(g.group, "").startswith("DEF-") and g.weight > 0]
     if len(gs) < 2:
         continue

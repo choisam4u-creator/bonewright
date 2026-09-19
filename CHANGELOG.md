@@ -19,9 +19,12 @@ All notable changes to this project. Numbers are measured against the original a
 - Held props (a weapon, a trident) are detected by weight concentration on hand bones and excluded from every
   size and centre measurement, and bound rigidly to one bone.
 - `scripts/check_license_boundary.py`, enforced in CI: the MIT core must never import `bpy`.
-- Influences whose straight line from the vertex to the bone leaves the mesh are dropped. Automatic weights
-  judge by distance alone, so on a hollow ribcage an arm bone reaches across the empty chest and takes the ribs.
-  KayKit skeleton warrior: arm-into-torso leak 11 of 94 vertices → 0.
+- `rig.cross_trim` (**off by default**) drops influences whose straight line from the vertex to the bone leaves
+  the mesh. On a hollow ribcage an arm bone reaches across the empty chest and takes the ribs — KayKit skeleton
+  warrior's arm-into-torso leak goes from 11 of 94 vertices to 0. On an ordinary layered game mesh it costs more
+  than it gains (mannequiny retarget stretch 4.71x off, 7.88x on, with no leak either way), so it stays off.
+- A regression test that retargets a **real** CC0 asset and measures mesh stretch. The procedural test mesh has a
+  single shell and never showed the cost above; the real asset fails at 9.34x with the trim on.
 
 ### Fixed
 - Left-right repair now fires whenever the source rig is symmetric, and averages the two sides instead of copying
