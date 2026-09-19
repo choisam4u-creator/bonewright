@@ -41,3 +41,17 @@ through the JSON contract in `blender.run_script`.
 `docs/ROADMAP.md` ends with the open holes and what has already failed. The largest one today: motion retargeting
 onto a `--from-shape` rig tears the mesh (max edge stretch 44x vs under 6x on the preset path) because the arm
 chain starts inside the chest.
+
+## What CI actually runs
+
+Two jobs. `unit` installs nothing but this package and runs the tests that do not need Blender — a green tick there
+means the Python imports and the license boundary holds, nothing more. `blender` installs the `bpy` wheel and runs
+**every** test, including rig generation, skinning and retargeting. If you change anything that touches weights,
+that second job is the one that matters.
+
+Locally, `python3 -m unittest tests.test_mock` runs the whole suite if Blender (or the `bpy` wheel) is on the
+machine, and quietly skips the Blender half if it is not — so check the skip count before trusting a local pass:
+
+```
+Ran 37 tests ... OK (skipped=10)   ← the ten that matter did not run
+```

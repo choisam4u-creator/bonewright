@@ -449,6 +449,19 @@ green, no human review flagged).
 python3 scripts/bench_score.py --assets bench-assets --home /tmp/bwscore --out score.txt
 ```
 
+Give it a BVH and it also **animates every rig that passed** and measures how far the mesh stretches, which is the
+only way to catch a weight change that keeps the gates green while making the deformation worse:
+
+```bash
+python3 scripts/bench_score.py --assets bench-assets --home /tmp/bwscore \
+    --motion-humanoid walk.bvh --motion-quad wolf_walk.bvh
+```
+
+Stretch is judged on **depth and breadth**, because the single worst edge ranks assets almost backwards: one bull
+stretches 11.63x on 0.22% of its edges while a frog stretches 4.55x on 1.19%. A run is a pass under 6x and under 1%
+of edges, a *localised spike* when only the depth is exceeded, and a *tear* when the breadth is. A rig that no BVH
+maps onto is reported as unmeasurable, not as a pass — see the warning about 1.00x stretch at the top of this file.
+
 Running it is the only way this project quotes a completion percentage. An earlier hand-curated table is not
 comparable: it assigned each asset to a path by hand, which leaves room to choose the flattering one.
 

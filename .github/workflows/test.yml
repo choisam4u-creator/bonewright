@@ -1,5 +1,7 @@
-# Blender 없이 도는 테스트만 돌린다. 리그 생성·가중치·벤치 테스트(RigMockTests)는 Blender 5.2 또는
-# bpy 휠이 필요해서 여기서는 자동으로 건너뛴다 — 전부 돌리려면 로컬에서 `python3 -m unittest tests.test_mock`.
+# 두 갈래로 돈다.
+#   unit    — Blender 없이 도는 것만(빠름). 리그·가중치·리타겟 테스트는 자동으로 건너뛴다
+#   blender — `bpy` 휠을 깔고 **전부** 돈다. 이 프로젝트의 본체가 여기서 검증된다
+# unit 만 보고 "초록불" 이라 하면 "파이썬 import 는 된다" 는 뜻밖에 안 된다 — 그래서 blender 를 나눠 뒀다.
 name: test
 on: [push, pull_request]
 jobs:
@@ -20,3 +22,20 @@ jobs:
         run: bw --help
       - name: 라이선스 경계 — bonewright/ 본체는 bpy 를 import 하지 않는다(MIT 유지)
         run: python scripts/check_license_boundary.py
+
+  blender:
+    # 리그 생성·스키닝·리타겟까지 **실제로** 돌린다. `bpy` 휠은 cp313 리눅스용만 있어 파이썬은 3.13 고정
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: bpy 휠이 쓰는 시스템 라이브러리
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libsm6
+      - run: pip install . bpy==5.2.2
+      - name: bpy 가 실제로 올라오는지
+        run: python -c "import bpy; print('Blender', bpy.app.version_string)"
+      - name: 전체 테스트(리그·가중치·리타겟 포함)
+        run: python -m unittest -v tests.test_mock
