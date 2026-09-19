@@ -6,13 +6,6 @@ All notable changes to this project. Numbers are measured against the original a
 ## [Unreleased]
 
 ### Added
-- **Author weights are reused when the file ships a skeleton.** The bone *names* differ
-  (`mixamorig:Spine` → `DEF-spine.003`) but the *positions* came from that skeleton, so each source bone is
-  paired with the DEF bone nearest to it and the artist's weights move across unchanged. Recomputing them costs
-  real quality on hollow meshes: automatic weights reach across a skeleton's empty ribcage and give the ribs to
-  an arm bone (KayKit skeleton warrior, 11 of 94 torso vertices → **0**; minion 16 → **0**). The transfer is
-  rejected and weights recomputed if any pairing is more than 20% of body height off, or if it leaves more than
-  1% of the body unweighted (held props excluded — authors parent those rather than skin them).
 - **Unweighted vertices are filled from their connected neighbours** instead of from the nearest bone. A
   nearest-bone guess makes one vertex follow a different bone than the flesh around it and the shell cracks;
   copying the weights of the closest vertex *along the mesh* is interpolation, not a guess. Orc: 12 stragglers
@@ -42,6 +35,13 @@ All notable changes to this project. Numbers are measured against the original a
   single shell and never showed the cost above; the real asset fails at 9.34x with the trim on.
 
 ### Fixed
+- **Tried and reverted: reusing the author's painted weights.** Bone names differ between rigs but the positions
+  came from the same skeleton, so each source bone was paired with the DEF bone nearest to it. The leak metric
+  loved it (KayKit skeleton warrior 11 of 94 chest vertices → 0). Animating it told a different story: the same
+  asset went from 5.78x to **11.25x** mesh stretch under a CMU walk, and cesium_man from 3.72x to **20.7x**.
+  Plenty of rigs mark a joint with a **zero-length** bone, which collapses any position-based pairing — a left
+  hand ended up weighted to a torso bone. The gates cannot see this; only animating can.
+
 - **The arm-into-torso check could switch itself off.** It samples a narrow band down the middle of the chest
   and skips the verdict when fewer than 30 vertices land there — so a low-poly character could pass by having
   too few samples, and moving a bone could silently disable the check (godot_player went 17/31 → 21 samples →

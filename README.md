@@ -237,16 +237,7 @@ Run over every benchmark asset (25 files, 0 tokens):
 Cow and bull are worth singling out: they are the two worst assets for the silhouette path (7.4%), because a thick
 body breaks the hip-over-back ratio. Reading their own skeleton sidesteps the ratio entirely.
 
-The author's **weights** come across too, not just the joints. Bone names differ (`mixamorig:Spine` →
-`DEF-spine.003`) but the positions came from that same skeleton, so each source bone is paired with the DEF bone
-nearest to it and the artist's painted weights are reused unchanged. Recomputing them is not free: automatic
-weights judge by straight-line distance, so on a hollow mesh an arm bone reaches across a skeleton's empty
-ribcage and takes the ribs (KayKit skeleton warrior, 11 of 94 chest-midline vertices; minion, 16 of 128 — both
-**0** once the author's weights are used). The transfer is abandoned, and weights recomputed, if any pairing is
-off by more than 20% of body height or if it leaves more than 1% of the body unweighted. Held props are excluded
-from that coverage test, because authors parent a sword to a hand rather than skinning it.
-
-Whatever is still unweighted afterwards is filled **from its connected neighbours** — the weights of the nearest
+Vertices that automatic weighting leaves empty are filled **from their connected neighbours** — the weights of the nearest
 vertex reachable along the mesh — rather than from the nearest bone. A nearest-bone guess makes a single vertex
 follow a different bone than the flesh around it, and the shell cracks there; copying a neighbour's weights is
 interpolation and moves with the surrounding surface. Only an island with no weighted vertex at all falls back to

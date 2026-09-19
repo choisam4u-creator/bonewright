@@ -415,7 +415,7 @@ bpy.ops.pose.rigify_generate(); rig = bpy.context.active_object
 # 일반 리그는 원본 뼈대를 **그대로** 베꼈다 → 변형 본 이름이 DEF-<원본 이름> 으로 1:1 이라 원본 가중치를
 # 그대로 옮길 수 있다. 다시 계산할 이유가 없다: Bone Heat 는 눈·장식이 따로 떨어진 블롭 메시에서 정점의
 # 39%를 비워 놓았는데(orc_blob 464/1203) 원본은 전부 칠해져 있다
-source_weights = False; dropped_groups = []; _fit_dbg = {}
+source_weights = False; dropped_groups = []
 if GENERIC:
     _have = {g.name for g in obj.vertex_groups}
     _want = {n for n, v in A["source_joints"].items() if v.get("deform") is not False}
@@ -429,65 +429,15 @@ if GENERIC:
             obj.parent = rig; obj.matrix_parent_inverse = rig.matrix_world.inverted()
             _am = obj.modifiers.new("Armature", "ARMATURE"); _am.object = rig
             source_weights = True
-# 사람·네발 **메타리그에 맞춘** 경우에도 원작자의 가중치를 쓸 수 있다. 본 **이름**은 다르지만
-# (원본 `mixamorig:Spine` → `DEF-spine.003`) **자리**는 원본에서 받아 왔으니 자리로 짝을 지으면 된다.
-# 원작자가 칠한 가중치는 Bone Heat 보다 거의 언제나 낫다 — 특히 속이 빈 메시(해골)에서 자동 가중치는
-# 팔 본에 갈비뼈를 주지만(KayKit 해골 전사 11/94) 원작자는 그러지 않는다.
-# 짝이 90% 미만이거나 옮긴 뒤 빈 정점이 1% 를 넘으면 쓰지 않고 예전처럼 다시 계산한다.
-if not source_weights and A.get("source_joints") and not GENERIC:
-    _SJ = A["source_joints"]
-    _gi = {g.name: g.index for g in obj.vertex_groups}
-    _gn = {g.index: g.name for g in obj.vertex_groups}
-    _defs = [(b.name, rig.matrix_world @ b.head_local, rig.matrix_world @ b.tail_local)
-             for b in rig.data.bones if b.use_deform]
-    _Hh = A["landmarks"]["height"]
-
-    def _pt_seg(p, a, b):
-        ab = b - a
-        t = 0.0 if ab.length_squared < 1e-12 else max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
-        return (p - (a + ab * t)).length
-
-    _pair = {}; _fit_dbg = {}; _far = 0.0
-    # **이 메시에서 실제로 쓰이는 그룹**만 고른다. gt_joints 의 deform 표시는 다른 불러오기에서 난 판정이라
-    # 여기 메시와 어긋나고, 반대로 안 쓰이는 보조 본까지 넣으면 자리가 멀다고 통째로 퇴짜 맞는다
-    _used = set()
-    for v in obj.data.vertices:
-        for g in v.groups:
-            if g.weight > 1e-4:
-                _used.add(_gn.get(g.group, ""))
-    _want = [n for n in _SJ if n in _gi and n in _used]
-    for n in _want:
-        v = _SJ[n]
-        a = Vector(v["head"]); b = Vector(v["tail"]); mid = (a + b) / 2
-        best = min(_defs, key=lambda d: _pt_seg(mid, d[1], d[2]))
-        _pair[n] = best[0]
-        _far = max(_far, _pt_seg(mid, best[1], best[2]) / _Hh)
-    # 짝지은 자리가 키의 20% 넘게 벌어지면 그건 같은 본이 아니다 → 옮기지 않고 다시 계산한다
-    _fit_dbg = {"want": len(_want), "pair": len(_pair), "far": round(_far, 3), "orphan": sorted(n for n in _used if n and n not in _SJ)[:12]}
-    if _want and _far < 0.2:
-        _acc = {}
-        for v in obj.data.vertices:
-            for g in v.groups:
-                dn = _pair.get(_gn.get(g.group, ""))
-                if dn and g.weight > 1e-4:
-                    _acc.setdefault(dn, []).append((v.index, g.weight))
-        # 들고 있는 소품(칼·방패)은 원작자도 뼈대가 아니라 부모로 묶어 둔다 → 덮인 비율에서 뺀다
-        _body_idx = [v.index for v in obj.data.vertices if v.index not in ATTACH_VERTS]
-        _hit = {i for items in _acc.values() for i, _w in items}
-        _fit_dbg["cov"] = round(len(_hit & set(_body_idx)) / max(1, len(_body_idx)), 4)
-        if len(_hit & set(_body_idx)) >= len(_body_idx) * 0.99:
-            dropped_groups = [g.name for g in obj.vertex_groups]
-            for g in list(obj.vertex_groups):
-                obj.vertex_groups.remove(g)
-            for dn, items in _acc.items():
-                grp = obj.vertex_groups.new(name=dn)
-                for i, w in items:
-                    grp.add([i], w, "ADD")
-            obj.parent = rig; obj.matrix_parent_inverse = rig.matrix_world.inverted()
-            _am = obj.modifiers.new("Armature", "ARMATURE"); _am.object = rig
-            source_weights = "fitted"
+# **원작자 가중치를 자리로 옮기는 건 실패했다(2026-09-19).** 여기에 그 코드가 있었다.
+# 착상: 이름은 달라도(`mixamorig:Spine` → `DEF-spine.003`) 자리는 원본에서 받아 왔으니 자리로 짝지으면
+# 원작자가 칠한 가중치를 그대로 쓸 수 있다. 누수 지표는 실제로 좋아졌다(해골 전사 11/94 → 0).
+# **그런데 움직여 보니 더 나빴다.** 같은 자산 CMU 걷기 리타겟: 자동 5.78배/모서리 34 → 원작자 11.25배/70.
+# cesium_man 은 3.72 → 20.7배. 원인은 뼈대 규약 차이다 — 관절마다 **길이 0 짜리 표식**만 두는 파일이
+# 흔한데(cesium_man), 그러면 '가장 가까운 자리' 짝짓기가 무너져 왼손 살이 몸통 본에 붙는다.
+# 게이트(누수·구멍)는 이걸 못 잡는다. 움직여야 드러나기 때문이다. 자세한 기록은 docs/ROADMAP.md.
 if source_weights:
-    weight_method = "source" if source_weights is True else "source_fitted"
+    weight_method = "source"
     auto_unweighted = None; proxy_unweighted = None
     _vg = {g.index: g.name for g in obj.vertex_groups}
     sums = [sum(g.weight for g in v.groups if _vg.get(g.group, "").startswith("DEF-")) for v in obj.data.vertices]
@@ -745,7 +695,10 @@ for v in obj.data.vertices:
 _cands.sort()
 _sel = [c for c in _cands if c[0] < _band]
 if len(_sel) < 30:
-    _sel = [c for c in _cands if c[0] < _band * 2.5][:30]
+    # 넓히되 **어깨까지 가지 않게** 상한을 둔다. 팔 본 x 의 절반을 넘으면 팔이 정상적으로 잡은
+    # 정점을 '샜다'고 세기 시작한다(이 파일이 이미 겪은 실수다 — quat_pp_43j 108/271)
+    _wide = min(0.06 * _H, 0.5 * (sum(_ax) / len(_ax))) if _ax else 0.06 * _H
+    _sel = [c for c in _cands if c[0] < max(_band, _wide)][:30]
 torso_verts = len(_sel)
 leak_arm = sum(1 for _d, share in _sel if share > 0.15)
 mn = Vector(A["stats"]["min"]); mx = Vector(A["stats"]["max"]); pad = 0.12
@@ -796,7 +749,7 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"generic_source_bones": (sum(1 for v in A["source_joints"].values() if v.get("deform") is not False) if GENERIC else None), "metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "source_fit": _fit_dbg, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
+         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
          "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "cross_trimmed_verts": cross_trimmed_verts, "cross_trimmed_weights": cross_trimmed_weights, "cross_detour": cross_detour, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다

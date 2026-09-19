@@ -72,21 +72,6 @@ class RigMockTests(unittest.TestCase):
         rep = (self.tmp / "runs/m3/report.md").read_text()
         self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
 
-    def test_author_weights_are_reused_when_the_file_has_a_skeleton(self):
-        """원본 뼈대가 있으면 **원작자가 칠한 가중치**를 자리로 짝지어 그대로 쓴다.
-
-        본 이름은 다르지만(`mixamorig:Spine` → `DEF-spine.003`) 자리는 원본에서 받아 왔다.
-        다시 계산하면 속 빈 메시에서 팔 본이 갈비뼈를 가져간다(KayKit 해골 전사 11/94 → 0)."""
-        asset = ROOT / "tests/assets/quaternius_adventurer.glb"
-        if not asset.exists():
-            self.skipTest("CC0 자산 없음")
-        pipeline.rig(self.tmp, str(asset), "humanoid", run_id="sf1", quiet=True, no_judge=True, from_skeleton=True)
-        st = json.loads((self.tmp / "runs/sf1/rig_stats.json").read_text())["stats"]
-        self.assertEqual(st["weight_method"], "source_fitted", st.get("source_fit"))
-        self.assertEqual(st["unweighted_verts"], 0, st)
-        self.assertEqual(st["filled_unweighted"], 0, st)
-        self.assertLessEqual(st["weight_leak_arm_torso"], max(1, st["weight_leak_torso_verts"] * 0.005), st)
-
     def test_real_asset_survives_retarget_without_tearing(self):
         """**실제 자산**으로 리타겟 후 메시 늘어남을 잰다.
 
