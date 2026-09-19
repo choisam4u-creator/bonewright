@@ -10,7 +10,13 @@
 한 단계라도 `ok` 가 나오면 통과, 전부 `needs_review`/`rejected` 면 실패로 센다.
 자산 목록도 폴더에서 읽는다 — 골라 담을 여지를 남기지 않는다.
 
-    python3 scripts/bench_score.py --assets <폴더> --home <작업폴더> [--only 이름]
+**리깅 게이트만으로는 부족하다.** 게이트는 **정지 자세**만 본다. 2026-09-19 에 가중치를 건드리는 변경
+두 건이 게이트를 통과하면서 실제 변형은 나쁘게 만들었고(가로트림 4.71→7.88배, 원작자 가중치 이전
+5.78→11.25배), 둘 다 **움직여 재서야** 드러났다. 그래서 `--motion-*` 로 BVH 를 주면 통과한 자산마다
+동작을 옮겨 **메시 늘어남**까지 재고, 점수를 두 줄로 낸다: 리깅 점수와 **동작까지 통과한 점수**.
+
+    python3 scripts/bench_score.py --assets <폴더> --home <작업폴더> \
+        --motion-humanoid walk.bvh --motion-quad wolf_walk.bvh
 """
 import argparse
 import json
@@ -23,12 +29,20 @@ QUAD_HINT = ("animals",)          # 네발짐승 폴더는 프리셋이 다르�
 SKIP_DIRS = ("raw",)              # 내려받은 원본 사본 — 같은 모델이 두 번 세어진다
 
 
-def run(cli_args, home, env_extra=None):
+def run(cli_args, home, sub="rig"):
     import os
-    env = dict(os.environ, BW_HOME=str(home), BW_BACKEND="mock", **(env_extra or {}))
-    p = subprocess.run([sys.executable, "-m", "bonewright.cli", "rig", *cli_args, "--no-judge", "--quiet"],
+    env = dict(os.environ, BW_HOME=str(home), BW_BACKEND="mock")
+    p = subprocess.run([sys.executable, "-m", "bonewright.cli", sub, *cli_args, "--quiet"],
                        capture_output=True, text=True, env=env, timeout=1800)
     return p.returncode, (p.stdout + p.stderr)[-400:]
+
+
+def stretch(home, run_id):
+    """리타겟 결과의 메시 늘어남(최대 모서리 비). 못 재면 None"""
+    try:
+        return json.loads((Path(home) / "runs" / run_id / "retarget.json").read_text())["stretch"]["max_edge_ratio"]
+    except Exception:
+        return None
 
 
 def status(home, run_id):
@@ -44,6 +58,9 @@ def main():
     ap.add_argument("--home", required=True, help="BW_HOME 으로 쓸 폴더")
     ap.add_argument("--only", help="이름에 이 문자열이 든 자산만")
     ap.add_argument("--out", help="줄별 결과를 적을 파일")
+    ap.add_argument("--motion-humanoid", help="사람형 리그에 옮겨 볼 BVH")
+    ap.add_argument("--motion-quad", help="네발 리그에 옮겨 볼 BVH")
+    ap.add_argument("--stretch-max", type=float, default=6.0, help="동작 통과 기준: 메시 늘어남 최대 배수")
     a = ap.parse_args()
     root = Path(a.assets)
     files = sorted(p for p in root.rglob("*") if p.suffix.lower() in (".glb", ".gltf")
@@ -58,19 +75,37 @@ def main():
         preset = "quadruped" if any(h in str(f) for h in QUAD_HINT) else "humanoid"
         t0 = time.time()
         won = None
+        won = won_rid = None
         for step, extra in (("뼈대", ["--from-skeleton"]), ("프리셋", []), ("모양", ["--from-shape"])):
             rid = f"sc_{name}_{step}"
-            run([str(f), "--preset", preset, *extra, "--run-id", rid], a.home)
+            run([str(f), "--preset", preset, *extra, "--run-id", rid, "--no-judge"], a.home)
             if status(a.home, rid) == "ok":
-                won = step
+                won, won_rid = step, rid
                 break
         ok += bool(won)
-        rows.append((name, preset, won or "실패", round(time.time() - t0, 1)))
-        print(f"[{i:3d}/{len(files)}] {name:28s} {preset:10s} {won or '실패':6s} {rows[-1][3]:6.1f}s", file=out, flush=True)
-    print(f"\n합계 {ok}/{len(files)} = {100 * ok / max(1, len(files)):.1f}%", file=out, flush=True)
-    for n, p, w, _t in rows:
+        bvh = a.motion_quad if preset == "quadruped" else a.motion_humanoid
+        st = None
+        if won and bvh:
+            mid = f"{won_rid}_mo"
+            run(["--bvh", bvh, "--rig", won_rid, "--run-id", mid], a.home, sub="motion")
+            st = stretch(a.home, mid)
+        rows.append((name, preset, won or "실패", st, round(time.time() - t0, 1)))
+        mark = "-" if st is None else ("통과" if st < a.stretch_max else "찢김")
+        sv = "  -  " if st is None else f"{st:5.2f}"
+        print(f"[{i:3d}/{len(files)}] {name:28s} {preset:10s} {won or '실패':6s} 늘어남 {sv} {mark:4s} {rows[-1][4]:6.1f}s",
+              file=out, flush=True)
+    moved = [r for r in rows if r[3] is not None]
+    good = [r for r in moved if r[3] < a.stretch_max]
+    print(f"\n리깅 점수     {ok}/{len(files)} = {100 * ok / max(1, len(files)):.1f}%", file=out, flush=True)
+    if moved:
+        print(f"동작까지 통과 {len(good)}/{len(moved)} = {100 * len(good) / len(moved):.1f}%"
+              f"  (늘어남 {a.stretch_max}배 미만 · 동작을 옮길 수 있었던 자산만)", file=out, flush=True)
+    for n, p, w, st, _t in rows:
         if w == "실패":
-            print(f"  실패: {n} ({p})", file=out, flush=True)
+            print(f"  리깅 실패: {n} ({p})", file=out, flush=True)
+    for n, p, w, st, _t in rows:
+        if st is not None and st >= a.stretch_max:
+            print(f"  동작에서 찢김: {n} ({p}) 늘어남 {st}배", file=out, flush=True)
 
 
 if __name__ == "__main__":
