@@ -64,10 +64,16 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
 
 def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0) -> list[str]:
     fails = []
-    # 가중치 없는 정점은 fit_generate 가 가장 가까운 본으로 메운다 → 메운 수(filled_unweighted)로 판정한다. 메운 뒤에도 남으면 그것도 실패
+    # 가중치 없는 정점은 fit_generate 가 메운다. **어떻게 메웠는지로 나눠 본다**:
+    #   · 가장 가까운 본에 붙였다(filled_unweighted) → 추측이다. 그 정점만 따로 움직여 껍질에 금이 갈 수 있다 → 구멍으로 센다
+    #   · 이어진 이웃 정점의 가중치를 복사했다(filled_from_neighbor) → 추측이 아니라 보간이다. 주변 살과 반드시 같이 움직인다
+    # 다만 이웃 보간이 메시의 5% 를 넘으면 자동 가중치 자체가 실패한 것이라 그때는 실패로 본다
     holes = stats["unweighted_verts"] + stats.get("filled_unweighted", 0)
     if verts and holes / verts > g["max_unweighted_ratio"]:
         fails.append(f"가중치 없는 정점 {holes}/{verts} (가까운 본으로 메운 {stats.get('filled_unweighted', 0)}개 포함)")
+    nb = stats.get("filled_from_neighbor", 0)
+    if verts and nb > verts * 0.05:
+        fails.append(f"이웃에서 가중치를 복사해 메운 정점 {nb}/{verts} — 자동 가중치가 넓게 실패했다")
     if stats["weight_sum_min"] < g["weight_sum_min"] or stats["weight_sum_max"] > g["weight_sum_max"]:
         fails.append(f"가중치 합 범위 {stats['weight_sum_min']}~{stats['weight_sum_max']} (허용 {g['weight_sum_min']}~{g['weight_sum_max']})")
     # 변형 본 최소치는 사람 메타리그(410본) 기준이다. 원본 뼈대를 그대로 베낀 **일반 리그**는 본 수가

@@ -237,6 +237,21 @@ Run over every benchmark asset (25 files, 0 tokens):
 Cow and bull are worth singling out: they are the two worst assets for the silhouette path (7.4%), because a thick
 body breaks the hip-over-back ratio. Reading their own skeleton sidesteps the ratio entirely.
 
+The author's **weights** come across too, not just the joints. Bone names differ (`mixamorig:Spine` →
+`DEF-spine.003`) but the positions came from that same skeleton, so each source bone is paired with the DEF bone
+nearest to it and the artist's painted weights are reused unchanged. Recomputing them is not free: automatic
+weights judge by straight-line distance, so on a hollow mesh an arm bone reaches across a skeleton's empty
+ribcage and takes the ribs (KayKit skeleton warrior, 11 of 94 chest-midline vertices; minion, 16 of 128 — both
+**0** once the author's weights are used). The transfer is abandoned, and weights recomputed, if any pairing is
+off by more than 20% of body height or if it leaves more than 1% of the body unweighted. Held props are excluded
+from that coverage test, because authors parent a sword to a hand rather than skinning it.
+
+Whatever is still unweighted afterwards is filled **from its connected neighbours** — the weights of the nearest
+vertex reachable along the mesh — rather than from the nearest bone. A nearest-bone guess makes a single vertex
+follow a different bone than the flesh around it, and the shell cracks there; copying a neighbour's weights is
+interpolation and moves with the surrounding surface. Only an island with no weighted vertex at all falls back to
+the nearest bone, and that still counts as a hole.
+
 A model built from separate parts gets one more thing: when automatic weights leave a **whole** disconnected island
 empty, that island is bound to a single nearest bone rather than filled vertex by vertex. That is what a rigid part
 wants — the robot's 40 stray vertices and the chibi's 130 (a head modelled as its own mesh) stop counting as holes,
@@ -407,6 +422,20 @@ pessimistic, and one of them parents the foot to the root rather than the shin, 
 
 Weights themselves are engine-ready: automatic weighting binds up to 9–10 bones to a single vertex, which glTF and
 most engines silently truncate to 4, so bonewright keeps the largest 4 and renormalises (measured cost: 0.05 cm).
+
+### The completion score
+
+`scripts/bench_score.py` reports one number for the whole asset set, and it picks neither the assets nor the path.
+It walks the folder, and for each file it tries the documented ladder in order — `--from-skeleton`, then the
+silhouette preset, then `--from-shape` — and counts the asset as passing only if some rung reaches `ok` (every gate
+green, no human review flagged).
+
+```bash
+python3 scripts/bench_score.py --assets bench-assets --home /tmp/bwscore --out score.txt
+```
+
+Running it is the only way this project quotes a completion percentage. An earlier hand-curated table is not
+comparable: it assigned each asset to a path by hand, which leaves room to choose the flattering one.
 
 Mixamo/Adobe assets are deliberately excluded: the Adobe terms forbid using their content to test AI systems. Epic's
 own Fab content (Paragon, Game Animation Sample) is excluded too — it is tagged NoAI and ships in Unreal-only format.

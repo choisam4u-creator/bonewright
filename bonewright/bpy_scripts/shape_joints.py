@@ -60,16 +60,25 @@ _ROOT_R = shape["root"][3] if len(shape["root"]) > 3 else 0.0
 
 
 def _outside_torso(path):
-    """경로에서 **몸통 안쪽 구간을 잘라낸다**. 몸통 구는 굵고 팔다리 구는 가늘다 — 굵기가 몸통의 60% 아래로
-    떨어지는 첫 지점부터가 팔다리다. 안 자르면 '위팔' 본이 가슴 한가운데서 시작해, 돌 때 몸통을 통째로
-    끌고 간다(걷기 리타겟 변형 44배). 머리·꼬리 사슬은 몸통을 포함해야 하므로 자르지 않는다"""
-    if _ROOT_R <= 0:
+    """경로에서 **몸통 안쪽 구간을 잘라낸다**. 안 자르면 '위팔' 본이 가슴 한가운데서 시작해, 돌 때 몸통을
+    통째로 끌고 간다(걷기 리타겟 변형 44배). 머리·꼬리 사슬은 몸통을 포함해야 하므로 자르지 않는다.
+
+    자를 자리는 **굵기가 가장 가파르게 꺾이는 목**이다. "몸통 굵기의 60% 아래" 같은 절대 기준은
+    뿌리 구가 배에 놓이는 체형에서 목을 지나쳐 버린다(godot_player 팔→몸통 누수 17/31).
+    굵기는 몸통에서 팔다리로 넘어갈 때 한 번 크게 꺾이므로, 그 꺾임 자리가 체형과 무관하게 목이다."""
+    if _ROOT_R <= 0 or len(path) < 4:
         return path
-    thr = _ROOT_R * 0.6
-    for k, q in enumerate(path):
-        if len(q) > 3 and q[3] < thr:
-            return path[max(0, k - 1):] if len(path) - k >= 2 else path
-    return path
+    r = [q[3] if len(q) > 3 else 0.0 for q in path]
+    n = len(r)
+    lim = max(2, int(n * 0.6))          # 목은 앞쪽 절반쯤에 있다 — 끝 쪽의 잔잔한 변화에 속지 않는다
+    best, bk = 0.0, None
+    for k in range(1, lim):
+        drop = r[k - 1] - r[min(n - 1, k + 1)]
+        if drop > best:
+            best, bk = drop, k
+    if bk is None or best < _ROOT_R * 0.15:
+        return path                      # 뚜렷한 목이 없으면(블롭·촉수) 손대지 않는다
+    return path[max(0, bk - 1):] if n - bk >= 2 else path
 
 
 for i, tip in _tips:

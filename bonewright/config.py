@@ -10,7 +10,7 @@ DEFAULTS = {
     "budget": {"max_input_tokens": 600_000, "price_input_per_m": 10.0, "price_output_per_m": 50.0},
     "codex": {"timeout": 600, "ignore_user_config": True, "extra_args": ["--skip-git-repo-check", "--ephemeral"]},
     "blender": {"app": "", "prefer_module": True, "timeout": 600},      # app 비우면 자동 탐색
-    "rig": {"face": False, "rest_pose": "keep", "weights": "auto", "cross_trim": False},   # 살을 가로지르는 본 떼기: 속 빈 메시(해골)에만 득이고 보통 메시엔 해다 → 기본 끔     # weights: auto(Bone Heat, 비면 대리) | proxy(항상 복셀 대리)                        # rest_pose: keep(메시 자세 그대로) | t(팔을 수평으로 굳힘)                                             # Rigify 얼굴 리그 포함 여부(v0.1 기본 제외)
+    "rig": {"face": False, "rest_pose": "keep", "weights": "auto", "cross_trim": True},   # 살을 가로지르는 본 떼기: 빈 공간을 길게 지나는 영향만 뗀다(스침은 안 뗀다)
     "render": {"size": 512, "judge_views": ["front", "side"]},
     "gates": {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03, "max_weight_leak_ratio": 0.005, "max_deform_outside_mesh": 0,
               "deform_bones_min": 60, "max_bones_outside_bbox": 0,

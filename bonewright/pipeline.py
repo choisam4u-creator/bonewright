@@ -186,6 +186,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         if not gt.get("joints"):
             _reject("--from-skeleton: 이 파일에 원본 뼈대가 없다 — 기본 경로(--from-skeleton 없이)로 돌려라", ["뼈대 없음"])
         tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"], a["landmarks"].get("ground_z", 0.0))
+        source_joints = gt["joints"]   # 메타리그 경로에서도 원작자 가중치를 자리로 옮길 수 있게 넘긴다
         # 사람·개과 메타리그에 맞출 수 없는 몸(용·유령·문어·블롭)은 거절하는 대신 **원본 뼈대를 그대로 베낀
         # 일반 리그**로 간다. 관절 이름을 못 알아봐도, 팔다리가 없어도, 사슬이면 컨트롤을 만들 수 있다
         if info["limbs_absent"] or len(tg) < 6:

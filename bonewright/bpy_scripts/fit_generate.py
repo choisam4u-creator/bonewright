@@ -415,7 +415,7 @@ bpy.ops.pose.rigify_generate(); rig = bpy.context.active_object
 # 일반 리그는 원본 뼈대를 **그대로** 베꼈다 → 변형 본 이름이 DEF-<원본 이름> 으로 1:1 이라 원본 가중치를
 # 그대로 옮길 수 있다. 다시 계산할 이유가 없다: Bone Heat 는 눈·장식이 따로 떨어진 블롭 메시에서 정점의
 # 39%를 비워 놓았는데(orc_blob 464/1203) 원본은 전부 칠해져 있다
-source_weights = False
+source_weights = False; dropped_groups = []; _fit_dbg = {}
 if GENERIC:
     _have = {g.name for g in obj.vertex_groups}
     _want = {n for n, v in A["source_joints"].items() if v.get("deform") is not False}
@@ -429,8 +429,66 @@ if GENERIC:
             obj.parent = rig; obj.matrix_parent_inverse = rig.matrix_world.inverted()
             _am = obj.modifiers.new("Armature", "ARMATURE"); _am.object = rig
             source_weights = True
+# 사람·네발 **메타리그에 맞춘** 경우에도 원작자의 가중치를 쓸 수 있다. 본 **이름**은 다르지만
+# (원본 `mixamorig:Spine` → `DEF-spine.003`) **자리**는 원본에서 받아 왔으니 자리로 짝을 지으면 된다.
+# 원작자가 칠한 가중치는 Bone Heat 보다 거의 언제나 낫다 — 특히 속이 빈 메시(해골)에서 자동 가중치는
+# 팔 본에 갈비뼈를 주지만(KayKit 해골 전사 11/94) 원작자는 그러지 않는다.
+# 짝이 90% 미만이거나 옮긴 뒤 빈 정점이 1% 를 넘으면 쓰지 않고 예전처럼 다시 계산한다.
+if not source_weights and A.get("source_joints") and not GENERIC:
+    _SJ = A["source_joints"]
+    _gi = {g.name: g.index for g in obj.vertex_groups}
+    _gn = {g.index: g.name for g in obj.vertex_groups}
+    _defs = [(b.name, rig.matrix_world @ b.head_local, rig.matrix_world @ b.tail_local)
+             for b in rig.data.bones if b.use_deform]
+    _Hh = A["landmarks"]["height"]
+
+    def _pt_seg(p, a, b):
+        ab = b - a
+        t = 0.0 if ab.length_squared < 1e-12 else max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
+        return (p - (a + ab * t)).length
+
+    _pair = {}; _fit_dbg = {}; _far = 0.0
+    # **이 메시에서 실제로 쓰이는 그룹**만 고른다. gt_joints 의 deform 표시는 다른 불러오기에서 난 판정이라
+    # 여기 메시와 어긋나고, 반대로 안 쓰이는 보조 본까지 넣으면 자리가 멀다고 통째로 퇴짜 맞는다
+    _used = set()
+    for v in obj.data.vertices:
+        for g in v.groups:
+            if g.weight > 1e-4:
+                _used.add(_gn.get(g.group, ""))
+    _want = [n for n in _SJ if n in _gi and n in _used]
+    for n in _want:
+        v = _SJ[n]
+        a = Vector(v["head"]); b = Vector(v["tail"]); mid = (a + b) / 2
+        best = min(_defs, key=lambda d: _pt_seg(mid, d[1], d[2]))
+        _pair[n] = best[0]
+        _far = max(_far, _pt_seg(mid, best[1], best[2]) / _Hh)
+    # 짝지은 자리가 키의 20% 넘게 벌어지면 그건 같은 본이 아니다 → 옮기지 않고 다시 계산한다
+    _fit_dbg = {"want": len(_want), "pair": len(_pair), "far": round(_far, 3), "orphan": sorted(n for n in _used if n and n not in _SJ)[:12]}
+    if _want and _far < 0.2:
+        _acc = {}
+        for v in obj.data.vertices:
+            for g in v.groups:
+                dn = _pair.get(_gn.get(g.group, ""))
+                if dn and g.weight > 1e-4:
+                    _acc.setdefault(dn, []).append((v.index, g.weight))
+        # 들고 있는 소품(칼·방패)은 원작자도 뼈대가 아니라 부모로 묶어 둔다 → 덮인 비율에서 뺀다
+        _body_idx = [v.index for v in obj.data.vertices if v.index not in ATTACH_VERTS]
+        _hit = {i for items in _acc.values() for i, _w in items}
+        _fit_dbg["cov"] = round(len(_hit & set(_body_idx)) / max(1, len(_body_idx)), 4)
+        if len(_hit & set(_body_idx)) >= len(_body_idx) * 0.99:
+            dropped_groups = [g.name for g in obj.vertex_groups]
+            for g in list(obj.vertex_groups):
+                obj.vertex_groups.remove(g)
+            for dn, items in _acc.items():
+                grp = obj.vertex_groups.new(name=dn)
+                for i, w in items:
+                    grp.add([i], w, "ADD")
+            obj.parent = rig; obj.matrix_parent_inverse = rig.matrix_world.inverted()
+            _am = obj.modifiers.new("Armature", "ARMATURE"); _am.object = rig
+            source_weights = "fitted"
 if source_weights:
-    dropped_groups = []; weight_method = "source"; auto_unweighted = None; proxy_unweighted = None
+    weight_method = "source" if source_weights is True else "source_fitted"
+    auto_unweighted = None; proxy_unweighted = None
     _vg = {g.index: g.name for g in obj.vertex_groups}
     sums = [sum(g.weight for g in v.groups if _vg.get(g.group, "").startswith("DEF-")) for v in obj.data.vertices]
     unweighted = sum(1 for s in sums if s < 1e-4)
@@ -525,6 +583,40 @@ if _bare and _fill_segs:
         obj.vertex_groups[near].add(members, 1.0, "REPLACE")
         rigid_bound += len(members); bare_set.difference_update(members)
     _bare = sorted(bare_set)
+# 남은 빈 정점은 **이웃한 살에서 가져온다**. 가장 가까운 본에 1.0 으로 붙이면 그 정점 하나만 다른 본을
+# 따라 움직여 껍질에 금이 간다(오크의 무기 12정점). 메시 모서리를 타고 **같은 조각에서 가장 가까운
+# 가중치 있는 정점**을 찾아 그 가중치를 통째로 복사하면 주변 살과 함께 움직인다 — 추측이 아니라 보간이다.
+# 조각 전체가 비어 이웃이 아예 없을 때만 예전처럼 가장 가까운 본으로 메우고, 그건 구멍으로 센다.
+filled_from_neighbor = 0
+if _bare:
+    _adj = {}
+    for e in obj.data.edges:
+        a, b = e.vertices[0], e.vertices[1]
+        _adj.setdefault(a, []).append(b); _adj.setdefault(b, []).append(a)
+    _bare_set = set(_bare)
+    _seed = [i for i in _adj if i not in _bare_set]          # 가중치가 있는 정점에서 바깥으로 퍼진다
+    _src = {i: i for i in _seed}
+    _q = list(_seed); _h = 0
+    while _h < len(_q):
+        cur = _q[_h]; _h += 1
+        for nb in _adj.get(cur, ()):
+            if nb in _src:
+                continue
+            _src[nb] = _src[cur]; _q.append(nb)
+    _byv = {}
+    for i in _bare:
+        j = _src.get(i)
+        if j is None:
+            continue
+        for g in obj.data.vertices[j].groups:
+            n = vg.get(g.group, "")
+            if n.startswith("DEF-") and g.weight > 1e-4:
+                _byv.setdefault(n, []).append((i, g.weight))
+    for n, items in _byv.items():
+        for i, w in items:
+            obj.vertex_groups[n].add([i], w, "REPLACE")
+    filled_from_neighbor = len({i for items in _byv.values() for i, _w in items})
+    _bare = [i for i in _bare if i not in _src]
 for i in _bare:
     if _fill_segs:
         p = obj.matrix_world @ obj.data.vertices[i].co
@@ -556,51 +648,42 @@ for v in obj.data.vertices:
     for n in drop:
         obj.vertex_groups[n].remove([v.index]); far_trimmed_weights += 1
     far_trimmed_verts += 1
-# 살을 가로지르지 않는 본 떼어내기 — **기본 꺼짐**(`rig.cross_trim`).
-# 규칙 자체는 맞다: 정점에서 그 본까지 가는 직선이 메시 껍질을 뚫고 나가면 둘은 같은 살덩이가 아니다.
-# 속이 빈 메시(KayKit 해골)에서 팔 본이 텅 빈 가슴을 가로질러 갈비뼈를 가져가는 걸 없앤다(누수 11/94 → 0).
-# **그런데 보통 게임 메시에서는 손해다**: 옷·머리카락이 겹친 껍질을 광선이 스치면서 정상적인 영향까지 뗀다.
-# mannequiny A/B(정식 프리셋 경로 + CMU 걷기): 끄면 늘어남 4.71배·2배 넘는 모서리 6개, 켜면 7.88배·87개.
-# 누수는 양쪽 다 0/249 — **이득 없이 해만 있었다.** 그래서 기본은 끄고 속 빈 메시에서만 켠다.
-# (절차 생성 테스트 메시는 껍질이 하나라 이 손해를 못 잡았다 — 실제 자산이 잡았다)
-_sd = {n: (a, b) for n, a, b in _fill_segs}
-_winv = obj.matrix_world.inverted()
-_eps = A["landmarks"]["height"] * 0.004
+# 남의 살덩이에서 온 가중치 떼어내기(`rig.cross_trim`) — **메시 속을 따라 잰 거리**로 판정한다.
+# 자동 가중치는 직선 거리로 판단하므로 속 빈 해골에서 팔 본이 텅 빈 가슴을 가로질러 갈비뼈를 가져간다.
+# 처음엔 광선을 한 번 쏴 "껍질을 뚫고 나가면 남"으로 봤는데, 조각조각 떨어진 메시(mannequiny)에서는
+# 이웃 조각으로 가는 길이 전부 껍질을 뚫어 관절 섞임이 통째로 날아갔다(늘어남 4.71 → 7.88배).
+# 복셀로 채우면 조각 사이 실틈은 복셀 한 칸에 묻히고 해골의 빈 가슴은 그대로 남는다 — 해상도가
+# "무시할 틈"과 "진짜 빈 속"을 갈라 준다. 자세한 근거는 _voxgeo.py 머리말.
 cross_trimmed_verts = cross_trimmed_weights = 0
-
-
-def _blocked(pw, nrm, target):
-    """정점 pw 에서 target 까지 가는 길이 메시 밖으로 나가는가"""
-    d = target - pw
-    L = d.length
-    if L < _eps * 2:
-        return False
-    o = pw - nrm * _eps
-    hit, _loc, _n2, _i = obj.ray_cast(_winv @ o, (_winv.to_3x3() @ d).normalized(), distance=L - _eps)
-    return bool(hit)
-
-
-for v in (obj.data.vertices if A.get("cross_trim", False) else []):   # 기본 꺼짐(아래 주석의 A/B 근거)
-    gs = [(g, vg.get(g.group, "")) for g in v.groups if vg.get(g.group, "").startswith("DEF-") and g.weight > 0]
-    if len(gs) < 2:
-        continue
-    dom = max(gs, key=lambda q: q[0].weight)[1]
-    pw = obj.matrix_world @ v.co
-    nrm = (obj.matrix_world.to_3x3() @ v.normal).normalized()
-    drop = []
-    for g, n in gs:
-        if n == dom or n not in _sd:
-            continue
-        a, b = _sd[n]
-        ab = b - a
-        t = 0.0 if ab.length_squared < 1e-12 else max(0.0, min(1.0, (pw - a).dot(ab) / ab.length_squared))
-        if _blocked(pw, nrm, a + ab * t):
-            drop.append(n)
-    if not drop or sum(g.weight for g, n in gs if n not in drop) <= 1e-6:
-        continue
-    for n in drop:
-        obj.vertex_groups[n].remove([v.index]); cross_trimmed_weights += 1
-    cross_trimmed_verts += 1
+cross_detour = None
+if A.get("cross_trim", True):
+    from _voxgeo import VoxGeo
+    _vg_geo = VoxGeo(obj, grid=int(A.get("voxgeo_grid", 40)))
+    if _vg_geo.ok:
+        _winv = obj.matrix_world.inverted()
+        _sd = {}
+        for n, a, b in _fill_segs:
+            _sd[n] = (_winv @ a, _winv @ b)
+            _vg_geo.field(n, _sd[n][0], _sd[n][1])
+        DETOUR = 1.6          # 살 속으로 1.6 배 넘게 돌아가야 닿는 본은 그 정점을 움직일 이유가 없다
+        for v in obj.data.vertices:
+            gs = [(g, vg.get(g.group, "")) for g in v.groups if vg.get(g.group, "").startswith("DEF-") and g.weight > 0]
+            if len(gs) < 2:
+                continue
+            dom = max(gs, key=lambda q: q[0].weight)[1]
+            drop = []
+            for g, n in gs:
+                if n == dom or n not in _sd:
+                    continue
+                r = _vg_geo.detour(v.co, n)
+                if r is not None and r > DETOUR:
+                    drop.append(n)
+            if not drop or sum(g.weight for g, n in gs if n not in drop) <= 1e-6:
+                continue
+            for n in drop:
+                obj.vertex_groups[n].remove([v.index]); cross_trimmed_weights += 1
+            cross_trimmed_verts += 1
+        cross_detour = DETOUR
 bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
 bpy.ops.object.vertex_group_normalize_all(lock_active=False)
 
@@ -645,16 +728,26 @@ _ax = [abs((rig.matrix_world @ rig.data.bones[n].head_local).x) for n in ("DEF-u
 _band = min(0.04 * _H, 0.35 * (sum(_ax) / len(_ax))) if _ax else 0.04 * _H
 vgn = {g.index: g.name for g in obj.vertex_groups}
 leak_arm, torso_verts, far_dom = 0, 0, 0
+_cands = []        # (중심선에서 떨어진 거리, 팔 몫) — 가슴 높이 정점을 전부 모아 둔다
 for v in obj.data.vertices:
     pw = obj.matrix_world @ v.co
     w = {vgn.get(g.group, ""): g.weight for g in v.groups if vgn.get(g.group, "").startswith("DEF-")}
     if not w: continue
     t = sum(w.values()) or 1.0
-    if abs(pw.x) < _band and _z0 + 0.45 * _H < pw.z < _z0 + 0.70 * _H:
-        torso_verts += 1
-        if sum(val for k, val in w.items() if k.startswith(_ARM)) / t > 0.15: leak_arm += 1
+    if _z0 + 0.45 * _H < pw.z < _z0 + 0.70 * _H:
+        _cands.append((abs(pw.x), sum(val for k, val in w.items() if k.startswith(_ARM)) / t))
     dom = max(w, key=w.get)
     if w[dom] / t > 0.5 and dom in _seg and _dist(dom, pw) > 0.15 * _H: far_dom += 1
+# 표본 고르기: 기본은 좁은 띠(_band) 안쪽이다. 저폴리 캐릭터는 그 띠에 정점이 스무 개도 안 들어와
+# 게이트가 "표본 부족"으로 검사를 **건너뛰어** 버린다 — 결함이 있어도 통과한다(godot_player 17/31 이
+# 팔 본이 밖으로 나가자 21개로 줄며 검사 자체가 꺼졌다). 그래서 모자라면 중심선에 가까운 순서로
+# 30개까지 채우되, 어깨까지 번지지 않게 넉넉한 상한(_band 의 2.5배) 안에서만 채운다
+_cands.sort()
+_sel = [c for c in _cands if c[0] < _band]
+if len(_sel) < 30:
+    _sel = [c for c in _cands if c[0] < _band * 2.5][:30]
+torso_verts = len(_sel)
+leak_arm = sum(1 for _d, share in _sel if share > 0.15)
 mn = Vector(A["stats"]["min"]); mx = Vector(A["stats"]["max"]); pad = 0.12
 outside = [b.name for b in rig.data.bones if b.use_deform and not all(mn[i] - pad <= (rig.matrix_world @ b.head_local)[i] <= mx[i] + pad for i in range(3))]
 def _outside(p):
@@ -665,7 +758,16 @@ def _outside(p):
 # 손가락은 보정 3(손 실루엣 안으로 축소)이 원본 메시 기준으로 이미 처리한다
 # 손가락·발가락 마디: 판정용 부피 메시(복셀)가 뭉개서 전부 '밖'으로 읽힌다. 사족 늑대 메타리그는 뒷발가락을 r_(rear) 로 부른다
 FINGER = ("DEF-f_", "DEF-thumb", "DEF-palm", "DEF-r_")
-_check = [b for b in rig.data.bones if b.use_deform and not b.name.startswith(FINGER)]
+# 가중치가 하나도 없는 본은 살을 움직일 수 없다 → 밖에 있어도 결함이 아니다. 원본 뼈대에서 받은 리그는
+# 메타리그가 척추를 잘게 쪼개 원본에 없던 마디를 만들기도 하는데(KayKit 미니언 DEF-spine.003/004),
+# 그 마디에 정점이 하나도 안 붙었다면 리그 품질과 무관하다
+_wgn = {g.index: g.name for g in obj.vertex_groups}
+_wgt_used = set()
+for _v in obj.data.vertices:
+    for _g in _v.groups:
+        if _g.weight > 1e-4:
+            _wgt_used.add(_wgn.get(_g.group, ""))
+_check = [b for b in rig.data.bones if b.use_deform and not b.name.startswith(FINGER) and b.name in _wgt_used]
 finger_bones_skipped = sum(1 for b in rig.data.bones if b.use_deform and b.name.startswith(FINGER))
 # 본을 5등분해 중간점도 검사한다: 끝점만 보면 비스듬한 본이 중간에 메시를 뚫고 나가는 걸 놓친다(실측으로 확인)
 def _bone_points(b):
@@ -694,8 +796,8 @@ pairs = [(b.name, b.name[:-1] + "R") for b in rig.data.bones if b.use_deform and
 asym = [round(((rig.data.bones[l].head_local * Vector((-1, 1, 1))) - rig.data.bones[r].head_local).length, 4) for l, r in pairs]
 worst_sym = pairs[asym.index(max(asym))][0] if asym else None   # 어느 본이 제일 어긋났는지 남긴다(진단용)
 stats = {"generic_source_bones": (sum(1 for v in A["source_joints"].values() if v.get("deform") is not False) if GENERIC else None), "metarig_bones": len(meta.data.bones), "rig_bones": len(rig.data.bones), "deform_bones": sum(1 for b in rig.data.bones if b.use_deform),
-         "weight_method": weight_method, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "rigid_islands_bound": rigid_bound,
-         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "cross_trimmed_verts": cross_trimmed_verts, "cross_trimmed_weights": cross_trimmed_weights, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
+         "weight_method": weight_method, "source_fit": _fit_dbg, "auto_unweighted": auto_unweighted, "proxy_unweighted": proxy_unweighted, "height": A["landmarks"]["height"], "moved_bones": moved, "removed_face_bones": removed_face, "clamped_targets": sorted(set(clamped)), "fixed_zero_length": fixed, "bent_joints": bent, "axis_snapped": axis_snapped, "propagated_bones": len(propagated), "finger_scale": finger_scale, "snapped_inside": len(snapped_inside), "rejoined": rejoined, "pinned": sorted(PINNED), "pin_applied": pin_applied, "volume_voxel": volume_voxel, "snapped_inside_bones": snapped_inside[:12], "resymmetrized": resymmetrized[:12], "unweighted_verts": unweighted, "filled_unweighted": filled_unweighted, "filled_from_neighbor": filled_from_neighbor, "rigid_islands_bound": rigid_bound,
+         "max_influences": max_influences, "max_influences_before": max_inf_before, "trimmed_verts": trimmed_verts, "trimmed_weights": trimmed_weights, "far_trimmed_verts": far_trimmed_verts, "far_trimmed_weights": far_trimmed_weights, "cross_trimmed_verts": cross_trimmed_verts, "cross_trimmed_weights": cross_trimmed_weights, "cross_detour": cross_detour, "weight_sum_min": round(min(sums), 4), "weight_sum_max": round(max(sums), 4),
          "weight_leak_arm_torso": leak_arm, "weight_leak_torso_verts": torso_verts, "weight_far_dominant": far_dom, "bones_outside_bbox": outside[:20], "deform_outside_mesh": len(deform_outside_mesh), "dropped_source_groups": len(dropped_groups), "rest_pose": rest_pose, "finger_bones_skipped": finger_bones_skipped, "deform_outside_mesh_bones": deform_outside_mesh[:12], "deform_gap_mesh": len(deform_gap_mesh), "deform_gap_mesh_bones": deform_gap_mesh[:12], "symmetry_pairs": len(pairs), "symmetry_max_error": max(asym) if asym else 0, "symmetry_worst": worst_sym}
 bpy.data.objects.remove(vol)   # 판정용 부피 메시는 저장하지 않는다
 bpy.ops.wm.save_as_mainfile(filepath=A["out_blend"])
