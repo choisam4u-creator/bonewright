@@ -55,11 +55,13 @@ UAL_BIN = ("https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-l
 
 # **아직 스크립트로 못 받는 4종.** 처음 모을 때 출처를 적어 두지 않아 어디서 받았는지 복원하지 못했다.
 # 지문(키·관절 수)만 남긴다 — 같은 파일을 다시 찾으면 여기에 URL 을 채우면 된다.
+# 지문(원본 뼈 수·관절 좌표 비율)과 이미 탈락시킨 후보는 docs/bench-unresolved-fingerprints.json 에 있다.
+# 후보를 찾으면 `bw bench 후보.glb` 로 돌려 그 파일과 대조하면 1분이면 판정된다.
 UNRESOLVED = {
-    "kira": "키 0.8233m · 맞춘 관절 6 · 가구 30개가 든 방에 앉아 있는 상반신 리그 · CC0 로 기록됨",
-    "alien_bug": "키 0.5714m · 맞춘 관절 1 · 6족 곤충 · CC0 로 기록됨",
-    "quat_pp_41j": "키 5.5353m · 관절 41 · Quaternius 플랫포머 계열 캐릭터 · CC0 로 기록됨",
-    "quat_pp_43j": "키 2.2239m · 관절 43 · Quaternius 플랫포머 계열 캐릭터 · CC0 로 기록됨",
+    "kira": "원본 뼈 23 · 맞춘 6 · 키 0.8233m · 가구 30개가 든 방에 앉은 상반신 리그 · CC0 로 기록됨",
+    "alien_bug": "원본 뼈 30 · 맞춘 1 · 키 0.5714m · 6족 곤충 · CC0 로 기록됨",
+    "quat_pp_41j": "원본 뼈 41 · 맞춘 17 · 키 5.5353m · Quaternius 캐릭터 · 옆으로 누운 채 리깅되던 그 자산이다",
+    "quat_pp_43j": "원본 뼈 43 · 맞춘 15 · 키 2.2239m · Quaternius 캐릭터 · T 포즈",
 }
 
 POLY = "https://static.poly.pizza/{id}.glb"
@@ -115,6 +117,10 @@ ATTRIBUTION = """# 벤치마크 자산 출처와 라이선스
 ## 아직 스크립트로 못 받는 4종
 벤치는 66종을 채점하는데 이 스크립트는 62종만 받는다. 아래 넷은 처음 모을 때 출처를 적어 두지 않아
 어디서 받았는지 복원하지 못했다. 같은 파일을 다시 찾으면 `CHARACTERS` 에 URL 을 채우면 된다.
+
+**후보를 판정하는 법**: 저장소의 `docs/bench-unresolved-fingerprints.json` 에 원본 뼈 수와 관절 좌표
+비율이 들어 있다. 후보를 `bw bench 후보.glb` 로 돌려 `gt_bones` 와 좌표를 대조하면 된다. 되찾은 5종은
+이 방법으로 소수점까지 일치했고, 2026-09-20 에 시험한 poly.pizza 후보 6종은 전부 탈락했다(근거도 그 파일에).
 {unresolved}
 
 ## 일부러 뺀 것

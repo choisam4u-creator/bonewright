@@ -559,9 +559,22 @@ skeletons, and 5 characters (`mannequiny`, `godot_player`, `robot_expressive`, `
 — each from its original host, each with its own licence recorded in the ledger the script writes.
 
 **Four are still missing:** `kira`, `alien_bug`, `quat_pp_41j`, `quat_pp_43j`. Their download URLs were never
-written down, and searching by name did not find them again. The script prints them as unresolved and keeps their
-fingerprints (height and joint count) so they can be identified if the files turn up. Until then a fetch-and-score
-run covers 62 assets, not 66, and its score will not be the 63 / 66 quoted above.
+written down. Six poly.pizza candidates were fetched and tested on 2026-09-20 and **all six were ruled out** —
+the closest, a 41-bone Quaternius character, has its arms 0.33 of its height out where the missing one has 0.43.
+Until the real files turn up, a fetch-and-score run covers 62 assets, not 66, and will not produce the 63 / 66
+quoted above.
+
+Identifying a candidate takes a minute: [`docs/bench-unresolved-fingerprints.json`](docs/bench-unresolved-fingerprints.json)
+holds each missing asset's **source bone count** and its author-placed joints as fractions of height, plus the
+candidates already rejected and why. Run `bw bench candidate.glb` and compare. The bone count rejects most
+candidates outright; the joint ratios settle the rest, because the five assets that *were* recovered matched
+theirs to the decimal while every near-miss sat 7–58% off. Height and error are weaker fingerprints — they move
+when the importer changes, as `robot_expressive` did (0.8602 m → 3.9348 m).
+
+One thing that search did settle: `quat_pp_41j` is the asset described under [Which way the character
+faces](#which-way-the-character-faces) — the one built on a swapped lateral axis and rigged sideways for months.
+Its 2026-09-15 record has the arms running along Y while every other asset's run along X, and its mean error there
+was 88.69 cm, which is the "89 cm" in that section.
 
 The five that *were* recovered are the same files, not lookalikes: re-benching them reproduces the recorded
 height and joint count exactly — `godot_player` 2.1184 m / 13 joints, `quaternius_ual` 1.8287 m / 17 joints /
