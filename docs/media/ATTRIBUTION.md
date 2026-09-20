@@ -22,8 +22,8 @@ The `.glb` file is **not** committed to this repository — only renders of it.
 ## The quadruped mesh
 
 **Wolf**, from Quaternius, *Ultimate Animated Animals* (2021-07) —
-**CC0 1.0 Universal (Public Domain Dedication)**, per the `License.txt` shipped with the pack.
-<https://quaternius.com/packs/ultimateanimatedanimals.html>
+**CC0 1.0 Universal (Public Domain Dedication)** — the pack page states "License CC0" outright:
+<https://quaternius.com/packs/ultimateanimatedanimals.html> (checked 2026-09-20).
 
 CC0 asks for nothing, but the credit is owed anyway: LowPoly Models by **@Quaternius**.
 The `.gltf` is not committed either — `scripts/fetch_bench_assets.py --only quadruped` downloads it

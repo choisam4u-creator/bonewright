@@ -47,7 +47,7 @@ def run_script(name: str, params: dict, cfg: dict, log_dir: Path, mock: bool = F
     elif has_bpy_module():
         cmd = [sys.executable, "-c", boot]
     else:
-        raise BlenderError("Blender 를 찾을 수 없다. Blender.app 을 설치하거나 `pip install bpy==5.2.1`(Python 3.13) 또는 BW_BLENDER 경로를 지정하라")
+        raise BlenderError("Blender 를 찾을 수 없다. Blender.app 을 설치하거나 `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 경로를 지정하라")
     env = {**os.environ, "BW_PARAMS": str(work / "params.json")}
     with open(log_dir / f"{name}.log", "w", encoding="utf-8") as log:
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=cfg.get("timeout", 600), env=env, cwd=str(work))

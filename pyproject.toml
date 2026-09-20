@@ -15,7 +15,7 @@ keywords = ["blender", "rigging", "animation", "codex", "rigify"]
 classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)", "Operating System :: MacOS", "Operating System :: POSIX :: Linux"]
 
 [project.optional-dependencies]
-headless = ["bpy==5.2.1"]
+headless = ["bpy==5.2.2"]
 
 [project.scripts]
 bw = "bonewright.cli:main"

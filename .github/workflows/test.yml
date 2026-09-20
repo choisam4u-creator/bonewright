@@ -24,7 +24,8 @@ jobs:
         run: python scripts/check_license_boundary.py
 
   blender:
-    # 리그 생성·스키닝·리타겟까지 **실제로** 돌린다. `bpy` 휠은 cp313 리눅스용만 있어 파이썬은 3.13 고정
+    # 리그 생성·스키닝·리타겟까지 **실제로** 돌린다.
+    # 파이썬 3.13 고정: `bpy` 5.2.x 휠은 macOS·리눅스·윈도우 모두 있지만 **전부 cp313 전용**이라 3.11 에서는 안 깔린다
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

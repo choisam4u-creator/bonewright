@@ -29,9 +29,15 @@ Rig and animate Blender characters with Codex. **Python drives the steps, `codex
 left/right weight difference 0.0002 · all gates green · Codex's own visual check: 0.86 confidence,
 one flagged issue (finger bones grazing the silhouette)</td>
 <td><code>bw motion --bvh walk.bvh --rig &lt;run&gt;</code><br>
-18 of 30 source bones mapped · bone direction off by 5.08° on average · hands and feet off by 9.91 cm
-(proportion difference included) · worst edge stretched 5.17x, and that is 20 edges out of 20,858 ·
-no frame puts a foot through the floor</td>
+18 of 30 source bones mapped (the unmapped 12 are spine sub-joints, jaw, eyes, finger tips and toe bases) ·
+hands and feet land 9.91 cm from the source over all 60 frames · no frame puts a foot below the floor —
+though they hover 6.4 cm higher than the source's do.<br>
+<em>Read the direction error carefully.</em> The headline 5.08° is a mean over 12 bones of which six — both
+arms — are exactly 0.00°, because arms are copied FK straight across. The error is all in the legs, which
+use IK to absorb the proportion difference: thighs 11°, <strong>knees 19° (worst 31°)</strong>.<br>
+<em>And the stretch figure is sampled.</em> Deformation is measured at 4 frames (1/20/40/60), not all 60:
+the worst ratio is 5.17x at frame 60 (15 edges over 2x there), and the most edges over 2x is 20 at frame 40
+(3.75x there). Out of 20,858 edges. The two numbers are from different frames.</td>
 </tr>
 </table>
 
@@ -92,8 +98,10 @@ did count them, and 32 assets scored a perfect 1.00x stretch by never moving.
 while making the actual deformation worse — the worst took one asset from 3.72x to 20.7x stretch. Each one was
 caught by animating, not by the gates. If you touch weights, run the motion bench.
 
-Status: **v0.2 (alpha).** Humanoid and quadruped Rigify presets. Developed and tested on macOS with Blender 5.2 LTS
-and Codex CLI 0.153. **Linux is untested. Windows is unsupported.**
+Status: **v0.2 (alpha).** Humanoid and quadruped Rigify presets. Developed on macOS with Blender 5.2 LTS and
+Codex CLI 0.155. **Linux runs the whole test suite in CI** on every push (ubuntu-latest, `bpy` wheel, renders
+off) and it is green — but nobody has driven it interactively on a Linux desktop. **Windows is unsupported:**
+a `bpy` wheel exists for it, nothing here has ever been run on it.
 
 ## Install
 
@@ -105,7 +113,7 @@ bw doctor                     # checks that Blender and Rigify are reachable
 bw rig character.glb          # rig it; add --from-skeleton if the file already has one
 ```
 
-Developed and tested on macOS with Blender 5.2 LTS and Codex CLI 0.153. **Linux is untested, Windows unsupported.**
+Developed on macOS with Blender 5.2 LTS and Codex CLI 0.155; Linux is covered by CI, Windows by nothing.
 Everything except the `fit` and `judge` steps costs zero model tokens; `BW_BACKEND=mock` runs the whole pipeline
 deterministically with no model calls at all, which is what the tests and the benchmark use.
 
@@ -129,16 +137,18 @@ This is a reading of a published position, not legal advice.
 Benchmark assets are **not** in this repository. `scripts/fetch_bench_assets.py` downloads CC0 / CC-BY models
 from their original hosts; each one's source and license is recorded in the ledger the script writes.
 
-`docs/media/` is different: those are renders of a **CC BY 4.0** character mesh (*Mannequiny*, © 2020 GDQuest
-and contributors), so the images themselves are CC BY 4.0 and carry their attribution in
-[`docs/media/ATTRIBUTION.md`](docs/media/ATTRIBUTION.md). The mesh file is not committed — only the renders.
+`docs/media/` is different, and mixed. The human renders (`rig-views.png`, `rig-ik.gif`,
+`walk-retarget.gif`) are adaptations of a **CC BY 4.0** mesh (*Mannequiny*, © 2020 GDQuest and contributors),
+so those images are CC BY 4.0. The wolf renders (`quad-views.png`, `quad-demo.gif`) come from a **CC0** mesh
+and carry no such condition. Both are recorded in
+[`docs/media/ATTRIBUTION.md`](docs/media/ATTRIBUTION.md). Neither mesh file is committed — only the renders.
 
 ## What it does well, and what it does not
 
 `bw bench` strips a character's original skeleton, re-rigs it, and measures joint positions against what the original
 author built. **That "answer" is one artist's rig, not anatomical truth** — read it as regression detection rather than
 an absolute score. The numbers below come from the deterministic path (`BW_BACKEND=mock`, 0 tokens); the Codex path is
-verified end to end over 8 real runs but is not benchmarked per asset.
+verified end to end over the runs kept in this repository — `runs/real1`, `runs/real2` and `docs/internal/real3`–`real6`, `real8`, seven in all — but is not benchmarked per asset.
 
 | Input | Joint error (% of height) | Verdict |
 |---|---|---|
@@ -171,7 +181,7 @@ unplaced bone, which kept its metarig default out in space.
 
 Two changes followed. `landmarks.leg_tip_L/R` and `arm_tip_L/R` now carry the centroid of the actual toe and
 fingertip slab, and the prompt points at them. Any bone the model still omits is filled in from the landmarks
-rather than left at a default. The model went from placing 10 of 15 bones to 15 of 15.
+rather than left at a default. The model went from placing 10 of 15 bones to **14 of 15** — the run's `fit.json` shows the last one, `spine`, came from the landmark fill, not from the model. So the two changes did different jobs: the tip data bought four more bones, and the fill covered the one the model still left out.
 
 **This is one asset and two runs.** What it shows is that the model path is not worse; it does not show that paying
 ~86k input tokens buys anything over the free deterministic path on an ordinary human mesh.
@@ -536,13 +546,19 @@ Rigify generate + automatic weights → gates (unweighted vertices, weight sums,
 
 ## Reproducing the benchmark
 
-Benchmark assets are not committed — their licences do not allow redistribution. Fetch them:
+Benchmark assets are not committed. Most of them are CC0 and could legally be vendored — the reasons are practical: 30 MB of quadrupeds alone, and every file would drag its own attribution obligations into this repository. Fetch them from the original hosts instead:
 
 ```bash
 python3 scripts/fetch_bench_assets.py --out bench-assets
 bw bench bench-assets/quadruped/*.gltf --preset quadruped
 bw bench bench-assets/samples/*.glb --skin     # also compare skin weights against the original author's
 ```
+
+**The script does not fetch the whole set.** It downloads **57** assets (10 quadrupeds, 4 Khronos samples,
+40 Quaternius monsters, 3 KayKit skeletons). The benchmark scores **66**, so nine — `mannequiny`,
+`RobotExpressive`, `godot_player`, `kira` and `quat_pp_41j` among them — were collected by hand from their own
+pages and are not scripted yet. Running `scripts/bench_score.py` against only what the script fetches will not
+reproduce 63 / 66.
 
 `--skin` reports, per asset and **per body region**, the distance between the "influence centres" of the two weight
 sets (name-free), plus the weaker name-agreement number. Current baseline: mannequiny 4.1 cm (2.3% of height),
