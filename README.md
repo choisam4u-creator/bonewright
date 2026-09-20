@@ -351,6 +351,26 @@ are comparable. Measured effect on skinning agreement with the original rigs: ma
 side agreement 0.997 → 0.998, Quaternius Adventurer unchanged.
 
 ## Motion retargeting
+### When the rig has no anatomical names
+
+Retargeting matches bone **names**, so a rig built from a mesh's own shape — whose bones are called `Limb3_2` —
+matches nothing in a BVH and receives no motion at all. Of the 66 benchmark assets, 63 rig successfully but **34 of
+those cannot take a walk**, which the score reports as unmeasurable rather than as a pass.
+
+`--map` lets you write the correspondence yourself:
+
+```bash
+echo '{"LeftArm": "Limb3_2", "LeftForeArm": "Limb3_3"}' > bones.json
+bw motion --bvh walk.bvh --rig my_blob --map bones.json
+```
+
+It overrides the automatic matching per entry, leaves the rest alone, and tells you how many names it could not
+find in the BVH instead of silently ignoring a typo. Matching by **position** rather than by hand was tried for
+weights and failed badly (see ROADMAP), so this stays manual for now.
+
+A word of warning from testing it: mapping a human shoulder onto a blob's tentacle does apply, and made the mesh
+stretch worse (8.24x → 14.26x). The option gives you the controls; it cannot tell you that your mapping is sensible.
+
 
 `bw motion --bvh file.bvh --rig <run-id> [--export]` moves a BVH clip onto a rig made by `bw rig`
 (the rig's preset is read from its run; `--preset` overrides). BVH joints are matched to Rigify controls by name (kimodo `LeftLeg/LeftShin`, Mixamo

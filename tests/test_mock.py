@@ -90,6 +90,24 @@ class RigMockTests(unittest.TestCase):
         st = json.loads((self.tmp / "runs/hb1/rig_stats.json").read_text())["stats"]
         self.assertEqual(st["removed_extra_bones"], 2, st)
 
+    def test_user_bone_map_overrides_and_reports_typos(self):
+        """`--map` 은 자동 매핑 위에 덮어쓰고, **BVH 에 없는 이름은 세어서 알려 준다**.
+
+        이름으로 짝짓는 자동 매핑은 이름 없는 리그(`Limb3_2`)에 아무것도 못 붙인다 — 벤치 66종 중
+        34종이 그래서 동작을 못 받았다. 오타를 조용히 넘기면 사용자는 "왜 안 붙지"만 반복한다."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "m.json"
+            f.write_text(json.dumps({"LeftArm": "Limb3_2", "Typo": "Limb9_1"}), encoding="utf-8")
+            out, applied, unknown = pipeline.apply_bone_map(
+                {"LeftArm": "upper_arm.L", "Hips": "torso"}, f, ["LeftArm", "Hips"])
+            self.assertEqual(out["LeftArm"], "Limb3_2")    # 사용자 값이 이긴다
+            self.assertEqual(out["Hips"], "torso")         # 안 적은 건 자동 매핑 그대로
+            self.assertEqual((applied, unknown), (1, ["Typo"]))
+            f.write_text(json.dumps(["nope"]), encoding="utf-8")
+            with self.assertRaises(pipeline.Blocked):      # 모양이 틀리면 조용히 넘기지 않는다
+                pipeline.apply_bone_map({}, f, [])
+
     def test_model_gaps_are_filled_from_landmarks(self):
         """모델이 자신 없어 **빼고 답한 본**은 랜드마크 배치로 메운다.
 

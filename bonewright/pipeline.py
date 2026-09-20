@@ -81,6 +81,23 @@ class Run:
         return r
 
 
+def apply_bone_map(mapping: dict, path: Path, bvh_bones: list) -> tuple[dict, int, list]:
+    """사용자 매핑 파일을 자동 매핑 위에 덮어쓴다. {"BVH 본": "리그 본"} 형태.
+
+    이름으로 짝짓는 자동 매핑은 **이름이 없는 리그에서 아무것도 못 붙인다** — 메시 모양에서 만든 사슬
+    리그는 본이 `Limb3_2` 라 BVH 의 `LeftArm` 과 맞을 리가 없다. 실측으로 벤치 66종 중 34종이 그래서
+    동작을 아예 못 받았다. 자리로 **자동** 짝짓는 건 크게 실패한 적이 있어(docs/ROADMAP.md 의
+    '원작자 가중치' 기록), 사람이 직접 적는 길부터 연다.
+
+    BVH 에 없는 이름은 조용히 넘기지 않고 세어서 돌려준다 — 오타를 말해 주지 않으면 사용자는
+    "왜 안 붙지"만 반복한다. 돌려주는 값은 (덮어쓴 매핑, 적용된 개수, 무시된 이름들)."""
+    user = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
+        raise Blocked(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}')
+    known = {k: v for k, v in user.items() if k in bvh_bones}
+    return {**mapping, **known}, len(known), [k for k in user if k not in bvh_bones]
+
+
 def fill_missing_targets(targets: dict, inputs: dict) -> tuple[dict, list]:
     """모델이 **빼고 답한 본**을 랜드마크에서 계산한 자리로 메운다. (메운 결과, 메운 이름들)을 돌려준다.
 
@@ -316,7 +333,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
 
 
 def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: str | None = None, quiet: bool = False,
-           rig_run: str | None = None, export: str | None = None, roll: bool = True, preset: str | None = None, bvh_up: str = "y", legs: str = "auto") -> Path:
+           rig_run: str | None = None, export: str | None = None, roll: bool = True, preset: str | None = None, bvh_up: str = "y", legs: str = "auto", bone_map: str | None = None) -> Path:
     """텍스트 → kimodo.cpp(Metal) → BVH → Blender 가져오기 → (rig_run 이 있으면) 그 리그에 리타겟 → (export 면) 변형 본만 든 GLB. 토큰 0."""
     cfg = load(root)
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
@@ -362,6 +379,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         if not blend.exists():
             raise Blocked(f"리깅 결과가 없다: {blend}")
         mapping = bvh_mapping(imp["bone_names"], preset)
+        if bone_map:
+            mapping, applied, unknown = apply_bone_map(mapping, Path(bone_map), imp["bone_names"])
+            _log(quiet, f"  📄 --map {applied}개 적용"
+                        + (f" · BVH 에 없는 이름 {len(unknown)}개 무시: {', '.join(unknown[:4])}" if unknown else ""))
         r.state("retarget", "running")
         fa, fb = imp["frames"] if imp.get("frames") else (1, 1)
         rf = sorted({fa, fa + (fb - fa) // 3, fa + 2 * (fb - fa) // 3, fb})
