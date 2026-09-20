@@ -554,11 +554,18 @@ bw bench bench-assets/quadruped/*.gltf --preset quadruped
 bw bench bench-assets/samples/*.glb --skin     # also compare skin weights against the original author's
 ```
 
-**The script does not fetch the whole set.** It downloads **57** assets (10 quadrupeds, 4 Khronos samples,
-40 Quaternius monsters, 3 KayKit skeletons). The benchmark scores **66**, so nine — `mannequiny`,
-`RobotExpressive`, `godot_player`, `kira` and `quat_pp_41j` among them — were collected by hand from their own
-pages and are not scripted yet. Running `scripts/bench_score.py` against only what the script fetches will not
-reproduce 63 / 66.
+**The script fetches 62 of the 66.** Ten quadrupeds, 4 Khronos samples, 40 Quaternius monsters, 3 KayKit
+skeletons, and 5 characters (`mannequiny`, `godot_player`, `robot_expressive`, `rigged_mesh`, `quaternius_ual`)
+— each from its original host, each with its own licence recorded in the ledger the script writes.
+
+**Four are still missing:** `kira`, `alien_bug`, `quat_pp_41j`, `quat_pp_43j`. Their download URLs were never
+written down, and searching by name did not find them again. The script prints them as unresolved and keeps their
+fingerprints (height and joint count) so they can be identified if the files turn up. Until then a fetch-and-score
+run covers 62 assets, not 66, and its score will not be the 63 / 66 quoted above.
+
+The five that *were* recovered are the same files, not lookalikes: re-benching them reproduces the recorded
+height and joint count exactly — `godot_player` 2.1184 m / 13 joints, `quaternius_ual` 1.8287 m / 17 joints /
+13.54 cm mean, `rigged_mesh` 0.0603 m / 3 joints, `mannequiny` 1.7979 m / 2.96 cm, `robot_expressive` 3.9348 m.
 
 `--skin` reports, per asset and **per body region**, the distance between the "influence centres" of the two weight
 sets (name-free), plus the weaker name-agreement number. Current baseline: mannequiny 4.1 cm (2.3% of height),

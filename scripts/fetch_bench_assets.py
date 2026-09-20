@@ -28,6 +28,40 @@ ANIMALS = {
 # Quaternius, Ultimate Monsters (50 Models) — CC0. poly.pizza 가 모델별 GLB 를 직접 준다.
 # 사람·개과 체형이 **아닌** 몸을 일부러 모았다: 날개 달린 악마(관절 129), 다리 없는 유령, 문어,
 # 물고기, 새, 관절 4개짜리 블롭. 일반 리그(`--from-skeleton`)가 이 43종 전부를 리깅하는지 재는 데 쓴다
+# 예전에 손으로 모아 두었던 사람·로봇 자산. 2026-09-20 에 배포처를 다시 확인해 스크립트로 옮겼다.
+# 저마다 라이선스가 다르니 아래 표기를 지운 채로 재배포하지 않는다.
+CHARACTERS = {
+    # 이름: (내려받을 URL, 확장자, 라이선스 — 확인한 근거)
+    "mannequiny": ("https://raw.githubusercontent.com/godotengine/godot-demo-projects/master/"
+                   "3d/ragdoll_physics/characters/mannequiny.glb", "glb",
+                   "CC BY 4.0 · © 2020 GDQuest and contributors — 같은 폴더의 mannequiny.LICENSE.md 원문 확인"),
+    "godot_player": ("https://raw.githubusercontent.com/godotengine/godot-demo-projects/master/"
+                     "3d/platformer/player/player.glb", "glb",
+                     "MIT · godot-demo-projects 저장소 라이선스(자산 전용 라이선스 파일 없음)"),
+    "robot_expressive": ("https://raw.githubusercontent.com/mrdoob/three.js/dev/"
+                         "examples/models/gltf/RobotExpressive/RobotExpressive.glb", "glb",
+                         "CC0 1.0 · Tomás Laulhé(Quaternius) 원작, Don McCurdy 수정 — 모델 폴더 README.md 원문 확인"),
+    "rigged_mesh": ("https://raw.githubusercontent.com/BabylonJS/Assets/master/"
+                    "meshes/Demos/retargeting/riggedMesh.glb", "glb",
+                    "CC BY 4.0 · BabylonJS/Assets 저장소 라이선스"),
+    # .gltf 는 버퍼가 밖에 있다 — .bin 을 **원래 이름 그대로** 옆에 둬야 열린다
+    "quaternius_ual": ("https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/main/"
+                       "glTF/AnimationLibrary_Godot_Standard.gltf", "gltf",
+                       "CC0 1.0 · Quaternius, Universal Animation Library — 미러 저장소 라이선스와 "
+                       "quaternius.com/packs/universalanimationlibrary.html 양쪽 확인"),
+}
+UAL_BIN = ("https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/main/"
+           "glTF/AnimationLibrary_Godot_Standard.bin")
+
+# **아직 스크립트로 못 받는 4종.** 처음 모을 때 출처를 적어 두지 않아 어디서 받았는지 복원하지 못했다.
+# 지문(키·관절 수)만 남긴다 — 같은 파일을 다시 찾으면 여기에 URL 을 채우면 된다.
+UNRESOLVED = {
+    "kira": "키 0.8233m · 맞춘 관절 6 · 가구 30개가 든 방에 앉아 있는 상반신 리그 · CC0 로 기록됨",
+    "alien_bug": "키 0.5714m · 맞춘 관절 1 · 6족 곤충 · CC0 로 기록됨",
+    "quat_pp_41j": "키 5.5353m · 관절 41 · Quaternius 플랫포머 계열 캐릭터 · CC0 로 기록됨",
+    "quat_pp_43j": "키 2.2239m · 관절 43 · Quaternius 플랫포머 계열 캐릭터 · CC0 로 기록됨",
+}
+
 POLY = "https://static.poly.pizza/{id}.glb"
 MONSTERS = {
     "alien": "b048d82a-7fc2-4631-b859-4bde0ed19b59", "alien_blob": "0bb74be9-e9d1-4321-aedb-a9eccecb04a1",
@@ -75,6 +109,14 @@ ATTRIBUTION = """# 벤치마크 자산 출처와 라이선스
 - 모델별 라이선스는 아래와 각 모델 폴더의 LICENSE.md 참고
 {samples}
 
+## characters/ — 사람·로봇 5종 (라이선스가 저마다 다르다)
+{characters}
+
+## 아직 스크립트로 못 받는 4종
+벤치는 66종을 채점하는데 이 스크립트는 62종만 받는다. 아래 넷은 처음 모을 때 출처를 적어 두지 않아
+어디서 받았는지 복원하지 못했다. 같은 파일을 다시 찾으면 `CHARACTERS` 에 URL 을 채우면 된다.
+{unresolved}
+
 ## 일부러 뺀 것
 - **믹사모/Adobe**: 약관 17조가 콘텐츠로 AI 시스템을 만들거나 훈련·테스트·개선하는 것을 금지한다.
 - **에픽 자체 Fab 콘텐츠**(파라곤, Game Animation Sample 등): 리스팅에 `AI 사용 허용: 아니요`(NoAI)이고
@@ -106,7 +148,7 @@ def check_skinned(p: Path) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="벤치마크 자산을 원저작자 배포처에서 받는다(재배포 아님)")
     ap.add_argument("--out", default="bench-assets", help="받을 폴더(기본 bench-assets)")
-    ap.add_argument("--only", choices=["quadruped", "samples", "monsters"], help="한 종류만 받기")
+    ap.add_argument("--only", choices=["quadruped", "samples", "monsters", "characters"], help="한 종류만 받기")
     a = ap.parse_args()
     out = Path(a.out)
     total = 0
@@ -156,9 +198,27 @@ def main() -> int:
                 print(f"  받음 {name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
                 print(f"  실패 {name}: {e}", file=sys.stderr)
+    if a.only in (None, "characters"):
+        print("사람·로봇 5종 (라이선스 제각각 — ATTRIBUTION.md 참고)")
+        for name, (url, ext, lic) in CHARACTERS.items():
+            dest = out / "characters" / f"{name}.{ext}"
+            if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
+                print(f"  건너뜀 {name} (이미 있음)"); continue
+            try:
+                n = get(url, dest)
+                total += n
+                if name == "quaternius_ual":   # 외부 버퍼를 원래 이름으로 같이 받는다
+                    total += get(UAL_BIN, dest.parent / "AnimationLibrary_Godot_Standard.bin")
+                print(f"  받음 {name:18s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+            except Exception as e:
+                print(f"  실패 {name}: {e}", file=sys.stderr)
+        print(f"  ⚠ 아직 못 받는 자산 {len(UNRESOLVED)}종: {', '.join(UNRESOLVED)} — 출처 기록이 없다")
     out.mkdir(parents=True, exist_ok=True)
     (out / "ATTRIBUTION.md").write_text(
-        ATTRIBUTION.format(samples="\n".join(f"- `{k}.glb` — {v}" for k, v in SAMPLES.items())), encoding="utf-8")
+        ATTRIBUTION.format(
+            samples="\n".join(f"- `{k}.glb` — {v}" for k, v in SAMPLES.items()),
+            characters="\n".join(f"- `{k}.{e}` — {lic}\n  - 출처: {u}" for k, (u, e, lic) in CHARACTERS.items()),
+            unresolved="\n".join(f"- `{k}` — {v}" for k, v in UNRESOLVED.items())), encoding="utf-8")
     print(f"\n총 {total/1e6:.1f}MB → {out}  (출처·라이선스는 {out}/ATTRIBUTION.md)")
     print("사족 벤치:  bw bench " + str(out / "quadruped") + "/*.gltf --preset quadruped")
     return 0
