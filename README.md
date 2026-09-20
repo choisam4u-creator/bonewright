@@ -7,6 +7,43 @@ Rig and animate Blender characters with Codex. **Python drives the steps, `codex
 > process and exchanging JSON. `scripts/check_license_boundary.py` enforces that split in CI, so the boundary
 > cannot rot. GitHub shows no license badge because it cannot read a repository with two — that is expected.
 
+## What it produces
+
+<p align="center">
+  <img src="docs/media/rig-views.png" width="860"
+       alt="Generated Rigify rig seen through the mesh from the front, the side and three-quarter">
+</p>
+
+<table>
+<tr>
+<th width="50%">The rig moved by its own IK controls</th>
+<th width="50%">The same rig receiving a BVH walk</th>
+</tr>
+<tr>
+<td><img src="docs/media/rig-ik.gif" width="320" alt="Rigged character raising both hands, lifting a knee and turning"></td>
+<td><img src="docs/media/walk-retarget.gif" width="320" alt="The same character walking, retargeted from a BVH clip"></td>
+</tr>
+<tr>
+<td><code>bw rig mannequiny.glb</code> → <code>bw demo &lt;run&gt;</code><br>
+7,136 verts · 410 bones (73 deform) · every vertex weighted, no nearest-bone fallback ·
+left/right weight difference 0.0002 · all gates green · Codex's own visual check: 0.86 confidence,
+one flagged issue (finger bones grazing the silhouette)</td>
+<td><code>bw motion --bvh walk.bvh --rig &lt;run&gt;</code><br>
+18 of 30 source bones mapped · bone direction off by 5.08° on average · hands and feet off by 9.91 cm
+(proportion difference included) · worst edge stretched 5.17x, and that is 20 edges out of 20,858 ·
+no frame puts a foot through the floor</td>
+</tr>
+</table>
+
+Nothing here is a mock-up: both clips are the actual output of the commands under them, on the
+`real2` / `walkviz` runs in this repository's history. The rig step was a real `codex exec` call
+(86,274 tokens in, 1,518 out, 2 calls); everything else costs zero tokens.
+
+**Character mesh: *Mannequiny*, © 2020 GDQuest and contributors, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+via [godotengine/godot-demo-projects](https://github.com/godotengine/godot-demo-projects/blob/master/3d/ragdoll_physics/characters/mannequiny.LICENSE.md).
+The images are adaptations: bonewright replaced the skeleton and the skin weights, and Blender's
+Workbench engine rendered them. See [docs/media/ATTRIBUTION.md](docs/media/ATTRIBUTION.md).**
+
 ## Where it stands
 
 | What is measured | Score |
@@ -62,6 +99,10 @@ This is a reading of a published position, not legal advice.
 
 Benchmark assets are **not** in this repository. `scripts/fetch_bench_assets.py` downloads CC0 / CC-BY models
 from their original hosts; each one's source and license is recorded in the ledger the script writes.
+
+`docs/media/` is different: those are renders of a **CC BY 4.0** character mesh (*Mannequiny*, © 2020 GDQuest
+and contributors), so the images themselves are CC BY 4.0 and carry their attribution in
+[`docs/media/ATTRIBUTION.md`](docs/media/ATTRIBUTION.md). The mesh file is not committed — only the renders.
 
 ## What it does well, and what it does not
 
