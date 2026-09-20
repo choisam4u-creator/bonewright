@@ -59,9 +59,11 @@ every vertex weighted · left/right weight difference 0.0122 · all gates green.
 
 **This one is the deterministic path** (`BW_BACKEND=mock`, `--no-judge`): **zero model tokens, no Codex
 involved.** That is also how the quadruped benchmark number is produced — 5.6% mean joint error across
-11 animals, and 3.2% on this wolf specifically (the worst, a cow, is 7.4%). Worth knowing what it does *not* give you:
-the neck estimate failed on this mesh and fell back to human proportions, and the tail is covered by a
-single spine bone rather than a chain, so it can be swung but not curled.
+11 animals, and 3.2% on this wolf specifically (the worst, a cow, is 7.4%). Worth knowing what it does *not* give you: the neck
+estimate failed on this mesh and fell back to human proportions. The tail is not a chain of its own —
+it is the far end of the spine chain, three deform bones (`DEF-spine`, `.001`, `.002`, of length 0.37 /
+0.58 / 0.73) spanning a tail 1.52 long, and `bw motion` maps a source `tail*` chain onto exactly those.
+Three segments bend; they do not whip.
 
 
 **Meshes are other people's work.** The human is *Mannequiny*, © 2020 GDQuest and contributors,
