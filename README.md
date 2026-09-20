@@ -72,7 +72,7 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 
 | Input | Joint error (% of height) | Verdict |
 |---|---|---|
-| Human-proportioned T-pose, skinned, arms out | **1.6 – 7.4%** | usable (GDQuest mannequiny 1.6%, Quaternius Adventurer 3.3%) |
+| Human-proportioned T-pose, skinned, arms out | **1.6 – 7.4%** | usable (GDQuest mannequiny 1.6%, Quaternius Adventurer 3.3%) — measured on the deterministic path; see the note below |
 | Quadrupeds (`--preset quadruped`) | **5.6%** over 11 animals (wolf 3.2%, horse 3.5%, worst cow 7.4%) | usable for dogs/hoofed animals |
 | Robots, stylised, animals **that ship with a skeleton** | joints taken from the file | `--from-skeleton`, 0 tokens, no silhouette guess |
 | A robot with **no** skeleton, built from separate rigid parts | **7.7%** (RobotExpressive) | rigs normally — the parts themselves give the joints |
@@ -80,6 +80,23 @@ verified end to end over 8 real runs but is not benchmarked per asset.
 | Everything else with no skeleton | 11 – 56% | **rejected before any model call**, with an editable `targets_draft.json` |
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
+
+### Which backend produced these numbers
+
+Every accuracy figure in this README comes from the **deterministic path** (`BW_BACKEND=mock`), which places
+joints mechanically from the measured landmarks and costs nothing. The default path calls a model for the `fit`
+step, and on the one asset where both have been measured against the original rig it was **worse**, not better:
+
+| mannequiny, joints vs the author's rig | mean | worst |
+|---|---|---|
+| Model only | 5.96 cm (3.3% of height) | 24.71 cm (foot) |
+| **Model, with omissions filled deterministically** | **3.21 cm (1.8%)** | 6.67 cm |
+| Deterministic only | 2.96 cm (1.6%) | 6.67 cm |
+
+The model was not careless — it explicitly declined to place the shin and foot because the leg centreline it was
+given stopped above the ankle, which is the right call. The damage came from what happened next: an unplaced bone
+kept its metarig default and ended up far outside the leg. Those gaps are now filled from the landmarks, which
+recovers most of the loss. **This is one asset and one run**; treat it as a caution, not a benchmark.
 
 ## Rejection gate
 

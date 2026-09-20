@@ -90,6 +90,27 @@ class RigMockTests(unittest.TestCase):
         st = json.loads((self.tmp / "runs/hb1/rig_stats.json").read_text())["stats"]
         self.assertEqual(st["removed_extra_bones"], 2, st)
 
+    def test_model_gaps_are_filled_from_landmarks(self):
+        """모델이 자신 없어 **빼고 답한 본**은 랜드마크 배치로 메운다.
+
+        빼는 것 자체는 옳다 — 실제 실행에서 "다리 중심선이 발목까지 안 와서 shin·foot 을 제외했다"
+        고 답했다. 문제는 그러면 그 본이 **메타리그 기본값**으로 남는다는 것이다. mannequiny 실측:
+        관절 평균 오차 5.96cm(발 24.71cm) → 메우면 3.21cm(발 6.67cm)."""
+        from unittest import mock as _m
+        base = [{"name": n, "head": [0, 0, 0], "tail": [0, 0, 1]}
+                for n in ("spine", "shin.L", "shin.R", "foot.L", "foot.R", "hand.L")]
+        model = {"hand.L": {"head": [9, 9, 9], "tail": [9, 9, 9]}}     # 모델은 하나만 답했다
+        with _m.patch("bonewright.mock.mock_backend", return_value={"targets": base}):
+            out, filled = pipeline.fill_missing_targets(model, {})
+        self.assertEqual(filled, ["foot.L", "foot.R", "shin.L", "shin.R", "spine"])
+        self.assertEqual(out["hand.L"]["head"], [9, 9, 9])             # 모델 답은 덮이지 않는다
+        self.assertEqual(out["foot.R"]["tail"], [0, 0, 1])             # 뺀 본은 메워진다
+        self.assertEqual(len(out), 6)
+
+        with _m.patch("bonewright.mock.mock_backend", side_effect=RuntimeError("boom")):
+            out2, filled2 = pipeline.fill_missing_targets(model, {})   # 메우기가 실패해도
+        self.assertEqual((out2, filled2), (model, []))                 # 모델 답 그대로 간다
+
     def test_real_asset_survives_retarget_without_tearing(self):
         """**실제 자산**으로 리타겟 후 메시 늘어남을 잰다.
 

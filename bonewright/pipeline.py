@@ -81,6 +81,25 @@ class Run:
         return r
 
 
+def fill_missing_targets(targets: dict, inputs: dict) -> tuple[dict, list]:
+    """모델이 **빼고 답한 본**을 랜드마크에서 계산한 자리로 메운다. (메운 결과, 메운 이름들)을 돌려준다.
+
+    모델이 자신 없는 본을 빼는 건 옳은 행동이다 — 실제 실행에서 "다리 중심선이 z=0.098 까지만 와서
+    발목(z=0.049)을 확인할 수 없으므로 shin·foot 을 제외했다" 고 답했다. 문제는 그러면 그 본이
+    **메타리그 기본값 그대로** 남아 몸에서 한참 벗어난다는 것이다.
+    mannequiny 실측 — 모델만: 관절 평균 5.96cm(발 24.71cm) · 메우면: 평균 3.21cm(발 6.67cm).
+    메우는 값은 `BW_BACKEND=mock` 이 쓰는 것과 **같은 함수**다(랜드마크에서 기계적으로 계산, 토큰 0).
+    메우기는 보조 장치라, 실패하면 조용히 모델 답 그대로 간다."""
+    try:
+        from .mock import mock_backend
+        base = {t["name"]: {"head": t["head"], "tail": t["tail"]}
+                for t in mock_backend("fit", "", inputs).get("targets", [])}
+    except Exception:
+        return targets, []
+    filled = sorted(n for n in base if n not in targets)
+    return {**{n: base[n] for n in filled}, **targets}, filled
+
+
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
         budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
         force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False, from_shape: bool = False) -> Path:
@@ -215,7 +234,15 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             inputs["pins.json"] = json.dumps(pins, ensure_ascii=False)
         fit = r.call("fit", "fit", inputs, schemas.FIT)
         fit["targets"] = {t["name"]: {"head": t["head"], "tail": t["tail"]} for t in fit["targets"]}   # 배열 → 이름별 dict
-        _log(quiet, f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}")
+        # **모델이 빼고 답한 본은 결정적 배치로 메운다.** 모델이 자신 없는 본을 빼는 건 옳은 행동이지만
+        # (실측: "다리 중심선이 z=0.098 까지만 와서 발목을 확인할 수 없어 shin·foot 을 제외했다"),
+        # 그러면 그 본이 **메타리그 기본값 그대로** 남아 몸에서 한참 벗어난다.
+        # mannequiny 실측 — 모델만: 평균 5.96cm(발 24.71cm) · 메우면: 평균 3.21cm(발 6.67cm).
+        # 메우는 값은 `mock` 백엔드와 같은 함수, 즉 랜드마크에서 기계적으로 계산한 자리다(토큰 0).
+        fit["targets"], filled = fill_missing_targets(fit["targets"], inputs)
+        fit["filled_from_landmarks"] = filled
+        _log(quiet, f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}"
+                    + (f" · 모델이 뺀 {len(filled)}개는 랜드마크로 메움({', '.join(filled)})" if filled else ""))
     for name, v in pins.items():   # 사용자가 고정한 관절이 최종 결정권을 갖는다
         fit["targets"].setdefault(name, {}).update(v)
     if pins:
