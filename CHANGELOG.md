@@ -5,6 +5,14 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
+### Fixed
+- **Quadruped judge renders were cropped.** `render_views.py` sized the camera from the character's
+  *height*, which is right for a person and wrong for anything longer than it is tall: the wolf
+  (2.68 tall, 5.55 long — the tail counts) lost its head and its tail off both edges of the side view, and the model was
+  asked to judge bone placement on a picture that did not contain the bones. The camera now sizes from
+  the longest of the three bounding-box edges. Humanoids are unaffected — height is already their
+  longest edge — so no existing number moves.
+
 ### Added
 - **Human-only metarig bones are dropped when the source skeleton has no counterpart.** Rigify's `breast.L/R`
   has nothing to map to on a frog, so it floats at human-chest proportions and takes shoulder flesh; the seam

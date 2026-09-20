@@ -37,12 +37,39 @@ no frame puts a foot through the floor</td>
 
 Nothing here is a mock-up: both clips are the actual output of the commands under them, on the
 `real2` / `walkviz` runs in this repository's history. The rig step was a real `codex exec` call
-(86,274 tokens in, 1,518 out, 2 calls); everything else costs zero tokens.
+(86,274 tokens in, 1,518 out, 2 calls); everything else costs zero tokens. The walk clip fades
+through white at the seam — the source BVH is a walk *with a wave*, which is not a cyclic clip, so
+there is no frame pair that matches (the closest is 18.7° of average bone rotation apart, against
+5.9° between neighbouring frames). A fade is honest about that; a crossfade would just ghost.
 
-**Character mesh: *Mannequiny*, © 2020 GDQuest and contributors, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
-via [godotengine/godot-demo-projects](https://github.com/godotengine/godot-demo-projects/blob/master/3d/ragdoll_physics/characters/mannequiny.LICENSE.md).
-The images are adaptations: bonewright replaced the skeleton and the skin weights, and Blender's
-Workbench engine rendered them. See [docs/media/ATTRIBUTION.md](docs/media/ATTRIBUTION.md).**
+### Quadrupeds
+
+<p align="center">
+  <img src="docs/media/quad-views.png" width="860"
+       alt="Generated quadruped rig seen through a wolf mesh from the front, the side and three-quarter">
+</p>
+
+<p align="center">
+  <img src="docs/media/quad-demo.gif" width="300"
+       alt="The rigged wolf trotting: diagonal pairs of legs lifting, then a turntable">
+</p>
+
+`bw rig Wolf.gltf --preset quadruped` → `bw demo <run-id>`. 983 verts · 527 bones (110 deform) ·
+every vertex weighted · left/right weight difference 0.0122 · all gates green.
+
+**This one is the deterministic path** (`BW_BACKEND=mock`, `--no-judge`): **zero model tokens, no Codex
+involved.** That is also how the quadruped benchmark number is produced — 5.6% mean joint error across
+11 animals, and 3.2% on this wolf specifically (the worst, a cow, is 7.4%). Worth knowing what it does *not* give you:
+the neck estimate failed on this mesh and fell back to human proportions, and the tail is covered by a
+single spine bone rather than a chain, so it can be swung but not curled.
+
+
+**Meshes are other people's work.** The human is *Mannequiny*, © 2020 GDQuest and contributors,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), via
+[godotengine/godot-demo-projects](https://github.com/godotengine/godot-demo-projects/blob/master/3d/ragdoll_physics/characters/mannequiny.LICENSE.md);
+those images are adaptations, since bonewright replaced the skeleton and the skin weights. The wolf is
+from Quaternius, *Ultimate Animated Animals*, **CC0**. Neither mesh file is committed here — only the
+renders. Full record: [docs/media/ATTRIBUTION.md](docs/media/ATTRIBUTION.md).
 
 ## Where it stands
 

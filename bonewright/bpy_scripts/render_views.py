@@ -24,6 +24,10 @@ for b in rig.pose.bones:
     bpy.ops.mesh.primitive_cylinder_add(radius=0.012, depth=d.length, location=(h + t) / 2, vertices=8)
     c = bpy.context.active_object; c.rotation_mode = "QUATERNION"; c.rotation_quaternion = d.to_track_quat("Z", "Y"); c.data.materials.append(red); n += 1
 mn, mx = Vector(A["stats"]["min"]), Vector(A["stats"]["max"]); center = (mn + mx) / 2; H = mx.z - mn.z
+# 화면 크기는 **키가 아니라 가장 긴 변**으로 정한다. 사족은 몸 길이가 키보다 길어서
+# 키로 맞추면 측면에서 머리와 꼬리가 잘려 나간다(늑대: 키 2.68 · 길이 4.6). 잘린 그림으로는
+# 판정 모델이 비율을 볼 수 없다. 사람형은 키가 가장 길어서 지금까지와 같게 나온다
+span = max(mx.x - mn.x, mx.y - mn.y, H) or H
 bpy.ops.object.light_add(type="SUN", location=(3, -3, 5))
 sc = bpy.context.scene; sc.render.engine = "BLENDER_WORKBENCH"; sc.render.resolution_x = sc.render.resolution_y = A.get("size", 512)
 sc.display.shading.color_type = "MATERIAL"; sc.display.shading.light = "STUDIO"
@@ -31,10 +35,10 @@ sc.display.shading.color_type = "MATERIAL"; sc.display.shading.light = "STUDIO"
 sc.display.shading.show_xray = True; sc.display.shading.xray_alpha = float(A.get("xray_alpha", 0.45))
 outs = []
 for name, (dx, dy) in {"front": (0, -1), "side": (1, 0), "iso": (0.8, -0.8)}.items():
-    dist = H * 1.6
+    dist = span * 1.6
     loc = Vector((center.x + dx * dist, center.y + dy * dist, center.z))
     bpy.ops.object.camera_add(location=loc); cam = bpy.context.active_object
     cam.rotation_mode = "QUATERNION"; cam.rotation_quaternion = (center - loc).to_track_quat("-Z", "Y")
-    cam.data.ortho_scale = H * 1.3; cam.data.type = "ORTHO"; sc.camera = cam
+    cam.data.ortho_scale = span * 1.3; cam.data.type = "ORTHO"; sc.camera = cam
     sc.render.filepath = os.path.join(A["out_dir"], f"view_{name}.png"); bpy.ops.render.render(write_still=True); outs.append(sc.render.filepath)
 done({"images": outs, "bone_proxies": n}, A["result"])
