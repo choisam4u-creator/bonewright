@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bonewright 현재 상태 — 2026-09-20</title>
+<style>
+ :root{--bg:#fbfbfa;--fg:#1d1d1b;--mut:#6b6b66;--line:#e2e1dd;--ok:#1f7a3d;--warn:#9a5b00;--bad:#9b2226;--card:#fff}
+ @media (prefers-color-scheme:dark){:root{--bg:#16161a;--fg:#e9e9e6;--mut:#9b9b95;--line:#2e2e34;--card:#1d1d22;--ok:#5fd18a;--warn:#e0a458;--bad:#f07167}}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo",sans-serif;padding:32px 16px}
+ main{max-width:860px;margin:0 auto}
+ h1{font-size:26px;margin:0 0 4px} h2{font-size:19px;margin:36px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+ .sub{color:var(--mut);font-size:14px;margin-bottom:24px}
+ .lead{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:18px 0}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14.5px}
+ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+ th{color:var(--mut);font-weight:600;font-size:13px}
+ code{background:rgba(127,127,127,.14);padding:1px 5px;border-radius:4px;font-size:13px}
+ .ok{color:var(--ok);font-weight:600}.warn{color:var(--warn);font-weight:600}.bad{color:var(--bad);font-weight:600}
+ ul{padding-left:20px} li{margin:5px 0}
+ .num{font-variant-numeric:tabular-nums}
+ .note{font-size:13.5px;color:var(--mut)}
+</style></head><body><main>
+
+<h1>bonewright — 지금까지 끝난 것과 안 끝난 것</h1>
+<div class="sub">2026-09-20 · 저장소 <code>choisam4u-creator/bonewright</code> · <strong>비공개 유지 중</strong></div>
+
+<div class="lead">
+<strong>한 줄 결론:</strong> 코드·검증·문서·CI·라이선스는 공개해도 되는 상태고,
+오늘 빠져 있던 <strong>보여 줄 그림</strong>까지 채웠다.
+남은 건 <strong>“공개로 바꿀지”라는 결정 하나</strong>뿐이며 그건 내가 못 한다.
+</div>
+
+<h2>1. 성능 — 숫자로 확인된 것</h2>
+<table>
+<tr><th>항목</th><th>점수</th><th>어떻게 쟀나</th></tr>
+<tr><td>리깅 성공률</td><td class="num ok">63 / 66 = 95.5%</td>
+    <td><code>scripts/bench_score.py</code>가 자산 폴더를 훑어 정해진 순서(<code>--from-skeleton</code> → 실루엣 → <code>--from-shape</code>)를 그대로 시도. 자산도 경로도 손으로 고르지 않는다</td></tr>
+<tr><td>동작 리타겟 성공률</td><td class="num ok">25 / 29 = 86.2%</td>
+    <td>걷기 BVH를 얹고 메시가 6배 넘게 늘어나지 않는지 확인. <strong>본이 4개 미만 매핑된 건은 제외</strong></td></tr>
+<tr><td>관절 오차 (사람형)</td><td class="num">1.6 ~ 7.4%</td><td>원저작자 뼈대와 대조. 마네퀴니 1.6%</td></tr>
+<tr><td>Codex 실제 호출 정확도</td><td class="num ok">3.3% → 1.7%</td><td>발끝·손끝 데이터를 모델에 주고 재측정(실제 유료 호출 2회)</td></tr>
+</table>
+<p class="note">동작 점수의 분모를 같이 봐야 한다. 리깅에 성공한 63건 중 <strong>34건은 애초에 동작을 받을 수 없다</strong>
+— 모양에서 만든 사슬 리그는 본 이름이 <code>Limb3_2</code> 같아서 BVH가 얹히지 않는다. 이전 버전은 이걸 “성공”으로
+세서 32개 자산이 1.00배(=전혀 안 움직임)로 만점을 받았다. 지금은 뺀다.</p>
+
+<h2>2. 이번 회차에 실제로 고친 것</h2>
+<table>
+<tr><th>#</th><th>한 일</th><th>결과</th></tr>
+<tr><td>①</td><td>메시 끝(발끝·손끝)에서 얇게 한 겹 떠서 모델에 좌표로 준다 (<code>analyze.py</code>)</td><td>관절 오차 3.3% → <span class="ok">1.7%</span></td></tr>
+<tr><td>②</td><td>프롬프트(한/영)에 “빠뜨린 본은 랜드마크로 채운다”를 명시</td><td>모델이 <em>모르면 안 답하는</em> 쪽이 더 안전해짐</td></tr>
+<tr><td>③</td><td><code>fill_missing_targets</code> — 모델이 뺀 본을 기본값이 아니라 계산값으로 채움</td><td>메타리그 기본값이 남는 사고 차단</td></tr>
+<tr><td>④</td><td><code>--map</code> — 사용자가 BVH 본 이름을 직접 맞춰 줄 수 있게</td><td>오타는 무시하고 몇 개 적용됐는지 보고</td></tr>
+<tr><td>⑤</td><td>가중치 새는 것 잡기: 복셀 최단거리로 “몸을 뚫고 가는” 가중치 제거, 안 쓰는 본(가슴·사족 골반) 삭제</td><td>게이트 통과 + 실제 변형 개선</td></tr>
+</table>
+
+<h2>3. 이번 회차의 가장 값비싼 교훈</h2>
+<div class="lead">
+<strong>게이트는 가만히 서 있는 캐릭터만 본다.</strong> 2026-09-19에 <strong>4개의 변경이 게이트를 전부 통과하면서
+실제 변형을 망가뜨렸다.</strong> 최악은 한 자산을 3.72배 → <span class="bad">20.7배</span>로 늘렸다.
+넷 다 <em>움직여 보고서야</em> 잡혔다. 그래서 규칙을 문서에 박았다 —
+<strong>가중치를 건드렸으면 동작 벤치를 돌린다.</strong>
+</div>
+<p class="note">되돌린 실패 4건(원저작자 가중치 이식 · 손가락 마디 제거 · 사람형 골반 제거 · 형태학적 닫기)은
+지운 자리에 <strong>실패 기록과 실측 수치를 그대로 남겼다.</strong> 다음 사람이 같은 걸 또 시도하지 않게.</p>
+
+<h2>4. 공개 준비물 — 상태</h2>
+<table>
+<tr><th>항목</th><th>상태</th><th>내용</th></tr>
+<tr><td>라이선스</td><td class="ok">완료</td><td>MIT + <code>bonewright/bpy_scripts/</code>만 GPL-3.0-or-later. <code>import bpy</code> 하는 코드는 블렌더 파생물이라서. CI가 경계를 매 푸시 검사</td></tr>
+<tr><td>테스트</td><td class="ok">39개</td><td><code>BW_BACKEND=mock</code>으로 모델 호출 0회</td></tr>
+<tr><td>CI</td><td class="ok">2개 잡</td><td><code>unit</code>(파이썬 3.11/3.13) + <code>blender</code>(리눅스, <code>bpy==5.2.2</code> 휠). 직전 커밋들 전부 success</td></tr>
+<tr><td>보안 · 이슈 템플릿</td><td class="ok">완료</td><td><code>SECURITY.md</code>, <code>CONTRIBUTING.md</code>, 리그 문제 신고 템플릿</td></tr>
+<tr><td>문서</td><td class="ok">완료</td><td>README에 점수·한계·백엔드 출처 명시. ROADMAP · CHANGELOG</td></tr>
+<tr><td><strong>보여 줄 그림</strong></td><td class="ok">오늘 완료</td><td>아래 5절</td></tr>
+<tr><td><strong>공개 전환</strong></td><td class="warn">사용자 결정 대기</td><td>내가 못 한다. 지시가 있어야 <code>gh repo edit --visibility public</code></td></tr>
+</table>
+
+<h2>5. 오늘 채운 구멍 — 미디어</h2>
+<p>아침까지 저장소에 커밋된 이미지는 <strong>1장</strong>(<code>spikes/rig_view2.png</code>)이었고
+README가 참조하는 이미지는 <strong>0장</strong>이었다. 리깅 도구인데 결과를 보여 주지 못하는 상태였다.
+내 기획에서 빠뜨린 항목이다.</p>
+<table>
+<tr><th>파일</th><th>크기</th><th>무엇</th><th>만든 명령</th></tr>
+<tr><td><code>docs/media/rig-views.png</code></td><td class="num">187KB</td><td>완성된 리그를 메시 너머로 본 정면·측면·3/4 스틸</td><td><code>bw rig</code> 실행 <code>real2</code>의 렌더 3장을 잘라 이어 붙임</td></tr>
+<tr><td><code>docs/media/rig-ik.gif</code></td><td class="num">213KB</td><td>리그 자신의 IK 컨트롤로 움직인 것 + 턴테이블</td><td><code>bw demo real2 --size 420 --frames 48</code>, 16fps</td></tr>
+<tr><td><code>docs/media/walk-retarget.gif</code></td><td class="num">335KB</td><td>같은 리그에 BVH 걷기를 얹은 것</td><td><code>bw motion --bvh walk_wave.bvh --rig real2</code>, 60프레임 20fps</td></tr>
+</table>
+<p>README에 <strong>수치도 같이</strong> 적었다 — 리깅은 버텍스 7,136 · 본 410(변형 73) · 미가중 버텍스 0 ·
+좌우 가중치 차 0.0002 · 게이트 전부 통과 · Codex 시각 판정 확신 0.86.
+리타겟은 본 18/30 매핑 · 방향 오차 평균 5.08° · 손발 위치 오차 9.91cm ·
+<strong>최악 늘어남 5.17배(전체 20,858 에지 중 20개)</strong> · 바닥 뚫린 프레임 0.
+마지막 항목은 자랑이 아니라 한계다. 숨기지 않고 적었다.</p>
+
+<h2>6. 남의 것 — 라이선스 처리</h2>
+<p>렌더에 쓴 캐릭터 메시는 우리 것이 아니다.</p>
+<ul>
+<li><strong>Mannequiny</strong> © 2020 GDQuest and contributors, <strong>CC BY 4.0</strong>
+(<code>godot-demo-projects</code>의 <code>mannequiny.LICENSE.md</code> <strong>원문을 직접 확인</strong>했다 — 추측 아님)</li>
+<li>CC BY는 ⓐ귀속 ⓑ<strong>변경 사실 표기</strong>를 요구한다. 둘 다 README와 <code>docs/media/ATTRIBUTION.md</code>에 적었다</li>
+<li>변경한 것: 원본 뼈대와 가중치를 버리고 bonewright가 새로 만들었다. <strong>메시 형상 자체는 그대로다</strong></li>
+<li><code>.glb</code> 원본은 <strong>커밋하지 않는다</strong>. 렌더만 올린다</li>
+<li>Mixamo/Adobe 자산은 계속 배제(약관이 AI 테스트 금지). Epic 자체 Fab 콘텐츠도 배제(NoAI 태그)</li>
+</ul>
+
+<h2>7. 솔직한 약점</h2>
+<ul>
+<li><strong>리눅스는 CI에서만 돈다.</strong> 실제 리눅스 데스크톱에서 <code>Blender.app</code> 없이 끝까지 돌려본 적 없다. 윈도우는 미지원</li>
+<li><strong>동작을 못 받는 리그가 34건</strong> — 모양 기반 사슬 리그는 이름이 표준이 아니라 BVH가 안 얹힌다. 구조적 한계</li>
+<li>Codex 경로는 <strong>자산별 벤치가 없다.</strong> 실제 호출은 8회 검증됐지만 66개 자산 전수는 결정론적 경로(<code>mock</code>)로만 쟀다</li>
+<li>벤치의 “정답”은 <strong>한 아티스트의 리그</strong>지 해부학적 진실이 아니다. 회귀 탐지용으로 읽어야 한다</li>
+<li>걷기 GIF는 루프가 매끄럽지 않다 — 60프레임이 끝나면 자세가 튄다. 사이클 정렬을 안 했다</li>
+</ul>
+
+<h2>8. 다음에 할 수 있는 것 (지시 대기)</h2>
+<ul>
+<li><strong>공개 전환</strong> — 말씀만 하시면 <code>gh repo edit --visibility public</code></li>
+<li>걷기 GIF 루프 다듬기(사이클 시작·끝 자세 맞추기)</li>
+<li>사족(개·말) 예시 미디어 추가 — 지금 그림은 전부 사람형뿐</li>
+<li>리눅스 실기 확인</li>
+</ul>
+
+<p class="note" style="margin-top:32px">푸시 완료: 커밋 <code>04311ff</code> → <code>origin/main</code>. 저장소는 여전히 <strong>PRIVATE</strong>.</p>
+</main></body></html>
