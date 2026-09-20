@@ -1,7 +1,7 @@
 """codex exec 호출부.
 원칙: 읽기전용 샌드박스, 입력 파일만 든 임시 작업폴더, --output-schema 로 최종 답 JSON 강제, 파일 쓰기는 파이썬만.
 --json 이벤트를 받아 토큰 사용량(turn.completed.usage)을 기록한다. web_search=True 면 `codex --search` 로 Codex 자체 웹 검색을 켠다.
-HPR_BACKEND=mock 이면 Codex 를 부르지 않는다."""
+BW_BACKEND=mock 이면 Codex 를 부르지 않는다."""
 import json
 import os
 import re
@@ -127,7 +127,7 @@ def _wait_with_heartbeat(proc, events: Path, timeout: int, heartbeat, every: int
 
 def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_cfg: dict, codex_cfg: dict,
              log_dir: Path, mock=None, web_search: bool = False, heartbeat=None, images: list[str] | None = None) -> tuple[dict, dict]:
-    backend = os.environ.get("BW_BACKEND", os.environ.get("HPR_BACKEND", "codex"))
+    backend = os.environ.get("BW_BACKEND", "codex")
     started = time.time()
     if backend == "mock":
         if mock is None:
@@ -136,7 +136,7 @@ def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_
         approx_in = (sum(len(v) for v in inputs.values()) + len(prompt)) // 4
         return mock(name, prompt, inputs), {"step": name, "backend": "mock", "seconds": round(time.time() - started, 2),
                                             "usage": {"input_tokens": approx_in, "cached_input_tokens": 0, "output_tokens": 200}, "items": {}}
-    work = Path(tempfile.mkdtemp(prefix=f"hpr-{name}-"))
+    work = Path(tempfile.mkdtemp(prefix=f"bw-{name}-"))
     try:
         write_inputs(work, inputs)
         schema_path = work / "_schema.json"
@@ -152,7 +152,7 @@ def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_
                 proc = subprocess.Popen(cmd, cwd=work, stdin=subprocess.DEVNULL, stdout=out, stderr=err, text=True,
                                         env={**os.environ, "NO_COLOR": "1"})
             except FileNotFoundError as error:
-                raise CodexMissing("codex 실행 파일을 찾을 수 없음. `npm i -g @openai/codex` 로 설치하고 `hpr doctor` 로 확인") from error
+                raise CodexMissing("codex 실행 파일을 찾을 수 없음. `npm i -g @openai/codex` 로 설치하고 `bw doctor` 로 확인") from error
             try:
                 _wait_with_heartbeat(proc, events, codex_cfg.get("timeout", 900), heartbeat)
             except subprocess.TimeoutExpired as error:
@@ -164,7 +164,7 @@ def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_
             if limited:
                 raise UsageLimit(f"{name}: 사용량 한도 도달" + (f" (리셋 {resets})" if resets else ""), resets)
             if detect_auth_error(tail):
-                raise AuthRequired(f"{name}: 로그인이 만료됐거나 인증 실패. `codex login` 뒤 `hpr resume` (로그: {log_dir / (name + '.stderr.log')})")
+                raise AuthRequired(f"{name}: 로그인이 만료됐거나 인증 실패. `codex login` 뒤 다시 실행 (로그: {log_dir / (name + '.stderr.log')})")
             raise CodexError(f"{name}: codex exec 종료코드 {proc.returncode} (로그: {log_dir / (name + '.stderr.log')})")
         if not out_file.exists():
             raise CodexError(f"{name}: 마지막 메시지 파일 없음")

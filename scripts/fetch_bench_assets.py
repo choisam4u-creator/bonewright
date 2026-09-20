@@ -114,7 +114,7 @@ def main() -> int:
         print("사족 10종 (Quaternius, CC0)")
         for name, fid in ANIMALS.items():
             dest = out / "quadruped" / f"{name}.gltf"
-            if dest.exists():
+            if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
                 print(f"  건너뜀 {name} (이미 있음)"); continue
             try:
                 n = get(GDRIVE.format(id=fid), dest)
@@ -126,7 +126,7 @@ def main() -> int:
         print("Khronos 샘플")
         for name in SAMPLES:
             dest = out / "samples" / f"{name}.glb"
-            if dest.exists():
+            if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
                 print(f"  건너뜀 {name} (이미 있음)"); continue
             try:
                 n = get(KHRONOS.format(n=name), dest)
@@ -138,7 +138,7 @@ def main() -> int:
         print("비인간·괴물 43종 (Quaternius Ultimate Monsters + KayKit Skeletons, 둘 다 CC0)")
         for name, fid in sorted(MONSTERS.items()):
             dest = out / "monsters" / f"{name}.glb"
-            if dest.exists():
+            if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
                 print(f"  건너뜀 {name} (이미 있음)"); continue
             try:
                 n = get(POLY.format(id=fid), dest)
@@ -148,7 +148,7 @@ def main() -> int:
                 print(f"  실패 {name}: {e}", file=sys.stderr)
         for name in KAYKIT:
             dest = out / "monsters" / f"kaykit_{name.lower()}.glb"
-            if dest.exists():
+            if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
                 print(f"  건너뜀 {name} (이미 있음)"); continue
             try:
                 n = get(KAYKIT_BASE.format(n=name), dest)
