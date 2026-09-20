@@ -189,6 +189,38 @@ def leg_axis(sign, lo=None, hi=None):
         out.append([round(c.x, 3), round(c.y, 3), round(c.z, 3), round(rad, 3), round(max(v.y for v in sel) - min(v.y for v in sel), 3)])
     return out
 legs = {"leg_axis_L": leg_axis(1), "leg_axis_R": leg_axis(-1)}   # 1차: 발목 찾기용(발 포함)
+
+# **끝 표본**: 위 중심선은 구간을 8칸으로 나눠 **칸의 무게중심**을 주므로, 첫·마지막 표본이 이미
+# 손끝·발끝에서 한 칸의 절반만큼 안쪽이다. mannequiny 실측 — 발목은 z=0.049 인데 다리 중심선은
+# z=0.098 에서 끝나고(4.9cm 부족), 손끝은 x=0.82 인데 팔 중심선은 0.737 에서 끝난다(8.3cm 부족).
+# 그래서 실제 모델이 "발목의 중심 위치를 확인할 수 없다"며 shin·foot 을 **놓기를 거절했다**
+# (그 판단은 옳다 — 없는 데이터로 찍는 것보다 낫다). 빠진 건 높이가 아니라 **그 높이에서의 중심**이다.
+# 기존 배열은 다른 계산이 인덱스로 쓰고 있어 건드리지 않고, 끝 슬래브의 중심을 따로 붙인다.
+def _tip_sample(pts, key, far):
+    """끝에서 얇게 한 겹 떠 무게중심·반지름을 잰다. far(v)가 큰 쪽이 끝이다"""
+    if len(pts) < 8:
+        return None
+    ordered = sorted(pts, key=far, reverse=True)
+    span = far(ordered[0]) - far(ordered[-1])
+    if span <= 1e-6:
+        return None
+    edge = far(ordered[0]) - max(span * 0.06, spacing * 1.5)     # 끝에서 6% 또는 정점 간격 1.5배
+    sel = [v for v in ordered if far(v) >= edge]
+    if len(sel) < 6:
+        sel = ordered[:max(6, len(ordered) // 20)]
+    c = sum(sel, Vector()) / len(sel)
+    rad = sum((v - c).length for v in sel) / len(sel)
+    return [round(c.x, 3), round(c.y, 3), round(c.z, 3), round(rad, 3),
+            round(max(v.y for v in sel) - min(v.y for v in sel), 3)]
+
+
+tips = {}
+for _s, _n in ((1, "L"), (-1, "R")):
+    _lp = [v for v in vs if v.z < cz and v.x * _s > spacing * 0.5]
+    tips[f"leg_tip_{_n}"] = _tip_sample(_lp, "leg", lambda v: -v.z)          # 다리는 **아래**가 끝
+    _ap = [v for v in vs if v.x * _s > torso_hw + spacing * 0.5 and v.z > cz]
+    tips[f"arm_tip_{_n}"] = _tip_sample(_ap, "arm", lambda v, _sg=_s: v.x * _sg)   # 팔은 **바깥**이 끝
+
 prof = legs["leg_axis_L"] or legs["leg_axis_R"]
 
 # 다리 중심선을 못 찾은 메시(로봇처럼 다리가 떨어진 상자거나 실루엣에서 몸통과 붙어 보이는 경우)라도,
@@ -384,7 +416,7 @@ land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 
         "torso_halfwidth": torso_hw, "arm_tip_x": tip["right"], "arm_tip_z": tip["z"],
         "vertex_spacing": round(spacing, 4), "symmetry_error": round(sym, 3),
         "pose_guess": "A" if tip["z"] < shoulder["z"] - (shoulder["z"] - cz) * 0.15 else "T",
-        "ratio_fallbacks": fallbacks, "foot_split": foot_split,
+        "ratio_fallbacks": fallbacks, "foot_split": foot_split, **{k: v for k, v in tips.items() if v},
         "medial": ({"root": [round(v, 3) for v in medial["root"]], "voxel": medial.get("voxel"),
                     "spheres": medial.get("spheres"), "bridges": medial.get("bridges"),
                     "roles": {k: [round(v, 3) for v in t["p"]] for k, t in med_roles.items()},

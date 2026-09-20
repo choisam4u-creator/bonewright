@@ -83,20 +83,28 @@ Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is
 
 ### Which backend produced these numbers
 
-Every accuracy figure in this README comes from the **deterministic path** (`BW_BACKEND=mock`), which places
-joints mechanically from the measured landmarks and costs nothing. The default path calls a model for the `fit`
-step, and on the one asset where both have been measured against the original rig it was **worse**, not better:
+Every accuracy figure in this README comes from the **deterministic path** (`BW_BACKEND=mock`), which places joints
+mechanically from the measured landmarks and costs nothing. The default path calls a model for the `fit` step. On
+the one asset where both have been measured against the original rig, they now come out even:
 
 | mannequiny, joints vs the author's rig | mean | worst |
 |---|---|---|
-| Model only | 5.96 cm (3.3% of height) | 24.71 cm (foot) |
-| **Model, with omissions filled deterministically** | **3.21 cm (1.8%)** | 6.67 cm |
-| Deterministic only | 2.96 cm (1.6%) | 6.67 cm |
+| Model, before the fix below | 5.96 cm (3.3% of height) | 24.71 cm (foot) |
+| **Model, now** | **3.06 cm (1.7%)** | 6.67 cm |
+| Deterministic | 2.96 cm (1.6%) | 6.67 cm |
 
-The model was not careless — it explicitly declined to place the shin and foot because the leg centreline it was
-given stopped above the ankle, which is the right call. The damage came from what happened next: an unplaced bone
-kept its metarig default and ended up far outside the leg. Those gaps are now filled from the landmarks, which
-recovers most of the loss. **This is one asset and one run**; treat it as a caution, not a benchmark.
+The first row is worth explaining, because the model was not the problem. It declined to place the shin and foot
+and said why: the leg centreline it was given stopped at z=0.098 while the ankle is at z=0.049. That was true —
+each centreline sample is a band's **centroid**, so the end sample sits half a band inside the real extremity, and
+the foot was simply missing from its input. Declining was the right call; the damage came from what happened to an
+unplaced bone, which kept its metarig default out in space.
+
+Two changes followed. `landmarks.leg_tip_L/R` and `arm_tip_L/R` now carry the centroid of the actual toe and
+fingertip slab, and the prompt points at them. Any bone the model still omits is filled in from the landmarks
+rather than left at a default. The model went from placing 10 of 15 bones to 15 of 15.
+
+**This is one asset and two runs.** What it shows is that the model path is not worse; it does not show that paying
+~86k input tokens buys anything over the free deterministic path on an ordinary human mesh.
 
 ## Rejection gate
 
