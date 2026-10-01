@@ -1,6 +1,7 @@
 """bw: bonewright 명령줄. rig · motion · demo · bench · doctor · status · usage · plugin-path"""
 import argparse
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -23,7 +24,7 @@ def doctor() -> int:
         v = subprocess.run(bl + ["--version"], capture_output=True, text=True).stdout.splitlines()
         print("  ", v[0] if v else "?")
     else:
-        print("bpy 모듈:", "있음" if has_bpy_module() else "없음 (pip install bpy==5.2.1, Python 3.13)"); ok &= has_bpy_module()
+        print("bpy 모듈:", "있음" if has_bpy_module() else "없음 (pip install bpy==5.2.2, Python 3.13)"); ok &= has_bpy_module()
     codex = shutil.which("codex")
     print("codex CLI:", codex or "없음 → https://developers.openai.com/codex"); ok &= bool(codex)
     if codex:
@@ -98,14 +99,18 @@ def main() -> int:
             if "=" not in it:
                 raise SystemExit(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)")
             name, rest = it.split("=", 1); parts = rest.split("/")
+            name = name.strip()
+            if not name or len(parts) > 2:
+                raise SystemExit(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)")
             try:
                 v = {"head": [float(x) for x in parts[0].split(",")]}
                 if len(parts) > 1: v["tail"] = [float(x) for x in parts[1].split(",")]
             except ValueError:
                 raise SystemExit(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로)")
-            if len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3:
+            if (len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3
+                    or not all(math.isfinite(x) for coords in v.values() for x in coords)):
                 raise SystemExit(f"--pin 좌표는 x,y,z 세 개다: {it}")
-            out[name.strip()] = v
+            out[name] = v
         return out
 
     try:
