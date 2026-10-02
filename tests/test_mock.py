@@ -10,9 +10,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from bonewright import bench, blender, gates, pipeline  # noqa: E402
+from tests._marks import requires_blender  # noqa: E402
 
 
-@unittest.skipUnless(blender.find_blender({}) or blender.has_bpy_module(), "Blender 없음")
+@requires_blender
 class RigMockTests(unittest.TestCase):
     def setUp(self):
         os.environ["BW_BACKEND"] = "mock"

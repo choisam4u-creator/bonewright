@@ -17,7 +17,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install .
       - name: 테스트(Blender 필요한 것은 자동 skip)
-        run: python -m unittest -v tests.test_mock
+        run: python -m unittest -v tests.test_mock tests.test_cli
       - name: CLI 가 임포트되는지
         run: bw --help
       - name: 라이선스 경계 — bonewright/ 본체는 bpy 를 import 하지 않는다(MIT 유지)
@@ -40,6 +40,8 @@ jobs:
         run: python -c "import bpy; print('Blender', bpy.app.version_string)"
       - name: 전체 테스트(리그·가중치·리타겟 포함)
         # 렌더는 끈다: 화면 없는 러너에서 렌더러가 죽는다(-6). 렌더는 사람이 볼 그림이지 판정이 아니다
+        # BW_REQUIRE_BLENDER: bpy 가 안 올라오면 건너뛰지 말고 실패한다(몰래 초록불 방지)
         env:
           BW_NO_RENDER: "1"
-        run: python -m unittest -v tests.test_mock
+          BW_REQUIRE_BLENDER: "1"
+        run: python -m unittest -v tests.test_mock tests.test_cli
