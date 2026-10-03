@@ -61,6 +61,7 @@ Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; W
 
 - **[Full guide](docs/GUIDE.md)** — every flag, how joints are found, the rejection gate, motion retargeting,
   the benchmark and what the numbers do and do not mean.
+- [examples/](examples/README.md) — reproduce mesh → rig (bone count and names table) with zero tokens.
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
 ## License
