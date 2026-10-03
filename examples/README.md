@@ -1,0 +1,51 @@
+# 예제
+
+`rig_sample.py` — 작은 메시를 넣고 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(`BW_BACKEND=mock`), 토큰 0.
+
+```bash
+python3 examples/rig_sample.py                 # 절차적 캡슐 인형을 만들어 리깅 (자산 파일 없음)
+python3 examples/rig_sample.py adventurer      # tests/assets 의 CC0 캐릭터(1.9MB, Quaternius)
+python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 스킨 본 표만 (블렌더 불필요)
+```
+
+리깅에는 Blender 5.2 LTS 또는 `pip install bpy==5.2.2`(파이썬 3.13)가 필요하다. 결과는 `examples/out/`(git 제외)에
+남고, 표는 `examples/out/<이름>.md` 로 쓴다. 표는 내보낸 `rigged.glb` 의 변형 본을 순수 파이썬으로 읽어 만든다.
+
+## 무거운 자산
+
+벤치마크용 캐릭터·동물(수십 MB, 라이선스가 재배포를 막는 것 포함)은 저장소에 넣지 않는다. 원배포처에서 받는다:
+
+```bash
+python3 scripts/fetch_bench_assets.py --help
+python3 examples/rig_sample.py <받은 파일>.glb [--preset quadruped]
+```
+
+## 입력 예: `--table adventurer` (원본 파일에 든 스킨 본)
+
+리깅할 때 이 원본 뼈대는 버리고 Rigify 리그를 새로 만든다(`--from-skeleton` 을 주면 이 관절 위치를 쓴다).
+
+- 본 62개 · 왼쪽 27 · 오른쪽 27 · 가운데 8
+
+| 부위 | 개수 | 이름 |
+|---|---:|---|
+| Root | 1 | `Root` |
+| Body | 1 | `Body` |
+| Hips | 1 | `Hips` |
+| Abdomen | 1 | `Abdomen` |
+| Torso | 1 | `Torso` |
+| Chest | 1 | `Chest` |
+| Neck | 1 | `Neck` |
+| Head | 1 | `Head` |
+| Shoulder | 2 | `Shoulder.L`, `Shoulder.R` |
+| UpperArm | 2 | `UpperArm.L`, `UpperArm.R` |
+| LowerArm | 2 | `LowerArm.L`, `LowerArm.R` |
+| Wrist | 2 | `Wrist.L`, `Wrist.R` |
+| Index | 8 | `Index1.L`, `Index2.L`, `Index3.L`, `Index4.L`, `Index1.R`, `Index2.R`, `Index3.R`, `Index4.R` |
+| Middle | 8 | `Middle1.L`, `Middle2.L`, `Middle3.L`, `Middle4.L`, `Middle1.R`, `Middle2.R`, `Middle3.R`, `Middle4.R` |
+| Ring | 8 | `Ring1.L`, `Ring2.L`, `Ring3.L`, `Ring4.L`, `Ring1.R`, `Ring2.R`, `Ring3.R`, `Ring4.R` |
+| Pinky | 8 | `Pinky1.L`, `Pinky2.L`, `Pinky3.L`, `Pinky4.L`, `Pinky1.R`, `Pinky2.R`, `Pinky3.R`, `Pinky4.R` |
+| Thumb | 6 | `Thumb1.L`, `Thumb2.L`, `Thumb3.L`, `Thumb1.R`, `Thumb2.R`, `Thumb3.R` |
+| UpperLeg | 2 | `UpperLeg.L`, `UpperLeg.R` |
+| LowerLeg | 2 | `LowerLeg.L`, `LowerLeg.R` |
+| Foot | 2 | `Foot.L`, `Foot.R` |
+| PT | 2 | `PT.L`, `PT.R` |
