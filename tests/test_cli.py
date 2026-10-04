@@ -26,5 +26,14 @@ class PinInputTests(unittest.TestCase):
                          {"hand.L": {"head": [0.0, 0.0, 1.0], "tail": [1.0, 0.0, 1.0]}})
 
 
+class PluginPathTests(unittest.TestCase):
+    def test_plugin_path_points_at_real_plugin(self):
+        out = io.StringIO()
+        with patch.object(sys, "argv", ["bw", "plugin-path"]), patch("sys.stdout", out):
+            self.assertEqual(cli.main(), 0)
+        from pathlib import Path
+        self.assertTrue((Path(out.getvalue().strip()) / ".codex-plugin" / "plugin.json").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()

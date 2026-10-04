@@ -1,5 +1,32 @@
 # 클라우드 회차 기록
 
+## 2026-10-04
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #2 병합분) 빨리감기 병합.
+- 백로그 4번: 오류 메시지에 고칠 방법(`→` 줄). 메시·`--targets`·`--map`·`--bvh`·리그 run-id 를 Blender 호출 **전에** 확인
+  (`pipeline.need_file`/`need_rig`). 없는 명령 `bw resume` 안내를 재실행·`--targets` 재사용으로 고침. `bw status <없는 id>` 종료코드 2.
+  타입 힌트 보강. `tests/test_errors.py`(7개).
+- 백로그 5번: `docs/PRE-PUBLIC-AUDIT.md` — 비밀 값 없음. 개인 경로는 git 기록(문서 2개, d6091c2 이전)에만,
+  **GitHub 웹 병합 커밋 2개에 개인 gmail 주소**. 에셋 라이선스 표기는 다 있음(`walk_wave.bvh` 생성 모델 표기 보강 권장). 지운 것 없음.
+- 백로그 6번: CHANGELOG 정리(0.2.0 에 실린 내용을 `[0.2.0] - 2026-09-20` 로 옮기고 Unreleased 채움, 비교 링크),
+  `docs/RELEASING.md`, `tests/test_release.py`(버전 3곳 일치). plugin.json 0.1.0 → 0.2.0. 다음 버전 제안 **0.2.1**, 태그 안 만듦.
+- 추가 1건: pip 설치본에서 `bw plugin-path` 가 없는 `site-packages/plugin` 을 가리키던 버그 → 휠에 `bonewright/_plugin` 으로 실음. CI 에서 확인.
+- 백로그 남은 항목 0 → 공개 준비 기준 새 항목 5개(근거 포함) 추가.
+
+**돌린 시험**
+- `python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release` — 54개 중 42개 통과,
+  12개 건너뜀('Blender 없음': 클라우드에 Blender·bpy 없음 — `RigMockTests` 의 리그·스키닝·리타겟 시험).
+- 새 venv 에 `pip install .` → 저장소 밖에서 `bw plugin-path` 가 `.../bonewright/_plugin` (`.codex-plugin/plugin.json` 있음) 확인.
+- `python3 scripts/check_license_boundary.py` — OK. 워크플로 YAML 구문 확인.
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release
+bw rig 없는파일.glb; bw export 없는id; bw status 없는id   # 셋 다 Blender 없이 바로 BLOCKED + "→" 안내
+```
+그리고 `docs/PRE-PUBLIC-AUDIT.md` 의 "판단 필요" 2건(기록 속 개인 경로, 병합 커밋 개인 메일)은 샘님 결정.
+
 ## 2026-10-03
 
 **한 일**

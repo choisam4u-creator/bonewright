@@ -5,13 +5,48 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
+Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command or flag.
+See `docs/RELEASING.md` for the release steps.
+
+### Added
+- `examples/rig_sample.py`: rig a small sample mesh (procedural capsule doll, the CC0 `adventurer`, or any GLB)
+  and write a table of deform-bone count, left/right split and names. `--table x.glb` reads a GLB without Blender.
+- Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them
+  for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `bpy` job).
+- `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
+
+### Changed
+- README first screen rewritten to what it does / install / first run / example output; the long material moved
+  to `docs/GUIDE.md`, with a Korean edition in `README.ko.md`.
+- `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
+
 ### Fixed
+- **Input mistakes now stop before Blender starts, and say what to change.** A missing or unsupported mesh,
+  a missing `--targets`/`--map`/`--bvh` file, a broken JSON file, or a run id with no rig used to surface as a
+  Blender traceback or a bare "file not found". They now raise `Blocked` with a `→` line naming the fix
+  (supported formats, `bw status`, the `bw rig ... --run-id` to run first). The usage-limit message pointed at a
+  `bw resume` command that does not exist; it now says to rerun, or reuse `runs/<id>/targets.json` with
+  `--targets`. `bw status <unknown id>` exits 2 with a hint instead of a traceback. Covered by `tests/test_errors.py`
+  (no Blender needed).
 - **Quadruped judge renders were cropped.** `render_views.py` sized the camera from the character's
   *height*, which is right for a person and wrong for anything longer than it is tall: the wolf
   (2.68 tall, 5.55 long — the tail counts) lost its head and its tail off both edges of the side view, and the model was
   asked to judge bone placement on a picture that did not contain the bones. The camera now sizes from
   the longest of the three bounding-box edges. Humanoids are unaffected — height is already their
   longest edge — so no existing number moves.
+- `bw plugin-path` printed `site-packages/plugin`, a folder that does not exist, when bonewright was installed
+  with pip: the plugin was never packaged. The wheel now carries it as `bonewright/_plugin/`, and the command
+  prefers the repository's `plugin/` when run from a checkout. CI checks the installed path from outside the repo.
+- The Codex plugin manifest (`plugin/.codex-plugin/plugin.json`) still said version 0.1.0 and "retargeting comes in
+  v0.2". It now matches the package version; `tests/test_release.py` keeps the three version strings in step.
+- `--pin` rejects malformed input (empty bone name, more than one `/`, NaN or infinite coordinates) before any
+  work starts.
+- Documentation audit (2026-09-20): eleven claims that did not match measurements were corrected; the wolf's
+  tail is three bones, not one.
+
+## [0.2.0] - 2026-09-20
+
+Summary: humanoid and quadruped Rigify presets, rejection gate, `--from-skeleton`, BVH retargeting, `bw bench`.
 
 ### Added
 - **Human-only metarig bones are dropped when the source skeleton has no counterpart.** Rigify's `breast.L/R`
@@ -105,5 +140,5 @@ All notable changes to this project. Numbers are measured against the original a
   path. The arm chain starts inside the chest, so automatic weights give chest vertices to the arm.
 - `bpy_scripts/` is GPL-3.0-or-later; the rest is MIT.
 
-## [0.2.0]
-- Humanoid and quadruped Rigify presets, rejection gate, `--from-skeleton`, BVH retargeting, `bw bench`.
+[Unreleased]: https://github.com/choisam4u-creator/bonewright/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/choisam4u-creator/bonewright/releases/tag/v0.2.0

@@ -21,7 +21,7 @@ def atomic_write(path: Path, text: str) -> None:
 
 
 class Manifest:
-    def __init__(self, run_dir: Path, prompt: str | None = None, tier: str = "light"):
+    def __init__(self, run_dir: Path, prompt: str | None = None, tier: str = "light") -> None:
         self.path = run_dir / "manifest.json"
         if self.path.exists():
             self.data = json.loads(self.path.read_text())

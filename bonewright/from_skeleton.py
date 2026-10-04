@@ -39,7 +39,7 @@ def _lookup(joints: dict) -> dict:
     return out
 
 
-def _lerp(a, b, t):
+def _lerp(a: list[float], b: list[float], t: float) -> list[float]:
     return [a[i] + (b[i] - a[i]) * t for i in range(3)]
 
 
