@@ -107,6 +107,18 @@ class UnexpectedErrorTests(unittest.TestCase):
         self.assertIn("BW_DEBUG=1", out)
         self.assertNotIn("Traceback", out)
 
+    def test_early_commands_also_reported(self):
+        # bw status 처럼 파이프라인 전에 끝나는 명령도 같은 안내를 거친다(Codex 리뷰 #4 지적)
+        d = self.root / "runs" / "rig-bad"; d.mkdir(parents=True)
+        (d / "state.json").write_text("{잘림", encoding="utf-8")
+        err = io.StringIO()
+        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", "rig-bad"]), \
+                patch("sys.stderr", err), patch.dict(os.environ):
+            os.environ.pop("BW_DEBUG", None)
+            self.assertEqual(cli.main(), 2)
+        self.assertIn("BLOCKED: JSONDecodeError", err.getvalue())
+        self.assertIn("BW_DEBUG=1", err.getvalue())
+
     def test_debug_prints_traceback(self):
         out = self.run_bw({"BW_DEBUG": "1"})
         self.assertIn("Traceback", out)

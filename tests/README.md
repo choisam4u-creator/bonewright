@@ -6,7 +6,7 @@
 | `tests.test_mock` 의 나머지(`BenchMappingTests`·`GateTests`·`RetargetMappingTests`·`QuadTailMappingTests`·`BvhUpAxisTests`·`FromSkeletonTests`·`MedialShapeTests`) | 불필요 | 27 | 이름 매핑·관문 판정·BVH 축·순수 기하 |
 | `tests.test_cli` | 불필요 | 6 | 명령줄 입력 검증, `bw plugin-path`, `bw --version`, 도움말 언어(`BW_LANG`) |
 | `tests.test_examples` | 불필요 | 3 | `examples/rig_sample.py` 의 GLB 본 표 |
-| `tests.test_errors` | 불필요 | 11 | 잘못된 입력이 Blender 호출 전에 막히고 메시지에 고칠 방법(→)이 있는지, 예상 못 한 오류에 로그 위치·`BW_DEBUG` 안내 |
+| `tests.test_errors` | 불필요 | 12 | 잘못된 입력이 Blender 호출 전에 막히고 메시지에 고칠 방법(→)이 있는지, 예상 못 한 오류에 로그 위치·`BW_DEBUG` 안내 |
 | `tests.test_release` | 불필요 | 2 | 버전 문자열 3곳 일치, CHANGELOG 절·링크(`docs/RELEASING.md`) |
 | `tests.test_docs` | 불필요 | 3 | README·README.ko·GUIDE·examples/README 의 상대 링크가 있는 파일인지, 문서의 `bw <명령> --옵션` 이 실제 argparse 에 있는지 |
 
