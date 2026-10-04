@@ -89,7 +89,7 @@ def T(ko: str, en: str) -> str:
     return ko if help_lang() == "ko" else en
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -133,7 +133,11 @@ def main() -> int:
     u = sub.add_parser("usage", help=T("모델 호출 사용량 장부 요약", "summarise the model-usage ledger")); u.add_argument("--days", type=int, default=7)
     sub.add_parser("doctor", help=T("Blender·bpy·codex·kimodo.cpp 가 준비됐는지 확인", "check that Blender or bpy, codex and kimodo.cpp are reachable"))
     sub.add_parser("plugin-path", help=T("Codex 플러그인 폴더 경로 출력", "print the Codex plugin folder"))
-    a = p.parse_args()
+    return p
+
+
+def main() -> int:
+    a = build_parser().parse_args()
     if a.cmd == "doctor":
         return doctor()
     if a.cmd == "plugin-path":

@@ -16,6 +16,8 @@ See `docs/RELEASING.md` for the release steps.
 - `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
 - Issue templates for install / `bw doctor` problems and feature requests; blank issues now point to the guide and
   SECURITY.md. `bw --version` prints the package version the install template asks for.
+- `tests/test_docs.py`: relative links in the README, Korean README, guide and examples README must resolve, and
+  every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender.
 
 ### Changed
 - `bw --help` follows `BW_LANG` (or the locale): English by default, Korean for `ko`. Error messages and

@@ -15,7 +15,7 @@
 
 1. **시험** — Mac 에서 블렌더 시험까지 전부 통과:
    ```bash
-   BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release
+   BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs
    python3 scripts/check_license_boundary.py
    ```
    결과는 `docs/test-reports/latest.md` 에 남긴다.
