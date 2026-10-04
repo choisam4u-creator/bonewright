@@ -5,7 +5,7 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
-Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command or flag.
+Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command, and the only new flag is `bw --version`.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
@@ -14,6 +14,8 @@ See `docs/RELEASING.md` for the release steps.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them
   for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `bpy` job).
 - `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
+- Issue templates for install / `bw doctor` problems and feature requests; blank issues now point to the guide and
+  SECURITY.md. `bw --version` prints the package version the install template asks for.
 
 ### Changed
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

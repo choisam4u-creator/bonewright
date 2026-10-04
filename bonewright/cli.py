@@ -49,6 +49,7 @@ def doctor() -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
+    p.add_argument("--version", action="version", version=f"bonewright {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("rig", help="메시를 Rigify 로 리깅하고 검증한다")
     r.add_argument("mesh"); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")

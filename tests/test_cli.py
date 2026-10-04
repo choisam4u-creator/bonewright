@@ -35,5 +35,16 @@ class PluginPathTests(unittest.TestCase):
         self.assertTrue((Path(out.getvalue().strip()) / ".codex-plugin" / "plugin.json").is_file())
 
 
+class VersionTests(unittest.TestCase):
+    def test_version_flag_prints_package_version(self):
+        # 설치 문제 이슈 템플릿이 `bw --version` 출력을 요구한다
+        out = io.StringIO()
+        with patch.object(sys, "argv", ["bw", "--version"]), patch("sys.stdout", out):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(out.getvalue().strip(), f"bonewright {cli.__version__}")
+
+
 if __name__ == "__main__":
     unittest.main()
