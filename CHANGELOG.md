@@ -6,6 +6,13 @@ All notable changes to this project. Numbers are measured against the original a
 ## [Unreleased]
 
 ### Fixed
+- **Input mistakes now stop before Blender starts, and say what to change.** A missing or unsupported mesh,
+  a missing `--targets`/`--map`/`--bvh` file, a broken JSON file, or a run id with no rig used to surface as a
+  Blender traceback or a bare "file not found". They now raise `Blocked` with a `→` line naming the fix
+  (supported formats, `bw status`, the `bw rig ... --run-id` to run first). The usage-limit message pointed at a
+  `bw resume` command that does not exist; it now says to rerun, or reuse `runs/<id>/targets.json` with
+  `--targets`. `bw status <unknown id>` exits 2 with a hint instead of a traceback. Covered by `tests/test_errors.py`
+  (no Blender needed).
 - **Quadruped judge renders were cropped.** `render_views.py` sized the camera from the character's
   *height*, which is right for a person and wrong for anything longer than it is tall: the wolf
   (2.68 tall, 5.55 long — the tail counts) lost its head and its tail off both edges of the side view, and the model was

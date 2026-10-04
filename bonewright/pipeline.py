@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import NoReturn
 
 from . import schemas
 from .blender import run_script
@@ -20,7 +21,30 @@ PROMPTS = Path(__file__).parent / "prompts"
 
 
 class Blocked(RuntimeError):
-    pass
+    """사용자가 고쳐서 다시 돌릴 수 있는 중단. 메시지에는 '무엇을 바꾸면 되는지'를 한 줄 넣는다."""
+
+
+MESH_EXTS = (".glb", ".gltf", ".fbx", ".obj", ".blend")   # bpy_scripts/_common.py import_mesh 가 읽는 형식
+
+
+def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = ()) -> Path:
+    """입력 파일을 Blender·모델을 부르기 **전에** 확인한다. 없거나 형식이 틀리면 고칠 방법을 담아 Blocked."""
+    p = Path(path).expanduser()
+    if not p.is_file():
+        raise Blocked(f"{what} 파일이 없다: {p}\n  → {fix}")
+    if exts and p.suffix.lower() not in exts:
+        raise Blocked(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {' · '.join(exts)} 중 하나로 내보내서 다시 지정하라")
+    return p
+
+
+def need_rig(root: Path, run_id: str) -> Path:
+    """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다."""
+    blend = root / "runs" / run_id / "02_rigged.blend"
+    if not blend.exists():
+        state = root / "runs" / run_id / "state.json"
+        why = f"이 실행은 리깅을 마치지 못했다(`bw status {run_id}`)" if state.exists() else "그런 실행 id 가 없다(`bw status` 로 목록 확인)"
+        raise Blocked(f"리깅 결과가 없다: {blend}\n  → {why}. 먼저 `bw rig <메시> --run-id {run_id}` 로 리깅하라")
+    return blend
 
 
 def _prompt(name: str, lang: str) -> str:
@@ -33,7 +57,7 @@ def _log(quiet: bool, msg: str) -> None:
 
 
 class Run:
-    def __init__(self, root: Path, run_id: str, cfg: dict, quiet: bool = False):
+    def __init__(self, root: Path, run_id: str, cfg: dict, quiet: bool = False) -> None:
         self.root, self.run_id, self.cfg, self.quiet = root, run_id, cfg, quiet
         self.dir = root / "runs" / run_id
         self.logs = self.dir / "logs"
@@ -61,7 +85,8 @@ class Run:
                                      mock=mock_backend, images=images, heartbeat=lambda m: _log(self.quiet, f"    … {name} {m}"))
         except UsageLimit as e:
             self.state(name, "usage_limit", resets_at=e.resets_at)
-            raise Blocked(f"{e} → 리셋 뒤 `bw resume {self.run_id}`")
+            raise Blocked(f"{e}\n  → 리셋 뒤 같은 명령을 다시 실행하라(`bw usage` 로 사용량 확인). "
+                          f"맞춤 판단까지 끝난 실행이면 `--targets runs/{self.run_id}/targets.json` 으로 모델 호출 없이 이어 갈 수 있다")
         except CodexError as e:
             self.state(name, "failed")
             raise Blocked(f"{name}: {e}")
@@ -91,9 +116,12 @@ def apply_bone_map(mapping: dict, path: Path, bvh_bones: list) -> tuple[dict, in
 
     BVH 에 없는 이름은 조용히 넘기지 않고 세어서 돌려준다 — 오타를 말해 주지 않으면 사용자는
     "왜 안 붙지"만 반복한다. 돌려주는 값은 (덮어쓴 매핑, 적용된 개수, 무시된 이름들)."""
-    user = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        user = json.loads(need_file(path, "--map", '{"LeftArm": "upper_arm.L"} 형태의 JSON 파일 경로를 지정하라').read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise Blocked(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm.L\"}}")
     if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
-        raise Blocked(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}')
+        raise Blocked(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}')
     known = {k: v for k, v in user.items() if k in bvh_bones}
     return {**mapping, **known}, len(known), [k for k in user if k not in bvh_bones]
 
@@ -124,8 +152,10 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")
+    mesh = str(need_file(mesh, "메시", "경로를 확인하라(따옴표로 감싼 공백 경로 포함)", MESH_EXTS).resolve())
+    if targets_file:
+        need_file(targets_file, "--targets", "이전 실행의 runs/<id>/targets.json 또는 거절 때 남긴 targets_draft.json 을 지정하라")
     r = Run(root, run_id, cfg, quiet)
-    mesh = str(Path(mesh).resolve())
     _log(quiet, f"rig {run_id} · {preset} · {mesh}")
     # 1 분석
     r.state("analyze", "running")
@@ -215,7 +245,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         fit = {"targets": {}, "reasoning": f"모양 리그: 속 중심선에서 팔다리 {sj['limbs']}개 · 본 {sj['bones']}개", "confidence": None}
         _log(quiet, f"[2/6] fit: 모양에서 뼈대를 만들었다 — 팔다리 {sj['limbs']}개 · 마디 {sj['segments']}개씩 · 본 {sj['bones']}개 · 모델 호출 0회")
     elif from_skeleton:
-        def _reject(why: str, reasons: list[str]):
+        def _reject(why: str, reasons: list[str]) -> NoReturn:
             r.state("fit", "rejected", reasons=reasons)   # 거절도 상태로 남긴다(중간에 멈춘 실행과 구분)
             raise Blocked(why)
         gt = r.blender("gt_joints", {"mesh": mesh, "facing": facing, "preset": preset})
@@ -241,7 +271,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  (f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}" if info["mirrored"] else "") +
                  (f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)" if source_symmetry > 0.01 else ""))
     elif targets_file:
-        fit = {"targets": json.loads(Path(targets_file).read_text(encoding="utf-8")), "reasoning": f"재사용: {targets_file}", "confidence": None}
+        try:
+            loaded = json.loads(Path(targets_file).read_text(encoding="utf-8"))
+        except ValueError as e:
+            raise Blocked(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라")
+        fit = {"targets": loaded, "reasoning": f"재사용: {targets_file}", "confidence": None}
         _log(quiet, f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회")
     else:
         meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
@@ -342,7 +376,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     if text:
         gen = kroot / "build-release" / "kmd-generate"
         if not gen.exists():
-            raise Blocked(f"kimodo.cpp 빌드가 없다: {gen}. docs/research-20260913.html 7절의 빌드 절차 참고")
+            raise Blocked(f"kimodo.cpp 빌드가 없다: {gen}\n  → docs/research-20260913.html 7절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라")
         r.state("kimodo", "running")
         (r.dir / "prompt.txt").write_text(text, encoding="utf-8")
         t = time.time()
@@ -359,7 +393,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             raise Blocked(f"BVH 변환 실패: {proc.stderr[-500:]}")
         _log(quiet, f"[2/3] bvh: {bvh}")
     if not bvh:
-        raise Blocked("--text 또는 --bvh 가 필요하다")
+        raise Blocked("동작 출처가 없다\n  → `bw motion --bvh walk.bvh --rig <리그 run-id>` 또는 `bw motion --text \"a person walks\"`")
+    need_file(bvh, "BVH", "경로를 확인하라. BVH 는 Mixamo·CMU 등에서 받거나 `--text` 로 만든다", (".bvh",))
     r.state("import", "running")
     from .retarget import detect_bvh_up
     if rig_run and preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid). 위 축 판단에도 필요하다
@@ -375,9 +410,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
               f"- blend: `{r.dir / 'motion.blend'}`"]
     if rig_run:
         from .retarget import bvh_mapping
-        blend = root / "runs" / rig_run / "02_rigged.blend"
-        if not blend.exists():
-            raise Blocked(f"리깅 결과가 없다: {blend}")
+        blend = need_rig(root, rig_run)
         mapping = bvh_mapping(imp["bone_names"], preset)
         if bone_map:
             mapping, applied, unknown = apply_bone_map(mapping, Path(bone_map), imp["bone_names"])
@@ -422,10 +455,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
 def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = False) -> Path:
     """리깅 결과 → 변형 본만 든 GLB(토큰 0). 다시 읽어 본 위치를 대조한다."""
     cfg = load(root)
+    blend = need_rig(root, run_id)
     r = Run(root, run_id, cfg, quiet)
-    blend = r.dir / "02_rigged.blend"
-    if not blend.exists():
-        raise Blocked(f"리깅 결과가 없다: {blend}")
     dst = Path(out).resolve() if out else (r.dir / "rigged.glb")
     ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
     _log(quiet, f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm")
@@ -437,13 +468,11 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     """리그 결과 데모 영상(토큰 0): runs/<id>/02_rigged.blend → demo.mp4(+ ffmpeg 가 있으면 demo.gif)."""
     import shutil
     cfg = load(root)
+    blend = need_rig(root, run_id)
     r = Run(root, run_id, cfg, quiet)
-    blend = r.dir / "02_rigged.blend"
-    if not blend.exists():
-        raise Blocked(f"리그 결과가 없다: {blend}")
     if os.environ.get("BW_NO_RENDER") == "1":
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
-        raise Blocked("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다")
+        raise Blocked("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다\n  → 화면이 있는 환경에서 `BW_NO_RENDER` 를 지우고 다시 실행하라")
     a = json.loads((r.dir / "analysis.json").read_text(encoding="utf-8"))
     d = r.blender("render_demo", {"blend": str(blend), "out_dir": str(r.dir), "stats": a["stats"], "height": a["landmarks"]["height"], "size": size, "frames": frames})
     out = Path(d["frames_dir"])

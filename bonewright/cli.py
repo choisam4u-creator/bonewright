@@ -89,12 +89,14 @@ def main() -> int:
     if a.cmd == "status":
         runs = ROOT / "runs"
         ids = [a.run_id] if a.run_id else sorted(p.name for p in runs.iterdir() if (p / "state.json").exists()) if runs.is_dir() else []
+        if a.run_id and not (runs / a.run_id / "state.json").exists():
+            print(f"BLOCKED: 실행 기록이 없다: {runs / a.run_id}\n  → `bw status` 로 목록을 보거나 BW_HOME(지금 {ROOT})을 확인하라", file=sys.stderr); return 2
         for rid in ids:
             s = json.loads((runs / rid / "state.json").read_text()); print(f"{rid}: {s['step']} {s['status']} · in {s.get('input_tokens', 0):,}")
         return 0
-    def parse_pins(items):
+    def parse_pins(items: list[str] | None) -> dict[str, dict[str, list[float]]]:
         """--pin 본=x,y,z[/x,y,z] → {"본": {"head": [...], "tail": [...]}}"""
-        out = {}
+        out: dict[str, dict[str, list[float]]] = {}
         for it in items or []:
             if "=" not in it:
                 raise SystemExit(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)")
@@ -106,10 +108,10 @@ def main() -> int:
                 v = {"head": [float(x) for x in parts[0].split(",")]}
                 if len(parts) > 1: v["tail"] = [float(x) for x in parts[1].split(",")]
             except ValueError:
-                raise SystemExit(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로)")
+                raise SystemExit(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로, 공백 없이. 예: spine.004=0,0,1.42)")
             if (len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3
                     or not all(math.isfinite(x) for coords in v.values() for x in coords)):
-                raise SystemExit(f"--pin 좌표는 x,y,z 세 개다: {it}")
+                raise SystemExit(f"--pin 좌표는 x,y,z 세 개다: {it} (예: hand.L=0.6,0,1.3 또는 머리/꼬리 hand.L=0.6,0,1.3/0.7,0,1.3)")
             out[name] = v
         return out
 
