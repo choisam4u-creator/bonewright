@@ -18,6 +18,8 @@ See `docs/RELEASING.md` for the release steps.
   SECURITY.md. `bw --version` prints the package version the install template asks for.
 
 ### Changed
+- An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
+  run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved
   to `docs/GUIDE.md`, with a Korean edition in `README.ko.md`.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).

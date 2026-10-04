@@ -2,9 +2,12 @@
 import argparse
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
+import time
+import traceback
 from pathlib import Path
 
 from . import __version__, bench, pipeline
@@ -45,6 +48,35 @@ def doctor() -> int:
     print("kimodo.cpp:", "빌드됨" if k.exists() else "없음 (선택: 텍스트→동작에만 필요)")
     print("작업 폴더(ROOT):", ROOT, "(BW_HOME 으로 바꿀 수 있음)")
     return 0 if ok else 1
+
+
+def recent_logs(since: float, run_id: str | None = None) -> Path | None:
+    """실패한 실행의 로그 폴더. run-id 를 안 줬으면 이번 명령이 시작된 뒤 바뀐 runs/ 아래 폴더 중 가장 최근 것."""
+    runs = ROOT / "runs"
+    if run_id:
+        cand = [runs / run_id]
+    else:
+        cand = sorted((p for p in runs.iterdir() if p.is_dir() and p.stat().st_mtime >= since),
+                      key=lambda p: p.stat().st_mtime, reverse=True) if runs.is_dir() else []
+    for d in cand:
+        if (d / "logs").is_dir():
+            return d / "logs"
+    return None
+
+
+def report_unexpected(e: Exception, since: float, run_id: str | None) -> None:
+    """예상 못 한 오류: 한 줄 메시지만으로는 원인을 못 찾으니 로그 위치·트레이스백 얻는 법·이슈 템플릿을 같이 알린다."""
+    name = type(e).__name__
+    msg = str(e) if name == "BlenderError" else f"{name}: {e}"
+    print("BLOCKED:", msg, file=sys.stderr)
+    if os.environ.get("BW_DEBUG"):
+        traceback.print_exc(file=sys.stderr); return
+    logs = recent_logs(since, run_id)
+    if logs:
+        print(f"  → 로그: {logs}", file=sys.stderr)
+    print("  → 원인 추적: 같은 명령 앞에 BW_DEBUG=1 을 붙이면 트레이스백을 보여 준다", file=sys.stderr)
+    print("  → 고쳐지지 않으면 이슈의 'A rig came out wrong' 또는 'Install or `bw doctor` problem' 템플릿에"
+          " 이 출력과 `bw doctor` 결과를 붙여 달라", file=sys.stderr)
 
 
 def main() -> int:
@@ -129,6 +161,7 @@ def main() -> int:
             out[name] = v
         return out
 
+    started = time.time() - 1  # 파일 시각 해상도 여유
     try:
         if a.cmd == "rig":
             out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose, weights=a.weights, from_skeleton=a.from_skeleton, from_shape=a.from_shape)
@@ -147,7 +180,7 @@ def main() -> int:
     except pipeline.Blocked as e:
         print("BLOCKED:", e, file=sys.stderr); return 2
     except Exception as e:  # Blender 오류 등
-        print("BLOCKED:", e, file=sys.stderr); return 2
+        report_unexpected(e, started, getattr(a, "run_id", None)); return 2
     print("보고서:", out); return 0
 
 
