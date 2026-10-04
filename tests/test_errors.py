@@ -1,6 +1,7 @@
 """오류 메시지 회귀 테스트: Blender 를 부르기 전에 막히고, 메시지에 '무엇을 바꾸면 되는지'(→)가 들어 있어야 한다. 블렌더 불필요."""
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -75,6 +76,53 @@ class InputErrorTests(unittest.TestCase):
         with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", "nope"]), patch("sys.stderr", err):
             self.assertEqual(cli.main(), 2)
         self.assertIn("→", err.getvalue())
+
+
+class UnexpectedErrorTests(unittest.TestCase):
+    """포괄 except: 한 줄 메시지 대신 오류 종류·로그 위치·BW_DEBUG 안내가 나와야 한다."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_bw(self, env: dict) -> str:
+        def boom(root, *a, **kw):
+            (root / "runs" / "rig-x" / "logs").mkdir(parents=True)
+            return {}["없는 키"]
+        err = io.StringIO()
+        with patch.object(cli, "ROOT", self.root), patch.object(cli.pipeline, "rig", side_effect=boom), \
+                patch.object(sys, "argv", ["bw", "rig", "m.glb"]), patch("sys.stderr", err), patch.dict("os.environ", env):
+            self.assertEqual(cli.main(), 2)
+        return err.getvalue()
+
+    def test_default_points_at_logs_and_debug(self):
+        with patch.dict(os.environ):
+            os.environ.pop("BW_DEBUG", None)
+            out = self.run_bw({})
+        self.assertIn("BLOCKED: KeyError", out)
+        self.assertIn(str(self.root / "runs" / "rig-x" / "logs"), out)
+        self.assertIn("BW_DEBUG=1", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_early_commands_also_reported(self):
+        # bw status 처럼 파이프라인 전에 끝나는 명령도 같은 안내를 거친다(Codex 리뷰 #4 지적)
+        d = self.root / "runs" / "rig-bad"; d.mkdir(parents=True)
+        (d / "state.json").write_text("{잘림", encoding="utf-8")
+        err = io.StringIO()
+        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", "rig-bad"]), \
+                patch("sys.stderr", err), patch.dict(os.environ):
+            os.environ.pop("BW_DEBUG", None)
+            self.assertEqual(cli.main(), 2)
+        self.assertIn("BLOCKED: JSONDecodeError", err.getvalue())
+        self.assertIn("BW_DEBUG=1", err.getvalue())
+
+    def test_debug_prints_traceback(self):
+        out = self.run_bw({"BW_DEBUG": "1"})
+        self.assertIn("Traceback", out)
+        self.assertIn("KeyError", out)
 
 
 if __name__ == "__main__":

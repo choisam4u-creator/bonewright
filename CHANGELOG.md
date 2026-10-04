@@ -5,7 +5,7 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
-Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command or flag.
+Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command, and the only new flag is `bw --version`.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
@@ -14,8 +14,16 @@ See `docs/RELEASING.md` for the release steps.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them
   for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `bpy` job).
 - `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
+- Issue templates for install / `bw doctor` problems and feature requests; blank issues now point to the guide and
+  SECURITY.md. `bw --version` prints the package version the install template asks for.
+- `tests/test_docs.py`: relative links in the README, Korean README, guide and examples README must resolve, and
+  every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender.
 
 ### Changed
+- `bw --help` follows `BW_LANG` (or the locale): English by default, Korean for `ko`. Error messages and
+  `bw doctor` stay Korean for now; the README says so.
+- An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
+  run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved
   to `docs/GUIDE.md`, with a Korean edition in `README.ko.md`.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).

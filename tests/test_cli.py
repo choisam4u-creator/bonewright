@@ -35,5 +35,39 @@ class PluginPathTests(unittest.TestCase):
         self.assertTrue((Path(out.getvalue().strip()) / ".codex-plugin" / "plugin.json").is_file())
 
 
+class VersionTests(unittest.TestCase):
+    def test_version_flag_prints_package_version(self):
+        # 설치 문제 이슈 템플릿이 `bw --version` 출력을 요구한다
+        out = io.StringIO()
+        with patch.object(sys, "argv", ["bw", "--version"]), patch("sys.stdout", out):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(out.getvalue().strip(), f"bonewright {cli.__version__}")
+
+
+class HelpLanguageTests(unittest.TestCase):
+    """bw --help 는 BW_LANG(없으면 로캘)을 따른다. README 는 영문이므로 영어가 기본."""
+
+    def help_text(self, *args: str, lang: str) -> str:
+        import os
+        out = io.StringIO()
+        env = {"BW_LANG": lang, "LANG": "C.UTF-8"}
+        with patch.dict(os.environ, env), patch.object(sys, "argv", ["bw", *args, "--help"]), patch("sys.stdout", out):
+            with self.assertRaises(SystemExit):
+                cli.main()
+        return out.getvalue()
+
+    def test_english_help_has_no_hangul(self):
+        import re
+        for args in ((), ("rig",), ("motion",), ("export",), ("demo",), ("bench",)):
+            with self.subTest(args=args):
+                text = self.help_text(*args, lang="en")
+                self.assertIsNone(re.search("[가-힣]", text), text)
+
+    def test_korean_help_when_asked(self):
+        self.assertIn("리깅", self.help_text(lang="ko"))
+
+
 if __name__ == "__main__":
     unittest.main()

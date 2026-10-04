@@ -33,6 +33,8 @@ through the JSON contract in `blender.run_script`.
 ## Style
 
 - Comments and commit messages are written in Korean in this repository; English is fine in PRs and issues.
+- Issues: pick a template — *A rig came out wrong*, *Install or `bw doctor` problem*, or *Feature request*. Usage
+  questions go to [docs/GUIDE.md](docs/GUIDE.md) first; security reports go through [SECURITY.md](SECURITY.md).
 - A comment should say **why**, and cite the measurement that made the code look like that. Avoid restating the code.
 - No new tuning constant without a sentence saying what it was fitted on.
 
