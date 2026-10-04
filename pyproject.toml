@@ -22,3 +22,7 @@ bw = "bonewright.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bonewright"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# pip 으로 설치해도 `bw plugin-path` 가 실제 폴더를 가리키게 Codex 플러그인을 패키지 안에 함께 싣는다
+"plugin" = "bonewright/_plugin"

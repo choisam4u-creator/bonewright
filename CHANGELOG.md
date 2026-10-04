@@ -34,6 +34,9 @@ See `docs/RELEASING.md` for the release steps.
   asked to judge bone placement on a picture that did not contain the bones. The camera now sizes from
   the longest of the three bounding-box edges. Humanoids are unaffected — height is already their
   longest edge — so no existing number moves.
+- `bw plugin-path` printed `site-packages/plugin`, a folder that does not exist, when bonewright was installed
+  with pip: the plugin was never packaged. The wheel now carries it as `bonewright/_plugin/`, and the command
+  prefers the repository's `plugin/` when run from a checkout. CI checks the installed path from outside the repo.
 - The Codex plugin manifest (`plugin/.codex-plugin/plugin.json`) still said version 0.1.0 and "retargeting comes in
   v0.2". It now matches the package version; `tests/test_release.py` keeps the three version strings in step.
 - `--pin` rejects malformed input (empty bone name, more than one `/`, NaN or infinite coordinates) before any

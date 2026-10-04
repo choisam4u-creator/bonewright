@@ -15,6 +15,16 @@ from .ledger import summarize
 ROOT = find_root()
 
 
+def plugin_dir() -> Path:
+    """Codex 플러그인 폴더. 저장소에서 돌리면 plugin/, pip 으로 설치했으면 패키지에 실린 bonewright/_plugin/."""
+    here = Path(__file__).resolve().parent
+    for p in (here.parent / "plugin", here / "_plugin"):
+        if (p / ".codex-plugin" / "plugin.json").is_file():
+            return p
+    raise FileNotFoundError(f"Codex 플러그인 폴더를 찾지 못했다({here.parent / 'plugin'}, {here / '_plugin'})\n"
+                            "  → 저장소에서 `pip install .` 으로 다시 설치하라")
+
+
 def doctor() -> int:
     ok = True
     cfg = load(ROOT)
@@ -83,7 +93,10 @@ def main() -> int:
     if a.cmd == "doctor":
         return doctor()
     if a.cmd == "plugin-path":
-        print(Path(__file__).resolve().parents[1] / "plugin"); return 0
+        try:
+            print(plugin_dir()); return 0
+        except FileNotFoundError as e:
+            print("BLOCKED:", e, file=sys.stderr); return 2
     if a.cmd == "usage":
         print(json.dumps(summarize(ROOT, a.days), ensure_ascii=False, indent=2)); return 0
     if a.cmd == "status":
