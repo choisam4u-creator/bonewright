@@ -153,8 +153,13 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         cfg["budget"]["max_input_tokens"] = budget
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")
     mesh = str(need_file(mesh, "메시", "경로를 확인하라(따옴표로 감싼 공백 경로 포함)", MESH_EXTS).resolve())
-    if targets_file:
-        need_file(targets_file, "--targets", "이전 실행의 runs/<id>/targets.json 또는 거절 때 남긴 targets_draft.json 을 지정하라")
+    targets_loaded = None
+    if targets_file:   # 형식 오류도 Blender·실행 폴더를 건드리기 전에 막는다(같은 run-id 의 기존 결과를 지키려고)
+        tf = need_file(targets_file, "--targets", "이전 실행의 runs/<id>/targets.json 또는 거절 때 남긴 targets_draft.json 을 지정하라")
+        try:
+            targets_loaded = json.loads(tf.read_text(encoding="utf-8"))
+        except ValueError as e:
+            raise Blocked(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라")
     r = Run(root, run_id, cfg, quiet)
     _log(quiet, f"rig {run_id} · {preset} · {mesh}")
     # 1 분석
@@ -271,11 +276,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  (f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}" if info["mirrored"] else "") +
                  (f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)" if source_symmetry > 0.01 else ""))
     elif targets_file:
-        try:
-            loaded = json.loads(Path(targets_file).read_text(encoding="utf-8"))
-        except ValueError as e:
-            raise Blocked(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라")
-        fit = {"targets": loaded, "reasoning": f"재사용: {targets_file}", "confidence": None}
+        fit = {"targets": targets_loaded, "reasoning": f"재사용: {targets_file}", "confidence": None}
         _log(quiet, f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회")
     else:
         meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
@@ -370,6 +371,12 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
            rig_run: str | None = None, export: str | None = None, roll: bool = True, preset: str | None = None, bvh_up: str = "y", legs: str = "auto", bone_map: str | None = None) -> Path:
     """텍스트 → kimodo.cpp(Metal) → BVH → Blender 가져오기 → (rig_run 이 있으면) 그 리그에 리타겟 → (export 면) 변형 본만 든 GLB. 토큰 0."""
     cfg = load(root)
+    # 입력 확인은 실행 폴더·Blender 전에: 잘못된 --rig·--bvh 로 기존 실행 기록을 덮지 않는다
+    if not text and not bvh:
+        raise Blocked("동작 출처가 없다\n  → `bw motion --bvh walk.bvh --rig <리그 run-id>` 또는 `bw motion --text \"a person walks\"`")
+    if bvh and not text:
+        need_file(bvh, "BVH", "경로를 확인하라. BVH 는 Mixamo·CMU 등에서 받거나 `--text` 로 만든다", (".bvh",))
+    rig_blend = need_rig(root, rig_run) if rig_run else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     r = Run(root, run_id, cfg, quiet)
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
@@ -392,9 +399,6 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         if proc.returncode != 0:
             raise Blocked(f"BVH 변환 실패: {proc.stderr[-500:]}")
         _log(quiet, f"[2/3] bvh: {bvh}")
-    if not bvh:
-        raise Blocked("동작 출처가 없다\n  → `bw motion --bvh walk.bvh --rig <리그 run-id>` 또는 `bw motion --text \"a person walks\"`")
-    need_file(bvh, "BVH", "경로를 확인하라. BVH 는 Mixamo·CMU 등에서 받거나 `--text` 로 만든다", (".bvh",))
     r.state("import", "running")
     from .retarget import detect_bvh_up
     if rig_run and preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid). 위 축 판단에도 필요하다
@@ -410,7 +414,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
               f"- blend: `{r.dir / 'motion.blend'}`"]
     if rig_run:
         from .retarget import bvh_mapping
-        blend = need_rig(root, rig_run)
+        blend = rig_blend
         mapping = bvh_mapping(imp["bone_names"], preset)
         if bone_map:
             mapping, applied, unknown = apply_bone_map(mapping, Path(bone_map), imp["bone_names"])

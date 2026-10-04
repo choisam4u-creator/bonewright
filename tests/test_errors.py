@@ -52,6 +52,18 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("--bvh", self.blocked(pipeline.motion, self.root, quiet=True))
         self.assertIn("BVH 파일이 없다", self.blocked(pipeline.motion, self.root, bvh=str(self.root / "w.bvh"), quiet=True))
 
+    def test_bad_targets_json_leaves_no_run(self):
+        f = self.root / "char.glb"; f.write_bytes(b"glTF")
+        t = self.root / "t.json"; t.write_text("{oops", encoding="utf-8")
+        self.assertIn("JSON", self.blocked(pipeline.rig, self.root, str(f), quiet=True, run_id="keep", targets_file=str(t)))
+        self.assertFalse((self.root / "runs" / "keep").exists(), "형식 오류로 실행 폴더를 만들면 안 된다")
+
+    def test_motion_missing_rig_checked_before_import(self):
+        b = self.root / "w.bvh"; b.write_text("HIERARCHY", encoding="utf-8")
+        msg = self.blocked(pipeline.motion, self.root, bvh=str(b), rig_run="없는리그", run_id="m1", quiet=True)
+        self.assertIn("bw rig", msg)
+        self.assertFalse((self.root / "runs" / "m1").exists(), "리그 확인 전에 동작 실행 폴더를 만들면 안 된다")
+
     def test_bad_bone_map(self):
         bad = self.root / "map.json"; bad.write_text("{oops", encoding="utf-8")
         self.assertIn("JSON", self.blocked(pipeline.apply_bone_map, {}, bad, []))
