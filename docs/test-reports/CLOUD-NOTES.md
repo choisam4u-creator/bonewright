@@ -1,5 +1,31 @@
 # 클라우드 회차 기록
 
+## 2026-10-04 (2회차)
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #3 병합분) 빨리감기 병합.
+- 이슈 템플릿: `install-problem.md`(설치·`bw doctor`), `feature-request.md` 추가, `config.yml` 은 빈 이슈를 끄고
+  사용 질문 → `docs/GUIDE.md`, 보안 → `SECURITY.md` 로 안내(Discussions 는 켜져 있는지 몰라 링크 안 함). `bw --version` 추가.
+- 예상 못 한 오류: 포괄 `except` 가 이제 오류 종류(`KeyError: ...`)·실행의 `logs/` 폴더·`BW_DEBUG=1`(트레이스백)·이슈 템플릿을 알림.
+- 영어 사용자: `bw --help` 를 `BW_LANG`(없으면 로캘)에 따라 — `ko*` 면 한국어, 아니면 영어. 오류 메시지·`bw doctor` 는
+  아직 한국어뿐임을 README·README.ko 에 적음(영문화는 새 백로그 항목).
+- `tests/test_docs.py`: README·README.ko·GUIDE·examples/README 상대 링크 31개, 문서 속 `bw` 명령 57개를 실제 파서와 대조. CI 두 잡에 포함.
+  이 과정에서 `cli.build_parser()` 로 파서 생성을 분리.
+- 백로그 남은 항목 1개(`examples/sample-output` — Mac 결과물이 필요해 클라우드에서 못 함) → 새 항목 5개(근거 포함) 추가.
+
+**돌린 시험**
+- `python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs`
+  — 64개 중 52개 통과, 12개 건너뜀('Blender 없음': 클라우드에 Blender·bpy 없음 — `RigMockTests`).
+- 새 venv 에 `pip install .` → `bw --version`, 영어 `bw --help`, `bw rig 없는파일.glb` 종료코드 2 확인.
+- `python3 scripts/check_license_boundary.py` — OK.
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs
+bw --help; BW_LANG=ko bw --help; bw --version     # 한국어 로캘 Mac 이면 첫 줄도 한국어가 맞다
+python3 examples/rig_sample.py && mkdir -p examples/sample-output && cp examples/out/capsule_doll.md examples/sample-output/   # 백로그 남은 항목용
+```
+
 ## 2026-10-04
 
 **한 일**
