@@ -7,11 +7,12 @@
 | `tests.test_cli` | 불필요 | 2 | 명령줄 입력 검증 |
 | `tests.test_examples` | 불필요 | 3 | `examples/rig_sample.py` 의 GLB 본 표 |
 | `tests.test_errors` | 불필요 | 7 | 잘못된 입력이 Blender 호출 전에 막히고 메시지에 고칠 방법(→)이 있는지 |
+| `tests.test_release` | 불필요 | 2 | 버전 문자열 3곳 일치, CHANGELOG 절·링크(`docs/RELEASING.md`) |
 
 ```bash
-python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors                    # 블렌더 있으면 전부, 없으면 12개 건너뜀
-BW_SKIP_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors  # 빠른 확인(블렌더 시험 건너뜀)
-BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors  # 블렌더 없으면 실패(CI blender 잡)
+python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release                    # 블렌더 있으면 전부, 없으면 12개 건너뜀
+BW_SKIP_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release  # 빠른 확인(블렌더 시험 건너뜀)
+BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release  # 블렌더 없으면 실패(CI blender 잡)
 ```
 
 새 시험이 Blender(`blender.run_script`·`pipeline.rig` 등)를 부르면 클래스에 `@requires_blender`(`tests/_marks.py`)를 붙인다.

@@ -17,7 +17,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install .
       - name: 테스트(Blender 필요한 것은 자동 skip)
-        run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors
+        run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release
       - name: CLI 가 임포트되는지
         run: bw --help
       - name: 라이선스 경계 — bonewright/ 본체는 bpy 를 import 하지 않는다(MIT 유지)
@@ -44,4 +44,4 @@ jobs:
         env:
           BW_NO_RENDER: "1"
           BW_REQUIRE_BLENDER: "1"
-        run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors
+        run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release
