@@ -18,6 +18,8 @@ See `docs/RELEASING.md` for the release steps.
   SECURITY.md. `bw --version` prints the package version the install template asks for.
 
 ### Changed
+- `bw --help` follows `BW_LANG` (or the locale): English by default, Korean for `ko`. Error messages and
+  `bw doctor` stay Korean for now; the README says so.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

@@ -41,6 +41,10 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 
 A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-skeleton` costs zero tokens.
 
+**Language.** `bw --help` is in English (Korean with `BW_LANG=ko` or a `ko_*` locale). `bw doctor` output and
+`BLOCKED:` error messages are still Korean only; the command and file names in them are what to look for, and the
+[guide](docs/GUIDE.md) explains each one in English.
+
 ## What you get
 
 <table>
