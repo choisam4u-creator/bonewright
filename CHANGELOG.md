@@ -26,7 +26,8 @@ See `docs/RELEASING.md` for the release steps.
 
 ### Changed
 - `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
-  Korean for `ko`. Gate rejection reasons and progress logs are still Korean only; the README says so.
+  Korean for `ko`. Gate rejection reasons, messages from inside the Blender scripts
+  and progress logs are still Korean only; the README says so.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

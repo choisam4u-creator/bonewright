@@ -165,6 +165,20 @@ class EnglishErrorTests(unittest.TestCase):
         self.assertIn("coordinate error", str(cm.exception.code))
         rig.assert_not_called()
 
+    def test_missing_blender_and_codex_in_english(self):
+        # 파이프라인 밖(blender.py·codex.py)에서 올라오는 오류도 영어여야 한다(Codex 리뷰 PR #5)
+        from bonewright import blender, codex
+        with patch.object(blender, "find_blender", return_value=None), patch.object(blender, "has_bpy_module", return_value=False):
+            with self.assertRaises(blender.BlenderError) as cm:
+                blender.run_script("analyze", {}, {}, self.root / "logs")
+        self.assertIn("Blender not found", str(cm.exception))
+        self.assertNotRegex(str(cm.exception), "[가-힣]")
+        with patch.object(codex.subprocess, "Popen", side_effect=FileNotFoundError("codex")), patch.dict(os.environ, {"BW_BACKEND": "codex"}):
+            with self.assertRaises(codex.CodexError) as cm:
+                codex.run_step("fit", "prompt", {}, {}, {"model": "m"}, {}, self.root / "logs")
+        self.assertIn("codex executable not found", str(cm.exception))
+        self.assertNotRegex(str(cm.exception), "[가-힣]")
+
 
 if __name__ == "__main__":
     unittest.main()
