@@ -15,6 +15,7 @@ class InputErrorTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
+        lang = patch.dict(os.environ, {"BW_LANG": "ko"}); lang.start(); self.addCleanup(lang.stop)   # 문구 대조는 한국어로
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -84,6 +85,7 @@ class UnexpectedErrorTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
+        lang = patch.dict(os.environ, {"BW_LANG": "ko"}); lang.start(); self.addCleanup(lang.stop)   # 문구 대조는 한국어로
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -123,6 +125,45 @@ class UnexpectedErrorTests(unittest.TestCase):
         out = self.run_bw({"BW_DEBUG": "1"})
         self.assertIn("Traceback", out)
         self.assertIn("KeyError", out)
+
+
+class EnglishErrorTests(unittest.TestCase):
+    """BW_LANG=en(또는 ko 가 아닌 로캘)이면 BLOCKED 메시지도 영어, 고칠 방법(→)은 그대로."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        lang = patch.dict(os.environ, {"BW_LANG": "en"}); lang.start(); self.addCleanup(lang.stop)
+        self.addCleanup(self.tmp.cleanup)
+
+    def blocked(self, fn, *args, **kw) -> str:
+        with patch.object(pipeline, "run_script", side_effect=AssertionError("Blender 를 부르면 안 된다")):
+            with self.assertRaises(pipeline.Blocked) as cm:
+                fn(*args, **kw)
+        msg = str(cm.exception)
+        self.assertIn("→", msg, msg)
+        self.assertNotRegex(msg, "[가-힣]", "영어 모드에 한국어가 섞였다")
+        return msg
+
+    def test_input_errors_in_english(self):
+        self.assertIn("mesh file not found", self.blocked(pipeline.rig, self.root, str(self.root / "none.glb"), quiet=True))
+        f = self.root / "char.stl"; f.write_bytes(b"solid x")
+        self.assertIn("cannot read mesh format", self.blocked(pipeline.rig, self.root, str(f), quiet=True))
+        self.assertIn("no rig result", self.blocked(pipeline.export_rig, self.root, "rig-none", quiet=True))
+        self.assertIn("no motion source", self.blocked(pipeline.motion, self.root, quiet=True))
+        bad = self.root / "map.json"; bad.write_text("{oops", encoding="utf-8")
+        self.assertIn("not JSON", self.blocked(pipeline.apply_bone_map, {}, bad, []))
+
+    def test_status_and_pin_in_english(self):
+        err = io.StringIO()
+        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", "nope"]), patch("sys.stderr", err):
+            self.assertEqual(cli.main(), 2)
+        self.assertIn("no such run", err.getvalue())
+        with patch.object(sys, "argv", ["bw", "rig", "m.glb", "--pin", "hand.L=a,b,c"]), patch.object(cli.pipeline, "rig") as rig:
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertIn("coordinate error", str(cm.exception.code))
+        rig.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ from pathlib import Path
 from . import __version__, bench, pipeline
 from .blender import find_blender, has_bpy_module
 from .config import find_root, load
+from .i18n import T
 from .ledger import summarize
 
 ROOT = find_root()
@@ -24,8 +25,8 @@ def plugin_dir() -> Path:
     for p in (here.parent / "plugin", here / "_plugin"):
         if (p / ".codex-plugin" / "plugin.json").is_file():
             return p
-    raise FileNotFoundError(f"Codex 플러그인 폴더를 찾지 못했다({here.parent / 'plugin'}, {here / '_plugin'})\n"
-                            "  → 저장소에서 `pip install .` 으로 다시 설치하라")
+    raise FileNotFoundError(T(f"Codex 플러그인 폴더를 찾지 못했다({here.parent / 'plugin'}, {here / '_plugin'})\n  → 저장소에서 `pip install .` 으로 다시 설치하라",
+                              f"Codex plugin folder not found ({here.parent / 'plugin'}, {here / '_plugin'})\n  → reinstall from the repository with `pip install .`"))
 
 
 def doctor() -> int:
@@ -78,20 +79,13 @@ def report_unexpected(e: Exception, since: float, run_id: str | None) -> None:
         traceback.print_exc(file=sys.stderr); return
     logs = recent_logs(since, run_id)
     if logs:
-        print(f"  → 로그: {logs}", file=sys.stderr)
-    print("  → 원인 추적: 같은 명령 앞에 BW_DEBUG=1 을 붙이면 트레이스백을 보여 준다", file=sys.stderr)
-    print("  → 고쳐지지 않으면 이슈의 'A rig came out wrong' 또는 'Install or `bw doctor` problem' 템플릿에"
-          " 이 출력과 `bw doctor` 결과를 붙여 달라", file=sys.stderr)
-
-
-def help_lang() -> str:
-    """도움말 언어. BW_LANG(ko|en)이 먼저, 없으면 로캘이 ko 로 시작할 때만 한국어. 오류 메시지는 아직 한국어뿐이다."""
-    lang = os.environ.get("BW_LANG") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-    return "ko" if lang.lower().startswith("ko") else "en"
-
-
-def T(ko: str, en: str) -> str:
-    return ko if help_lang() == "ko" else en
+        print(T("  → 로그:", "  → logs:"), logs, file=sys.stderr)
+    print(T("  → 원인 추적: 같은 명령 앞에 BW_DEBUG=1 을 붙이면 트레이스백을 보여 준다",
+            "  → to see the traceback, run the same command with BW_DEBUG=1 in front"), file=sys.stderr)
+    print(T("  → 고쳐지지 않으면 이슈의 'A rig came out wrong' 또는 'Install or `bw doctor` problem' 템플릿에"
+            " 이 출력과 `bw doctor` 결과를 붙여 달라",
+            "  → if it persists, open an issue with the 'A rig came out wrong' or 'Install or `bw doctor` problem'"
+            " template and paste this output and `bw doctor`"), file=sys.stderr)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh"); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
-    r.add_argument("--run-id"); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(이 도움말·오류 메시지 언어는 BW_LANG)", "language of the model prompts (help text follows BW_LANG; error messages are Korean)")); r.add_argument("--budget", type=int)
+    r.add_argument("--run-id"); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(이 도움말·오류 메시지 언어는 BW_LANG)", "language of the model prompts (help and error messages follow BW_LANG)")); r.add_argument("--budget", type=int)
     r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help=T("캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤", "which way the character faces. auto=decide from the feet and turn it to -Y")); r.add_argument("--quiet", action="store_true")
     r.add_argument("--force", action="store_true", help=T("거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)", "ignore the rejection gate and rig anyway (non-human or oddly sized meshes too)"))
     r.add_argument("--from-shape", action="store_true", help=T("메시 속 중심선에서 뼈대를 직접 만들어 리깅한다(토큰 0). 뼈대가 없고 사람·개과 비율도 아닌 메시(곤충·괴물)에 쓴다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다", "build the skeleton from the mesh's own centrelines (0 tokens). For meshes with no skeleton and neither human nor dog proportions (insects, monsters) — controls follow the shape, not anatomical joints"))
@@ -158,7 +152,8 @@ def main() -> int:
             runs = ROOT / "runs"
             ids = [a.run_id] if a.run_id else sorted(p.name for p in runs.iterdir() if (p / "state.json").exists()) if runs.is_dir() else []
             if a.run_id and not (runs / a.run_id / "state.json").exists():
-                print(f"BLOCKED: 실행 기록이 없다: {runs / a.run_id}\n  → `bw status` 로 목록을 보거나 BW_HOME(지금 {ROOT})을 확인하라", file=sys.stderr); return 2
+                print("BLOCKED:", T(f"실행 기록이 없다: {runs / a.run_id}\n  → `bw status` 로 목록을 보거나 BW_HOME(지금 {ROOT})을 확인하라",
+                                   f"no such run: {runs / a.run_id}\n  → list runs with `bw status`, or check BW_HOME (now {ROOT})"), file=sys.stderr); return 2
             for rid in ids:
                 s = json.loads((runs / rid / "state.json").read_text()); print(f"{rid}: {s['step']} {s['status']} · in {s.get('input_tokens', 0):,}")
             return 0
@@ -167,19 +162,21 @@ def main() -> int:
             out: dict[str, dict[str, list[float]]] = {}
             for it in items or []:
                 if "=" not in it:
-                    raise SystemExit(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)")
+                    raise SystemExit(T(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)", f"--pin format error: {it} (e.g. spine.004=0,0,1.42)"))
                 name, rest = it.split("=", 1); parts = rest.split("/")
                 name = name.strip()
                 if not name or len(parts) > 2:
-                    raise SystemExit(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)")
+                    raise SystemExit(T(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)", f"--pin format error: {it} (e.g. spine.004=0,0,1.42)"))
                 try:
                     v = {"head": [float(x) for x in parts[0].split(",")]}
                     if len(parts) > 1: v["tail"] = [float(x) for x in parts[1].split(",")]
                 except ValueError:
-                    raise SystemExit(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로, 공백 없이. 예: spine.004=0,0,1.42)")
+                    raise SystemExit(T(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로, 공백 없이. 예: spine.004=0,0,1.42)",
+                                       f"--pin coordinate error: {it} (three numbers, comma-separated, no spaces. e.g. spine.004=0,0,1.42)"))
                 if (len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3
                         or not all(math.isfinite(x) for coords in v.values() for x in coords)):
-                    raise SystemExit(f"--pin 좌표는 x,y,z 세 개다: {it} (예: hand.L=0.6,0,1.3 또는 머리/꼬리 hand.L=0.6,0,1.3/0.7,0,1.3)")
+                    raise SystemExit(T(f"--pin 좌표는 x,y,z 세 개다: {it} (예: hand.L=0.6,0,1.3 또는 머리/꼬리 hand.L=0.6,0,1.3/0.7,0,1.3)",
+                                     f"--pin takes x,y,z: {it} (e.g. hand.L=0.6,0,1.3, or head/tail hand.L=0.6,0,1.3/0.7,0,1.3)"))
                 out[name] = v
             return out
 
@@ -201,7 +198,7 @@ def main() -> int:
         print("BLOCKED:", e, file=sys.stderr); return 2
     except Exception as e:  # Blender 오류 등
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
-    print("보고서:", out); return 0
+    print(T("보고서:", "report:"), out); return 0
 
 
 if __name__ == "__main__":
