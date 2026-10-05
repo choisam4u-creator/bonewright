@@ -1,5 +1,30 @@
 # 클라우드 회차 기록
 
+## 2026-10-05 (2회차)
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #5 병합분) 빨리감기 병합.
+- Windows: `find_blender` 가 `<ProgramFiles>\Blender Foundation\Blender X.Y\blender.exe` 중 가장 높은 판을 찾는다(시험 2개).
+  CI 에 `unit-windows`(windows-latest, Python 3.13, `PYTHONUTF8=1`) 추가 — run 48 에서 통과. README·GUIDE 의 Windows 문구 정정.
+- 게이트 거절 사유(`gates.py` preflight·rig_gates·judge_gates 22곳 + fit 단계 1곳) `BW_LANG` 따라 영문화.
+  한국어 대조 시험은 `BW_LANG=ko` 고정, 영어 모드에서 한글이 없는지 시험 1개.
+- `tests/test_i18n.py`: AST 로 모든 `T()` 호출(60여 곳) — 두 인자 문자열, 영어 쪽 한글 없음, 자리표시자 같음.
+  걸린 1곳(팔·다리 중심선 문구) 정리.
+- CONTRIBUTING 정정(CI 세 잡, 예시 `Ran 82 … skipped=12`). `tests/test_docs.py` 에 시험 명령 목록 5곳 ↔ `tests/test_*.py`
+  대조와 CONTRIBUTING 시험 수 대조 추가.
+- 백로그 남은 항목 3개(`examples/sample-output` — Mac 필요, kimodo 안내, 진행 로그) → 새 항목 추가 안 함.
+
+**돌린 시험**
+- `LANG=C.UTF-8 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  — 82개 중 70개 통과, 12개 건너뜀('Blender 없음': 클라우드에 Blender·bpy 없음 — `RigMockTests`).
+- GitHub Actions run 48(unit·unit-windows·blender) 통과. 이후 푸시분은 PR 에서 확인.
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+BW_LANG=en bw rig 사람아닌.glb   # preflight 로 막히는 메시(예: 치비·사족 아닌 블롭)에서 BLOCKED 아래 거절 사유가 영어인지
+```
+
 ## 2026-10-05
 
 **한 일**
