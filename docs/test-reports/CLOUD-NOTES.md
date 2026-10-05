@@ -1,5 +1,33 @@
 # 클라우드 회차 기록
 
+## 2026-10-05
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #4 병합분) 빨리감기 병합.
+- `bw doctor`: 항목마다 `[필수]`/`[선택]` 표시. Blender 앱이나 bpy 하나만 있으면 종료코드 0 — codex(기본 `bw rig` 의 모델 판정에만 필요)·
+  kimodo.cpp 는 선택. 출력도 `BW_LANG` 을 따른다. 시험 3개.
+- PR 템플릿 `.github/pull_request_template.md`(시험 목록·라이선스 경계·CHANGELOG 체크, 관절 코드 수정 시 벤치 4종 전후 표).
+  CONTRIBUTING 의 시험 명령을 CI 목록과 맞춤.
+- 패키지 메타데이터: `[project.urls]`, `license-files`(MIT `LICENSE` + `bpy_scripts/LICENSE` GPL), hatchling ≥ 1.27.
+  `python -m build` 로 sdist·wheel 둘 다 두 고지가 실리고 METADATA 에 `License-File`·`Project-URL` 이 뜨는 것 확인. 시험 2개.
+- `BLOCKED:` 오류 메시지 영문화: 새 `bonewright/i18n.py`(`T`, `lang`)로 cli·pipeline 문구 약 25곳. `BW_LANG` → 로캘 → 기본 영어.
+  게이트 거절 사유(`gates.py`)와 진행 로그는 아직 한국어 — README·README.ko 에 명시, 새 백로그 항목으로.
+  기존 오류 시험은 `BW_LANG=ko` 로 고정, 영어 시험 2개(한글이 섞이지 않는지 포함).
+- 백로그 남은 항목 2개(`examples/sample-output` — Mac 필요, Windows CI) → 새 항목 5개(근거 포함) 추가.
+
+**돌린 시험**
+- `LANG=C.UTF-8 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs`
+  — 72개 중 60개 통과, 12개 건너뜀('Blender 없음': 클라우드에 Blender·bpy 없음 — `RigMockTests`).
+- 새 venv 에 `pip install .` → `bw doctor`(영어, bpy 없어 종료코드 1), `bw rig none.glb` 영어·`BW_LANG=ko` 한국어 둘 다 종료코드 2.
+- `python -m build` → sdist·wheel 라이선스 파일 확인. `python3 scripts/check_license_boundary.py` — OK(MIT 15개 파일).
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs
+bw doctor; echo $?; BW_LANG=en bw doctor     # codex 가 있든 없든 Blender 가 있으면 0, [필수]/[선택] 표시
+BW_LANG=en bw rig 없는파일.glb; BW_LANG=en bw motion   # 영어 BLOCKED + → 안내, 종료코드 2
+```
+
 ## 2026-10-04 (2회차)
 
 **한 일**
