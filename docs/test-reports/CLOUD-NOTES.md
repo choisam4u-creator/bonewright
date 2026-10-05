@@ -14,6 +14,7 @@
   게이트 거절 사유(`gates.py`)와 진행 로그는 아직 한국어 — README·README.ko 에 명시, 새 백로그 항목으로.
   기존 오류 시험은 `BW_LANG=ko` 로 고정, 영어 시험 2개(한글이 섞이지 않는지 포함).
 - 백로그 남은 항목 2개(`examples/sample-output` — Mac 필요, Windows CI) → 새 항목 5개(근거 포함) 추가.
+- PR #5 Codex 리뷰(P2) 반영: `blender.py`·`codex.py` 의 오류(Blender 없음, codex 없음·인증·사용 한도·시간 초과)도 영어로. 영어 시험 1개 추가.
 
 **돌린 시험**
 - `LANG=C.UTF-8 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs`
