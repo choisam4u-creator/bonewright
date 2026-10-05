@@ -1,10 +1,12 @@
 """명령줄 입력 검증 회귀 테스트."""
 import io
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from bonewright import cli
+from bonewright import blender, cli
 
 
 class PinInputTests(unittest.TestCase):
@@ -103,3 +105,25 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("[optional] codex CLI: not found", text)
         self.assertNotIn("없음", text)
+
+
+class FindBlenderWindowsTests(unittest.TestCase):
+    """Windows 설치 관리자 경로(`Program Files\\Blender Foundation\\Blender X.Y`)를 찾고, 여러 판이면 가장 높은 것."""
+
+    def env(self, d):
+        return {"ProgramFiles": d, "ProgramW6432": "", "ProgramFiles(x86)": ""}
+
+    def test_picks_highest_version_under_program_files(self):
+        with tempfile.TemporaryDirectory() as d:
+            for ver in ("4.5", "5.2", "5.10"):
+                exe = Path(d) / "Blender Foundation" / f"Blender {ver}" / "blender.exe"
+                exe.parent.mkdir(parents=True); exe.touch()
+            (Path(d) / "Blender Foundation" / "Blender 9.9").mkdir()   # blender.exe 없는 폴더는 무시
+            with patch.dict("os.environ", self.env(d)):
+                found = blender._windows_blender()
+        self.assertIsNotNone(found)
+        self.assertEqual(found.parent.name, "Blender 5.10")
+
+    def test_none_when_nothing_installed(self):
+        with tempfile.TemporaryDirectory() as d, patch.dict("os.environ", self.env(d)):
+            self.assertIsNone(blender._windows_blender())
