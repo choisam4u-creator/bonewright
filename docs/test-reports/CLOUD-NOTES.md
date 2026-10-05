@@ -13,10 +13,12 @@
 - CONTRIBUTING 정정(CI 세 잡, 예시 `Ran 82 … skipped=12`). `tests/test_docs.py` 에 시험 명령 목록 5곳 ↔ `tests/test_*.py`
   대조와 CONTRIBUTING 시험 수 대조 추가.
 - 백로그 남은 항목 3개(`examples/sample-output` — Mac 필요, kimodo 안내, 진행 로그) → 새 항목 추가 안 함.
+- PR #6 Codex 리뷰(P2 2건) 반영: 사족 발 검출 notes(`bpy_scripts/_quad.py`)도 BW_LANG 따라 영어로. 시각 판정의 자유 문장은
+  프롬프트 언어(`--lang`, 기본 ko)로 오므로 번역 대신 영어 화면에서는 '모델 출력, `--lang en` 으로 영어' 라고 밝힘. 시험 1개.
 
 **돌린 시험**
 - `LANG=C.UTF-8 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
-  — 82개 중 70개 통과, 12개 건너뜀('Blender 없음': 클라우드에 Blender·bpy 없음 — `RigMockTests`).
+  — 83개 중 71개 통과, 12개 건너뜀('Blender 없음': 클라우드에 Blender·bpy 없음 — `RigMockTests`).
 - GitHub Actions run 48(unit·unit-windows·blender) 통과. 이후 푸시분은 PR 에서 확인.
 
 **Mac에서 확인할 것**

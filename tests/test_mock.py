@@ -373,6 +373,18 @@ class GateTests(unittest.TestCase):
         hangul = [t for t in texts if any("\uac00" <= c <= "\ud7a3" for c in t)]
         self.assertEqual([], hangul)
 
+    def test_model_text_in_english_mode_is_labelled(self):
+        """시각 판정의 자유 문장은 프롬프트 언어(기본 ko)로 온다. 영어 화면이면 모델 출력이라고 밝히고 --lang en 을 안내한다."""
+        judge = {"bones_outside_mesh": ["왼손"], "proportions_ok": False, "notes": "팔이 너무 길다"}
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            fails = gates.judge_gates(judge)
+            plain = gates.judge_gates({"bones_outside_mesh": ["left hand"]})
+        self.assertEqual(2, len(fails))
+        for f in fails:
+            self.assertIn("model output in the prompt language; run with --lang en", f)
+        self.assertEqual(["visual judge: bones outside the mesh left hand"], plain)
+        self.assertEqual("시각 판정: 비율 이상 — 팔이 너무 길다", gates.judge_gates(judge)[1])   # 클래스가 BW_LANG=ko
+
 
 if __name__ == "__main__":
     unittest.main()

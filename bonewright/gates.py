@@ -1,5 +1,5 @@
 """리그 게이트(토큰 0): 통계 JSON 을 기준값과 비교해 실패 목록을 돌려준다. 문구는 BW_LANG 을 따른다(i18n.T)."""
-from .i18n import T
+from .i18n import T, lang
 
 # 사람 몸 치수를 전제로 만든 파이프라인이라, 그 전제가 깨진 메시에서는 결과가 조용히 엉망이 된다
 # (실측: 로봇 키의 277%, 곤충 58%, 치비 28% 어긋난 리그를 아무 경고 없이 내놨다).
@@ -134,10 +134,18 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0, so
     return fails
 
 
+def _model_text(s: str) -> str:
+    """모델이 쓴 자유 문장은 프롬프트 언어(`--lang`, 기본 ko)로 온다 — 화면 언어(BW_LANG)와 따로다.
+    번역할 길이 없으니, 영어 화면에 한국어가 오면 모델 출력이라고 밝히고 `--lang en` 을 안내한다."""
+    if lang() == "en" and any("\uac00" <= c <= "\ud7a3" for c in s):
+        return f'"{s}" (model output in the prompt language; run with --lang en for English)'
+    return s
+
+
 def judge_gates(judge: dict) -> list[str]:
     fails = []
     if judge.get("bones_outside_mesh"):
-        fails.append(T("시각 판정: 메시 밖 본 ", "visual judge: bones outside the mesh ") + ", ".join(judge["bones_outside_mesh"][:5]))
+        fails.append(T("시각 판정: 메시 밖 본 ", "visual judge: bones outside the mesh ") + _model_text(", ".join(judge["bones_outside_mesh"][:5])))
     if judge.get("proportions_ok") is False:
-        fails.append(T("시각 판정: 비율 이상 — ", "visual judge: proportions look wrong — ") + (judge.get("notes") or "")[:120])
+        fails.append(T("시각 판정: 비율 이상 — ", "visual judge: proportions look wrong — ") + _model_text((judge.get("notes") or "")[:120]))
     return fails

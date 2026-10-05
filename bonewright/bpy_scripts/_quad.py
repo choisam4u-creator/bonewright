@@ -8,7 +8,16 @@
     **Rigify 늑대 메타리그의 다리 비율**을 쓴다 — 지어낸 '키의 몇 %' 상수가 아니라 실제 늑대를 본뜬
     해부 모델이고, 발을 우리가 잰 자리에 심으면 그 사이 관절은 비율대로 따라온다.
 """
+import os
+
 from mathutils import Vector
+
+
+def T(ko: str, en: str) -> str:
+    """bonewright.i18n.T 와 같은 규칙(BW_LANG → 로캘 → 영어). Blender 쪽 파이썬은 bonewright 를 import 하지 않는다.
+    notes 는 사족 preflight 거절 사유로 그대로 화면에 나온다."""
+    v = os.environ.get("BW_LANG") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
+    return ko if v.lower().startswith("ko") else en
 
 
 def front_dir_from_mesh(vs, zmin, H):
@@ -70,13 +79,13 @@ def quad_landmarks(vs, st, spacing):
     # 두 번째 근거(가장 높은 점)와 어긋나면 방향을 못 믿는다는 뜻이므로 notes 에 남긴다
     front_dir = front_dir_from_mesh(vs, zmin, H)
     if front_dir is None:
-        notes.append("앞뒤 방향: 위쪽 점이 부족하다")
+        notes.append(T("앞뒤 방향: 위쪽 점이 부족하다", "front/back direction: too few upper points"))
         front_dir = -1.0
     else:
         mean_y = sum(v.y for v in vs) / len(vs)
         highest = max(vs, key=lambda v: v.z)   # 두 번째 근거. 어긋나면 방향을 못 믿는다는 뜻이라 남긴다
         if (-1.0 if highest.y < mean_y else 1.0) != front_dir:
-            notes.append("앞뒤 방향 근거가 엇갈린다(위쪽 무게중심 ↔ 최고점)")
+            notes.append(T("앞뒤 방향 근거가 엇갈린다(위쪽 무게중심 ↔ 최고점)", "front/back direction evidence disagrees (upper centroid vs highest point)"))
 
     # 발 네 개: 바닥 근처 점을 좌우로 가르고, 각 쪽을 앞뒤로 다시 가른다
     slab = [v for v in vs if v.z < zmin + H * 0.12]
@@ -84,11 +93,11 @@ def quad_landmarks(vs, st, spacing):
     for side, sx in (("L", 1.0), ("R", -1.0)):
         pts = [v for v in slab if v.x * sx > spacing * 0.5]
         if len(pts) < 8:
-            notes.append(f"{side}: 바닥 점이 부족하다")
+            notes.append(T(f"{side}: 바닥 점이 부족하다", f"{side}: too few floor points"))
             continue
         pair = _split_y(pts, H * 0.04)
         if pair is None:
-            notes.append(f"{side}: 앞뒤 다리가 안 갈라진다")
+            notes.append(T(f"{side}: 앞뒤 다리가 안 갈라진다", f"{side}: front and hind legs do not separate"))
             continue
         lo, hi = pair
         front, hind = (lo, hi) if front_dir < 0 else (hi, lo)
@@ -113,7 +122,7 @@ def quad_landmarks(vs, st, spacing):
             if len(band) >= 20:
                 out[tag] = round(band[int(len(band) * 0.95)], 4)
             else:
-                notes.append(f"{tag}: 띠 안 점이 부족하다")
+                notes.append(T(f"{tag}: 띠 안 점이 부족하다", f"{tag}: too few points in the band"))
         # 앞다리 기울기: 앞발 기둥이 위로 갈수록 뒤로 얼마나 기우는가(몸 길이 비). 개과는 팔꿈치가 높고 다리가 뒤로 꺾여 0.089~0.133,
         # 발굽 동물(소·말·사슴·알파카)은 수직 기둥이라 -0.05~0.066 — 자산 11종에서 0.08 을 경계로 완전히 갈린다.
         # 이 한 값으로 팔꿈치 높이 비율과 앞다리 굽힘을 무리별로 고를 수 있다(메타리그 한 종 비율의 한계를 메시 측정으로 넘는다)
@@ -127,5 +136,5 @@ def quad_landmarks(vs, st, spacing):
         if lean is not None:
             out["front_lean"] = round(lean, 4)
         else:
-            notes.append("앞다리 기울기: 기둥 점이 부족하다")
+            notes.append(T("앞다리 기울기: 기둥 점이 부족하다", "front-leg slant: too few column points"))
     return out
