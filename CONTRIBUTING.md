@@ -12,7 +12,7 @@ sections of that file exist only to stop the next person repeating an experiment
 ## Before you open a PR
 
 ```bash
-python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs
+python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
                                              # the same list CI runs; Blender-dependent tests skip automatically
 python3 scripts/check_license_boundary.py    # MIT core must not import bpy
 ```

@@ -38,11 +38,11 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
                       f"joints were measured from separate parts ({fs['leg_parts']} leg parts), not the silhouette — check the renders"))
     else:
         # 사람형: 팔·다리 중심선이 양쪽 다 있어야 한다. 하나라도 없으면 관절을 놓을 근거가 없다
-        for part, ko, josa in (("arm", "팔", "을"), ("leg", "다리", "를")):
-            miss = [s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}")]
+        for part, name, obj in (("arm", T("팔", "arm"), T("팔을", "the arms")), ("leg", T("다리", "leg"), T("다리를", "the legs"))):
+            miss = "/".join(s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}"))
             if miss:
-                block.append(T(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다",
-                               f"no {part} axis ({'/'.join(miss)} side) — could not find the {part}s in this mesh"))
+                block.append(T(f"{name} 중심선 없음({miss}쪽) — 이 메시에서 {obj} 못 찾았다",
+                               f"no {name} axis ({miss} side) — could not find {obj} in this mesh"))
     # 메시 **속**(_medial)에서 채운 관절도 근거다 — 지어낸 비율이 아니라 잰 값이다. 어디서 왔는지는 밝힌다
     med = landmarks.get("medial") or {}
     supplied = med.get("supplied") or []
