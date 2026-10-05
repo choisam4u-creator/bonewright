@@ -24,12 +24,12 @@
 - [x] PR 템플릿 `.github/pull_request_template.md`: CONTRIBUTING 의 "측정한 숫자" 규칙, 라이선스 경계 검사, 관절 코드 수정 시 벤치 4종 전후 숫자 칸 — 근거: `.github/` 에 PR 템플릿 없음, CONTRIBUTING 이 요구하는 항목을 PR 마다 손으로 기억해야 한다
 - [x] 패키지 메타데이터: `pyproject.toml` 에 `[project.urls]`(Homepage·Issues·Changelog)·`license-files`(LICENSE, bpy_scripts 의 GPL 고지) 추가, `python -m build` 로 sdist·wheel 에 LICENSE 가 실리는지 시험 — 근거: 현재 urls·license-files 없음, 공개 뒤 PyPI 페이지·배포본에 라이선스 고지가 빠질 수 있다
 - [x] `BLOCKED:` 오류 메시지·`bw doctor` 출력 영문화(BW_LANG 따라) — 근거: 10/4 `bw --help` 만 영문화했고 README 에 "오류 메시지는 한국어뿐"이라 적었다. 영어 사용자가 처음 보는 실패 화면이 읽히지 않는다
-- [ ] Windows 에서 블렌더 없는 시험이 도는지 CI 에 `windows-latest` unit 잡 추가(실패하면 README 에 알려진 문제로 기록) — 근거: README "Windows is untested", `blender.py` 가 macOS 경로만 찾고 Windows `Program Files\Blender Foundation` 경로가 없다
+- [x] Windows 에서 블렌더 없는 시험이 도는지 CI 에 `windows-latest` unit 잡 추가(실패하면 README 에 알려진 문제로 기록) → 10/5 run 48 통과 — 근거: README "Windows is untested", `blender.py` 가 macOS 경로만 찾고 Windows `Program Files\Blender Foundation` 경로가 없다
 
 ## 2026-10-05 추가 (공개 준비 기준)
 
-- [ ] 게이트 거절 사유(`gates.py` `preflight`·`rig_gates`·`judge_gates`, 문구 22곳) 영문화 — 근거: 10/5 `BLOCKED:` 첫 줄·고칠 방법은 영어가 됐지만 그 아래 `- ` 로 나열되는 거절 이유가 한국어뿐이라 영어 사용자는 왜 막혔는지 모른다(README 에 한계로 적어 둠). 시험 `tests/test_mock.py` 의 "샌 정점" 대조는 BW_LANG=ko 로 고정해야 한다
-- [ ] `T(한국어, 영어)` 짝 점검 시험: AST 로 `bonewright/` 의 모든 `T(...)` 호출을 찾아 두 번째 인자에 한글이 없고 `{}` 자리표시자 이름이 양쪽에 같은지 확인 — 근거: 10/5 문구 40여 곳을 손으로 옮겼고, 앞으로 한쪽만 고치면 영어 모드에 한국어가 섞이거나 경로가 빠진다(지금은 경로 몇 개만 시험)
-- [ ] CONTRIBUTING 정정: "Without Blender you get the pure-Python tests, which is what CI runs"(CI 는 `bpy` 잡도 돈다)와 예시 출력 "Ran 37 tests … skipped=10"(10/5 실측 72개·건너뜀 12)이 낡았다 → 고치고, `tests/test_docs.py` 에 CONTRIBUTING·PR 템플릿의 시험 명령 목록이 `.github/workflows/test.yml` 과 같은지 대조 추가 — 근거: 시험 모듈이 늘 때마다 세 곳이 따로 놀았다(10/5 에 CONTRIBUTING 을 손으로 맞춤)
+- [x] 게이트 거절 사유(`gates.py` `preflight`·`rig_gates`·`judge_gates`, 문구 22곳) 영문화 — 근거: 10/5 `BLOCKED:` 첫 줄·고칠 방법은 영어가 됐지만 그 아래 `- ` 로 나열되는 거절 이유가 한국어뿐이라 영어 사용자는 왜 막혔는지 모른다(README 에 한계로 적어 둠). 시험 `tests/test_mock.py` 의 "샌 정점" 대조는 BW_LANG=ko 로 고정해야 한다
+- [x] `T(한국어, 영어)` 짝 점검 시험: AST 로 `bonewright/` 의 모든 `T(...)` 호출을 찾아 두 번째 인자에 한글이 없고 `{}` 자리표시자 이름이 양쪽에 같은지 확인 — 근거: 10/5 문구 40여 곳을 손으로 옮겼고, 앞으로 한쪽만 고치면 영어 모드에 한국어가 섞이거나 경로가 빠진다(지금은 경로 몇 개만 시험)
+- [x] CONTRIBUTING 정정: "Without Blender you get the pure-Python tests, which is what CI runs"(CI 는 `bpy` 잡도 돈다)와 예시 출력 "Ran 37 tests … skipped=10"(10/5 실측 72개·건너뜀 12)이 낡았다 → 고치고, `tests/test_docs.py` 에 CONTRIBUTING·PR 템플릿의 시험 명령 목록이 `.github/workflows/test.yml` 과 같은지 대조 추가 — 근거: 시험 모듈이 늘 때마다 세 곳이 따로 놀았다(10/5 에 CONTRIBUTING 을 손으로 맞춤)
 - [ ] kimodo.cpp 빌드 안내를 `docs/GUIDE.md` 로 옮기기 — 근거: `bw motion --text` 오류와 doctor 가 `docs/research-20260913.html` 7절을 가리키는데, 그 파일은 날짜 붙은 한국어 연구 노트이고 `PRE-PUBLIC-AUDIT.md` 가 개인 경로가 든 문서로 꼽았다. 공개 뒤 영어 사용자가 따라 할 빌드 절차가 없다
 - [ ] 진행 로그(`pipeline._log`, 37곳) 영문화 여부 결정 후 처리 — 근거: 오류·도움말은 영어가 됐지만 `bw rig` 진행 출력 `[1/6] import …` 뒤 설명이 한국어라 첫 실행 화면 대부분이 한국어다. 숫자·본 이름 위주로 짧게 바꿀지, T() 로 둘 다 둘지 정한다

@@ -16,7 +16,7 @@ If you could not measure something, say so here.
 
 ## Checks
 
-- [ ] `python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs`
+- [ ] `python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
       — ran with Blender / `bpy`: yes / no (skipped count: __)
 - [ ] `python3 scripts/check_license_boundary.py` — new Blender-side code is in `bonewright/bpy_scripts/` (GPL), not in the MIT core
 - [ ] `CHANGELOG.md` → `[Unreleased]` updated if users will notice the change

@@ -1,5 +1,5 @@
 """Blender 실행기: bpy 모듈이 있으면 같은 프로세스에서 쓰지 않고(한 번만 import 가능) 항상 자식 프로세스로 돌린다.
-우선순위: 설정한 app 경로 → PATH 의 blender → macOS Blender.app → bpy 휠이 깔린 파이썬(python -c)."""
+우선순위: 설정한 app 경로 → PATH 의 blender → macOS Blender.app → Windows Program Files 설치본 → bpy 휠이 깔린 파이썬(python -c)."""
 import json
 import os
 import shutil
@@ -27,7 +27,26 @@ def find_blender(cfg: dict) -> list[str] | None:
     mac = Path("/Applications/Blender.app/Contents/MacOS/Blender")
     if mac.exists():
         return [str(mac)]
+    win = _windows_blender()
+    if win:
+        return [str(win)]
     return None
+
+
+def _version_key(p: Path) -> tuple:
+    """'Blender 5.2' → (5, 2). 숫자가 아닌 조각은 0 으로 둔다."""
+    tail = p.parent.name.rsplit(" ", 1)[-1]
+    return tuple(int(x) if x.isdigit() else 0 for x in tail.split("."))
+
+
+def _windows_blender() -> Path | None:
+    """Windows 설치 관리자가 까는 `<Program Files>\\Blender Foundation\\Blender X.Y\\blender.exe` 중 가장 높은 판."""
+    found: list[Path] = []
+    for var in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"):
+        base = os.environ.get(var)
+        if base:
+            found += (Path(base) / "Blender Foundation").glob("Blender*/blender.exe")
+    return max(found, key=_version_key) if found else None
 
 
 def has_bpy_module(python: str = sys.executable) -> bool:

@@ -42,7 +42,7 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-skeleton` costs zero tokens.
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
-`ko_*` locale). The per-gate rejection reasons listed under a `BLOCKED:` line, messages from inside the Blender scripts,
+`ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line. Messages from inside the Blender scripts
 and the progress log are still Korean only; the bone and file names in them are what to look for, and the [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
 
 ## What you get
@@ -59,7 +59,7 @@ and the progress log are still Korean only; the bone and file names in them are 
 On the benchmark, **63 / 66** assets rig with every gate green and **25 / 29** of the ones that can walk
 retarget a walk cleanly (`python3 scripts/bench_score.py`).
 
-Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows is untested.
+Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows runs only the Blender-free tests in CI and has never been driven by hand.
 
 ## More
 

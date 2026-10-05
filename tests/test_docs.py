@@ -83,5 +83,38 @@ class DocCommandTests(unittest.TestCase):
         self.assertIsNone(check_command(parser, 'BW_BACKEND=mock bw rig x.glb --pin "spine.004=0,0,1.42" --no-judge'))
 
 
+# 시험 명령 목록이 적힌 곳. 시험 모듈이 늘 때마다 따로 놀았다(10/5 에 CONTRIBUTING 을 손으로 맞춤)
+TEST_LISTS = [REPO / ".github" / "workflows" / "test.yml", REPO / "CONTRIBUTING.md", REPO / ".github" / "pull_request_template.md",
+              REPO / "tests" / "README.md", REPO / "docs" / "RELEASING.md"]
+UNITTEST_LINE = re.compile(r"python3? -m unittest(?: -v)?((?: tests\.test_\w+)+)")
+
+
+class TestListTests(unittest.TestCase):
+    """CI·CONTRIBUTING·PR 템플릿·tests/README·RELEASING 의 `python -m unittest …` 목록이 tests/test_*.py 전부와 같은지."""
+
+    def test_every_unittest_command_lists_every_module(self):
+        modules = sorted(f"tests.{p.stem}" for p in (REPO / "tests").glob("test_*.py"))
+        for doc in TEST_LISTS:
+            found = UNITTEST_LINE.findall(doc.read_text(encoding="utf-8"))
+            self.assertTrue(found, f"{doc.relative_to(REPO)} 에 시험 명령이 없다")
+            for listed in found:
+                with self.subTest(doc=str(doc.relative_to(REPO)), listed=listed.strip()):
+                    self.assertEqual(modules, sorted(listed.split()))
+
+    def test_contributing_sample_count_is_current(self):
+        """CONTRIBUTING 의 `Ran N tests ... (skipped=M)` 예시가 지금 시험 수·블렌더 시험 수와 같은지."""
+        m = re.search(r"Ran (\d+) tests \.\.\. OK \(skipped=(\d+)\)", (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8"))
+        self.assertIsNotNone(m)
+        loader = unittest.TestLoader()
+
+        def flat(suite):
+            for t in suite:
+                yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
+        tests = [t for p in (REPO / "tests").glob("test_*.py") for t in flat(loader.loadTestsFromName(f"tests.{p.stem}"))]
+        blender = [t for t in tests if getattr(type(t), "_requires_blender", False)]
+        self.assertEqual(int(m.group(1)), len(tests))
+        self.assertEqual(int(m.group(2)), len(blender))
+
+
 if __name__ == "__main__":
     unittest.main()

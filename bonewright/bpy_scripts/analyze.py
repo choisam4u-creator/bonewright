@@ -424,7 +424,7 @@ land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 
                    if medial and "error" not in medial else medial),
         **axes, **legs}
 if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 한가운데 수직으로 섰다고 본다) → 발 위치를 따로 잰다
-    from _quad import quad_landmarks
+    from _quad import T, quad_landmarks
     land["quad"] = quad_landmarks(vs, st, spacing)
     if not land["quad"]["ok"] and _med():
         # 실루엣이 앞뒤 다리를 못 가르면(앉은 자세, 다리가 붙은 저폴리) 메시 속 중심선의 발 네 개를 쓴다.
@@ -437,7 +437,7 @@ if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 
         if len(_f) == 4:
             _hd = med_roles.get("head")
             land["quad"]["feet"] = _f; land["quad"]["ok"] = True
-            land["quad"]["notes"].append("발 네 개를 메시 속 중심선에서 찾았다(실루엣 실패)")
+            land["quad"]["notes"].append(T("발 네 개를 메시 속 중심선에서 찾았다(실루엣 실패)", "found the four feet on the inner axis (silhouette failed)"))
             if _hd:
                 _my = sum(v.y for v in vs) / len(vs)
                 land["quad"]["front_dir"] = 1.0 if _hd["p"][1] > _my else -1.0

@@ -18,6 +18,7 @@ def blender_available():
 
 
 def requires_blender(obj):
+    obj._requires_blender = True   # tests/test_docs.py 가 CONTRIBUTING 의 건너뜀 수를 대조할 때 센다
     if os.environ.get("BW_SKIP_BLENDER") == "1":
         return unittest.skip("BW_SKIP_BLENDER=1")(obj)
     if blender_available():

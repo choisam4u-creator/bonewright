@@ -40,7 +40,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 
 `bw rig` 한 번은 모델 호출 2회(약 1달러)다. `BW_BACKEND=mock`이나 `--from-skeleton`은 토큰이 들지 않는다.
 
-**언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유, Blender 스크립트 안에서 나온 메시지, 진행 로그는 아직 한국어뿐이다.
+**언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유도 같다. Blender 스크립트 안에서 나온 메시지와 진행 로그는 아직 한국어뿐이다.
 
 ## 결과 예시
 
@@ -56,7 +56,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 벤치마크에서 **66개 중 63개**가 게이트를 전부 통과했고, 걸을 수 있는 29개 중 **25개**가 걷기 리타깃을
 깨끗하게 받았다(`python3 scripts/bench_score.py`).
 
-상태: **v0.2(알파)**. macOS에서 개발, Linux는 CI에서 시험을 돌린다, Windows는 시험한 적 없다.
+상태: **v0.2(알파)**. macOS에서 개발, Linux는 CI에서 시험을 돌린다, Windows는 CI에서 블렌더 없는 시험만 돌고 손으로 써 본 적은 없다.
 
 ## 더 보기
 
