@@ -19,8 +19,8 @@ python3 scripts/check_license_boundary.py    # MIT core must not import bpy
 
 The PR template (`.github/pull_request_template.md`) has a checklist for these and a table for the benchmark below.
 
-The full suite needs Blender 5.2 (or the `bpy` wheel) and takes about six minutes. Without Blender you get the
-pure-Python tests, which is what CI runs.
+The full suite needs Blender 5.2 (or the `bpy` wheel) and takes about six minutes. Without Blender you get only the
+pure-Python tests (CI's `unit` jobs); CI's `blender` job installs the `bpy` wheel and runs everything.
 
 If you touched anything in `analyze.py`, `fit_generate.py`, `_medial.py`, `from_skeleton.py` or `gates.py`, also
 run the benchmark on at least `mannequiny`, `cesium_man`, `robot_expressive` and `quat_pp_41j` and paste the
@@ -49,14 +49,17 @@ chain starts inside the chest.
 
 ## What CI actually runs
 
-Two jobs. `unit` installs nothing but this package and runs the tests that do not need Blender — a green tick there
-means the Python imports and the license boundary holds, nothing more. `blender` installs the `bpy` wheel and runs
-**every** test, including rig generation, skinning and retargeting. If you change anything that touches weights,
+Three jobs. `unit` (Linux, Python 3.11 and 3.13) and `unit-windows` install nothing but this package and run the
+tests that do not need Blender — a green tick there means the Python imports and the license boundary holds,
+nothing more. `blender` installs the `bpy` wheel and runs **every** test, including rig generation, skinning and
+retargeting. If you change anything that touches weights,
 that second job is the one that matters.
 
-Locally, `python3 -m unittest tests.test_mock` runs the whole suite if Blender (or the `bpy` wheel) is on the
-machine, and quietly skips the Blender half if it is not — so check the skip count before trusting a local pass:
+Locally, the command above runs the whole suite if Blender (or the `bpy` wheel) is on the machine, and quietly
+skips the Blender half if it is not — so check the skip count before trusting a local pass:
 
 ```
-Ran 37 tests ... OK (skipped=10)   ← the ten that matter did not run
+Ran 82 tests ... OK (skipped=12)   ← the twelve that matter did not run
 ```
+
+Set `BW_REQUIRE_BLENDER=1` to make a missing Blender a failure instead of a skip.
