@@ -29,5 +29,24 @@ class VersionTests(unittest.TestCase):
             self.assertRegex(text, rf"(?m)^\[{re.escape(h)}\]: https://", f"CHANGELOG 맨 아래에 [{h}] 링크가 없다")
 
 
+class PackageMetadataTests(unittest.TestCase):
+    """배포본(sdist·wheel)에 두 라이선스 고지가 실리고 PyPI 페이지에 저장소 링크가 뜨게."""
+
+    def setUp(self):
+        self.project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+
+    def test_license_files_exist(self):
+        files = self.project.get("license-files", [])
+        self.assertIn("LICENSE", files)
+        self.assertIn("bonewright/bpy_scripts/LICENSE", files, "bpy_scripts 의 GPL 고지가 배포본에서 빠진다")
+        for f in files:
+            self.assertTrue((ROOT / f).is_file(), f"license-files 의 {f} 가 없다")
+
+    def test_project_urls(self):
+        urls = self.project.get("urls", {})
+        for key in ("Homepage", "Issues", "Changelog"):
+            self.assertRegex(urls.get(key, ""), r"^https://", f"[project.urls] 에 {key} 가 없다")
+
+
 if __name__ == "__main__":
     unittest.main()

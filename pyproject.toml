@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]   # license-files(PEP 639)
 build-backend = "hatchling.build"
 
 [project]
@@ -8,11 +8,18 @@ version = "0.2.0"
 description = "Rig and animate Blender characters with Codex: Python drives the steps, codex exec judges, gates verify."
 readme = "README.md"
 license = "MIT AND GPL-3.0-or-later"   # 본체 MIT, bonewright/bpy_scripts/ 는 bpy 를 쓰므로 GPL
+license-files = ["LICENSE", "bonewright/bpy_scripts/LICENSE"]   # 배포본에 MIT 고지와 GPL 고지를 둘 다 싣는다
 requires-python = ">=3.11"
 authors = [{name = "samchoi"}]
 dependencies = []
 keywords = ["blender", "rigging", "animation", "codex", "rigify"]
 classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)", "Operating System :: MacOS", "Operating System :: POSIX :: Linux"]
+
+[project.urls]
+Homepage = "https://github.com/choisam4u-creator/bonewright"
+Documentation = "https://github.com/choisam4u-creator/bonewright/blob/main/docs/GUIDE.md"
+Issues = "https://github.com/choisam4u-creator/bonewright/issues"
+Changelog = "https://github.com/choisam4u-creator/bonewright/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 headless = ["bpy==5.2.2"]
