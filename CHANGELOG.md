@@ -20,12 +20,14 @@ See `docs/RELEASING.md` for the release steps.
   every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender.
 
 ### Changed
-- `bw --help` follows `BW_LANG` (or the locale): English by default, Korean for `ko`. Error messages and
-  `bw doctor` stay Korean for now; the README says so.
+- `bw --help` follows `BW_LANG` (or the locale): English by default, Korean for `ko`. Error messages
+  stay Korean for now; the README says so.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved
   to `docs/GUIDE.md`, with a Korean edition in `README.ko.md`.
+- `bw doctor` marks each item `[required]` or `[optional]` and exits 0 when Blender or `bpy` is found, even
+  without `codex` (only the default model-judged `bw rig` needs it). Its output follows `BW_LANG` too.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed

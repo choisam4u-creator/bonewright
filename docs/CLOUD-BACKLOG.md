@@ -20,7 +20,7 @@
 
 ## 2026-10-04(2회차) 추가 (공개 준비 기준)
 
-- [ ] `bw doctor` 가 codex 없으면 실패(종료코드 1)로 끝남 → `BW_BACKEND=mock`·`--from-skeleton`·`--from-shape` 은 codex 없이 되므로 "codex: 없음(선택: 모델 판정 경로에만 필요)"로 나누고 필수/선택을 표시 — 근거: `cli.py` `doctor()` 의 `ok &= bool(codex)`, README 는 mock 경로를 토큰 0 으로 안내
+- [x] `bw doctor` 가 codex 없으면 실패(종료코드 1)로 끝남 → `BW_BACKEND=mock`·`--from-skeleton`·`--from-shape` 은 codex 없이 되므로 "codex: 없음(선택: 모델 판정 경로에만 필요)"로 나누고 필수/선택을 표시 — 근거: `cli.py` `doctor()` 의 `ok &= bool(codex)`, README 는 mock 경로를 토큰 0 으로 안내
 - [ ] PR 템플릿 `.github/pull_request_template.md`: CONTRIBUTING 의 "측정한 숫자" 규칙, 라이선스 경계 검사, 관절 코드 수정 시 벤치 4종 전후 숫자 칸 — 근거: `.github/` 에 PR 템플릿 없음, CONTRIBUTING 이 요구하는 항목을 PR 마다 손으로 기억해야 한다
 - [ ] 패키지 메타데이터: `pyproject.toml` 에 `[project.urls]`(Homepage·Issues·Changelog)·`license-files`(LICENSE, bpy_scripts 의 GPL 고지) 추가, `python -m build` 로 sdist·wheel 에 LICENSE 가 실리는지 시험 — 근거: 현재 urls·license-files 없음, 공개 뒤 PyPI 페이지·배포본에 라이선스 고지가 빠질 수 있다
 - [ ] `BLOCKED:` 오류 메시지·`bw doctor` 출력 영문화(BW_LANG 따라) — 근거: 10/4 `bw --help` 만 영문화했고 README 에 "오류 메시지는 한국어뿐"이라 적었다. 영어 사용자가 처음 보는 실패 화면이 읽히지 않는다

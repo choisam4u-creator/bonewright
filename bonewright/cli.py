@@ -29,24 +29,29 @@ def plugin_dir() -> Path:
 
 
 def doctor() -> int:
-    ok = True
+    """준비 상태. [필수]는 Blender 앱 또는 bpy 모듈 하나뿐이다 — mock·--from-skeleton·--from-shape·--targets 는 codex 없이 된다."""
+    req, opt = T("[필수]", "[required]"), T("[선택]", "[optional]")
     cfg = load(ROOT)
     bl = find_blender(cfg["blender"])
-    print("Blender:", bl[0] if bl else "없음 (Blender.app 설치 또는 BW_BLENDER)")
+    print(req, "Blender:", bl[0] if bl else T("없음 (Blender.app 설치 또는 BW_BLENDER)", "not found (install Blender or set BW_BLENDER)"))
     if bl:
         v = subprocess.run(bl + ["--version"], capture_output=True, text=True).stdout.splitlines()
         print("  ", v[0] if v else "?")
-    else:
-        print("bpy 모듈:", "있음" if has_bpy_module() else "없음 (pip install bpy==5.2.2, Python 3.13)"); ok &= has_bpy_module()
+    ok = bool(bl)
+    if not bl:
+        ok = has_bpy_module()
+        print(req, T("bpy 모듈:", "bpy module:"), T("있음", "found") if ok else T("없음 (pip install bpy==5.2.2, Python 3.13)", "not found (pip install bpy==5.2.2, Python 3.13)"))
     codex = shutil.which("codex")
-    print("codex CLI:", codex or "없음 → https://developers.openai.com/codex"); ok &= bool(codex)
+    print(opt, "codex CLI:", codex or T("없음 — 모델 판정(기본 `bw rig`)에만 필요. 토큰 0 경로(--from-skeleton·--from-shape·--targets·BW_BACKEND=mock)는 없이 된다 → https://developers.openai.com/codex",
+                                       "not found — needed only for the model judge (default `bw rig`). The 0-token routes (--from-skeleton, --from-shape, --targets, BW_BACKEND=mock) work without it → https://developers.openai.com/codex"))
     if codex:
         print("  ", subprocess.run(["codex", "--version"], capture_output=True, text=True).stdout.strip())
         login = subprocess.run(["codex", "login", "status"], capture_output=True, text=True)
-        print("   로그인:", (login.stdout or login.stderr).strip()[:60])
+        print("  ", T("로그인:", "login:"), (login.stdout or login.stderr).strip()[:60])
     k = ROOT / cfg["kimodo"]["root"] / "build-release" / "kmd-generate"
-    print("kimodo.cpp:", "빌드됨" if k.exists() else "없음 (선택: 텍스트→동작에만 필요)")
-    print("작업 폴더(ROOT):", ROOT, "(BW_HOME 으로 바꿀 수 있음)")
+    print(opt, "kimodo.cpp:", T("빌드됨", "built") if k.exists() else T("없음 — 텍스트→동작(`bw motion --text`)에만 필요", "not built — needed only for text→motion (`bw motion --text`)"))
+    print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
+    print(T("준비됨" if ok else "준비 안 됨: [필수] 항목을 먼저 설치하라", "ready" if ok else "not ready: install the [required] item first"))
     return 0 if ok else 1
 
 
