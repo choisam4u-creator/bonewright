@@ -11,6 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from .i18n import T
+
 
 class CodexError(RuntimeError):
     pass
@@ -59,7 +61,7 @@ def _extract_json(text: str) -> dict:
     match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.S) or re.search(r"(\{.*\})", text, re.S)
     if match:
         return json.loads(match.group(1))
-    raise CodexError("모델 답이 JSON 이 아님")
+    raise CodexError(T("모델 답이 JSON 이 아님", "the model's answer is not JSON"))
 
 
 def parse_events(path: Path) -> dict:
@@ -152,22 +154,24 @@ def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_
                 proc = subprocess.Popen(cmd, cwd=work, stdin=subprocess.DEVNULL, stdout=out, stderr=err, text=True,
                                         env={**os.environ, "NO_COLOR": "1"})
             except FileNotFoundError as error:
-                raise CodexMissing("codex 실행 파일을 찾을 수 없음. `npm i -g @openai/codex` 로 설치하고 `bw doctor` 로 확인") from error
+                raise CodexMissing(T("codex 실행 파일을 찾을 수 없음. `npm i -g @openai/codex` 로 설치하고 `bw doctor` 로 확인",
+                                       "codex executable not found. Install it with `npm i -g @openai/codex` and check with `bw doctor`")) from error
             try:
                 _wait_with_heartbeat(proc, events, codex_cfg.get("timeout", 900), heartbeat)
             except subprocess.TimeoutExpired as error:
-                raise CodexError(f"{name}: 시간 초과 {codex_cfg.get('timeout')}s") from error
+                raise CodexError(f"{name}: " + T("시간 초과", "timed out after") + f" {codex_cfg.get('timeout')}s") from error
         if proc.returncode != 0:
             tail = (log_dir / f"{name}.stderr.log").read_text(encoding="utf-8", errors="replace")[-4000:]
             tail += events.read_text(encoding="utf-8", errors="replace")[-4000:] if events.exists() else ""
             limited, resets = detect_usage_limit(tail)
             if limited:
-                raise UsageLimit(f"{name}: 사용량 한도 도달" + (f" (리셋 {resets})" if resets else ""), resets)
+                raise UsageLimit(f"{name}: " + T("사용량 한도 도달", "usage limit reached") + (T(f" (리셋 {resets})", f" (resets {resets})") if resets else ""), resets)
             if detect_auth_error(tail):
-                raise AuthRequired(f"{name}: 로그인이 만료됐거나 인증 실패. `codex login` 뒤 다시 실행 (로그: {log_dir / (name + '.stderr.log')})")
-            raise CodexError(f"{name}: codex exec 종료코드 {proc.returncode} (로그: {log_dir / (name + '.stderr.log')})")
+                raise AuthRequired(f"{name}: " + T("로그인이 만료됐거나 인증 실패. `codex login` 뒤 다시 실행 (로그: ", "login expired or authentication failed. Run `codex login` and try again (log: ")
+                                   + f"{log_dir / (name + '.stderr.log')})")
+            raise CodexError(f"{name}: codex exec " + T("종료코드", "exit code") + f" {proc.returncode} (" + T("로그", "log") + f": {log_dir / (name + '.stderr.log')})")
         if not out_file.exists():
-            raise CodexError(f"{name}: 마지막 메시지 파일 없음")
+            raise CodexError(f"{name}: " + T("마지막 메시지 파일 없음", "no final message file"))
         result = _extract_json(out_file.read_text(encoding="utf-8"))
         parsed = parse_events(events)
         return result, {"step": name, "backend": "codex", "model": role_cfg.get("model"), "effort": role_cfg.get("effort"),

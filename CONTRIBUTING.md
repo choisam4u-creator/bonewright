@@ -12,9 +12,12 @@ sections of that file exist only to stop the next person repeating an experiment
 ## Before you open a PR
 
 ```bash
-python3 -m unittest tests.test_mock          # Blender-dependent tests skip automatically
+python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs
+                                             # the same list CI runs; Blender-dependent tests skip automatically
 python3 scripts/check_license_boundary.py    # MIT core must not import bpy
 ```
+
+The PR template (`.github/pull_request_template.md`) has a checklist for these and a table for the benchmark below.
 
 The full suite needs Blender 5.2 (or the `bpy` wheel) and takes about six minutes. Without Blender you get the
 pure-Python tests, which is what CI runs.

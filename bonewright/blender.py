@@ -8,6 +8,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from .i18n import T
+
 SCRIPTS = Path(__file__).parent / "bpy_scripts"
 
 
@@ -47,11 +49,12 @@ def run_script(name: str, params: dict, cfg: dict, log_dir: Path, mock: bool = F
     elif has_bpy_module():
         cmd = [sys.executable, "-c", boot]
     else:
-        raise BlenderError("Blender 를 찾을 수 없다. Blender.app 을 설치하거나 `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 경로를 지정하라")
+        raise BlenderError(T("Blender 를 찾을 수 없다\n  → Blender.app 을 설치하거나 `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 경로를 지정하라",
+                             "Blender not found\n  → install Blender, or `pip install bpy==5.2.2` (Python 3.13), or set BW_BLENDER to its path"))
     env = {**os.environ, "BW_PARAMS": str(work / "params.json")}
     with open(log_dir / f"{name}.log", "w", encoding="utf-8") as log:
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=cfg.get("timeout", 600), env=env, cwd=str(work))
     if proc.returncode != 0 or not (work / "result.json").exists():
         tail = (log_dir / f"{name}.log").read_text(encoding="utf-8", errors="replace")[-2000:]
-        raise BlenderError(f"{name}: Blender 종료코드 {proc.returncode}\n{tail}")
+        raise BlenderError(f"{name}: " + T("Blender 종료코드", "Blender exit code") + f" {proc.returncode}\n{tail}")
     return json.loads((work / "result.json").read_text(encoding="utf-8"))

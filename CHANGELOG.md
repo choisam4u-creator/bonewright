@@ -16,16 +16,24 @@ See `docs/RELEASING.md` for the release steps.
 - `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
 - Issue templates for install / `bw doctor` problems and feature requests; blank issues now point to the guide and
   SECURITY.md. `bw --version` prints the package version the install template asks for.
+- A pull-request template with the CONTRIBUTING checklist (tests, license boundary, CHANGELOG) and a before/after
+  table for the four benchmark assets when joint code changes.
 - `tests/test_docs.py`: relative links in the README, Korean README, guide and examples README must resolve, and
   every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender.
 
+- Package metadata: project URLs (home, guide, issues, changelog) and both license notices (`LICENSE`, MIT, and
+  `bonewright/bpy_scripts/LICENSE`, GPL) are now shipped in the sdist and wheel (`license-files`, hatchling ≥ 1.27).
+
 ### Changed
-- `bw --help` follows `BW_LANG` (or the locale): English by default, Korean for `ko`. Error messages and
-  `bw doctor` stay Korean for now; the README says so.
+- `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
+  Korean for `ko`. Gate rejection reasons, messages from inside the Blender scripts
+  and progress logs are still Korean only; the README says so.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved
   to `docs/GUIDE.md`, with a Korean edition in `README.ko.md`.
+- `bw doctor` marks each item `[required]` or `[optional]` and exits 0 when Blender or `bpy` is found, even
+  without `codex` (only the default model-judged `bw rig` needs it). Its output follows `BW_LANG` too.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed

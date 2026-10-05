@@ -71,3 +71,35 @@ class HelpLanguageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DoctorTests(unittest.TestCase):
+    """codex·kimodo.cpp 는 선택이다: 없어도 Blender 나 bpy 만 있으면 종료코드 0."""
+
+    def run_doctor(self, blender, bpy, codex, lang="ko"):
+        out = io.StringIO()
+        with patch.dict("os.environ", {"BW_LANG": lang}), \
+                patch.object(cli, "find_blender", return_value=blender), \
+                patch.object(cli, "has_bpy_module", return_value=bpy), \
+                patch.object(cli.shutil, "which", return_value=codex), \
+                patch.object(cli.subprocess, "run") as run, patch("sys.stdout", out):
+            run.return_value.stdout = "Blender 5.2.0\n"; run.return_value.stderr = ""
+            code = cli.doctor()
+        return code, out.getvalue()
+
+    def test_bpy_without_codex_is_ready(self):
+        code, text = self.run_doctor(None, True, None)
+        self.assertEqual(code, 0)
+        self.assertIn("[선택] codex CLI: 없음", text)
+        self.assertIn("준비됨", text)
+
+    def test_no_blender_and_no_bpy_fails(self):
+        code, text = self.run_doctor(None, False, "/usr/bin/codex")
+        self.assertEqual(code, 1)
+        self.assertIn("[필수]", text)
+
+    def test_english_output(self):
+        code, text = self.run_doctor(["/opt/blender"], False, None, lang="en")
+        self.assertEqual(code, 0)
+        self.assertIn("[optional] codex CLI: not found", text)
+        self.assertNotIn("없음", text)
