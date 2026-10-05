@@ -260,7 +260,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         sj = r.blender("shape_joints", {"mesh": mesh, "facing": facing, "preset": preset,
                                         "segments": cfg.get("shape", {}).get("segments", 3)})
         if not sj.get("joints"):
-            r.state("fit", "rejected", reasons=[sj.get("error") or "모양에서 뼈대를 못 만들었다"])
+            r.state("fit", "rejected", reasons=[sj.get("error") or T("모양에서 뼈대를 못 만들었다", "could not build a skeleton from the shape")])
             raise Blocked("--from-shape: " + (sj.get("error") or T("메시 속에서 중심선을 못 찾았다", "found no centreline inside the mesh")))
         gen_preset = "generic"; source_joints = sj["joints"]
         fit = {"targets": {}, "reasoning": f"모양 리그: 속 중심선에서 팔다리 {sj['limbs']}개 · 본 {sj['bones']}개", "confidence": None}

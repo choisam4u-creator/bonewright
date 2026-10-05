@@ -1,4 +1,5 @@
-"""리그 게이트(토큰 0): 통계 JSON 을 기준값과 비교해 실패 목록을 돌려준다."""
+"""리그 게이트(토큰 0): 통계 JSON 을 기준값과 비교해 실패 목록을 돌려준다. 문구는 BW_LANG 을 따른다(i18n.T)."""
+from .i18n import T
 
 # 사람 몸 치수를 전제로 만든 파이프라인이라, 그 전제가 깨진 메시에서는 결과가 조용히 엉망이 된다
 # (실측: 로봇 키의 277%, 곤충 58%, 치비 28% 어긋난 리그를 아무 경고 없이 내놨다).
@@ -14,13 +15,18 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
     H = landmarks.get("height") or 0.0
     lo, hi = g.get("min_height_m", 0.3), g.get("max_height_m", 20.0)
     if not (lo <= H <= hi):
-        block.append(f"메시 크기 {H}m 가 캐릭터 범위({lo}~{hi}m) 밖이다 — 단위가 틀렸거나 캐릭터가 아니다"
-                     " (안/밖 판정용 복셀이 1.2cm 라 이보다 작으면 측정 자체가 무의미하다)")
+        block.append(T(f"메시 크기 {H}m 가 캐릭터 범위({lo}~{hi}m) 밖이다 — 단위가 틀렸거나 캐릭터가 아니다"
+                       " (안/밖 판정용 복셀이 1.2cm 라 이보다 작으면 측정 자체가 무의미하다)",
+                       f"mesh size {H}m is outside the character range ({lo}~{hi}m) — wrong units, or not a character"
+                       " (the inside/outside voxels are 1.2cm, so anything smaller cannot be measured)"))
     if preset == "quadruped":
         q = landmarks.get("quad") or {}
         if not q.get("ok"):
-            block.append("사족: 발 네 개를 못 찾았다 — " + ("; ".join(q.get("notes") or []) or "근거 없음"))
-        warn.append("사족: 자산 11종 정답 대조 평균 오차는 키의 5.6% 다(늑대 3.2%, 소 7.4%). 개과·발굽 체형만 확인했다")
+            block.append(T("사족: 발 네 개를 못 찾았다 — ", "quadruped: could not find four feet — ")
+                         + ("; ".join(q.get("notes") or []) or T("근거 없음", "no evidence")))
+        warn.append(T("사족: 자산 11종 정답 대조 평균 오차는 키의 5.6% 다(늑대 3.2%, 소 7.4%). 개과·발굽 체형만 확인했다",
+                      "quadruped: mean error against ground truth on 11 assets is 5.6% of height (wolf 3.2%, cow 7.4%)."
+                      " Only canine and hoofed bodies were checked"))
         return block, warn
     # 조각으로 만든 모델(로봇)은 실루엣으로 팔다리를 못 가르지만, **조각 자체가 마디라** 관절을 잴 수 있다.
     # 발목·무릎·고관절·팔 높이가 전부 조각에서 나왔으면 '근거 없음'이 아니다 → 막지 않고 경고로 넘긴다
@@ -28,36 +34,43 @@ def preflight(landmarks: dict, stats: dict, preset: str, g: dict) -> tuple[list[
     fs = landmarks.get("foot_split") or {}
     from_parts = all(fs.get(k) is not None for k in ("x", "ankle_z", "knee_z", "hip_z", "arm_z")) and (fs.get("leg_parts") or 0) >= 6
     if from_parts:
-        warn.append(f"조각 구조에서 관절을 쟀다(다리 조각 {fs['leg_parts']}개) — 실루엣 근거가 아니므로 렌더를 꼭 확인하라")
+        warn.append(T(f"조각 구조에서 관절을 쟀다(다리 조각 {fs['leg_parts']}개) — 실루엣 근거가 아니므로 렌더를 꼭 확인하라",
+                      f"joints were measured from separate parts ({fs['leg_parts']} leg parts), not the silhouette — check the renders"))
     else:
         # 사람형: 팔·다리 중심선이 양쪽 다 있어야 한다. 하나라도 없으면 관절을 놓을 근거가 없다
         for part, ko, josa in (("arm", "팔", "을"), ("leg", "다리", "를")):
             miss = [s for s in ("L", "R") if not landmarks.get(f"{part}_axis_{s}")]
             if miss:
-                block.append(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다")
+                block.append(T(f"{ko} 중심선 없음({'/'.join(miss)}쪽) — 이 메시에서 {ko}{josa} 못 찾았다",
+                               f"no {part} axis ({'/'.join(miss)} side) — could not find the {part}s in this mesh"))
     # 메시 **속**(_medial)에서 채운 관절도 근거다 — 지어낸 비율이 아니라 잰 값이다. 어디서 왔는지는 밝힌다
     med = landmarks.get("medial") or {}
     supplied = med.get("supplied") or []
     if supplied:
-        warn.append("메시 속 중심선에서 채운 값이 있다(" + ", ".join(supplied) + ") — 실루엣 근거가 아니므로 렌더를 꼭 확인하라")
+        warn.append(T("메시 속 중심선에서 채운 값이 있다(", "some values were filled from the mesh's inner axis (") + ", ".join(supplied)
+                    + T(") — 실루엣 근거가 아니므로 렌더를 꼭 확인하라", ") — not from the silhouette, check the renders"))
     # 속-읽기가 좌우로 어긋났으면 그 값으로 만든 중심선은 근거로 치지 않는다.
     # (godot_player: 어깨 견갑을 손으로 잡아 손 높이가 좌 0.73 / 우 1.96 — 그대로 통과시키면 오차 18%)
     if supplied and not med.get("consistent"):
         bad = [k for k in supplied if k.startswith("arm_axis")]
         if bad:
-            block.append("메시 속에서 찾은 팔이 좌우로 어긋난다(" + ", ".join(bad) + ") — 자세가 있거나 좌우가 다른 메시다")
+            block.append(T("메시 속에서 찾은 팔이 좌우로 어긋난다(", "the arms found inside the mesh disagree left/right (") + ", ".join(bad)
+                         + T(") — 자세가 있거나 좌우가 다른 메시다", ") — the mesh is posed or not left/right symmetric"))
     fb = set(landmarks.get("ratio_fallbacks") or [])
     hard = [] if from_parts else sorted(fb & set(BLOCKING_FALLBACKS))
     if hard:
-        block.append(f"관절을 메시에서 못 찾아 인체 비율로 때웠다: {', '.join(hard)}")
+        block.append(T("관절을 메시에서 못 찾아 인체 비율로 때웠다: ", "joints not found in the mesh, guessed from human proportions: ") + ", ".join(hard))
     if fb - set(BLOCKING_FALLBACKS):
-        warn.append("인체 비율 폴백(경고): " + ", ".join(sorted(fb - set(BLOCKING_FALLBACKS))))
+        warn.append(T("인체 비율 폴백(경고): ", "human-proportion fallback (warning): ") + ", ".join(sorted(fb - set(BLOCKING_FALLBACKS))))
     if landmarks.get("chibi"):
-        block.append(f"치비 비율(머리가 키의 {round((landmarks.get('head_ratio') or 0) * 100)}%) — 사람 비율 전제가 깨진다")
+        pct = round((landmarks.get('head_ratio') or 0) * 100)
+        block.append(T(f"치비 비율(머리가 키의 {pct}%) — 사람 비율 전제가 깨진다",
+                       f"chibi proportions (head is {pct}% of height) — breaks the human-proportion assumption"))
     sym = landmarks.get("symmetry_error") or 0.0
     tol = g.get("max_symmetry_error_ratio", 0.03) * (H or 1.8)
     if sym > tol:
-        block.append(f"좌우 비대칭 {round(sym, 3)} > {round(tol, 3)} — T 포즈가 아니거나 좌우가 다른 메시다")
+        block.append(T(f"좌우 비대칭 {round(sym, 3)} > {round(tol, 3)} — T 포즈가 아니거나 좌우가 다른 메시다",
+                       f"left/right asymmetry {round(sym, 3)} > {round(tol, 3)} — not a T-pose, or the sides differ"))
     return block, warn
 
 
@@ -70,25 +83,30 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0, so
     # 다만 이웃 보간이 메시의 5% 를 넘으면 자동 가중치 자체가 실패한 것이라 그때는 실패로 본다
     holes = stats["unweighted_verts"] + stats.get("filled_unweighted", 0)
     if verts and holes / verts > g["max_unweighted_ratio"]:
-        fails.append(f"가중치 없는 정점 {holes}/{verts} (가까운 본으로 메운 {stats.get('filled_unweighted', 0)}개 포함)")
+        fu = stats.get('filled_unweighted', 0)
+        fails.append(T(f"가중치 없는 정점 {holes}/{verts} (가까운 본으로 메운 {fu}개 포함)",
+                       f"unweighted vertices {holes}/{verts} (including {fu} filled from the nearest bone)"))
     nb = stats.get("filled_from_neighbor", 0)
     if verts and nb > verts * 0.05:
-        fails.append(f"이웃에서 가중치를 복사해 메운 정점 {nb}/{verts} — 자동 가중치가 넓게 실패했다")
+        fails.append(T(f"이웃에서 가중치를 복사해 메운 정점 {nb}/{verts} — 자동 가중치가 넓게 실패했다",
+                       f"vertices filled by copying neighbour weights {nb}/{verts} — automatic weights failed widely"))
     if stats["weight_sum_min"] < g["weight_sum_min"] or stats["weight_sum_max"] > g["weight_sum_max"]:
-        fails.append(f"가중치 합 범위 {stats['weight_sum_min']}~{stats['weight_sum_max']} (허용 {g['weight_sum_min']}~{g['weight_sum_max']})")
+        fails.append(T("가중치 합 범위", "weight sum range") + f" {stats['weight_sum_min']}~{stats['weight_sum_max']} "
+                     + T("(허용", "(allowed") + f" {g['weight_sum_min']}~{g['weight_sum_max']})")
     # 변형 본 최소치는 사람 메타리그(410본) 기준이다. 원본 뼈대를 그대로 베낀 **일반 리그**는 본 수가
     # 원본을 따라가므로(관절 4개짜리 블롭도 있다) 그 기준을 그대로 대면 멀쩡한 리그가 실패로 찍힌다.
     # 일반 리그에서는 "원본 본이 전부 변형 본이 됐는가"로 대신 본다
     src_bones = stats.get("generic_source_bones")
     if src_bones:
         if stats["deform_bones"] < src_bones:
-            fails.append(f"일반 리그: 변형 본 {stats['deform_bones']} < 원본이 살을 움직이던 본 {src_bones} — 옮겨지지 않은 본이 있다")
+            fails.append(T(f"일반 리그: 변형 본 {stats['deform_bones']} < 원본이 살을 움직이던 본 {src_bones} — 옮겨지지 않은 본이 있다",
+                           f"generic rig: deform bones {stats['deform_bones']} < bones that deformed the source {src_bones} — some were not carried over"))
     elif stats["deform_bones"] < g["deform_bones_min"]:
-        fails.append(f"변형 본 {stats['deform_bones']} < {g['deform_bones_min']}")
+        fails.append(T("변형 본", "deform bones") + f" {stats['deform_bones']} < {g['deform_bones_min']}")
     # 일반 리그는 원본 뼈대를 **그대로** 베낀다 — 본이 메시 밖에 있다면 원작자가 거기에 둔 것이지 우리가 옮긴 게 아니다
     # (Quaternius 유령: 꼬리 끝 Body3/Body4 가 반투명 부분이라 메시 없이 본만 있다). 실패가 아니라 경고로 남긴다
     if len(stats["bones_outside_bbox"]) > g["max_bones_outside_bbox"] and not src_bones:
-        fails.append(f"메시 상자 밖 변형 본 {len(stats['bones_outside_bbox'])}: {stats['bones_outside_bbox'][:5]}")
+        fails.append(T("메시 상자 밖 변형 본", "deform bones outside the mesh bounding box") + f" {len(stats['bones_outside_bbox'])}: {stats['bones_outside_bbox'][:5]}")
     tol = g["symmetry_max_error"] * max(0.2, stats.get("height", 1.8) / 1.8)   # 키 비례(1.8m 기준값)
     # --from-skeleton 은 원본 뼈대 좌표를 그대로 쓴다. 원본이 이미 비대칭이면 그 비대칭은 우리 오차가 아니다
     # (three.js RobotExpressive 어깨 6.7cm, Quaternius 알파카 앞다리 8.5cm) → 원본만큼은 봐준다.
@@ -96,7 +114,7 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0, so
     tol = max(tol, source_symmetry * 1.25)
     out_mesh = stats.get("deform_outside_mesh", 0)
     if out_mesh > g.get("max_deform_outside_mesh", 0) and not src_bones:
-        fails.append(f"메시 밖 변형 본 {out_mesh}: {stats.get('deform_outside_mesh_bones', [])[:4]}")
+        fails.append(T("메시 밖 변형 본", "deform bones outside the mesh") + f" {out_mesh}: {stats.get('deform_outside_mesh_bones', [])[:4]}")
     tv = stats.get("weight_leak_torso_verts", 0)
     # 표본이 너무 적으면 비율을 판단할 수 없다 — 저폴리 캐릭터는 몸통 한가운데 띠에 정점이 열두어 개뿐이다
     # (cesium_man 12개). 30개 미만이면 이 검사를 건너뛰고, 그 위에서는 정점 하나를 잡음으로 보고 비율과 함께 본다
@@ -106,19 +124,20 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0, so
     # 즉 **원작자만큼은 봐주고 그보다 더 새면 실패**다(좌우 대칭에서 이미 쓰는 방식과 같다)
     _lim = max(g.get("max_weight_leak_ratio", 0.005), source_leak or 0.0)
     if tv >= 30 and stats.get("weight_leak_arm_torso", 0) > max(1, tv * _lim):
-        extra = f" (원작자 자신은 {round(100 * source_leak, 1)}%)" if source_leak else ""
-        fails.append(f"팔 본이 몸통으로 샌 정점 {stats['weight_leak_arm_torso']}/{tv}{extra}")
+        extra = T(" (원작자 자신은", " (the original author's own:") + f" {round(100 * source_leak, 1)}%)" if source_leak else ""
+        fails.append(T("팔 본이 몸통으로 샌 정점", "vertices where arm bones leak into the torso") + f" {stats['weight_leak_arm_torso']}/{tv}{extra}")
     # 일반·모양 리그는 본이 원본 뼈대나 메시 자신의 중심선 위에 놓인다 — 좌우가 어긋났다면 **몸이 그렇게 생긴 것**이지
     # 우리가 옮긴 게 아니다(kira 는 앉아서 한 팔을 앞으로 뻗고 있어 손이 0.76m 어긋난다). 실패가 아니라 경고로 내린다
     if stats["symmetry_max_error"] > tol and not src_bones:
-        fails.append(f"좌우 대칭 오차 {stats['symmetry_max_error']} > {round(tol, 4)} (최악 {stats.get('symmetry_worst')})")
+        fails.append(T("좌우 대칭 오차", "left/right symmetry error") + f" {stats['symmetry_max_error']} > {round(tol, 4)} "
+                     + T("(최악", "(worst") + f" {stats.get('symmetry_worst')})")
     return fails
 
 
 def judge_gates(judge: dict) -> list[str]:
     fails = []
     if judge.get("bones_outside_mesh"):
-        fails.append("시각 판정: 메시 밖 본 " + ", ".join(judge["bones_outside_mesh"][:5]))
+        fails.append(T("시각 판정: 메시 밖 본 ", "visual judge: bones outside the mesh ") + ", ".join(judge["bones_outside_mesh"][:5]))
     if judge.get("proportions_ok") is False:
-        fails.append("시각 판정: 비율 이상 — " + (judge.get("notes") or "")[:120])
+        fails.append(T("시각 판정: 비율 이상 — ", "visual judge: proportions look wrong — ") + (judge.get("notes") or "")[:120])
     return fails

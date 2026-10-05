@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -325,6 +326,7 @@ class BenchMappingTests(unittest.TestCase):
         self.assertIsNone(rows["DEF-upper_arm.R"]["gt"])                           # 오른쪽 정답이 없으면 매칭 실패로 표시
 
 
+@patch.dict(os.environ, {"BW_LANG": "ko"})   # 거절 사유 문구를 한국어로 대조한다
 class GateTests(unittest.TestCase):
     def test_rig_gates(self):
         g = {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03, "deform_bones_min": 60, "max_bones_outside_bbox": 0}
@@ -350,6 +352,26 @@ class GateTests(unittest.TestCase):
         fails = gates.rig_gates({**base, "weight_leak_arm_torso": 10}, g, 1000)                # 5% 는 실패
         self.assertEqual(1, len(fails)); self.assertIn("샌 정점 10/200", fails[0])
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 0, "weight_leak_arm_torso": 0}, g, 1000))
+
+    def test_reasons_follow_bw_lang(self):
+        """BW_LANG=en 이면 거절 사유(preflight·rig_gates·judge_gates)에 한글이 하나도 없다."""
+        g = {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03,
+             "deform_bones_min": 60, "max_bones_outside_bbox": 0, "max_weight_leak_ratio": 0.005, "max_deform_outside_mesh": 0}
+        bad = {"unweighted_verts": 5, "filled_from_neighbor": 100, "weight_sum_min": 0.5, "weight_sum_max": 1.0, "deform_bones": 10,
+               "bones_outside_bbox": ["DEF-hand.L"], "symmetry_max_error": 0.1, "deform_outside_mesh": 2,
+               "weight_leak_torso_verts": 200, "weight_leak_arm_torso": 50}
+        land = {"height": 0.1, "ratio_fallbacks": ["knee", "neck"], "chibi": True, "head_ratio": 0.3, "symmetry_error": 0.5,
+                "medial": {"supplied": ["arm_axis_L"], "consistent": False}}
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            block, warn = gates.preflight(land, {}, "humanoid", {})
+            quad, qwarn = gates.preflight({"height": 1.0}, {}, "quadruped", {})
+            texts = (block + warn + quad + qwarn + gates.rig_gates(bad, g, 1000, source_leak=0.01)
+                     + gates.rig_gates({**bad, "generic_source_bones": 20}, g, 1000)
+                     + gates.judge_gates({"bones_outside_mesh": ["x"], "proportions_ok": False, "notes": "n"}))
+        self.assertGreaterEqual(len(block), 6, block)
+        self.assertGreaterEqual(len(texts), 20, texts)
+        hangul = [t for t in texts if any("\uac00" <= c <= "\ud7a3" for c in t)]
+        self.assertEqual([], hangul)
 
 
 if __name__ == "__main__":
@@ -576,6 +598,7 @@ class FromSkeletonTests(unittest.TestCase):
         self.assertAlmostEqual(0.0, tg["foot.L"]["tail"][2], places=6)
 
 
+@patch.dict(os.environ, {"BW_LANG": "ko"})
 class MedialShapeTests(unittest.TestCase):
     """메시 속 중심선 읽기(_medial)의 순수 기하 부분. Blender 없이 돈다"""
 
