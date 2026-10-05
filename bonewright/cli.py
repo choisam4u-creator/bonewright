@@ -52,7 +52,7 @@ def doctor() -> int:
     k = ROOT / cfg["kimodo"]["root"] / "build-release" / "kmd-generate"
     print(opt, "kimodo.cpp:", T("빌드됨", "built") if k.exists() else T("없음 — 텍스트→동작(`bw motion --text`)에만 필요", "not built — needed only for text→motion (`bw motion --text`)"))
     print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
-    print(T("준비됨" if ok else "준비 안 됨: [필수] 항목을 먼저 설치하라", "ready" if ok else "not ready: install the [required] item first"))
+    print(T("준비됨" if ok else "준비 안 됨: Blender 앱이나 bpy 모듈 중 하나를 설치하라", "ready" if ok else "not ready: install Blender or the bpy module (either one)"))
     return 0 if ok else 1
 
 
