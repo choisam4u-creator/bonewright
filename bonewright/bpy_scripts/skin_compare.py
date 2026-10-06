@@ -13,7 +13,7 @@
 import bpy
 from mathutils import Vector
 from mathutils.kdtree import KDTree
-from _common import args, done, fresh, import_mesh
+from _common import T, args, done, fresh, import_mesh
 
 A = args(); fresh()
 
@@ -77,7 +77,7 @@ tree.balance()
 bpy.ops.wm.open_mainfile(filepath=A["blend"])
 ours = next((o for o in bpy.data.objects if o.type == "MESH" and o.vertex_groups), None)
 if ours is None:
-    done({"error": "리깅된 메시를 찾지 못했다"}, A["result"])
+    done({"error": T("리깅된 메시를 찾지 못했다", "rigged mesh not found")}, A["result"])
 # blend 에는 메타리그와 생성된 리그가 같이 있다 → DEF- 본을 가진 쪽(메시의 부모)을 고른다. 첫 아마추어를 집으면 메타리그라 영향 중심이 전부 빠진다
 rig = ours.parent if (ours.parent and ours.parent.type == "ARMATURE") else None
 if rig is None or not any(b.name.startswith("DEF-") for b in rig.data.bones):

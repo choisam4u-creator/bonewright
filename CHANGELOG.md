@@ -32,11 +32,15 @@ See `docs/RELEASING.md` for the release steps.
   table can be seen before installing Blender. A Blender test checks that today's rig still matches it.
 - `docs/GUIDE.md` "Text → motion: building kimodo.cpp": the build steps, the three paths bonewright looks for and the
   weight licences. `bw motion --text` and `bw doctor` point there instead of a dated research note.
+- CI rigs the bundled sample once more with the installed `bw` from outside the repository (`BW_BACKEND=mock`),
+  so a Blender script or prompt missing from the wheel fails the build. `tests/test_docs.py` checks the README
+  quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
 - `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
   Korean for `ko`. So do the gate rejection reasons listed under `BLOCKED:` and the `bw rig` / `bw motion` progress
-  log. Messages from inside the Blender scripts are still Korean only; the README says so.
+  log, and the analysis warnings and errors raised inside the Blender scripts (`bpy_scripts/_common.T`, the same
+  rule without importing the MIT package). `tests/test_i18n.py` fails on any bare Korean string in `bpy_scripts/`.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

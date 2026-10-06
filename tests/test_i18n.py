@@ -90,6 +90,26 @@ class TPairTests(unittest.TestCase):
                             self.assertFalse(hangul(s), s)
         self.assertGreater(calls, 30)
 
+    def test_blender_scripts_have_no_bare_hangul(self):
+        """Blender 스크립트(`bpy_scripts/`, GPL 쪽)의 문자열 중 한국어는 docstring 이 아니면 T() 안에 있어야 한다.
+        오류(`error`)·분석 경고(`suspect`)·사족 notes 가 `bw` 화면에 그대로 나오기 때문이다. 주석은 AST 에 없어 상관없다."""
+        found = 0
+        for path in sorted((PKG / "bpy_scripts").glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            skip = set()
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef)) and node.body \
+                        and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant):
+                    skip.add(id(node.body[0].value))   # docstring
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "T":
+                    found += 1
+                    skip.update(id(n) for n in ast.walk(node.args[0]))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skip:
+                    with self.subTest(at=f"{path.relative_to(PKG.parent)}:{node.lineno}"):
+                        self.assertFalse(hangul(node.value), node.value)
+        self.assertGreater(found, 15)   # 10/6: analyze·_quad·_common 등에 20곳
+
 
 if __name__ == "__main__":
     unittest.main()

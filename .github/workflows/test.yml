@@ -71,3 +71,16 @@ jobs:
           BW_NO_RENDER: "1"
           BW_REQUIRE_BLENDER: "1"
         run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+      - name: 설치본으로 끝까지 리깅(저장소 밖에서 — bpy_scripts·prompts 가 휠에 실렸는지)
+        # 위 시험은 저장소 안의 bonewright 를 import 한다. 여기서는 `pip install .` 한 설치본의 `bw` 만 쓴다
+        # (10/4 `bw plugin-path` 가 설치본에서만 틀렸다 — 휠에 안 실린 파일은 저장소 안 시험으로는 안 보인다)
+        working-directory: ${{ runner.temp }}
+        env:
+          BW_BACKEND: mock
+          BW_NO_RENDER: "1"
+          BW_HOME: ${{ runner.temp }}/bw-home
+          REPO: ${{ github.workspace }}
+        run: |
+          python -c "import bonewright, os, sys; sys.exit('저장소 사본을 import 했다: ' + bonewright.__file__ if bonewright.__file__.startswith(os.environ['REPO']) else 0)"
+          bw rig "$REPO/tests/assets/quaternius_adventurer.glb" --no-judge --run-id installed
+          test -f bw-home/runs/installed/02_rigged.blend

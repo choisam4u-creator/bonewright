@@ -11,13 +11,13 @@ import math
 import re
 import bpy
 from mathutils import Matrix, Vector
-from _common import args, done, fresh, import_mesh
+from _common import T, args, done, fresh, import_mesh
 
 A = args(); fresh()
 obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), keep_armature=True)
 arm = next((o for o in bpy.data.objects if o.type == "ARMATURE"), None)
 if arm is None:
-    done({"error": "원본 뼈대가 없다"}, A["result"])
+    done({"error": T("원본 뼈대가 없다", "no source armature")}, A["result"])
 
 
 def core(name):
@@ -38,7 +38,7 @@ for b in arm.data.bones:
     if s and (c.endswith("upperarm") or c in ("arm", "biparm", "arm1", "armjoint1")):
         upper[s] = b.name
 if len(upper) < 2:
-    done({"error": f"위팔 본을 못 찾았다: {[b.name for b in arm.data.bones][:30]}"}, A["result"])
+    done({"error": T(f"위팔 본을 못 찾았다: {[b.name for b in arm.data.bones][:30]}", f"upper-arm bones not found: {[b.name for b in arm.data.bones][:30]}")}, A["result"])
 
 deg = float(A.get("angle_deg", 45.0))
 arm.data.pose_position = "POSE"   # 가져오기가 REST 표시로 둔다 — 그 상태면 포즈 값을 넣어도 무시된다(두 번째 시도에서 확인)

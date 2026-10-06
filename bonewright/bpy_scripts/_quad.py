@@ -8,16 +8,9 @@
     **Rigify 늑대 메타리그의 다리 비율**을 쓴다 — 지어낸 '키의 몇 %' 상수가 아니라 실제 늑대를 본뜬
     해부 모델이고, 발을 우리가 잰 자리에 심으면 그 사이 관절은 비율대로 따라온다.
 """
-import os
-
 from mathutils import Vector
 
-
-def T(ko: str, en: str) -> str:
-    """bonewright.i18n.T 와 같은 규칙(BW_LANG → 로캘 → 영어). Blender 쪽 파이썬은 bonewright 를 import 하지 않는다.
-    notes 는 사족 preflight 거절 사유로 그대로 화면에 나온다."""
-    v = os.environ.get("BW_LANG") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-    return ko if v.lower().startswith("ko") else en
+from _common import T   # notes 는 사족 preflight 거절 사유로 그대로 화면에 나온다
 
 
 def front_dir_from_mesh(vs, zmin, H):
