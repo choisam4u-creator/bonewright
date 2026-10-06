@@ -11,6 +11,9 @@ python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 �
 리깅에는 Blender 5.2 LTS 또는 `pip install bpy==5.2.2`(파이썬 3.13)가 필요하다. 결과는 `examples/out/`(git 제외)에
 남고, 표는 `examples/out/<이름>.md` 로 쓴다. 표는 내보낸 `rigged.glb` 의 변형 본을 순수 파이썬으로 읽어 만든다.
 
+결과가 어떻게 생겼는지는 [sample-output/capsule_doll.md](sample-output/capsule_doll.md)(인자 없이 돌린 결과, 변형 본 73개)에서
+먼저 볼 수 있다. `tests/test_examples.py` 가 이 예시와 지금 리깅 결과를 대조한다.
+
 ## 무거운 자산
 
 벤치마크용 캐릭터·동물(수십 MB, 라이선스가 재배포를 막는 것 포함)은 저장소에 넣지 않는다. 원배포처에서 받는다:

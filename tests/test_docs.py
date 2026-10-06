@@ -111,7 +111,9 @@ class TestListTests(unittest.TestCase):
             for t in suite:
                 yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
         tests = [t for p in (REPO / "tests").glob("test_*.py") for t in flat(loader.loadTestsFromName(f"tests.{p.stem}"))]
-        blender = [t for t in tests if getattr(type(t), "_requires_blender", False)]
+        # 클래스에 붙인 것과 메서드 하나에 붙인 것 둘 다 센다
+        blender = [t for t in tests if getattr(type(t), "_requires_blender", False)
+                   or getattr(getattr(t, t._testMethodName), "_requires_blender", False)]
         self.assertEqual(int(m.group(1)), len(tests))
         self.assertEqual(int(m.group(2)), len(blender))
 
