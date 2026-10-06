@@ -284,7 +284,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         # 사람·개과 메타리그에 맞출 수 없는 몸(용·유령·문어·블롭)은 거절하는 대신 **원본 뼈대를 그대로 베낀
         # 일반 리그**로 간다. 관절 이름을 못 알아봐도, 팔다리가 없어도, 사슬이면 컨트롤을 만들 수 있다
         if info["limbs_absent"] or len(tg) < 6:
-            why = ("팔다리 없음: " + ", ".join(info["limbs_absent"])) if info["limbs_absent"] else f"알아본 관절 {len(tg)}개"
+            why = (T("팔다리 없음: ", "no limbs: ") + ", ".join(info["limbs_absent"])) if info["limbs_absent"] \
+                else T(f"알아본 관절 {len(tg)}개", f"{len(tg)} joints recognised")
             gen_preset = "generic"; source_joints = gt["joints"]
             fit = {"targets": {}, "reasoning": f"일반 리그: 원본 뼈대 {len(gt['joints'])}본을 그대로 베낌({why})", "confidence": None}
             _log(quiet, T(f"[2/6] fit: 사람·개과 메타리그에 못 맞춘다({why}) → **일반 리그**로 간다 · 원본 본 {len(gt['joints'])}개 · 모델 호출 0회",
@@ -394,6 +395,22 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     return r.dir / "report.md"
 
 
+def kimodo_paths(kroot: Path, k: dict) -> tuple[Path | None, Path | None]:
+    """kimodo.cpp 의 생성기와 텍스트 인코더를 찾는다. 못 찾으면 None.
+
+    생성기: 옛 빌드(`build-release/`)와 지금 원본의 `cmake --preset release`(`build/release/`) 둘 다 본다.
+    텍스트 인코더: 설정값(`kimodo.text_bundle`, 기본은 옛 구성품 폴더)이 있으면 그것, 없으면 지금 원본의
+    `download_gguf_weights.sh` 가 까는 GGUF 한 파일(옆에 `tokenizer.gguf`, 여럿이면 Q8_0 우선)."""
+    gen = next((p for d in ("build-release", "build/release") for name in ("kmd-generate", "kmd-generate.exe")
+                if (p := kroot / d / name).is_file()), None)
+    text = kroot / k["text_bundle"]
+    if not text.exists():
+        mono = sorted((p for p in kroot.rglob("*.gguf") if p.name != "tokenizer.gguf" and (p.parent / "tokenizer.gguf").is_file()),
+                      key=lambda p: ("q8_0" not in p.name.lower(), str(p)))
+        text = mono[0] if mono else None
+    return gen, text
+
+
 def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: str | None = None, quiet: bool = False,
            rig_run: str | None = None, export: str | None = None, roll: bool = True, preset: str | None = None, bvh_up: str = "y", legs: str = "auto", bone_map: str | None = None) -> Path:
     """텍스트 → kimodo.cpp(Metal) → BVH → Blender 가져오기 → (rig_run 이 있으면) 그 리그에 리타겟 → (export 면) 변형 본만 든 GLB. 토큰 0."""
@@ -409,14 +426,19 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     r = Run(root, run_id, cfg, quiet)
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
     if text:
-        gen = kroot / "build-release" / "kmd-generate"
-        if not gen.exists():
-            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {gen}\n  → docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
-                            f"kimodo.cpp is not built: {gen}\n  → build it as in \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md, or use `--bvh file` instead of text"))
+        gen, text_model = kimodo_paths(kroot, k)
+        if gen is None:
+            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
+                            f"kimodo.cpp is not built: {kroot}/build/release/kmd-generate\n  → build it as in \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md, or use `--bvh file` instead of text"))
+        if text_model is None:
+            raise Blocked(T(f"kimodo.cpp 텍스트 인코더가 없다: {kroot / k['text_bundle']} 도, `tokenizer.gguf` 옆의 GGUF 도 없다\n"
+                            "  → `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1` 로 받거나, runs/config.json 의 kimodo.text_bundle 에 경로를 적어라",
+                            f"kimodo.cpp text encoder not found: neither {kroot / k['text_bundle']} nor a GGUF beside `tokenizer.gguf`\n"
+                            "  → get it with `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1`, or set kimodo.text_bundle in runs/config.json"))
         r.state("kimodo", "running")
         (r.dir / "prompt.txt").write_text(text, encoding="utf-8")
         t = time.time()
-        proc = subprocess.run([str(gen), str(kroot / k["model"]), str(kroot / k["text_bundle"]), str(r.dir / "prompt.txt"),
+        proc = subprocess.run([str(gen), str(kroot / k["model"]), str(text_model), str(r.dir / "prompt.txt"),
                                str(k["frames"]), str(k["steps"]), str(k["seed"]), str(r.dir / "motion")], capture_output=True, text=True)
         (r.logs).mkdir(exist_ok=True); (r.logs / "kimodo.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
         if proc.returncode != 0:

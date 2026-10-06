@@ -447,22 +447,23 @@ bonewright looks for three things under `vendor/kimodo.cpp/` in the repository (
 
 | What | Path under `vendor/kimodo.cpp/` | Config key |
 |---|---|---|
-| generator binary | `build-release/kmd-generate` | (fixed, under `root`) |
+| generator binary | `build/release/kmd-generate` (or `build-release/kmd-generate`, from older builds) | (searched under `root`) |
 | motion model | `models/kimodo-soma-rp-v1.1-f32.gguf` | `kimodo.model` |
-| text encoder | `generated/llm2vec-text-bundle` | `kimodo.text_bundle` |
+| text encoder | `kimodo.text_bundle` if it exists (default `generated/llm2vec-text-bundle`, the older component folder); otherwise the single text GGUF the downloader installs next to `tokenizer.gguf` (Q8_0 preferred) | `kimodo.text_bundle` |
 
-What was run on macOS (Apple Silicon, Metal backend; needs `cmake`, `ninja` and the Hugging Face `hf` CLI):
+With the current upstream on macOS (Apple Silicon, Metal backend; needs `cmake`, `ninja` and the Hugging Face `hf` CLI).
+The September 2026 Mac build used an older layout (`build-release/`, a text component folder); both are accepted:
 
 ```bash
 git clone https://github.com/localai-org/kimodo.cpp vendor/kimodo.cpp
 cd vendor/kimodo.cpp && git submodule update --init --recursive
 cmake --preset release -DKIMODO_ENABLE_VULKAN=OFF     # macOS: Vulkan off, Metal on
-cmake --build --preset release                        # → build-release/kmd-generate
-scripts/download_gguf_weights.sh --output "$PWD" --model soma-rp-v1.1   # model + text bundle
+cmake --build --preset release                        # → build/release/kmd-generate
+scripts/download_gguf_weights.sh --output "$PWD" --model soma-rp-v1.1   # motion model + Q8_0 text encoder + tokenizer.gguf
 ```
 
 Follow the kimodo.cpp README if its presets or script options have changed since; what matters to bonewright is
-only that the three paths above exist. To keep the build elsewhere, put `{"kimodo": {"root": "/path/to/kimodo.cpp"}}`
+only that the three things above can be found. To keep the build elsewhere, put `{"kimodo": {"root": "/path/to/kimodo.cpp"}}`
 in `runs/config.json`. Then `bw doctor` reports `kimodo.cpp: built`.
 
 Measured on an M4 Pro: 60 frames (2 s at 30 fps) in 46.5 s, 3.8 GB of memory. Weights keep their own

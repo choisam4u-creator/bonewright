@@ -17,10 +17,13 @@
 - `docs/media/ATTRIBUTION.md`: `walk_wave.bvh` 생성 모델(kimodo.cpp)·가중치(SOMA RP v1.1, NVIDIA Open Model License).
   관절 30개 = SOMA 골격으로 확인. PRE-PUBLIC-AUDIT 4절 갱신.
 - 백로그 남은 항목 0개 → 새 항목 5개(근거 포함) 추가, 그중 1개(위 ATTRIBUTION) 처리. CHANGELOG 갱신.
+- PR #7 Codex 리뷰(P1 2건, P2 1건) 반영: 지금 kimodo.cpp 원본은 `build/release/` 에 빌드하고 텍스트 인코더를 GGUF 한 파일
+  (옆에 `tokenizer.gguf`)로 깐다 → `pipeline.kimodo_paths` 가 옛·새 배치를 둘 다 찾는다(doctor·motion 공용, 시험 4개).
+  `--from-skeleton` 일반 리그 사유 문구도 영문화. `kmd-generate` 인자 순서는 원본 `src/generate.cpp` 와 같음을 확인.
 
 **돌린 시험**
 - `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
-  (bpy 5.2.2 LTS, Python 3.13) — **88개 모두 통과, 건너뜀 0**(151초). `BW_SKIP_BLENDER=1` — 88개 중 13개 건너뜀, 나머지 통과.
+  (bpy 5.2.2 LTS, Python 3.13) — **92개 모두 통과, 건너뜀 0**(154초, 리뷰 반영 뒤). `BW_SKIP_BLENDER=1` — 92개 중 13개 건너뜀, 나머지 통과.
 - `python3 scripts/check_license_boundary.py` — OK(MIT 15개 파일). `python3.11 -m py_compile` 로 고친 파일 3.11 호환 확인.
 - 렌더(`BW_NO_RENDER` 없이)는 안 돌렸다: 화면 없는 리눅스에서 렌더러가 죽는다(CI 와 같은 이유).
 
