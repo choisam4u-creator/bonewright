@@ -141,5 +141,59 @@ class CodePointsAtDocsTests(unittest.TestCase):
                 self.assertNotRegex(p.read_text(encoding="utf-8"), r"docs/research-\d+")
 
 
+def section_commands(doc: Path, heading: str) -> list[str]:
+    """`## <heading>` 절의 첫 코드 블록에서 주석을 뗀 명령 줄."""
+    text = doc.read_text(encoding="utf-8")
+    m = re.search(rf"^## {re.escape(heading)}\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+    if not m:
+        return []
+    block = FENCE.search(m.group(1))
+    return [ln.split(" #", 1)[0].strip() for ln in block.group(1).splitlines() if ln.strip()] if block else []
+
+
+class FirstRunTests(unittest.TestCase):
+    """README 첫 화면(설치 → `bw doctor` → 첫 리깅)은 공개 뒤 가장 많이 읽힌다. 명령이 실제와 맞고,
+    영문·한국어판이 같은 명령을 적고, 결과 숫자가 `examples/sample-output/` 과 같은지."""
+    EN = (REPO / "README.md", "Install", "First run")
+    KO = (REPO / "README.ko.md", "설치", "첫 실행")
+
+    def test_quickstart_blocks_exist_and_match_between_languages(self):
+        for doc, install, first in (self.EN, self.KO):
+            with self.subTest(doc=doc.name):
+                self.assertIn("pip install .", section_commands(doc, install))
+                self.assertIn("bw doctor", section_commands(doc, install))
+                self.assertTrue(any(c.startswith("bw rig ") for c in section_commands(doc, first)))
+        for i in (1, 2):
+            self.assertEqual(section_commands(self.EN[0], self.EN[i]), section_commands(self.KO[0], self.KO[i]))
+
+    def test_quickstart_commands_parse(self):
+        parser = cli.build_parser()
+        for doc, install, first in (self.EN, self.KO):
+            for cmd in section_commands(doc, install) + section_commands(doc, first):
+                if cmd.startswith("bw "):
+                    with self.subTest(doc=doc.name, cmd=cmd):
+                        self.assertIsNone(check_command(parser, cmd))
+
+    def test_install_extras_exist(self):
+        """README 의 `pip install ".[headless]"` 같은 추가 묶음이 pyproject 에 있는지."""
+        import tomllib
+        extras = set(tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"].get("optional-dependencies", {}))
+        for doc in (self.EN[0], self.KO[0]):
+            for extra in re.findall(r'pip install "?\.\[(\w+)\]', doc.read_text(encoding="utf-8")):
+                with self.subTest(doc=doc.name, extra=extra):
+                    self.assertIn(extra, extras)
+
+    def test_readme_bone_counts_match_sample_output(self):
+        """README 의 '본 410(변형 73)'(mannequiny)과 sample-output 의 캡슐 인형 숫자는 같은 사람 메타리그에서 나온다.
+        리그 구성이 바뀌면 둘 다 바뀌어야 한다 — 한쪽만 고치면 여기서 걸린다."""
+        sample = (REPO / "examples" / "sample-output" / "capsule_doll.md").read_text(encoding="utf-8")
+        m = re.search(r"리그 본 (\d+)\(변형 (\d+)\)", sample)
+        self.assertIsNotNone(m)
+        total, deform = m.groups()
+        self.assertRegex((REPO / "README.md").read_text(encoding="utf-8"), rf"{total} bones \({deform} deform\)")
+        self.assertRegex((REPO / "README.ko.md").read_text(encoding="utf-8"), rf"본 {total}개\(변형 본 {deform}개\)")
+        self.assertIn(f"변형 본 {deform}개", (REPO / "examples" / "README.md").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
