@@ -19,3 +19,4 @@ BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.te
 
 새 시험이 Blender(`blender.run_script`·`pipeline.rig` 등)를 부르면 클래스에 `@requires_blender`(`tests/_marks.py`)를 붙인다.
 CI(`.github/workflows/test.yml`)는 `unit`(블렌더 없음)과 `blender`(`pip install bpy==5.2.2`, 헤드리스, 렌더 끔) 두 잡으로 돈다.
+`blender` 잡은 시험 뒤 저장소 밖에서 설치본 `bw` 로 `BW_BACKEND=mock bw rig` 를 끝까지 한 번 돈다(휠에 `bpy_scripts`·`prompts` 가 실렸는지).
