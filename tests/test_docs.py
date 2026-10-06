@@ -111,9 +111,34 @@ class TestListTests(unittest.TestCase):
             for t in suite:
                 yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
         tests = [t for p in (REPO / "tests").glob("test_*.py") for t in flat(loader.loadTestsFromName(f"tests.{p.stem}"))]
-        blender = [t for t in tests if getattr(type(t), "_requires_blender", False)]
+        # 클래스에 붙인 것과 메서드 하나에 붙인 것 둘 다 센다
+        blender = [t for t in tests if getattr(type(t), "_requires_blender", False)
+                   or getattr(getattr(t, t._testMethodName), "_requires_blender", False)]
         self.assertEqual(int(m.group(1)), len(tests))
         self.assertEqual(int(m.group(2)), len(blender))
+
+
+
+class CodePointsAtDocsTests(unittest.TestCase):
+    def test_guide_sections_named_in_messages_exist(self):
+        """오류·doctor 문구가 `"<절 제목>" ... docs/GUIDE.md` 로 가리키는 절이 GUIDE 에 실제로 있는지."""
+        heads = {ln.lstrip("#").strip() for ln in (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8").splitlines()
+                 if ln.startswith("#")}
+        named = set()
+        for p in (REPO / "bonewright").rglob("*.py"):
+            for line in p.read_text(encoding="utf-8").splitlines():
+                if "docs/GUIDE.md" in line:
+                    named |= set(re.findall(r'\\"([^"\\]+)\\"', line))
+        self.assertTrue(named)
+        for title in named:
+            with self.subTest(title=title):
+                self.assertTrue(any(h.startswith(title) for h in heads), f"GUIDE 에 '{title}' 절이 없다")
+
+    def test_messages_do_not_point_at_dated_research_notes(self):
+        """날짜 붙은 연구 노트(docs/research-*.html)는 공개용 안내가 아니다 — 코드 문구가 가리키지 않는다."""
+        for p in (REPO / "bonewright").rglob("*.py"):
+            with self.subTest(file=str(p.relative_to(REPO))):
+                self.assertNotRegex(p.read_text(encoding="utf-8"), r"docs/research-\d+")
 
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@
 | `docs/media/rig-views.png`, `rig-ik.gif`, `walk-retarget.gif` | 0.2 MB씩 | GDQuest Mannequiny 렌더, CC BY 4.0 — `docs/media/ATTRIBUTION.md` | 표기·변경 내용 있음 |
 | `docs/media/quad-views.png`, `quad-demo.gif` | 0.1·0.6 MB | Quaternius Wolf 렌더, CC0 — 같은 파일 | 표기 있음 |
 | `spikes/rig_view2.png` | 0.1 MB | `spikes/render_rig2.py` 가 원기둥·구로 절차 생성 | 외부 자산 아님 |
-| `spikes/motion_out/walk_wave.bvh` | 46 KB | kimodo.cpp + NVIDIA SOMA RP v1.1 가중치로 생성 | **표기 보강 권장** |
+| `spikes/motion_out/walk_wave.bvh` | 46 KB | kimodo.cpp + NVIDIA SOMA RP v1.1 가중치로 생성 | 표기 있음(10/6 보강) |
 
 - 원본 메시(`mannequiny.glb`, `Wolf.gltf`)는 기록 어디에도 커밋된 적이 없다(내려받기 스크립트로만 받음).
 - `walk_wave.bvh`: `ATTRIBUTION.md` 는 "이 저장소의 스파이크가 만든 것"이라고만 적었다. `docs/research-20260913.html` 의 기록대로

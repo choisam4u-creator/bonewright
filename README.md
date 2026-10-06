@@ -42,8 +42,8 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-skeleton` costs zero tokens.
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
-`ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line. Messages from inside the Blender scripts
-and the progress log are still Korean only; the bone and file names in them are what to look for, and the [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
+`ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line and the `bw rig` / `bw motion`
+progress log. Messages from inside the Blender scripts are still Korean only; the bone and file names in them are what to look for, and the [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
 
 ## What you get
 
@@ -65,7 +65,7 @@ Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; W
 
 - **[Full guide](docs/GUIDE.md)** — every flag, how joints are found, the rejection gate, motion retargeting,
   the benchmark and what the numbers do and do not mean.
-- [examples/](examples/README.md) — reproduce mesh → rig (bone count and names table) with zero tokens.
+- [examples/](examples/README.md) — reproduce mesh → rig (bone count and names table) with zero tokens; see [a sample result](examples/sample-output/capsule_doll.md) first.
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
 ## License

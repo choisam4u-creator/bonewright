@@ -123,8 +123,8 @@ def _wait_with_heartbeat(proc, events: Path, timeout: int, heartbeat, every: int
                 raise
             if heartbeat:
                 items = parse_events(events)["items"]
-                summary = ", ".join(f"{k} {v}회" for k, v in items.items()) or "응답 생성 중"
-                heartbeat(f"{int(elapsed)//60}분 {int(elapsed)%60:02d}초 경과 · {summary}")
+                summary = ", ".join(f"{k} ×{v}" for k, v in items.items()) or T("응답 생성 중", "writing the answer")
+                heartbeat(T(f"{int(elapsed)//60}분 {int(elapsed)%60:02d}초 경과 · {summary}", f"{int(elapsed)//60}m {int(elapsed)%60:02d}s elapsed · {summary}"))
 
 
 def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_cfg: dict, codex_cfg: dict,

@@ -71,5 +71,25 @@ class TPairTests(unittest.TestCase):
                 self.assertEqual(placeholders(node.args[0]), placeholders(node.args[1]))
 
 
+    def test_progress_log_has_no_bare_hangul(self):
+        """진행 로그(`_log(quiet, 메시지)`)의 한국어는 모두 T() 안에 있어야 영어 모드 첫 화면에 한국어가 안 섞인다."""
+        def bare(node):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "T":
+                return
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                yield node.value
+            for child in ast.iter_child_nodes(node):
+                yield from bare(child)
+        calls = 0
+        for path in sorted(PKG.rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ("_log", "heartbeat"):
+                    calls += 1
+                    for s in bare(node.args[-1]):
+                        with self.subTest(at=f"{path.relative_to(PKG.parent)}:{node.lineno}"):
+                            self.assertFalse(hangul(s), s)
+        self.assertGreater(calls, 30)
+
+
 if __name__ == "__main__":
     unittest.main()

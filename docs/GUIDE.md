@@ -437,6 +437,39 @@ bodies whose shoulders sit close in; a natural blend at an elbow or shoulder kee
 are comparable. Measured effect on skinning agreement with the original rigs: mannequiny 0.600 → 0.605, cesium_man
 side agreement 0.997 → 0.998, Quaternius Adventurer unchanged.
 
+### Text → motion: building kimodo.cpp (optional)
+
+Only `bw motion --text` needs this. `bw rig`, `bw export`, `bw demo` and `bw motion --bvh` never touch it, and
+`bw doctor` lists it as optional. [kimodo.cpp](https://github.com/localai-org/kimodo.cpp) is a C++/GGML port of
+NVIDIA's Kimodo text-to-motion model (code Apache-2.0). It is not vendored: the build plus weights take about 15 GB.
+
+bonewright looks for three things under `vendor/kimodo.cpp/` in the repository (the `vendor/` folder is git-ignored):
+
+| What | Path under `vendor/kimodo.cpp/` | Config key |
+|---|---|---|
+| generator binary | `build/release/kmd-generate` (or `build-release/kmd-generate`, from older builds) | (searched under `root`) |
+| motion model | `models/kimodo-soma-rp-v1.1-f32.gguf` | `kimodo.model` |
+| text encoder | `kimodo.text_bundle` if it exists (default `generated/llm2vec-text-bundle`, the older component folder); otherwise the single text GGUF the downloader installs next to `tokenizer.gguf` (Q8_0 preferred) | `kimodo.text_bundle` |
+
+With the current upstream on macOS (Apple Silicon, Metal backend; needs `cmake`, `ninja` and the Hugging Face `hf` CLI).
+The September 2026 Mac build used an older layout (`build-release/`, a text component folder); both are accepted:
+
+```bash
+git clone https://github.com/localai-org/kimodo.cpp vendor/kimodo.cpp
+cd vendor/kimodo.cpp && git submodule update --init --recursive
+cmake --preset release -DKIMODO_ENABLE_VULKAN=OFF     # macOS: Vulkan off, Metal on
+cmake --build --preset release                        # → build/release/kmd-generate
+scripts/download_gguf_weights.sh --output "$PWD" --model soma-rp-v1.1   # motion model + Q8_0 text encoder + tokenizer.gguf
+```
+
+Follow the kimodo.cpp README if its presets or script options have changed since; what matters to bonewright is
+only that the three things above can be found. To keep the build elsewhere, put `{"kimodo": {"root": "/path/to/kimodo.cpp"}}`
+in `runs/config.json`. Then `bw doctor` reports `kimodo.cpp: built`.
+
+Measured on an M4 Pro: 60 frames (2 s at 30 fps) in 46.5 s, 3.8 GB of memory. Weights keep their own
+licence: the SOMA RP v1.1 model used here is under the NVIDIA Open Model License (commercial use allowed); the
+SMPL-X variant is not, so bonewright does not use it. Without kimodo.cpp, any BVH works: `bw motion --bvh walk.bvh`.
+
 ## Motion retargeting
 ### When the rig has no anatomical names
 

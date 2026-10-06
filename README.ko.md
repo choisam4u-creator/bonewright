@@ -40,7 +40,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 
 `bw rig` 한 번은 모델 호출 2회(약 1달러)다. `BW_BACKEND=mock`이나 `--from-skeleton`은 토큰이 들지 않는다.
 
-**언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유도 같다. Blender 스크립트 안에서 나온 메시지와 진행 로그는 아직 한국어뿐이다.
+**언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유와 `bw rig`·`bw motion` 진행 로그도 같다. Blender 스크립트 안에서 나온 메시지는 아직 한국어뿐이다.
 
 ## 결과 예시
 
@@ -62,7 +62,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 
 - **[전체 안내서](docs/GUIDE.md)**(영어) — 모든 옵션, 관절을 찾는 방법, 거부 게이트, 동작 리타깃,
   벤치마크와 그 숫자가 뜻하는 것과 뜻하지 않는 것.
-- [examples/](examples/README.md) — 메시 → 리그(본 개수·이름 표)를 토큰 0으로 재현.
+- [examples/](examples/README.md) — 메시 → 리그(본 개수·이름 표)를 토큰 0으로 재현. [결과 예시](examples/sample-output/capsule_doll.md)를 먼저 볼 수 있다.
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
 ## 라이선스

@@ -180,5 +180,39 @@ class EnglishErrorTests(unittest.TestCase):
         self.assertNotRegex(str(cm.exception), "[가-힣]")
 
 
+class KimodoPathTests(unittest.TestCase):
+    """kimodo.cpp 원본이 빌드 폴더(build-release → build/release)와 텍스트 인코더(구성품 폴더 → GGUF 한 파일)를 바꿨다.
+    옛 Mac 빌드와 지금 원본 안내대로 만든 것 둘 다 찾아야 한다."""
+    K = {"text_bundle": "generated/llm2vec-text-bundle"}
+
+    def test_nothing_built(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual((None, None), pipeline.kimodo_paths(Path(d), self.K))
+
+    def test_old_layout(self):
+        with tempfile.TemporaryDirectory() as d:
+            k = Path(d); (k / "build-release").mkdir(); (k / "build-release" / "kmd-generate").write_text("")
+            (k / "generated" / "llm2vec-text-bundle").mkdir(parents=True)
+            self.assertEqual((k / "build-release" / "kmd-generate", k / "generated" / "llm2vec-text-bundle"),
+                             pipeline.kimodo_paths(k, self.K))
+
+    def test_current_upstream_layout_prefers_q8(self):
+        with tempfile.TemporaryDirectory() as d:
+            k = Path(d); (k / "build" / "release").mkdir(parents=True); (k / "build" / "release" / "kmd-generate").write_text("")
+            (k / "models").mkdir(); (k / "models" / "kimodo-soma-rp-v1.1-f32.gguf").write_text("")   # 움직임 모델은 텍스트가 아니다
+            t = k / "text"; t.mkdir()
+            for name in ("tokenizer.gguf", "Llama-3-Kimodo-BF16.gguf", "Llama-3-Kimodo-Q8_0.gguf"):
+                (t / name).write_text("")
+            self.assertEqual((k / "build" / "release" / "kmd-generate", t / "Llama-3-Kimodo-Q8_0.gguf"),
+                             pipeline.kimodo_paths(k, self.K))
+
+    def test_missing_text_encoder_says_how_to_get_it(self):
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
+            root = Path(d); k = root / "vendor" / "kimodo.cpp" / "build" / "release"; k.mkdir(parents=True)
+            (k / "kmd-generate").write_text("")
+            with self.assertRaisesRegex(pipeline.Blocked, r"download_gguf_weights\.sh"):
+                pipeline.motion(root, text="a person walks", quiet=True)
+
+
 if __name__ == "__main__":
     unittest.main()
