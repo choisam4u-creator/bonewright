@@ -401,8 +401,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     if text:
         gen = kroot / "build-release" / "kmd-generate"
         if not gen.exists():
-            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {gen}\n  → docs/research-20260913.html 7절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
-                            f"kimodo.cpp is not built: {gen}\n  → build it as in section 7 of docs/research-20260913.html, or use `--bvh file` instead of text"))
+            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {gen}\n  → docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
+                            f"kimodo.cpp is not built: {gen}\n  → build it as in \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md, or use `--bvh file` instead of text"))
         r.state("kimodo", "running")
         (r.dir / "prompt.txt").write_text(text, encoding="utf-8")
         t = time.time()
