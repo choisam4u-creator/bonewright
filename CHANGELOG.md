@@ -28,11 +28,15 @@ See `docs/RELEASING.md` for the release steps.
 - `tests/test_i18n.py`: every `T(Korean, English)` pair in `bonewright/` must have no Hangul on the English side and
   the same f-string placeholders on both. `tests/test_docs.py` also checks that every test-command list (CI,
   CONTRIBUTING, PR template, tests/README, RELEASING) names every test module.
+- `examples/sample-output/capsule_doll.md`: what `python3 examples/rig_sample.py` prints (73 deform bones), so the
+  table can be seen before installing Blender. A Blender test checks that today's rig still matches it.
+- `docs/GUIDE.md` "Text → motion: building kimodo.cpp": the build steps, the three paths bonewright looks for and the
+  weight licences. `bw motion --text` and `bw doctor` point there instead of a dated research note.
 
 ### Changed
 - `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
-  Korean for `ko`. So do the gate rejection reasons listed under `BLOCKED:`. Messages from inside the Blender
-  scripts and progress logs are still Korean only; the README says so.
+  Korean for `ko`. So do the gate rejection reasons listed under `BLOCKED:` and the `bw rig` / `bw motion` progress
+  log. Messages from inside the Blender scripts are still Korean only; the README says so.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved
