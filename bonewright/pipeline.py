@@ -85,7 +85,7 @@ class Run:
             self.state(name, "budget_stop")
             raise Blocked(T(f"예산 상한 도달: 입력 {self.tokens()['input']:,} ≥ {limit:,}\n  → `--budget` 으로 상한을 올리거나 `--targets`·`--from-skeleton` 으로 모델 호출 없이 돌려라",
                             f"budget limit reached: input {self.tokens()['input']:,} ≥ {limit:,}\n  → raise it with `--budget`, or run without model calls via `--targets` / `--from-skeleton`"))
-        _log(self.quiet, f"  → {name} (파일 {len(inputs)}개, 이미지 {len(images or [])}장)")
+        _log(self.quiet, T(f"  → {name} (파일 {len(inputs)}개, 이미지 {len(images or [])}장)", f"  → {name} ({len(inputs)} files, {len(images or [])} images)"))
         try:
             result, usage = run_step(name, _prompt(name, self.cfg["lang"]), schema, inputs, self.cfg["models"][role], self.cfg["codex"], self.logs,
                                      mock=mock_backend, images=images, heartbeat=lambda m: _log(self.quiet, f"    … {name} {m}"))
@@ -192,19 +192,23 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             mesh = norm["out"]; facing = "neg-y"   # 이미 정규화된 방향으로 나왔다
             a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})
             atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
-            _log(quiet, f"[1/6] 포즈 정규화: 팔 {norm['angles_deg']}° → 수평으로 펴고 다시 분석")
+            _log(quiet, T(f"[1/6] 포즈 정규화: 팔 {norm['angles_deg']}° → 수평으로 펴고 다시 분석", f"[1/6] pose: arms at {norm['angles_deg']}° → straightened to horizontal, analysed again"))
         else:
-            _log(quiet, f"[1/6] 포즈 정규화: 팔 {norm.get('angles_deg')}° — 이미 수평에 가까워 손대지 않는다")
+            _log(quiet, T(f"[1/6] 포즈 정규화: 팔 {norm.get('angles_deg')}° — 이미 수평에 가까워 손대지 않는다", f"[1/6] pose: arms at {norm.get('angles_deg')}° — already near horizontal, left as is"))
     if a["landmarks"].get("suspect"):
-        _log(quiet, f"  ⚠ 분석을 믿기 어렵다: {'; '.join(a['landmarks']['suspect'])} → 결과가 나쁘면 `--pin 본=x,y,z` 로 관절을 직접 고정하고 재시도하라")
-    _log(quiet, f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}")
+        _log(quiet, T(f"  ⚠ 분석을 믿기 어렵다: {'; '.join(a['landmarks']['suspect'])} → 결과가 나쁘면 `--pin 본=x,y,z` 로 관절을 직접 고정하고 재시도하라",
+                      f"  ⚠ analysis is doubtful: {'; '.join(a['landmarks']['suspect'])} → if the result is bad, pin joints with `--pin bone=x,y,z` and retry"))
+    _log(quiet, T(f"[1/6] analyze: 정점 {a['stats']['verts']:,} · 높이 {a['landmarks']['height']}m · 조각 {a['stats']['loose_parts']} · 비매니폴드 {a['stats']['nonmanifold_edges']} · 대칭 오차 {a['landmarks']['symmetry_error']} · 포즈 {a['landmarks']['pose_guess']}",
+                    f"[1/6] analyze: verts {a['stats']['verts']:,} · height {a['landmarks']['height']}m · parts {a['stats']['loose_parts']} · non-manifold {a['stats']['nonmanifold_edges']} · symmetry error {a['landmarks']['symmetry_error']} · pose {a['landmarks']['pose_guess']}"))
     # 1b 거절 게이트: 모델을 부르기 전에 이 메시가 이 프리셋에 맞는지 본다.
     # 여기서 막으면 토큰이 0 이다(리그 1건 입력 8만 토큰). --force 로 넘길 수 있다
     block, warn = ([], []) if (from_skeleton or from_shape) else preflight(a["landmarks"], a["stats"], preset, cfg["gates"])
     if from_skeleton:
-        warn.append("--from-skeleton: 관절을 원본 뼈대에서 그대로 받는다 — 실루엣 기반 거절 게이트는 건너뛴다")
+        warn.append(T("--from-skeleton: 관절을 원본 뼈대에서 그대로 받는다 — 실루엣 기반 거절 게이트는 건너뛴다",
+                       "--from-skeleton: joints come straight from the source skeleton — the silhouette rejection gate is skipped"))
     if from_shape:
-        warn.append("--from-shape: 메시 모양에서 뼈대를 만든다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다. 렌더를 꼭 확인하라")
+        warn.append(T("--from-shape: 메시 모양에서 뼈대를 만든다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다. 렌더를 꼭 확인하라",
+                       "--from-shape: the skeleton follows the mesh shape — controls, not anatomical joints. Check the renders"))
     for w in warn:
         _log(quiet, f"  ⚠ {w}")
     if block and not force:
@@ -247,7 +251,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                       "\n  - " + "\n  - ".join(block) + hint +
                       T("\n  그래도 추정으로 돌리려면 --force", "\n  to rig it anyway on a guess, add --force"))
     if block:
-        _log(quiet, "  ⚠ --force: 거절 사유를 무시하고 진행한다 — " + "; ".join(block))
+        _log(quiet, T("  ⚠ --force: 거절 사유를 무시하고 진행한다 — ", "  ⚠ --force: going ahead despite the rejection — ") + "; ".join(block))
 
     # 2 맞춤 판단(모델). --targets / --from-skeleton 이면 모델을 부르지 않는다(토큰 0)
     r.state("fit", "running")
@@ -264,7 +268,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             raise Blocked("--from-shape: " + (sj.get("error") or T("메시 속에서 중심선을 못 찾았다", "found no centreline inside the mesh")))
         gen_preset = "generic"; source_joints = sj["joints"]
         fit = {"targets": {}, "reasoning": f"모양 리그: 속 중심선에서 팔다리 {sj['limbs']}개 · 본 {sj['bones']}개", "confidence": None}
-        _log(quiet, f"[2/6] fit: 모양에서 뼈대를 만들었다 — 팔다리 {sj['limbs']}개 · 마디 {sj['segments']}개씩 · 본 {sj['bones']}개 · 모델 호출 0회")
+        _log(quiet, T(f"[2/6] fit: 모양에서 뼈대를 만들었다 — 팔다리 {sj['limbs']}개 · 마디 {sj['segments']}개씩 · 본 {sj['bones']}개 · 모델 호출 0회",
+                        f"[2/6] fit: skeleton built from the shape — {sj['limbs']} limbs · {sj['segments']} segments each · {sj['bones']} bones · 0 model calls"))
     elif from_skeleton:
         def _reject(why: str, reasons: list[str]) -> NoReturn:
             r.state("fit", "rejected", reasons=reasons)   # 거절도 상태로 남긴다(중간에 멈춘 실행과 구분)
@@ -282,19 +287,22 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             why = ("팔다리 없음: " + ", ".join(info["limbs_absent"])) if info["limbs_absent"] else f"알아본 관절 {len(tg)}개"
             gen_preset = "generic"; source_joints = gt["joints"]
             fit = {"targets": {}, "reasoning": f"일반 리그: 원본 뼈대 {len(gt['joints'])}본을 그대로 베낌({why})", "confidence": None}
-            _log(quiet, f"[2/6] fit: 사람·개과 메타리그에 못 맞춘다({why}) → **일반 리그**로 간다 · 원본 본 {len(gt['joints'])}개 · 모델 호출 0회")
+            _log(quiet, T(f"[2/6] fit: 사람·개과 메타리그에 못 맞춘다({why}) → **일반 리그**로 간다 · 원본 본 {len(gt['joints'])}개 · 모델 호출 0회",
+                            f"[2/6] fit: does not fit the human or canine metarig ({why}) → **generic rig** · {len(gt['joints'])} source bones · 0 model calls"))
         else:
             fit = {"targets": tg, "reasoning": f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", "confidence": None}
         source_symmetry = info.get("source_symmetry", 0.0)
         if gen_preset == "generic":
             source_symmetry = 0.0
         else:
-            _log(quiet, f"[2/6] fit: 원본 뼈대에서 목표 {len(tg)}개 · 모델 호출 0회 · 못 찾은 관절 {info['missing']}" +
-                 (f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}" if info["mirrored"] else "") +
-                 (f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)" if source_symmetry > 0.01 else ""))
+            _log(quiet, T(f"[2/6] fit: 원본 뼈대에서 목표 {len(tg)}개 · 모델 호출 0회 · 못 찾은 관절 {info['missing']}",
+                   f"[2/6] fit: {len(tg)} targets from the source skeleton · 0 model calls · joints not found {info['missing']}") +
+                 (T(f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}", f" · mirrored from the other side {info['mirrored']}") if info["mirrored"] else "") +
+                 (T(f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)", f" · source left/right mismatch {source_symmetry}m (not our error)") if source_symmetry > 0.01 else ""))
     elif targets_file:
         fit = {"targets": targets_loaded, "reasoning": f"재사용: {targets_file}", "confidence": None}
-        _log(quiet, f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회")
+        _log(quiet, T(f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회",
+                        f"[2/6] fit: reusing {targets_file} · {len(fit['targets'])} target bones · 0 model calls"))
     else:
         meta = r.blender("metarig_dump", {"preset": preset, "height": a["landmarks"]["height"], "ground_z": a["landmarks"]["ground_z"]})
         inputs = {"analysis.json": json.dumps({"stats": a["stats"], "landmarks": a["landmarks"], "bands": a["bands"][::2]}, ensure_ascii=False),
@@ -310,12 +318,12 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         # 메우는 값은 `mock` 백엔드와 같은 함수, 즉 랜드마크에서 기계적으로 계산한 자리다(토큰 0).
         fit["targets"], filled = fill_missing_targets(fit["targets"], inputs)
         fit["filled_from_landmarks"] = filled
-        _log(quiet, f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}"
-                    + (f" · 모델이 뺀 {len(filled)}개는 랜드마크로 메움({', '.join(filled)})" if filled else ""))
+        _log(quiet, T(f"[2/6] fit: 목표 본 {len(fit['targets'])}개 · 확신 {fit.get('confidence')}", f"[2/6] fit: {len(fit['targets'])} target bones · confidence {fit.get('confidence')}")
+                    + (T(f" · 모델이 뺀 {len(filled)}개는 랜드마크로 메움({', '.join(filled)})", f" · {len(filled)} the model left out, filled from landmarks ({', '.join(filled)})") if filled else ""))
     for name, v in pins.items():   # 사용자가 고정한 관절이 최종 결정권을 갖는다
         fit["targets"].setdefault(name, {}).update(v)
     if pins:
-        _log(quiet, f"  📌 고정된 관절 {len(pins)}개: {', '.join(sorted(pins))}")
+        _log(quiet, T(f"  📌 고정된 관절 {len(pins)}개: {', '.join(sorted(pins))}", f"  📌 {len(pins)} pinned joints: {', '.join(sorted(pins))}"))
     atomic_write(r.dir / "fit.json", json.dumps(fit, ensure_ascii=False, indent=2))
     atomic_write(r.dir / "targets.json", json.dumps(fit["targets"], ensure_ascii=False, indent=2))   # 손으로 고쳐 --targets 로 재사용
     # 3 생성·스키닝·통계
@@ -338,10 +346,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         g["stats"]["normalize_pose"] = norm
     atomic_write(r.dir / "rig_stats.json", json.dumps(g, ensure_ascii=False, indent=2))
     st = g["stats"]
-    _log(quiet, f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}(가까운 본으로 메운 {st.get('filled_unweighted', 0)}) · 상자 밖 {len(st['bones_outside_bbox'])}")
+    _log(quiet, T(f"[3/6] generate: 리그 본 {st['rig_bones']} (변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}(가까운 본으로 메운 {st.get('filled_unweighted', 0)}) · 상자 밖 {len(st['bones_outside_bbox'])}",
+                    f"[3/6] generate: rig bones {st['rig_bones']} (deform {st['deform_bones']}) · unweighted verts {st['unweighted_verts']} ({st.get('filled_unweighted', 0)} filled from the nearest bone) · outside bbox {len(st['bones_outside_bbox'])}"))
     # 4 게이트
     fails = rig_gates(st, cfg["gates"], a["stats"]["verts"], source_symmetry, source_leak)
-    _log(quiet, f"[4/6] gates: {'통과' if not fails else fails}")
+    _log(quiet, f"[4/6] gates: {T('통과', 'pass') if not fails else fails}")
     # 5 렌더 — `BW_NO_RENDER=1` 이면 건너뛴다.
     # 렌더는 **사람이 눈으로 보라고** 만드는 것이지 정확성 판정이 아니다(게이트는 위에서 이미 끝났다).
     # 화면 없는 CI 서버에서는 렌더러가 죽어 버려서(종료코드 -6), 이게 없으면 리깅이 멀쩡히 돌았는데도
@@ -349,11 +358,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     if os.environ.get("BW_NO_RENDER") == "1":
         views = {"images": [], "bone_proxies": 0, "skipped": "BW_NO_RENDER"}
         no_judge = True
-        _log(quiet, "[5/6] render: 건너뜀(BW_NO_RENDER=1) — 시각 판정도 함께 꺼진다")
+        _log(quiet, T("[5/6] render: 건너뜀(BW_NO_RENDER=1) — 시각 판정도 함께 꺼진다", "[5/6] render: skipped (BW_NO_RENDER=1) — the visual judge is off too"))
     else:
         r.state("render", "running")
         views = r.blender("render_views", {"blend": str(r.dir / "02_rigged.blend"), "out_dir": str(r.dir), "stats": a["stats"], "size": cfg["render"]["size"]})
-        _log(quiet, f"[5/6] render: {len(views['images'])}장 · 본 기둥 {views['bone_proxies']}")
+        _log(quiet, T(f"[5/6] render: {len(views['images'])}장 · 본 기둥 {views['bone_proxies']}", f"[5/6] render: {len(views['images'])} images · bone proxies {views['bone_proxies']}"))
     # 6 시각 판정(모델)
     judge = {"skipped": True}
     if not no_judge:
@@ -361,7 +370,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         imgs = [p for p in views["images"] if any(v in p for v in cfg["render"]["judge_views"])]
         judge = r.call("judge", "judge", {"context.txt": f"preset={preset}; height={a['landmarks']['height']}m; deform_bones={st['deform_bones']}"}, schemas.JUDGE, images=imgs)
         fails += judge_gates(judge)
-        _log(quiet, f"[6/6] judge: 밖 {judge['bones_outside_mesh']} · 비율 {'ok' if judge['proportions_ok'] else '이상'} · 확신 {judge['confidence']}")
+        _log(quiet, T(f"[6/6] judge: 밖 {judge['bones_outside_mesh']} · 비율 {'ok' if judge['proportions_ok'] else '이상'} · 확신 {judge['confidence']}",
+                          f"[6/6] judge: outside {judge['bones_outside_mesh']} · proportions {'ok' if judge['proportions_ok'] else 'off'} · confidence {judge['confidence']}"))
     # 보고서
     t = r.tokens(); status = "ok" if not fails else "needs_review"
     report = [f"# bonewright rig report · {run_id}", "",
@@ -380,7 +390,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
     r.state("final", status)
-    _log(quiet, f"완료({status}) → {r.dir / 'report.md'}")
+    _log(quiet, T(f"완료({status}) → {r.dir / 'report.md'}", f"done ({status}) → {r.dir / 'report.md'}"))
     return r.dir / "report.md"
 
 
@@ -425,9 +435,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
     if bvh_up == "auto":   # 위 축을 틀리면 조용히 망가진다(늑대 걷기: 발이 바닥에서 1m 뜸) → 머리·발 위치로 정한다
         bvh_up = detect_bvh_up(str(Path(bvh).resolve()), preset or "humanoid")
-        _log(quiet, f"[3/3] bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)")
+        _log(quiet, T(f"[3/3] bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)", f"[3/3] bvh up axis detected: {bvh_up} (if wrong, set it with --bvh-up)"))
     imp = r.blender("import_bvh", {"bvh": str(Path(bvh).resolve()), "out_blend": str(r.dir / "motion.blend"), "bvh_up": bvh_up})
-    _log(quiet, f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m")
+    _log(quiet, T(f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
+                    f"[3/3] import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
     report = [f"# bonewright motion report · {run_id}", "", f"- source: {'text: ' + text if text else 'bvh: ' + bvh}",
               f"- armature: {imp['armature']} · bones {imp['bones']} · frames {imp['frames']} · fps {imp['fps']} · root move {imp['root_move']} m",
               f"- blend: `{r.dir / 'motion.blend'}`"]
@@ -437,8 +448,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         mapping = bvh_mapping(imp["bone_names"], preset)
         if bone_map:
             mapping, applied, unknown = apply_bone_map(mapping, Path(bone_map), imp["bone_names"])
-            _log(quiet, f"  📄 --map {applied}개 적용"
-                        + (f" · BVH 에 없는 이름 {len(unknown)}개 무시: {', '.join(unknown[:4])}" if unknown else ""))
+            _log(quiet, T(f"  📄 --map {applied}개 적용", f"  📄 --map applied {applied}")
+                        + (T(f" · BVH 에 없는 이름 {len(unknown)}개 무시: {', '.join(unknown[:4])}", f" · ignored {len(unknown)} names not in the BVH: {', '.join(unknown[:4])}") if unknown else ""))
         r.state("retarget", "running")
         fa, fb = imp["frames"] if imp.get("frames") else (1, 1)
         rf = sorted({fa, fa + (fb - fa) // 3, fa + 2 * (fb - fa) // 3, fb})
@@ -446,8 +457,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         rt = r.blender("retarget_bvh", {"blend": str(blend), "bvh": str(Path(bvh).resolve()), "mapping": mapping,
                                         "out_blend": str(r.dir / "retargeted.blend"), "out_dir": str(r.dir),
                                         "render_frames": rf, "height": (an.get("landmarks") or {}).get("height", 1.8), "roll": roll, "bvh_up": bvh_up, "legs": legs})
-        _log(quiet, f"[4/4] retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
-                    f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)")
+        _log(quiet, T(f"[4/4] retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
+                      f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
+                      f"[4/4] retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved · "
+                      f"mean bone direction error {rt.get('mean_dir_deg')}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)"))
         report += [f"- retarget → `{rig_run}`: mapped {len(rt['mapped'])} bones, unmapped {rt['unmapped']}",
                    f"- legs: {rt.get('legs')} · IK {rt.get('ik_legs') or []} · FK(no foot joint in source) {rt.get('ik_skipped') or []} · roll transfer: {rt.get('roll')} · hand/foot twist error vs BVH: " + ", ".join(f"{k} {v['mean_deg']}°(max {v['max_deg']})" for k, v in (rt.get('roll_deg') or {}).items()),
                    f"- bone direction error vs BVH (proportion-free): mean {rt.get('mean_dir_deg')}° · " +
@@ -464,14 +477,15 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             out = (r.dir / "animated.glb") if export == "auto" else Path(export).resolve()
             r.state("export", "running")
             ex = r.blender("export_anim", {"blend": str(r.dir / "retargeted.blend"), "out": str(out)})
-            _log(quiet, f"[5/5] export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm")
+            _log(quiet, T(f"[5/5] export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm",
+                              f"[5/5] export: {out.name} · bones {ex['bones']} · frames {ex['frames']} · re-read hand/foot max difference {ex['max_diff_cm']}cm"))
             report += [f"- export: `{out}` · {ex['bones']} deform bones · {ex['verts']} verts · frames {ex['frames']} · "
                        f"re-import check at frame {ex['probe_frame']}: {ex['reimport_diff_cm']} (cm)"]
     else:
         report.append("- retarget: pass --rig <run-id> to move this motion onto a rig")
     report.append("")
     atomic_write(r.dir / "report.md", "\n".join(report)); r.state("final", "ok")
-    _log(quiet, f"완료 → {r.dir / 'report.md'}")
+    _log(quiet, T(f"완료 → {r.dir / 'report.md'}", f"done → {r.dir / 'report.md'}"))
     return r.dir / "report.md"
 
 
@@ -482,7 +496,8 @@ def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = Fa
     r = Run(root, run_id, cfg, quiet)
     dst = Path(out).resolve() if out else (r.dir / "rigged.glb")
     ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
-    _log(quiet, f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm")
+    _log(quiet, T(f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm",
+                    f"export: {dst} · deform bones {ex['bones']} · verts {ex['verts']}/{ex['verts_in_source']} · re-read bone max difference {ex['max_diff_cm']}cm"))
     atomic_write(r.dir / "export.json", json.dumps(ex, ensure_ascii=False, indent=2))
     return dst
 
@@ -506,6 +521,6 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-vf", "fps=12,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse", str(gif)])
         out = mp4
     else:
-        _log(quiet, "ffmpeg 가 없어 PNG 프레임만 남긴다 (brew install ffmpeg)")
-    _log(quiet, f"demo: {out} · 프레임 {d['frames']} · 컨트롤 {d['controls']}")
+        _log(quiet, T("ffmpeg 가 없어 PNG 프레임만 남긴다 (brew install ffmpeg)", "no ffmpeg, so only PNG frames are kept (install ffmpeg)"))
+    _log(quiet, T(f"demo: {out} · 프레임 {d['frames']} · 컨트롤 {d['controls']}", f"demo: {out} · frames {d['frames']} · controls {d['controls']}"))
     return out
