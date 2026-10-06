@@ -1,5 +1,36 @@
 # 클라우드 회차 기록
 
+## 2026-10-06
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #6 병합분) 빨리감기 병합.
+- **이번 회차부터 클라우드에서도 `pip install bpy==5.2.2`(python3.13 venv)가 된다** → 블렌더 시험까지 전부 돌렸다.
+- `examples/sample-output/capsule_doll.md`: 인자 없이 `rig_sample.py` 를 돌린 결과(변형 본 73·리그 본 410)를 싣고
+  README·README.ko·examples/README 에서 링크. 시험 2개(표 손상 여부, 지금 리깅 결과와 대조 — 후자는 블렌더 필요).
+  `test_docs` 의 블렌더 시험 수 대조가 메서드 단위 `@requires_blender` 도 세게 고침.
+- kimodo.cpp 빌드 안내를 `docs/GUIDE.md` "Text → motion: building kimodo.cpp (optional)" 로 옮김(원본 저장소
+  localai-org/kimodo.cpp, macOS 빌드 명령, 필요한 세 경로, `runs/config.json` 의 `kimodo.root`, 가중치 라이선스).
+  `bw motion --text` 오류·`bw doctor` 가 이 절을 가리킨다. 시험 2개. 빌드 명령은 원본 README(preset `release`)와
+  10/1 기록(`KIMODO_ENABLE_VULKAN=OFF`)을 합친 것이라 Mac 에서 한 번 따라 해 봐야 한다.
+- 진행 로그 영문화: `pipeline._log` 30여 곳과 codex 대기 표시를 `T()` 로. 시험 1개(AST: `_log` 인자에 T() 밖 한글 없음).
+  `BW_LANG=en BW_BACKEND=mock` 리깅 출력에서 남은 한글은 Blender 스크립트(analyze)의 suspect 문구 1줄 → 새 백로그.
+- `docs/media/ATTRIBUTION.md`: `walk_wave.bvh` 생성 모델(kimodo.cpp)·가중치(SOMA RP v1.1, NVIDIA Open Model License).
+  관절 30개 = SOMA 골격으로 확인. PRE-PUBLIC-AUDIT 4절 갱신.
+- 백로그 남은 항목 0개 → 새 항목 5개(근거 포함) 추가, 그중 1개(위 ATTRIBUTION) 처리. CHANGELOG 갱신.
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2 LTS, Python 3.13) — **88개 모두 통과, 건너뜀 0**(151초). `BW_SKIP_BLENDER=1` — 88개 중 13개 건너뜀, 나머지 통과.
+- `python3 scripts/check_license_boundary.py` — OK(MIT 15개 파일). `python3.11 -m py_compile` 로 고친 파일 3.11 호환 확인.
+- 렌더(`BW_NO_RENDER` 없이)는 안 돌렸다: 화면 없는 리눅스에서 렌더러가 죽는다(CI 와 같은 이유).
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+BW_LANG=en BW_BACKEND=mock bw rig tests/assets/quaternius_adventurer.glb --no-judge   # 진행 로그 영어인지
+BW_LANG=en bw doctor   # kimodo 줄이 GUIDE 절을 가리키는지; GUIDE 의 kimodo 빌드 명령이 실제와 맞는지 한 번 대조
+```
+
 ## 2026-10-05 (2회차)
 
 **한 일**
