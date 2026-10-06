@@ -1,7 +1,7 @@
 """1단계 분석(토큰 0): 메시 크기·대칭·높이띠별 폭에서 관절 후보(어깨·골반·무릎·손)를 추정한다."""
 import bpy
 from mathutils import Vector
-from _common import args, done, fresh, import_mesh, mesh_stats, topology, IMPORT_INFO
+from _common import T, args, done, fresh, import_mesh, mesh_stats, topology, IMPORT_INFO
 A = args(); fresh()
 QUAD = A.get("preset") == "quadruped"
 obj = import_mesh(A["mesh"], facing=A.get("facing", "auto"), quad=QUAD); st = mesh_stats(obj); st.update(topology(obj)); st["import"] = dict(IMPORT_INFO)
@@ -241,7 +241,7 @@ if not (legs["leg_axis_L"] and legs["leg_axis_R"]):
             fx = round((gs[1][0] + gs[1][-1]) / 2, 3)          # 왼발(+X) 중심
             band = [v for v in lowest if v.x > 0] or lowest
             foot_split = {"x": fx, "top_z": round(max(v.z for v in band), 3)}
-            fallbacks.append("leg_axis(발 위치만 잼)")
+            fallbacks.append("leg_axis(feet-only)")   # 폴백 이름은 식별자(crotch·hip …)라 번역하지 않는다
             # 관절 높이: 실루엣이 다리와 몸통을 못 가르는 메시(로봇)라도, **조각으로 만든 모델이면 조각 자체가 마디다**.
             # 발 x 와 같은 줄에 있는 느슨한 조각들을 높이로 묶으면 그 뭉치 중심이 발목·무릎·고관절이다
             # (RobotExpressive 실측 0.111 / 0.900 / 1.672 — 정답 0.025 / 0.935 / 1.537, 키의 2.2 / 0.9 / 3.4%)
@@ -402,11 +402,11 @@ neck_ok = "neck" not in fallbacks
 chibi = bool(head_len / H > 0.35) if neck_ok else None
 # 분석 신뢰도: 하나라도 걸리면 결과를 믿지 말고 --pin 으로 관절을 고정하라고 알린다
 suspect = []
-if not neck_ok: suspect.append("목 추정 실패")
-if not (axes["arm_axis_L"] and axes["arm_axis_R"]): suspect.append("팔 중심선 없음")
-if not (legs["leg_axis_L"] and legs["leg_axis_R"]): suspect.append("다리 중심선 없음")
-if fallbacks: suspect.append("인체 비율 폴백: " + ",".join(fallbacks))
-if chibi: suspect.append("치비 비율(머리가 키의 35% 초과)")
+if not neck_ok: suspect.append(T("목 추정 실패", "neck not found"))
+if not (axes["arm_axis_L"] and axes["arm_axis_R"]): suspect.append(T("팔 중심선 없음", "no arm axis"))
+if not (legs["leg_axis_L"] and legs["leg_axis_R"]): suspect.append(T("다리 중심선 없음", "no leg axis"))
+if fallbacks: suspect.append(T("인체 비율 폴백: ", "human-proportion fallback: ") + ",".join(fallbacks))
+if chibi: suspect.append(T("치비 비율(머리가 키의 35% 초과)", "chibi proportions (head over 35% of height)"))
 land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 3),
         "shoulder_z": shoulder["z"], "shoulder_halfwidth": round(shoulder["width"] / 2, 3),
         "crotch_z": round(cz, 3), "hip_z": hip_z, "knee_z": round(knee_z, 3), "ankle_z": round(ankle_z, 3),
@@ -424,7 +424,7 @@ land = {"height": round(H, 3), "ground_z": round(zmin, 3), "top_z": round(zmax, 
                    if medial and "error" not in medial else medial),
         **axes, **legs}
 if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 한가운데 수직으로 섰다고 본다) → 발 위치를 따로 잰다
-    from _quad import T, quad_landmarks
+    from _quad import quad_landmarks
     land["quad"] = quad_landmarks(vs, st, spacing)
     if not land["quad"]["ok"] and _med():
         # 실루엣이 앞뒤 다리를 못 가르면(앉은 자세, 다리가 붙은 저폴리) 메시 속 중심선의 발 네 개를 쓴다.
@@ -443,7 +443,7 @@ if QUAD:   # 사족은 사람용 관절 추정이 무의미하다(다리가 몸 
                 land["quad"]["front_dir"] = 1.0 if _hd["p"][1] > _my else -1.0
             _supplied.add("quad_feet")
     if not land["quad"]["ok"]:
-        land["suspect"].append("사족 발 검출 실패: " + "; ".join(land["quad"]["notes"])[:80])
+        land["suspect"].append(T("사족 발 검출 실패: ", "quadruped feet not found: ") + "; ".join(land["quad"]["notes"])[:80])
 if isinstance(land.get("medial"), dict) and "error" not in land["medial"]:
     land["medial"]["supplied"] = sorted(_supplied)
 bpy.ops.wm.save_as_mainfile(filepath=A["blend"])

@@ -43,7 +43,7 @@ A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-sk
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
 `ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line and the `bw rig` / `bw motion`
-progress log. Messages from inside the Blender scripts are still Korean only; the bone and file names in them are what to look for, and the [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
+progress log, and the analysis warnings and errors that come from inside the Blender scripts. The [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
 
 ## What you get
 

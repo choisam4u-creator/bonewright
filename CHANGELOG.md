@@ -36,7 +36,8 @@ See `docs/RELEASING.md` for the release steps.
 ### Changed
 - `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
   Korean for `ko`. So do the gate rejection reasons listed under `BLOCKED:` and the `bw rig` / `bw motion` progress
-  log. Messages from inside the Blender scripts are still Korean only; the README says so.
+  log, and the analysis warnings and errors raised inside the Blender scripts (`bpy_scripts/_common.T`, the same
+  rule without importing the MIT package). `tests/test_i18n.py` fails on any bare Korean string in `bpy_scripts/`.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

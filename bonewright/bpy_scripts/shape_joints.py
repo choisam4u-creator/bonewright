@@ -11,7 +11,7 @@
 """
 import bpy
 
-from _common import args, done, fresh, import_mesh, mesh_stats
+from _common import T, args, done, fresh, import_mesh, mesh_stats
 from _medial import classify, read_shape, resample
 
 A = args(); fresh()
@@ -21,7 +21,7 @@ st = mesh_stats(obj)
 H = st["height"] or 1.0
 shape = read_shape(obj, st["min"], st["max"], grid=int(A.get("grid", 56)))
 if not shape:
-    done({"joints": {}, "bones": 0, "error": "메시 속에서 중심선을 못 찾았다(속이 비었거나 너무 얇다)"}, A["result"])
+    done({"joints": {}, "bones": 0, "error": T("메시 속에서 중심선을 못 찾았다(속이 비었거나 너무 얇다)", "no inner axis found in the mesh (hollow or too thin)")}, A["result"])
     raise SystemExit
 
 SEG = max(2, int(A.get("segments", 3)))      # 팔다리 하나를 몇 마디로 나눌지

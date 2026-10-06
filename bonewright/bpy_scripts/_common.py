@@ -2,6 +2,13 @@
 import bpy, json, os, re, sys
 
 
+def T(ko: str, en: str) -> str:
+    """bonewright.i18n.T 와 같은 규칙(BW_LANG → 로캘 → 영어). Blender 쪽 파이썬은 bonewright(MIT)를 import 하지 않으므로
+    여기 따로 둔다. 오류(`error`)·분석 경고(`suspect`)·사족 notes 처럼 `bw` 화면에 그대로 나오는 문구에 쓴다."""
+    v = os.environ.get("BW_LANG") or os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
+    return ko if v.lower().startswith("ko") else en
+
+
 def args():
     """마지막 인자로 넘어온 JSON 파일을 읽는다."""
     with open(os.environ.get("BW_PARAMS") or sys.argv[-1], encoding="utf-8") as f:
@@ -41,7 +48,7 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
             if o is not None:
                 bpy.context.scene.collection.objects.link(o)
     else:
-        raise ValueError(f"지원하지 않는 형식: {ext}")
+        raise ValueError(T(f"지원하지 않는 형식: {ext}", f"unsupported format: {ext}"))
     new = [o for o in bpy.data.objects if o not in before or ext == ".blend"]
     arms = [o for o in new if o.type == "ARMATURE"]
     for a in arms:
@@ -118,7 +125,7 @@ def import_mesh(path: str, facing: str = "auto", keep_armature: bool = False, qu
         rest = [m for m in meshes if not (len(m.data.vertices) <= 64 and m.name.lower().startswith(("icosphere", "probe", "sphere")))]
         meshes = rest or meshes
     if not meshes:
-        raise ValueError("메시 오브젝트가 없다")
+        raise ValueError(T("메시 오브젝트가 없다", "no mesh object in the file"))
     # 굽기: 모디파이어(아마추어 포함)를 적용하고 부모에서 떼어낸다 → 그 뒤 아마추어·엠프티·제외된 메시 삭제
     for m in meshes:
         bpy.ops.object.select_all(action="DESELECT"); m.select_set(True); bpy.context.view_layer.objects.active = m

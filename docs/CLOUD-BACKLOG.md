@@ -37,7 +37,7 @@
 ## 2026-10-06 추가 (공개 준비 기준)
 
 - [x] `walk_wave.bvh` 생성 모델·가중치 라이선스를 `docs/media/ATTRIBUTION.md` 에 적기 — 근거: `PRE-PUBLIC-AUDIT.md` 4절 "표기 보강 권장". 파일의 관절 30개는 SOMA 골격(SMPL-X 는 22개)이라 비상업 가중치를 안 썼음을 파일로 확인할 수 있다
-- [ ] Blender 스크립트 안 메시지 영문화(`bpy_scripts/` 21개 파일에 한글, 예: analyze 의 `목 추정 실패; 인체 비율 폴백`) — 근거: 10/6 `BW_LANG=en BW_BACKEND=mock bw rig` 첫 화면에서 남은 한국어는 이 `⚠ analysis is doubtful: …` 한 줄뿐이다. bpy_scripts 는 GPL 쪽이라 `bonewright.i18n` 을 못 가져오므로 `BW_LANG` 환경 변수를 직접 읽는 작은 함수를 따로 둔다
+- [x] Blender 스크립트 안 메시지 영문화(`bpy_scripts/` 21개 파일에 한글, 예: analyze 의 `목 추정 실패; 인체 비율 폴백`) — 근거: 10/6 `BW_LANG=en BW_BACKEND=mock bw rig` 첫 화면에서 남은 한국어는 이 `⚠ analysis is doubtful: …` 한 줄뿐이다. bpy_scripts 는 GPL 쪽이라 `bonewright.i18n` 을 못 가져오므로 `BW_LANG` 환경 변수를 직접 읽는 작은 함수를 따로 둔다
 - [ ] 설치본 시험: 저장소 밖 새 venv 에 `pip install .` 한 `bw` 가 `bpy_scripts`·`prompts` 를 찾아 `BW_BACKEND=mock bw rig` 를 끝까지 도는지 CI blender 잡에 한 단계 추가 — 근거: 10/4 `bw plugin-path` 가 설치본에서만 틀렸고(휠에 안 실림), 지금 blender 잡은 저장소 안에서 시험만 돈다. 클라우드에서도 `pip install bpy==5.2.2`(파이썬 3.13)가 된다(10/6 실측)
 - [x] `docs/` 의 날짜 붙은 한국어 HTML 20여 개(연구·현황·벤치 노트)를 공개 문서와 나누는 안: `docs/notes/` 로 옮길 목록과 그 안의 개인 경로·내부 링크 표 → 10/6 `docs/DOCS-SPLIT-PLAN.md`(옮기지 않음) — 근거: 공개 저장소의 `docs/` 를 처음 열면 GUIDE 보다 이 파일들이 먼저 보이고, `PRE-PUBLIC-AUDIT.md` 2절의 개인 경로도 이 묶음에 있다. 옮기기 전 목록·안만(샘님 결정)
 - [ ] 첫 실행 30초 시험: README 의 Quickstart 명령(설치 → `bw doctor` → mock 리깅)을 그대로 뽑아 도는지 `tests/test_docs.py` 에서 명령 목록을 대조하고, 결과 표 예시(`examples/sample-output/`)와 README 숫자(본 73·410)가 같은지 — 근거: README 첫 화면은 공개 뒤 가장 많이 읽히고, 숫자가 리그 변경 때 따로 놀 수 있다
