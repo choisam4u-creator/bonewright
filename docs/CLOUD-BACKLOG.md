@@ -33,3 +33,12 @@
 - [x] CONTRIBUTING 정정: "Without Blender you get the pure-Python tests, which is what CI runs"(CI 는 `bpy` 잡도 돈다)와 예시 출력 "Ran 37 tests … skipped=10"(10/5 실측 72개·건너뜀 12)이 낡았다 → 고치고, `tests/test_docs.py` 에 CONTRIBUTING·PR 템플릿의 시험 명령 목록이 `.github/workflows/test.yml` 과 같은지 대조 추가 — 근거: 시험 모듈이 늘 때마다 세 곳이 따로 놀았다(10/5 에 CONTRIBUTING 을 손으로 맞춤)
 - [x] kimodo.cpp 빌드 안내를 `docs/GUIDE.md` 로 옮기기 — 근거: `bw motion --text` 오류와 doctor 가 `docs/research-20260913.html` 7절을 가리키는데, 그 파일은 날짜 붙은 한국어 연구 노트이고 `PRE-PUBLIC-AUDIT.md` 가 개인 경로가 든 문서로 꼽았다. 공개 뒤 영어 사용자가 따라 할 빌드 절차가 없다
 - [x] 진행 로그(`pipeline._log`, 37곳) 영문화 여부 결정 후 처리 → 10/6 T() 로 둘 다 둠(오류 문구와 같은 방식, 시험이 짝을 점검) — 근거: 오류·도움말은 영어가 됐지만 `bw rig` 진행 출력 `[1/6] import …` 뒤 설명이 한국어라 첫 실행 화면 대부분이 한국어다. 숫자·본 이름 위주로 짧게 바꿀지, T() 로 둘 다 둘지 정한다
+
+## 2026-10-06 추가 (공개 준비 기준)
+
+- [x] `walk_wave.bvh` 생성 모델·가중치 라이선스를 `docs/media/ATTRIBUTION.md` 에 적기 — 근거: `PRE-PUBLIC-AUDIT.md` 4절 "표기 보강 권장". 파일의 관절 30개는 SOMA 골격(SMPL-X 는 22개)이라 비상업 가중치를 안 썼음을 파일로 확인할 수 있다
+- [ ] Blender 스크립트 안 메시지 영문화(`bpy_scripts/` 21개 파일에 한글, 예: analyze 의 `목 추정 실패; 인체 비율 폴백`) — 근거: 10/6 `BW_LANG=en BW_BACKEND=mock bw rig` 첫 화면에서 남은 한국어는 이 `⚠ analysis is doubtful: …` 한 줄뿐이다. bpy_scripts 는 GPL 쪽이라 `bonewright.i18n` 을 못 가져오므로 `BW_LANG` 환경 변수를 직접 읽는 작은 함수를 따로 둔다
+- [ ] 설치본 시험: 저장소 밖 새 venv 에 `pip install .` 한 `bw` 가 `bpy_scripts`·`prompts` 를 찾아 `BW_BACKEND=mock bw rig` 를 끝까지 도는지 CI blender 잡에 한 단계 추가 — 근거: 10/4 `bw plugin-path` 가 설치본에서만 틀렸고(휠에 안 실림), 지금 blender 잡은 저장소 안에서 시험만 돈다. 클라우드에서도 `pip install bpy==5.2.2`(파이썬 3.13)가 된다(10/6 실측)
+- [ ] `docs/` 의 날짜 붙은 한국어 HTML 20여 개(연구·현황·벤치 노트)를 공개 문서와 나누는 안: `docs/notes/` 로 옮길 목록과 그 안의 개인 경로·내부 링크 표 — 근거: 공개 저장소의 `docs/` 를 처음 열면 GUIDE 보다 이 파일들이 먼저 보이고, `PRE-PUBLIC-AUDIT.md` 2절의 개인 경로도 이 묶음에 있다. 옮기기 전 목록·안만(샘님 결정)
+- [ ] 첫 실행 30초 시험: README 의 Quickstart 명령(설치 → `bw doctor` → mock 리깅)을 그대로 뽑아 도는지 `tests/test_docs.py` 에서 명령 목록을 대조하고, 결과 표 예시(`examples/sample-output/`)와 README 숫자(본 73·410)가 같은지 — 근거: README 첫 화면은 공개 뒤 가장 많이 읽히고, 숫자가 리그 변경 때 따로 놀 수 있다
+- [ ] 버그 신고 재현 묶음: `bw report <run-id>`(또는 `bw doctor --for-issue`)가 버전·OS·Blender·`state.json`·마지막 로그 꼬리를 개인 경로를 `~` 로 바꿔 한 덩어리로 찍기 — 근거: 이슈 템플릿 3종이 이 값들을 손으로 모으라고 하고, 10/4 포괄 except 가 로그 폴더만 안내한다
