@@ -46,7 +46,7 @@ HTML 안의 상대 `href` 는 26개 파일 모두 0개 — 바깥 링크(https)�
 | `retarget-20260915.html` | 10KB | BVH 리타게팅 | — | 없음 |
 | `reports/2026-09-17-a.html` | 17KB | 진행 보고 | — | **173행 `~/Desktop/Gpt_Codex/bonewright`** |
 | `reports/2026-09-17-b·c`, `09-18-a·b`, `09-19-b`, `09-20-audit`, `09-20-status` (7개) | 7~13KB | 진행 보고·문서 검증 | — | 없음 |
-| `reports/2026-09-19-a.html` | 9KB | 오픈소스 준비 | — | **32행 `/Users/sam/…` 설명 문구(사용자 이름)** |
+| `reports/2026-09-19-a.html` | 9KB | 오픈소스 준비 | — | **32행 개인 경로 설명 문구(사용자 이름이 드러남)** |
 | `auto-improve/2026-09-24.md` | 1KB | 3일 개선 기록 | PRE-PUBLIC-AUDIT | 없음 |
 
 ## 내부 운영 파일 (공개 여부를 따로 정할 것)
