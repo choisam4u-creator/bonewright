@@ -1,5 +1,33 @@
 # 클라우드 회차 기록
 
+## 2026-10-06 (2회차)
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #7 병합분) 빨리감기 병합.
+- Blender 스크립트 메시지 영문화: `bpy_scripts/` 의 분석 경고(`suspect`)·오류(`error`)·사족 notes 20곳을 `T()` 로.
+  `T` 는 `bpy_scripts/_common.py` 에 하나(MIT 본체 import 없이 같은 규칙), `_quad` 의 사본은 그쪽을 쓴다.
+  폴백 이름 `leg_axis(발 위치만 잼)` → `leg_axis(feet-only)`. 시험 1개(AST: bpy_scripts 에 T() 밖 한글 문자열 없음).
+  README·README.ko·CHANGELOG 의 "Blender 스크립트 메시지는 한국어뿐" 문구 갱신.
+- CI `blender` 잡에 단계 추가: 저장소 밖에서 설치본 `bw` 로 `BW_BACKEND=mock bw rig tests/assets/quaternius_adventurer.glb --no-judge`
+  를 끝까지(저장소 사본을 import 하면 실패). 클라우드에서 같은 단계를 비편집 설치로 돌려 13초·본 410(변형 73)·관문 통과·출력 영어 확인.
+- `docs/DOCS-SPLIT-PLAN.md`: 날짜 붙은 작업 노트 26개를 `docs/notes/` 로 나누는 안(목록·크기·가리키는 곳·개인 경로 2곳, 옮기지 않음 — 샘님 결정).
+- README 첫 화면 시험 4개(`test_docs.FirstRunTests`): 설치·첫 실행 명령이 영문·한국어판에서 같고 실제 argparse·`pip` 추가 묶음과 맞는지,
+  README 의 본 410·변형 73 이 `examples/sample-output/capsule_doll.md` 와 같은지.
+- 백로그 남은 항목 1개 → 새 항목 5개(근거 포함) 추가. CHANGELOG·tests/README·CONTRIBUTING(시험 수 97) 갱신.
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2, Python 3.13 venv) — **97개 모두 통과, 건너뜀 0**(221초). `BW_SKIP_BLENDER=1`(Python 3.11) — 97개 중 13개 건너뜀, 나머지 통과.
+- `python3 scripts/check_license_boundary.py` OK. 렌더는 안 돌렸다(화면 없는 리눅스에서 렌더러가 죽는다, CI 와 같은 이유).
+- 영어 `suspect` 문구가 실제로 찍히는 메시(목·팔 중심선 실패)는 시험 자산에 없어 화면으로는 못 봤다 — AST 시험으로만 확인.
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+BW_LANG=en BW_BACKEND=mock bw rig <목·팔 추정이 실패하는 메시>.glb --no-judge   # "⚠ analysis is doubtful:" 뒤가 영어인지
+open docs/DOCS-SPLIT-PLAN.md   # 노트를 docs/notes/ 로 옮길지·빼낼지·그대로 둘지 결정
+```
+
 ## 2026-10-06
 
 **한 일**
