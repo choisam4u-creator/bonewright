@@ -267,7 +267,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             r.state("fit", "rejected", reasons=[sj.get("error") or T("모양에서 뼈대를 못 만들었다", "could not build a skeleton from the shape")])
             raise Blocked("--from-shape: " + (sj.get("error") or T("메시 속에서 중심선을 못 찾았다", "found no centreline inside the mesh")))
         gen_preset = "generic"; source_joints = sj["joints"]
-        fit = {"targets": {}, "reasoning": f"모양 리그: 속 중심선에서 팔다리 {sj['limbs']}개 · 본 {sj['bones']}개", "confidence": None}
+        fit = {"targets": {}, "reasoning": T(f"모양 리그: 속 중심선에서 팔다리 {sj['limbs']}개 · 본 {sj['bones']}개", f"shape rig: {sj['limbs']} limbs · {sj['bones']} bones from the inner centrelines"), "confidence": None}
         _log(quiet, T(f"[2/6] fit: 모양에서 뼈대를 만들었다 — 팔다리 {sj['limbs']}개 · 마디 {sj['segments']}개씩 · 본 {sj['bones']}개 · 모델 호출 0회",
                         f"[2/6] fit: skeleton built from the shape — {sj['limbs']} limbs · {sj['segments']} segments each · {sj['bones']} bones · 0 model calls"))
     elif from_skeleton:
@@ -277,7 +277,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         gt = r.blender("gt_joints", {"mesh": mesh, "facing": facing, "preset": preset})
         if not gt.get("joints"):
             _reject(T("--from-skeleton: 이 파일에 원본 뼈대가 없다\n  → 기본 경로(--from-skeleton 없이)로 돌려라",
-                      "--from-skeleton: this file has no skeleton of its own\n  → run the default route (without --from-skeleton)"), ["뼈대 없음"])
+                      "--from-skeleton: this file has no skeleton of its own\n  → run the default route (without --from-skeleton)"), [T("뼈대 없음", "no skeleton")])
         tg, info = targets_from_skeleton(gt["joints"], preset, a["landmarks"]["height"], a["landmarks"].get("ground_z", 0.0))
         source_joints = gt["joints"]   # 메타리그 경로에서도 원작자 가중치를 자리로 옮길 수 있게 넘긴다
         source_leak = (gt.get("source_leak") or {}).get("ratio")   # 원작자 자신의 팔→몸통 누수(보정용)
@@ -287,11 +287,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             why = (T("팔다리 없음: ", "no limbs: ") + ", ".join(info["limbs_absent"])) if info["limbs_absent"] \
                 else T(f"알아본 관절 {len(tg)}개", f"{len(tg)} joints recognised")
             gen_preset = "generic"; source_joints = gt["joints"]
-            fit = {"targets": {}, "reasoning": f"일반 리그: 원본 뼈대 {len(gt['joints'])}본을 그대로 베낌({why})", "confidence": None}
+            fit = {"targets": {}, "reasoning": T(f"일반 리그: 원본 뼈대 {len(gt['joints'])}본을 그대로 베낌({why})", f"generic rig: copied the {len(gt['joints'])} source bones as they are ({why})"), "confidence": None}
             _log(quiet, T(f"[2/6] fit: 사람·개과 메타리그에 못 맞춘다({why}) → **일반 리그**로 간다 · 원본 본 {len(gt['joints'])}개 · 모델 호출 0회",
                             f"[2/6] fit: does not fit the human or canine metarig ({why}) → **generic rig** · {len(gt['joints'])} source bones · 0 model calls"))
         else:
-            fit = {"targets": tg, "reasoning": f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", "confidence": None}
+            fit = {"targets": tg, "reasoning": T(f"원본 뼈대 {info['bones']}본에서 가져옴: {', '.join(info['matched'])}", f"taken from the {info['bones']} source bones: {', '.join(info['matched'])}"), "confidence": None}
         source_symmetry = info.get("source_symmetry", 0.0)
         if gen_preset == "generic":
             source_symmetry = 0.0
@@ -301,7 +301,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  (T(f" · 한쪽만 있어 비춰 채운 본 {info['mirrored']}", f" · mirrored from the other side {info['mirrored']}") if info["mirrored"] else "") +
                  (T(f" · 원본 좌우 어긋남 {source_symmetry}m(이만큼은 우리 오차가 아니다)", f" · source left/right mismatch {source_symmetry}m (not our error)") if source_symmetry > 0.01 else ""))
     elif targets_file:
-        fit = {"targets": targets_loaded, "reasoning": f"재사용: {targets_file}", "confidence": None}
+        fit = {"targets": targets_loaded, "reasoning": T(f"재사용: {targets_file}", f"reused: {targets_file}"), "confidence": None}
         _log(quiet, T(f"[2/6] fit: 파일 재사용 {targets_file} · 목표 본 {len(fit['targets'])}개 · 모델 호출 0회",
                         f"[2/6] fit: reusing {targets_file} · {len(fit['targets'])} target bones · 0 model calls"))
     else:
@@ -384,10 +384,12 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
               + (f", rigid parts bound whole {st['rigid_islands_bound']}" if st.get("rigid_islands_bound") else "")
               + f") · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
               f"- gates: {'PASS' if not fails else 'FAIL: ' + '; '.join(fails)}" +
-              (f" · ⚠ 조각 사이 빈틈을 지나는 본 {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}" if st.get("deform_gap_mesh") else ""),
+              (T(f" · ⚠ 조각 사이 빈틈을 지나는 본 {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}",
+                 f" · ⚠ bones crossing gaps between parts {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}") if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
-              f"- targets: `{r.dir / 'targets.json'}` (손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)" + (f" · 고정 {sorted(pins)}" if pins else ""),
+              f"- targets: `{r.dir / 'targets.json'}` " + T("(손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)", "(edit by hand and rerun with `bw rig <mesh> --targets`, 0 tokens)")
+              + (T(f" · 고정 {sorted(pins)}", f" · pinned {sorted(pins)}") if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
     r.state("final", status)

@@ -11,6 +11,7 @@ from pathlib import Path
 from . import pipeline
 from .blender import run_script
 from .config import load
+from .i18n import T
 from .manifest import atomic_write
 
 # 우리 변형 본 → 원본 뼈대 이름 후보(정규화된 핵심 이름). 앞에서부터 우선 매칭
@@ -210,7 +211,7 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
             # gt_mesh: 정답을 '다른 파일'에서 가져온다 — 포즈를 바꾼 변형본(A 포즈)을 원본 T 포즈 뼈대와 맞대려고 쓴다
             gt = run_script("gt_joints", {"mesh": str(Path(gt_mesh or mesh).resolve()), "facing": facing, "preset": preset}, cfg["blender"], out_dir / "logs")
             if not gt.get("joints"):
-                row["error"] = "원본 뼈대 없음 — 벤치마크 대상이 아니다"; results.append(row); continue
+                row["error"] = T("원본 뼈대 없음 — 벤치마크 대상이 아니다", "no skeleton of its own — not a benchmark asset"); results.append(row); continue
             rid = f"{run_id}-{name}"
             pipeline.rig(root, mesh, preset, run_id=rid, quiet=True, no_judge=True, facing=facing, force=True, weights=weights,
                          rest_pose=rest_pose)   # 벤치는 거절 대상도 재야 회귀를 본다
@@ -241,13 +242,16 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
             row["error"] = str(e).splitlines()[0][:160]
         results.append(row)
         if not quiet:
-            s = row.get("error") or f"관절 {row.get('matched')}개 · 평균 {row.get('mean_cm')}cm · 최대 {row.get('max_cm')}cm ({row.get('worst')})"
+            s = row.get("error") or T(f"관절 {row.get('matched')}개 · 평균 {row.get('mean_cm')}cm · 최대 {row.get('max_cm')}cm ({row.get('worst')})",
+                                      f"{row.get('matched')} joints · mean {row.get('mean_cm')}cm · max {row.get('max_cm')}cm ({row.get('worst')})")
             sk = row.get("skin") or {}
             if sk.get("agree") is not None:
-                s += f" · 스키닝 일치 {round(sk['agree'] * 100, 1)}%(매핑 {round(sk['mapped'] * 100)}%)"
+                s += T(f" · 스키닝 일치 {round(sk['agree'] * 100, 1)}%(매핑 {round(sk['mapped'] * 100)}%)",
+                       f" · skin agreement {round(sk['agree'] * 100, 1)}% (mapped {round(sk['mapped'] * 100)}%)")
             inf = sk.get("influence") or {}
             if inf.get("mean_cm") is not None:
-                s += f" · 영향중심 {inf['mean_cm']}cm(키의 {inf['mean_pct_height']}%, 10%초과 {round(inf['frac_over_10pct'] * 100)}%)"
+                s += T(f" · 영향중심 {inf['mean_cm']}cm(키의 {inf['mean_pct_height']}%, 10%초과 {round(inf['frac_over_10pct'] * 100)}%)",
+                       f" · influence centre {inf['mean_cm']}cm ({inf['mean_pct_height']}% of height, {round(inf['frac_over_10pct'] * 100)}% over 10%)")
             print(f"[bench {i}/{len(meshes)}] {name}: {s}", flush=True)
     ok = [r for r in results if r.get("mean_cm") is not None]
     summary = {"assets": len(results), "measured": len(ok),
@@ -257,9 +261,12 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
     atomic_write(out_dir / "bench.json", json.dumps({"summary": summary, "results": results}, ensure_ascii=False, indent=2))
     atomic_write(out_dir / "bench.csv", "\n".join(csv) + "\n")
     md = [f"# bonewright bench · {run_id}", "",
-          f"- 자산 {summary['assets']}개 중 측정 {summary['measured']}개 · 전체 평균 오차 {summary['mean_cm']} cm · 최악 자산 {summary['worst_asset']}",
-          "- '정답'은 원작자의 리그다(해부학적 진리가 아니다). 버전 간 회귀 탐지용으로 읽어라.", "",
-          "| 자산 | 키(m) | 관절 | 평균(cm) | 중앙값(cm) | 최대(cm) | 최악 관절 |", "|---|---|---|---|---|---|---|"]
+          T(f"- 자산 {summary['assets']}개 중 측정 {summary['measured']}개 · 전체 평균 오차 {summary['mean_cm']} cm · 최악 자산 {summary['worst_asset']}",
+            f"- measured {summary['measured']} of {summary['assets']} assets · overall mean error {summary['mean_cm']} cm · worst asset {summary['worst_asset']}"),
+          T("- '정답'은 원작자의 리그다(해부학적 진리가 아니다). 버전 간 회귀 탐지용으로 읽어라.",
+            "- The 'reference' is the original author's rig, not anatomical truth. Read this to catch regressions between versions."), "",
+          T("| 자산 | 키(m) | 관절 | 평균(cm) | 중앙값(cm) | 최대(cm) | 최악 관절 |", "| Asset | Height (m) | Joints | Mean (cm) | Median (cm) | Max (cm) | Worst joint |"),
+          "|---|---|---|---|---|---|---|"]
     for r in results:
         if r.get("error"):
             md.append(f"| {r['asset']} | - | - | - | - | - | {r['error']} |")
@@ -267,5 +274,6 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
             md.append(f"| {r['asset']} | {r['height']} | {r['matched']} | {r['mean_cm']} | {r['median_cm']} | {r['max_cm']} | {r['worst']} |")
     atomic_write(out_dir / "report.md", "\n".join(md) + "\n")
     if not quiet:
-        print(f"\n요약: 측정 {summary['measured']}/{summary['assets']} · 평균 {summary['mean_cm']}cm → {out_dir / 'report.md'}")
+        print(T(f"\n요약: 측정 {summary['measured']}/{summary['assets']} · 평균 {summary['mean_cm']}cm → {out_dir / 'report.md'}",
+                f"\nsummary: measured {summary['measured']}/{summary['assets']} · mean {summary['mean_cm']}cm → {out_dir / 'report.md'}"))
     return out_dir / "report.md"

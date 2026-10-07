@@ -5,6 +5,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from .i18n import T
+
 
 def atomic_write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -27,7 +29,7 @@ class Manifest:
             self.data = json.loads(self.path.read_text())
         else:
             if prompt is None:
-                raise FileNotFoundError(f"manifest 없음: {self.path}")
+                raise FileNotFoundError(T(f"manifest 없음: {self.path}", f"no manifest: {self.path}"))
             self.data = {"run_id": run_dir.name, "prompt": prompt, "tier": tier,
                          "created_at": time.time(), "steps": [], "artifacts": {}, "usage": []}
             self.save()
