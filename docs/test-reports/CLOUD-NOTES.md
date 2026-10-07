@@ -1,5 +1,35 @@
 # 클라우드 회차 기록
 
+## 2026-10-07
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #8 병합분) 빨리감기 병합.
+- `bw doctor --for-issue [RUN_ID]`: 버그 신고에 붙일 한 덩어리(버전·Python·OS·`BW_*`·`bw doctor` 결과·실행 하나의
+  `state.json`·마지막 로그 끝 40줄, run-id 생략 시 가장 최근 실행). 홈 폴더와 `/Users/<이름>`·`/home/<이름>`·`C:\Users\<이름>` → `~`.
+  이슈 템플릿 2종·예상 못 한 오류 안내·GUIDE 가 이 명령을 가리킨다. 시험 4개.
+- 영문화 마무리: `bw bench` 진행 줄·요약·`report.md` 표, `runs/<id>/report.md` 의 남은 한국어, fit `reasoning`, codex·manifest 오류,
+  mock 응답 문구. `test_i18n` 의 "T() 밖 한글 금지"를 `bonewright/` 전체로 넓힘(gates 의 한글 범위 비교 `가`·`힣` 만 예외).
+  bpy 로 `BW_LANG=en bw bench quaternius_adventurer.glb` 를 돌려 출력·report.md·json 에 한글 0 확인.
+- 문서 점검 범위: `test_docs` 가 CONTRIBUTING·SECURITY·RELEASING·PR 템플릿·이슈 템플릿 3종의 상대 링크·`bw` 명령도 보고,
+  템플릿이 인용한 GUIDE 절 제목, `ISSUE_TEMPLATE/config.yml` 의 `blob/main/<경로>`, `GUIDE.md#앵커` 링크까지 대조.
+- `docs/GUIDE.md` "Known gaps and failed attempts": ROADMAP(한국어) 끝의 열린 구멍·실패 실험 7줄 영문 요약(숫자 포함), CONTRIBUTING 이 가리킴.
+  쓰다가 발견: `rig.cross_trim` 은 지금 기본 **켬**(복셀 측지 판정)인데 CHANGELOG 0.2.0·ROADMAP 은 "기본 끔"(옛 광선 판정)이라 적었다
+  → GUIDE 엔 실제 값으로 적고, 정정은 새 백로그로.
+- 백로그 남은 항목 2개 → 새 항목 5개(근거 포함). CHANGELOG(새 플래그가 생겨 "only new flag" 문구 수정)·tests/README·CONTRIBUTING(시험 수 105) 갱신.
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2, Python 3.13 venv) — **105개 모두 통과, 건너뜀 0**(191초). `BW_SKIP_BLENDER=1`(Python 3.11) — 105개 중 13개 건너뜀, 나머지 통과.
+- `python3 scripts/check_license_boundary.py` OK. 렌더는 안 돌렸다(화면 없는 리눅스에서 렌더러가 죽는다, CI 와 같은 이유).
+- `bw doctor --for-issue` 의 Windows 경로 치환은 문자열 시험만 했다(Windows 에서 실제로는 안 돌림).
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+bw doctor --for-issue | grep -c "/Users/"   # 0 이어야 한다(홈 경로가 ~ 로 바뀜)
+BW_LANG=en bw bench tests/assets/quaternius_adventurer.glb && cat runs/*/report.md | tail -3   # 표 머리가 영어인지
+```
+
 ## 2026-10-06 (2회차)
 
 **한 일**
