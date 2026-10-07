@@ -180,6 +180,24 @@ class EnglishErrorTests(unittest.TestCase):
         self.assertNotRegex(str(cm.exception), "[가-힣]")
 
 
+class ReportPathTests(unittest.TestCase):
+    """report.md 는 이슈에 그대로 붙인다(템플릿 'A rig came out wrong'). 실행 폴더 안 파일은 상대 경로로,
+    밖의 파일은 홈 폴더를 `~` 로 적어 사용자 이름이 들어가지 않게 한다."""
+
+    def test_inside_run_dir_is_relative(self):
+        with tempfile.TemporaryDirectory() as d:
+            run = Path(d) / "runs" / "r1"
+            self.assertEqual("02_rigged.blend", pipeline._shown(run / "02_rigged.blend", run))
+            self.assertEqual("motion/motion.bvh", pipeline._shown(str(run / "motion" / "motion.bvh"), run))
+
+    def test_outside_run_dir_hides_home(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(Path, "home", return_value=Path(d) / "alice"):
+            run = Path(d) / "work" / "runs" / "r1"
+            mesh = Path(d) / "alice" / "models" / "hero.glb"
+            self.assertEqual("~" + os.sep + os.path.join("models", "hero.glb"), pipeline._shown(mesh, run))
+            self.assertEqual(str(Path(d) / "alicex.glb"), pipeline._shown(Path(d) / "alicex.glb", run))   # 이름이 겹칠 뿐인 형제 경로는 그대로
+
+
 class KimodoPathTests(unittest.TestCase):
     """kimodo.cpp 원본이 빌드 폴더(build-release → build/release)와 텍스트 인코더(구성품 폴더 → GGUF 한 파일)를 바꿨다.
     옛 Mac 빌드와 지금 원본 안내대로 만든 것 둘 다 찾아야 한다."""

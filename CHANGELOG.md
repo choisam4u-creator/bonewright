@@ -59,6 +59,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- **`runs/<id>/report.md` no longer contains your home folder.** The issue template asks for this file as is, but
+  it listed the mesh, the rig `.blend`, `targets.json` and the motion files by absolute path. Files inside the run
+  folder are now written relative to it (`targets.json`, `02_rigged.blend`), and paths outside it show the home
+  folder as `~`.
 - **`rig.cross_trim` is on by default; the documentation said otherwise.** The 0.2.0 changelog entry and
   `docs/ROADMAP.md` described the first, ray-based version. The released code uses voxel-geodesic distance and
   has it on (`bonewright/config.py`). Both texts are corrected, and `tests/test_docs.py` now checks every

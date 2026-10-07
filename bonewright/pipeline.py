@@ -56,6 +56,18 @@ def _prompt(name: str, lang: str) -> str:
     return (PROMPTS / lang / f"{name}.md").read_text(encoding="utf-8")
 
 
+def _shown(path: str | Path, base: Path) -> str:
+    """report.md 에 적을 경로: 실행 폴더 안이면 그 기준 상대 경로, 밖이면 홈 폴더를 `~` 로.
+    이슈 템플릿이 report.md 를 그대로 붙이라고 하므로 사용자 이름이 든 절대 경로를 남기지 않는다."""
+    p = Path(path)
+    try:
+        return p.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        home = str(Path.home())
+        s = str(p)
+        return "~" + s[len(home):] if home not in ("", "/") and (s == home or s.startswith(home + os.sep)) else s
+
+
 def _log(quiet: bool, msg: str) -> None:
     if not quiet:
         print(f"[bw {time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
@@ -376,10 +388,10 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     # 보고서
     t = r.tokens(); status = "ok" if not fails else "needs_review"
     report = [f"# bonewright rig report · {run_id}", "",
-              f"- mesh: `{mesh}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
+              f"- mesh: `{_shown(mesh, r.dir)}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
               f"- import: {json.dumps(a['stats'].get('import'), ensure_ascii=False)}",
               f"- landmarks: chibi={a['landmarks'].get('chibi')} · head_ratio={a['landmarks'].get('head_ratio')} · neck={a['landmarks'].get('neck_from')} · suspect={a['landmarks'].get('suspect')}",
-              f"- rig: `{g['blend']}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
+              f"- rig: `{_shown(g['blend'], r.dir)}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
               f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} (filled by nearest bone {st.get('filled_unweighted', 0)}"
               + (f", rigid parts bound whole {st['rigid_islands_bound']}" if st.get("rigid_islands_bound") else "")
               + f") · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
@@ -388,7 +400,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  f" · ⚠ bones crossing gaps between parts {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}") if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
-              f"- targets: `{r.dir / 'targets.json'}` " + T("(손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)", "(edit by hand and rerun with `bw rig <mesh> --targets`, 0 tokens)")
+              "- targets: `targets.json` " + T("(손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)", "(edit by hand and rerun with `bw rig <mesh> --targets`, 0 tokens)")
               + (T(f" · 고정 {sorted(pins)}", f" · pinned {sorted(pins)}") if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
@@ -463,9 +475,9 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     imp = r.blender("import_bvh", {"bvh": str(Path(bvh).resolve()), "out_blend": str(r.dir / "motion.blend"), "bvh_up": bvh_up})
     _log(quiet, T(f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
                     f"[3/3] import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
-    report = [f"# bonewright motion report · {run_id}", "", f"- source: {'text: ' + text if text else 'bvh: ' + bvh}",
+    report = [f"# bonewright motion report · {run_id}", "", f"- source: {'text: ' + text if text else 'bvh: ' + _shown(bvh, r.dir)}",
               f"- armature: {imp['armature']} · bones {imp['bones']} · frames {imp['frames']} · fps {imp['fps']} · root move {imp['root_move']} m",
-              f"- blend: `{r.dir / 'motion.blend'}`"]
+              "- blend: `motion.blend`"]
     if rig_run:
         from .retarget import bvh_mapping
         blend = rig_blend
@@ -494,7 +506,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                    f"- foot contact (lowest toe per frame): {rt.get('foot_contact')}",
                    f"- foot slide during BVH stance frames: {rt.get('foot_slide')}",
                    f"- deformation (edge stretch vs rest at rendered frames): {rt.get('stretch') and {k: v for k, v in rt['stretch'].items() if k != 'per_frame'}}",
-                   f"- blend: `{r.dir / 'retargeted.blend'}`",
+                   "- blend: `retargeted.blend`",
                    "- frames: " + " ".join(f"`{Path(p).name}`" for p in rt.get("renders", []))]
         atomic_write(r.dir / "retarget.json", json.dumps(rt, ensure_ascii=False, indent=2))
         if export:
@@ -503,7 +515,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             ex = r.blender("export_anim", {"blend": str(r.dir / "retargeted.blend"), "out": str(out)})
             _log(quiet, T(f"[5/5] export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm",
                               f"[5/5] export: {out.name} · bones {ex['bones']} · frames {ex['frames']} · re-read hand/foot max difference {ex['max_diff_cm']}cm"))
-            report += [f"- export: `{out}` · {ex['bones']} deform bones · {ex['verts']} verts · frames {ex['frames']} · "
+            report += [f"- export: `{_shown(out, r.dir)}` · {ex['bones']} deform bones · {ex['verts']} verts · frames {ex['frames']} · "
                        f"re-import check at frame {ex['probe_frame']}: {ex['reimport_diff_cm']} (cm)"]
     else:
         report.append("- retarget: pass --rig <run-id> to move this motion onto a rig")

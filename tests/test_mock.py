@@ -40,6 +40,9 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual([], st["bones_outside_bbox"])
         state = json.loads((self.tmp / "runs/t1/state.json").read_text())
         self.assertEqual("ok", state["status"], (self.tmp / "runs/t1/report.md").read_text())
+        rep = (self.tmp / "runs/t1/report.md").read_text()
+        self.assertNotIn(str((self.tmp / "runs/t1").resolve()), rep)   # 실행 폴더 안 파일은 상대 경로(이슈에 그대로 붙인다)
+        self.assertIn("- targets: `targets.json`", rep)
         # 렌더는 사람이 볼 그림이라 `BW_NO_RENDER=1` 로 끌 수 있다(화면 없는 CI 서버에서 렌더러가 죽는다).
         # 꺼져 있으면 그림이 없는 게 정상이고, 켜져 있으면 세 장이 다 나와야 한다
         if os.environ.get("BW_NO_RENDER") != "1":
@@ -77,6 +80,7 @@ class RigMockTests(unittest.TestCase):
         self.assertTrue((self.tmp / "runs/m3/animated.glb").exists())
         rep = (self.tmp / "runs/m3/report.md").read_text()
         self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
+        self.assertNotIn(str((self.tmp / "runs/m3").resolve()), rep)
 
     def test_human_only_bones_go_when_the_source_has_no_counterpart(self):
         """원본 뼈대에 대응 관절이 없는 **사람 전용 본**은 지운다 — 떠 있으면 살을 가져간다.
