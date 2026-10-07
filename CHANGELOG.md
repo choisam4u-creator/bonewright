@@ -36,6 +36,9 @@ See `docs/RELEASING.md` for the release steps.
 - `tests/test_i18n.py`: every `T(Korean, English)` pair in `bonewright/` must have no Hangul on the English side and
   the same f-string placeholders on both. `tests/test_docs.py` also checks that every test-command list (CI,
   CONTRIBUTING, PR template, tests/README, RELEASING) names every test module.
+- `examples/sample-output/capsule_dog.md`: a four-legged sample. `make_test_mesh` builds a procedural capsule dog
+  (`kind=quadruped`) and `python3 examples/rig_sample.py --preset quadruped` rigs it: gates pass, 110 deform bones
+  with front and hind leg chains and paw digits. Linked from the README; a Blender test checks it stays current.
 - `examples/sample-output/capsule_doll.md`: what `python3 examples/rig_sample.py` prints (73 deform bones), so the
   table can be seen before installing Blender. A Blender test checks that today's rig still matches it.
 - `docs/GUIDE.md` "Text → motion: building kimodo.cpp": the build steps, the three paths bonewright looks for and the

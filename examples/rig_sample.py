@@ -2,6 +2,7 @@
 """입력 메시 → 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(BW_BACKEND=mock), 토큰 0.
 
     python3 examples/rig_sample.py                    # 절차적 캡슐 인형(자산 파일 없음)을 만들어 리깅
+    python3 examples/rig_sample.py --preset quadruped # 절차적 캡슐 개(네 발)를 만들어 사족 리깅
     python3 examples/rig_sample.py adventurer         # tests/assets 의 CC0 캐릭터(1.9MB)를 리깅
     python3 examples/rig_sample.py path/to/x.glb      # 아무 메시나
     python3 examples/rig_sample.py --table x.glb      # 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
@@ -22,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 OUT = ROOT / "examples" / "out"
 SAMPLES = {"adventurer": ROOT / "tests" / "assets" / "quaternius_adventurer.glb"}
+PROCEDURAL = {"humanoid": "capsule_doll", "quadruped": "capsule_dog"}   # 메시를 안 주면 절차적으로 만드는 것
 
 
 def glb_skin_bones(path: Path) -> list[str]:
@@ -63,9 +65,9 @@ def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     os.environ["BW_BACKEND"] = "mock"
     os.environ.setdefault("BW_NO_RENDER", "1")
     OUT.mkdir(parents=True, exist_ok=True)
-    if mesh is None:   # 절차적 캡슐 인형
-        mesh = OUT / "capsule_doll.glb"
-        blender.run_script("make_test_mesh", {"out": str(mesh)}, {}, OUT / "logs")
+    if mesh is None:   # 절차적 캡슐 인형(사람) 또는 캡슐 개(사족)
+        mesh = OUT / f"{name}.glb"
+        blender.run_script("make_test_mesh", {"out": str(mesh), "kind": preset}, {}, OUT / "logs")
     src = glb_skin_bones(mesh) if mesh.suffix.lower() == ".glb" else []
     pipeline.rig(OUT, str(mesh), preset, run_id=name, quiet=True, no_judge=True)
     glb = pipeline.export_rig(OUT, name, quiet=True)
@@ -95,7 +97,7 @@ def main() -> int:
             raise SystemExit("--table 에는 .glb 경로가 필요하다 (예: --table adventurer)")
         print(bone_table(glb_skin_bones(mesh)), end="")
         return 0
-    name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else "capsule_doll")
+    name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else PROCEDURAL[a.preset])
     out = rig_and_table(mesh, name, a.preset)
     print(out.read_text(encoding="utf-8"), end="")
     print(f"\n표: {out.relative_to(ROOT)}")

@@ -4,6 +4,7 @@
 
 ```bash
 python3 examples/rig_sample.py                 # 절차적 캡슐 인형을 만들어 리깅 (자산 파일 없음)
+python3 examples/rig_sample.py --preset quadruped   # 절차적 네 발 캡슐 개를 만들어 사족 리깅 (자산 파일 없음)
 python3 examples/rig_sample.py adventurer      # tests/assets 의 CC0 캐릭터(1.9MB, Quaternius)
 python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 스킨 본 표만 (블렌더 불필요)
 ```
@@ -12,7 +13,8 @@ python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 �
 남고, 표는 `examples/out/<이름>.md` 로 쓴다. 표는 내보낸 `rigged.glb` 의 변형 본을 순수 파이썬으로 읽어 만든다.
 
 결과가 어떻게 생겼는지는 [sample-output/capsule_doll.md](sample-output/capsule_doll.md)(인자 없이 돌린 결과, 변형 본 73개)에서
-먼저 볼 수 있다. `tests/test_examples.py` 가 이 예시와 지금 리깅 결과를 대조한다.
+먼저 볼 수 있다. 네 발 짐승은 [sample-output/capsule_dog.md](sample-output/capsule_dog.md)(`--preset quadruped`, 변형 본 110개 —
+Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). `tests/test_examples.py` 가 두 예시와 지금 리깅 결과를 대조한다.
 
 ## 무거운 자산
 

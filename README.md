@@ -12,6 +12,8 @@ Python drives the steps, `codex exec` judges, gates verify. [한국어](README.k
 ## What it does for you
 
 - **Rigs** humans and four-legged animals from a bare mesh (T- or A-pose), or reuses a skeleton the file already has.
+  Sample results: [a capsule doll](examples/sample-output/capsule_doll.md) (73 deform bones) and
+  [a four-legged capsule dog](examples/sample-output/capsule_dog.md) (110), both procedural.
 - **Rigs anything else with limbs** (insects, monsters) as bone chains built from the mesh's own shape.
 - **Refuses** meshes it cannot rig well instead of handing back a broken rig (`--force` overrides).
 - **Retargets motion** — a BVH clip onto the new rig — and **exports** a game-ready GLB.

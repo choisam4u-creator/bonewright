@@ -13,6 +13,7 @@ import rig_sample  # noqa: E402
 from tests._marks import requires_blender  # noqa: E402
 
 SAMPLE = ROOT / "examples" / "sample-output" / "capsule_doll.md"
+DOG = ROOT / "examples" / "sample-output" / "capsule_dog.md"
 
 
 def table_part(md: str) -> str:
@@ -53,11 +54,21 @@ class ExampleTableTests(unittest.TestCase):
 class SampleOutputTests(unittest.TestCase):
     def test_sample_table_is_what_bone_table_prints(self):
         """실어 둔 예시 표가 손으로 고쳐지지 않았는지: 표 안의 본 이름으로 표를 다시 만들면 같아야 한다."""
-        part = table_part(SAMPLE.read_text(encoding="utf-8"))
-        names = [n for row in part.splitlines() if row.startswith("| ") and "`" in row
-                 for n in re.findall(r"`([^`]+)`", row)]
-        self.assertEqual(73, len(names))
-        self.assertEqual(part, rig_sample.bone_table(names).strip())
+        for doc, count in ((SAMPLE, 73), (DOG, 110)):
+            with self.subTest(doc=doc.name):
+                part = table_part(doc.read_text(encoding="utf-8"))
+                names = [n for row in part.splitlines() if row.startswith("| ") and "`" in row
+                         for n in re.findall(r"`([^`]+)`", row)]
+                self.assertEqual(count, len(names))
+                self.assertEqual(part, rig_sample.bone_table(names).strip())
+
+    def test_dog_sample_has_four_legs(self):
+        """사족 예시가 사람 리그로 잘못 나오지 않았는지: 앞다리·뒷다리 체인과 앞발·뒷발 발가락이 좌우로 있다."""
+        names = set(re.findall(r"`(DEF-[^`]+)`", table_part(DOG.read_text(encoding="utf-8"))))
+        for s in ("L", "R"):
+            for bone in ("thigh", "shin", "foot", "front_thigh", "front_shin", "front_foot", "f_index.01", "r_index.01"):
+                self.assertIn(f"DEF-{bone}.{s}", names)
+        self.assertFalse({n for n in names if "upper_arm" in n or "forearm" in n})
 
     @requires_blender
     def test_capsule_doll_still_rigs_like_the_sample(self):
@@ -67,6 +78,15 @@ class SampleOutputTests(unittest.TestCase):
         gate = [ln for ln in sample.splitlines() if ln.startswith("- 관문:")]
         self.assertEqual(gate, [ln for ln in now.splitlines() if ln.startswith("- 관문:")],
                          "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py → examples/sample-output/")
+        self.assertEqual(table_part(sample), table_part(now))
+
+    @requires_blender
+    def test_capsule_dog_still_rigs_like_the_sample(self):
+        out = rig_sample.rig_and_table(None, "capsule_dog_check", "quadruped")
+        now, sample = out.read_text(encoding="utf-8"), DOG.read_text(encoding="utf-8")
+        gate = [ln for ln in sample.splitlines() if ln.startswith("- 관문:")]
+        self.assertEqual(gate, [ln for ln in now.splitlines() if ln.startswith("- 관문:")],
+                         "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py --preset quadruped → examples/sample-output/")
         self.assertEqual(table_part(sample), table_part(now))
 
 
