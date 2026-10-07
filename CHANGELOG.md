@@ -22,7 +22,9 @@ See `docs/RELEASING.md` for the release steps.
 - A pull-request template with the CONTRIBUTING checklist (tests, license boundary, CHANGELOG) and a before/after
   table for the four benchmark assets when joint code changes.
 - `tests/test_docs.py`: relative links in the README, Korean README, guide and examples README must resolve, and
-  every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender.
+  every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender. The same
+  checks cover CONTRIBUTING, SECURITY, RELEASING and the issue / pull-request templates, plus the guide section
+  titles the templates quote and the files `ISSUE_TEMPLATE/config.yml` links to.
 
 - Package metadata: project URLs (home, guide, issues, changelog) and both license notices (`LICENSE`, MIT, and
   `bonewright/bpy_scripts/LICENSE`, GPL) are now shipped in the sdist and wheel (`license-files`, hatchling ≥ 1.27).

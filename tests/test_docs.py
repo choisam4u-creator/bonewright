@@ -1,4 +1,4 @@
-"""문서 점검: README·README.ko·GUIDE·examples/README 의 상대 링크가 실제 파일을 가리키고,
+"""문서 점검: README·README.ko·GUIDE·examples/README·CONTRIBUTING·SECURITY·RELEASING·이슈/PR 템플릿의 상대 링크가 실제 파일을 가리키고,
 문서에 적힌 `bw <명령> --옵션` 이 실제 argparse 에 있는지. 블렌더 불필요.
 (10/1 Mac 이 손으로 한 링크 점검, 9/20 문서 검증의 틀린 주장 11건을 시험으로 굳힌다)"""
 import argparse
@@ -10,7 +10,10 @@ from pathlib import Path
 from bonewright import cli
 
 REPO = Path(__file__).resolve().parent.parent
-DOCS = [REPO / "README.md", REPO / "README.ko.md", REPO / "docs" / "GUIDE.md", REPO / "examples" / "README.md"]
+DOCS = [REPO / "README.md", REPO / "README.ko.md", REPO / "docs" / "GUIDE.md", REPO / "examples" / "README.md",
+        # 10/7 추가: 공개 뒤 기여자·신고자가 처음 따라 하는 문서
+        REPO / "CONTRIBUTING.md", REPO / "SECURITY.md", REPO / "docs" / "RELEASING.md",
+        REPO / ".github" / "pull_request_template.md", *sorted((REPO / ".github" / "ISSUE_TEMPLATE").glob("*.md"))]
 
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)|<img[^>]*\ssrc=\"([^\"]+)\"")
 INLINE_BW = re.compile(r"`((?:[A-Z_]+=\S+\s+)*bw\s[^`]*)`")
@@ -133,6 +136,25 @@ class CodePointsAtDocsTests(unittest.TestCase):
         for title in named:
             with self.subTest(title=title):
                 self.assertTrue(any(h.startswith(title) for h in heads), f"GUIDE 에 '{title}' 절이 없다")
+
+    def test_guide_sections_named_in_docs_exist(self):
+        """이슈 템플릿 등이 `docs/GUIDE.md` → "<절 제목>" 으로 가리키는 절이 GUIDE 에 실제로 있는지."""
+        heads = {ln.lstrip("#").strip() for ln in (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8").splitlines()
+                 if ln.startswith("#")}
+        named = [(doc, t) for doc in DOCS for t in re.findall(r'docs/GUIDE\.md`?\s*→\s*"([^"]+)"', doc.read_text(encoding="utf-8"))]
+        self.assertTrue(named, "feature-request 템플릿의 \"Which flag do I want?\" 를 못 뽑았다")
+        for doc, title in named:
+            with self.subTest(doc=doc.name, title=title):
+                self.assertTrue(any(h.startswith(title) for h in heads), f"GUIDE 에 '{title}' 절이 없다")
+
+    def test_issue_config_links_point_at_repo_files(self):
+        """`.github/ISSUE_TEMPLATE/config.yml` 의 `blob/main/<경로>` 안내 링크가 저장소에 있는 파일인지."""
+        text = (REPO / ".github" / "ISSUE_TEMPLATE" / "config.yml").read_text(encoding="utf-8")
+        paths = re.findall(r"/blob/main/(\S+)", text)
+        self.assertTrue(paths)
+        for rel in paths:
+            with self.subTest(path=rel):
+                self.assertTrue((REPO / rel).is_file(), f"config.yml → {rel} 없음")
 
     def test_messages_do_not_point_at_dated_research_notes(self):
         """날짜 붙은 연구 노트(docs/research-*.html)는 공개용 안내가 아니다 — 코드 문구가 가리키지 않는다."""
