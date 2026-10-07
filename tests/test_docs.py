@@ -251,5 +251,22 @@ class DefaultClaimTests(unittest.TestCase):
         self.assertGreater(seen, 0)   # 정규식이 아무것도 못 잡으면 시험이 아무 일도 안 한 것이다
 
 
+class CodeOfConductTests(unittest.TestCase):
+    """행동 강령 초안(`docs/drafts/`)을 루트로 옮길 때 연락 칸을 비운 채 공개하지 않도록. docs/CODE-OF-CONDUCT-PLAN.md"""
+
+    def test_root_code_of_conduct_has_a_contact(self):
+        coc = REPO / "CODE_OF_CONDUCT.md"
+        if coc.exists():   # 아직 결정 대기면 통과(건너뜀으로 세면 CONTRIBUTING 의 '블렌더 시험 수' 예시가 흐려진다)
+            self.assertNotIn("[INSERT CONTACT METHOD]", coc.read_text(encoding="utf-8"))
+
+    def test_draft_keeps_the_attribution(self):
+        """Contributor Covenant 는 CC BY 4.0 — 끝의 Attribution 절이 출처 표기다."""
+        for doc in (REPO / "docs" / "drafts" / "CODE_OF_CONDUCT.md", REPO / "CODE_OF_CONDUCT.md"):
+            if doc.exists():
+                with self.subTest(doc=str(doc.relative_to(REPO))):
+                    self.assertIn("## Attribution", doc.read_text(encoding="utf-8"))
+                    self.assertIn("contributor-covenant.org/version/2/1", doc.read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
