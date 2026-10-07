@@ -41,13 +41,21 @@
 - [x] 설치본 시험: 저장소 밖 새 venv 에 `pip install .` 한 `bw` 가 `bpy_scripts`·`prompts` 를 찾아 `BW_BACKEND=mock bw rig` 를 끝까지 도는지 CI blender 잡에 한 단계 추가 — 근거: 10/4 `bw plugin-path` 가 설치본에서만 틀렸고(휠에 안 실림), 지금 blender 잡은 저장소 안에서 시험만 돈다. 클라우드에서도 `pip install bpy==5.2.2`(파이썬 3.13)가 된다(10/6 실측)
 - [x] `docs/` 의 날짜 붙은 한국어 HTML 20여 개(연구·현황·벤치 노트)를 공개 문서와 나누는 안: `docs/notes/` 로 옮길 목록과 그 안의 개인 경로·내부 링크 표 → 10/6 `docs/DOCS-SPLIT-PLAN.md`(옮기지 않음) — 근거: 공개 저장소의 `docs/` 를 처음 열면 GUIDE 보다 이 파일들이 먼저 보이고, `PRE-PUBLIC-AUDIT.md` 2절의 개인 경로도 이 묶음에 있다. 옮기기 전 목록·안만(샘님 결정)
 - [x] 첫 실행 30초 시험: README 의 Quickstart 명령(설치 → `bw doctor` → mock 리깅)을 그대로 뽑아 도는지 `tests/test_docs.py` 에서 명령 목록을 대조하고, 결과 표 예시(`examples/sample-output/`)와 README 숫자(본 73·410)가 같은지 — 근거: README 첫 화면은 공개 뒤 가장 많이 읽히고, 숫자가 리그 변경 때 따로 놀 수 있다
-- [ ] 버그 신고 재현 묶음: `bw report <run-id>`(또는 `bw doctor --for-issue`)가 버전·OS·Blender·`state.json`·마지막 로그 꼬리를 개인 경로를 `~` 로 바꿔 한 덩어리로 찍기 — 근거: 이슈 템플릿 3종이 이 값들을 손으로 모으라고 하고, 10/4 포괄 except 가 로그 폴더만 안내한다
+- [x] 버그 신고 재현 묶음: `bw report <run-id>`(또는 `bw doctor --for-issue`)가 버전·OS·Blender·`state.json`·마지막 로그 꼬리를 개인 경로를 `~` 로 바꿔 한 덩어리로 찍기 → 10/7 `bw doctor --for-issue [RUN_ID]` — 근거: 이슈 템플릿 3종이 이 값들을 손으로 모으라고 하고, 10/4 포괄 except 가 로그 폴더만 안내한다
 
 ## 2026-10-06(2회차) 추가 (공개 준비 기준)
 
-- [ ] `bw bench`·`bw report`(보고서 md)·mock·codex 진행 문구의 T() 밖 한국어 36곳 영문화(bench 17·pipeline 12·codex 2·gates 2·mock 2·manifest 1) — 근거: 10/6 AST 집계. 화면 진행 로그와 Blender 스크립트는 영어가 됐지만 `bw bench` 표와 `runs/<id>/report.md` 본문이 아직 한국어라 영어 사용자가 결과 보고서를 못 읽는다. 끝나면 `test_i18n` 의 "T() 밖 한글 금지"를 `bonewright/` 전체로 넓힌다
-- [ ] 문서 점검 범위 넓히기: `tests/test_docs.py` 의 상대 링크·`bw` 명령 점검에 CONTRIBUTING·SECURITY·`.github/ISSUE_TEMPLATE/*`·PR 템플릿·`docs/RELEASING.md` 추가 — 근거: 지금은 README·README.ko·GUIDE·examples/README 4개만 본다. 이슈 템플릿은 `docs/GUIDE.md` 절 제목("Which flag do I want?")과 `--from-skeleton` 등 옵션을 적어 두었고, 공개 뒤 신고자가 처음 따라 하는 문서다
-- [ ] `ROADMAP.md`(한국어 55KB) 영문 요약: CONTRIBUTING(영문)이 "실패한 시도는 ROADMAP 에, 남은 구멍은 ROADMAP 끝에"라고 두 번 가리키는데 영어 사용자가 읽을 수 없다 → GUIDE 에 "Known gaps and failed attempts" 절(숫자 포함 10줄 안팎)을 두고 CONTRIBUTING 이 그 절을 가리키게 — 근거: 10/6 `docs/DOCS-SPLIT-PLAN.md` 의 "그대로 둘 것" 표
+- [x] `bw bench`·`bw report`(보고서 md)·mock·codex 진행 문구의 T() 밖 한국어 36곳 영문화(bench 17·pipeline 12·codex 2·gates 2·mock 2·manifest 1) → 10/7 처리, gates 2곳은 한글 범위 비교라 예외 — 근거: 10/6 AST 집계. 화면 진행 로그와 Blender 스크립트는 영어가 됐지만 `bw bench` 표와 `runs/<id>/report.md` 본문이 아직 한국어라 영어 사용자가 결과 보고서를 못 읽는다. 끝나면 `test_i18n` 의 "T() 밖 한글 금지"를 `bonewright/` 전체로 넓힌다
+- [x] 문서 점검 범위 넓히기(10/7, GUIDE 절 제목·config.yml 링크 대조 포함): `tests/test_docs.py` 의 상대 링크·`bw` 명령 점검에 CONTRIBUTING·SECURITY·`.github/ISSUE_TEMPLATE/*`·PR 템플릿·`docs/RELEASING.md` 추가 — 근거: 지금은 README·README.ko·GUIDE·examples/README 4개만 본다. 이슈 템플릿은 `docs/GUIDE.md` 절 제목("Which flag do I want?")과 `--from-skeleton` 등 옵션을 적어 두었고, 공개 뒤 신고자가 처음 따라 하는 문서다
+- [x] `ROADMAP.md`(한국어 55KB) 영문 요약(10/7 GUIDE "Known gaps and failed attempts" 7줄, 앵커 시험): CONTRIBUTING(영문)이 "실패한 시도는 ROADMAP 에, 남은 구멍은 ROADMAP 끝에"라고 두 번 가리키는데 영어 사용자가 읽을 수 없다 → GUIDE 에 "Known gaps and failed attempts" 절(숫자 포함 10줄 안팎)을 두고 CONTRIBUTING 이 그 절을 가리키게 — 근거: 10/6 `docs/DOCS-SPLIT-PLAN.md` 의 "그대로 둘 것" 표
 - [ ] 사족 예시 결과: `examples/sample-output/` 에 사람(캡슐 인형)만 있다 → `make_test_mesh` 로 절차 생성한 네 발 메시가 되는지 보고, 되면 `rig_sample.py --preset quadruped` 결과 표를 싣고 README 의 "Rigs humans and four-legged animals" 옆에서 링크 — 근거: README 첫 줄이 사족을 내세우지만 처음 보는 사람이 확인할 예시는 사람 것뿐이다(라이선스: 절차 생성이면 문제 없음)
 - [ ] `CODE_OF_CONDUCT.md` 여부 결정용 메모 — 근거: 저장소 루트에 CONTRIBUTING·SECURITY·LICENSE 는 있고 행동 강령은 없다. GitHub 커뮤니티 프로필 점검 항목이며, 넣을지(Contributor Covenant 2.1 원문)·연락처를 무엇으로 할지는 샘님 결정이라 안과 문안만 준비(연락처 칸 비움)
 
+
+## 2026-10-07 추가 (공개 준비 기준)
+
+- [ ] `rig.cross_trim` 기본값 문서 정정: `config.py` 는 `True`(복셀 측지 판정, 9/19 4408cda)인데 CHANGELOG 0.2.0 절·ROADMAP 은 "기본 끔"(광선 판정, 35758da)이라 적었다 → ROADMAP 끝에 정정 한 줄, CHANGELOG `[Unreleased]` 에 "0.2.0 표기 정정", 가능하면 문서의 `**off by default**`·`on by default` 주장을 `config.DEFAULTS` 와 대조하는 시험 — 근거: 10/7 GUIDE 영문 요약을 쓰다가 발견(GUIDE 에는 실제 값으로 적음)
+- [ ] `runs/<id>/report.md` 의 절대 경로를 실행 폴더 기준 상대 경로로(`- rig:`·`- targets:` 줄 등) — 근거: 이슈 템플릿 'A rig came out wrong' 이 report.md 를 그대로 붙이라고 하는데 그 안에 홈 폴더 경로(사용자 이름)가 든다. `bw doctor --for-issue` 는 `~` 로 바꾸지만 report.md 는 손으로 붙인다
+- [ ] 모델 프롬프트 언어 기본값: `config.py` 의 `"lang": "ko"` 라 영어 사용자도 판정 문장(judge notes·reasoning)을 한국어로 받는다(`gates._model_text` 가 "--lang en 으로 다시 돌려라" 안내만 붙임) → `--lang` 생략 시 BW_LANG(로캘) 을 따르게 할지 결정 후 처리(프롬프트 en 판 존재 확인 포함) — 근거: 10/5~10/7 화면 문구는 전부 영어 기본이 됐는데 모델 출력만 남았다
+- [ ] CI 에 `bw doctor --for-issue` 한 단계(설치본·저장소 밖, unit·unit-windows·blender 잡): 종료코드와 출력에 `/home/runner` 가 안 남는지(`~` 치환) — 근거: 10/7 새 명령은 모의 시험(경로 치환·로그 꼬리)만 있고, Windows 홈 경로 치환(`C:\Users\…`)은 실제로 돌려 보지 않았다
+- [ ] `docs/RELEASING.md` 0.2.1 절차 점검: 10/7 까지 `[Unreleased]` 에 새 플래그(`--for-issue`)·영문화·문서 시험이 쌓였다 → 버전 제안(0.2.1 vs 0.3.0, 새 플래그가 있으므로)과 CHANGELOG 문구 정리안만(태그·릴리스는 Mac/샘님) — 근거: CHANGELOG 첫 줄이 "fixes, documentation and examples only" 라 적었는데 10/7 에 새 플래그가 들어갔다

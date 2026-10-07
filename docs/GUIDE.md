@@ -164,6 +164,35 @@ verified end to end over the runs kept in this repository — `runs/real1`, `run
 
 Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is measured below.
 
+### Known gaps and failed attempts
+
+An English digest of the end of `docs/ROADMAP.md` (Korean, dated 2026-09-15 to 09-19). Every line below was measured
+on the deterministic path; the ROADMAP section named in brackets has the full tables. Read it before retrying any of these.
+
+- **Gates only see a character standing still.** On 2026-09-19 three plausible changes passed every gate and made real
+  deformation worse; all three surfaced only when a walk was retargeted. Weight changes must be measured *moving*.
+- **Open hole — arm-to-torso leak on hollow meshes.** The last 3 of 66 assets that fail rigging (quat_pp_43j,
+  robot_expressive, KayKit skeleton warrior) share it: an arm or pelvis bone reaches across an empty chest and takes rib
+  vertices (11 / 94 sampled on the skeleton warrior; the original author's rig leaks 0). Geodesic trimming changed
+  nothing (voxel dilation fills the thin walls too); splitting by part count failed because mannequiny has 60 parts.
+  [막힌 곳: KayKit 해골 전사]
+- **Failed — deleting finger segments the source does not have.** Rabbit improved slightly (12.19 → 11.30x max edge
+  stretch), godot_player went 1.87 → 8.46x and a KayKit mage stopped rigging. Reverted. [실패: 손가락 마디 지우기]
+- **Failed — copying the original author's weights by joint position.** Leak dropped to 0 / 94, but stretch went
+  5.78 → 11.25x (skeleton warrior) and 3.72 → 20.71x (cesium_man): zero-length marker joints make "nearest position"
+  meaningless. Needs those markers rebuilt as segments first. [실패: 원작자의 가중치를 자리로 짝지어]
+- **Replaced — trimming influences with one ray per vertex.** It fixed the hollow skeleton (11 → 0 leak) but on
+  mannequiny, built from separate parts, stretch went 4.71 → 7.88x (87 edges over 2x vs 6): the way to a neighbouring
+  part always leaves the shell. `rig.cross_trim` now measures voxel-geodesic distance instead and is on by default
+  (`bonewright/bpy_scripts/_voxgeo.py` explains why); ROADMAP and the 0.2.0 changelog still describe the ray version.
+- **Open hole — retargeting onto a `--from-shape` rig.** It runs (16 bones mapped on mannequiny) but tears: max stretch
+  44x, 1,228 edges over 2x, against under 6x on the preset path, because the arm chain starts inside the chest. Two fixes
+  failed (sphere thickness does not separate torso from limbs on low-poly meshes; dropping short chains also cut 2–4 of
+  a scorpion's 10 legs). Use shape rigs for posing, weights and export, not motion. [모양 리그에 이름을 붙였다]
+- **Partial — quadruped motion.** Wolf front legs and tails are not retargeted; a clip that leans forward the whole time
+  loses the lean (the reference frame is the clip's most typical pose). [애니메이션 (3단계)]
+- **Not built — partial meshes.** Upper-body-only meshes are rejected; there is no partial-rig route yet.
+
 ### Which backend produced these numbers
 
 Every accuracy figure in this README comes from the **deterministic path** (`BW_BACKEND=mock`), which places joints
@@ -404,7 +433,8 @@ Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. 
 
 When a command stops with `BLOCKED:`, the line starting with `→` says what to change. For an error it did not
 expect, it also prints the run's `logs/` folder (one Blender log per step); prefix the command with `BW_DEBUG=1`
-to get the full Python traceback for an issue report.
+to get the full Python traceback for an issue report. `bw doctor --for-issue <run-id>` gathers the versions, the
+run's `state.json` and the tail of its last log into one block to paste into the issue, with home paths replaced by `~`.
 
 A-pose input rigs as well as T-pose. `--rest-pose t` bakes a T-pose rest, which downstream animation usually expects.
 Measured on one asset posed at several arm angles, against its own original T-pose skeleton:

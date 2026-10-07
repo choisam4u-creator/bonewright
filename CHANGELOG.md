@@ -5,10 +5,16 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
-Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command, and the only new flag is `bw --version`.
+Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command; the new flags are `bw --version` and `bw doctor --for-issue`.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `docs/GUIDE.md` → "Known gaps and failed attempts": an English digest of the open holes and failed experiments
+  recorded in the Korean `docs/ROADMAP.md`, with the numbers. CONTRIBUTING points there; `tests/test_docs.py` checks
+  every `GUIDE.md#anchor` link against the guide's headings.
+- `bw doctor --for-issue [RUN_ID]` prints one block to paste into a bug report: bonewright, Python and OS
+  versions, `BW_*` settings, the `bw doctor` result, and one run's `state.json` with the last 40 lines of its newest
+  log (the latest run when no id is given). Home-folder paths are replaced with `~`. The issue templates ask for it.
 - `examples/rig_sample.py`: rig a small sample mesh (procedural capsule doll, the CC0 `adventurer`, or any GLB)
   and write a table of deform-bone count, left/right split and names. `--table x.glb` reads a GLB without Blender.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them
@@ -19,7 +25,9 @@ See `docs/RELEASING.md` for the release steps.
 - A pull-request template with the CONTRIBUTING checklist (tests, license boundary, CHANGELOG) and a before/after
   table for the four benchmark assets when joint code changes.
 - `tests/test_docs.py`: relative links in the README, Korean README, guide and examples README must resolve, and
-  every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender.
+  every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender. The same
+  checks cover CONTRIBUTING, SECURITY, RELEASING and the issue / pull-request templates, plus the guide section
+  titles the templates quote and the files `ISSUE_TEMPLATE/config.yml` links to.
 
 - Package metadata: project URLs (home, guide, issues, changelog) and both license notices (`LICENSE`, MIT, and
   `bonewright/bpy_scripts/LICENSE`, GPL) are now shipped in the sdist and wheel (`license-files`, hatchling ≥ 1.27).
@@ -40,7 +48,8 @@ See `docs/RELEASING.md` for the release steps.
 - `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
   Korean for `ko`. So do the gate rejection reasons listed under `BLOCKED:` and the `bw rig` / `bw motion` progress
   log, and the analysis warnings and errors raised inside the Blender scripts (`bpy_scripts/_common.T`, the same
-  rule without importing the MIT package). `tests/test_i18n.py` fails on any bare Korean string in `bpy_scripts/`.
+  rule without importing the MIT package), the `bw bench` table and summary, and the `runs/<id>/report.md` lines.
+  `tests/test_i18n.py` fails on any bare Korean string anywhere in `bonewright/` (docstrings aside).
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

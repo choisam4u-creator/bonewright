@@ -7,7 +7,9 @@ Thanks for looking. This project is small and opinionated; the rules below are w
 **Claims in the README and in commit messages must be backed by a number you actually measured.**
 Not "improves accuracy" — `mannequiny 2.96 cm, 1.6% of height, unchanged`. If you could not measure it, say
 you could not measure it. Failed attempts belong in `docs/ROADMAP.md` with the number that killed them; several
-sections of that file exist only to stop the next person repeating an experiment that did not work.
+sections of that file exist only to stop the next person repeating an experiment that did not work. It is in Korean;
+[Known gaps and failed attempts](docs/GUIDE.md#known-gaps-and-failed-attempts) in the guide is the English digest —
+add a line there too when you record a new failure.
 
 ## Before you open a PR
 
@@ -43,7 +45,7 @@ through the JSON contract in `blender.run_script`.
 
 ## What to work on
 
-`docs/ROADMAP.md` ends with the open holes and what has already failed. The largest one today: motion retargeting
+`docs/ROADMAP.md` ends with the open holes and what has already failed ([English digest](docs/GUIDE.md#known-gaps-and-failed-attempts)). The largest one today: motion retargeting
 onto a `--from-shape` rig tears the mesh (max edge stretch 44x vs under 6x on the preset path) because the arm
 chain starts inside the chest.
 
@@ -59,7 +61,7 @@ Locally, the command above runs the whole suite if Blender (or the `bpy` wheel) 
 skips the Blender half if it is not — so check the skip count before trusting a local pass:
 
 ```
-Ran 97 tests ... OK (skipped=13)   ← the thirteen that matter did not run
+Ran 105 tests ... OK (skipped=13)   ← the thirteen that matter did not run
 ```
 
 Set `BW_REQUIRE_BLENDER=1` to make a missing Blender a failure instead of a skip.

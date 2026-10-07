@@ -87,7 +87,7 @@ def write_inputs(work: Path, inputs: dict[str, str]) -> None:
     for filename, content in inputs.items():
         target = work / filename
         if not target.resolve().is_relative_to(work.resolve()):
-            raise CodexError(f"작업폴더 밖 입력 경로: {filename}")
+            raise CodexError(T(f"작업폴더 밖 입력 경로: {filename}", f"input path outside the work folder: {filename}"))
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
 
@@ -133,7 +133,7 @@ def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_
     started = time.time()
     if backend == "mock":
         if mock is None:
-            raise CodexError("mock 응답 생성기가 없음")
+            raise CodexError(T("mock 응답 생성기가 없음", "no mock response generator"))
         # mock 도 입력 크기에 비례한 토큰을 보고해 예산·비용 로직을 테스트할 수 있게 한다(4자 ≈ 1토큰 가정)
         approx_in = (sum(len(v) for v in inputs.values()) + len(prompt)) // 4
         return mock(name, prompt, inputs), {"step": name, "backend": "mock", "seconds": round(time.time() - started, 2),

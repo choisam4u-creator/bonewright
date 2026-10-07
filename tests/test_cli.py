@@ -107,6 +107,60 @@ class DoctorTests(unittest.TestCase):
         self.assertNotIn("없음", text)
 
 
+class IssueReportTests(unittest.TestCase):
+    """`bw doctor --for-issue [RUN_ID]`: 이슈에 붙일 덩어리. 개인 경로는 ~ 로, 실행 하나의 state.json·로그 꼬리를 싣는다."""
+
+    def run_report(self, root, *args, lang="en"):
+        out, err = io.StringIO(), io.StringIO()
+        with patch.dict("os.environ", {"BW_LANG": lang}), patch.object(cli, "ROOT", root), \
+                patch.object(cli, "doctor", side_effect=lambda: print("[required] Blender: /Users/someone/Blender.app") or 0), \
+                patch.object(sys, "argv", ["bw", "doctor", "--for-issue", *args]), \
+                patch("sys.stdout", out), patch("sys.stderr", err):
+            code = cli.main()
+        return code, out.getvalue(), err.getvalue()
+
+    def make_run(self, root, rid, log_lines, mtime):
+        import os
+        d = root / "runs" / rid / "logs"; d.mkdir(parents=True)
+        (d.parent / "state.json").write_text('{"step": "rig", "status": "failed", "mesh": "%s/x.glb"}' % Path.home())
+        (d / "rig.log").write_text("\n".join(log_lines))
+        os.utime(d.parent / "state.json", (mtime, mtime))
+
+    def test_latest_run_log_tail_and_paths_scrubbed(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            self.make_run(root, "old", ["old"], 1000)
+            self.make_run(root, "new", [f"line {i}" for i in range(100)], 2000)
+            code, out, err = self.run_report(root)
+        self.assertEqual(code, 0)
+        self.assertIn(f"bonewright {cli.__version__}", out)
+        self.assertIn("run `new`", out)
+        self.assertIn("line 99", out); self.assertIn("line 60", out); self.assertNotIn("line 59", out)
+        self.assertIn('"mesh": "~/x.glb"', out)
+        self.assertIn("Blender: ~/Blender.app", out)
+        self.assertNotIn("/Users/", out)
+        self.assertIn("paste the block", err)
+
+    def test_named_run_and_missing_run(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            self.make_run(root, "a", ["from a"], 1000)
+            self.make_run(root, "b", ["from b"], 2000)
+            code, out, _ = self.run_report(root, "a")
+            self.assertEqual(code, 0); self.assertIn("from a", out); self.assertNotIn("from b", out)
+            code, out, err = self.run_report(root, "nope")
+            self.assertEqual(code, 2); self.assertIn("bw status", err)
+
+    def test_no_runs(self):
+        with tempfile.TemporaryDirectory() as t:
+            code, out, _ = self.run_report(Path(t), lang="ko")
+        self.assertEqual(code, 0)
+        self.assertIn("실행 기록 없음", out)
+
+    def test_scrub_windows_and_other_users(self):
+        self.assertEqual(cli.scrub(r"C:\Users\kim\x.glb /home/lee/y /Users/park/z"), r"~\x.glb ~/y ~/z")
+
+
 class FindBlenderWindowsTests(unittest.TestCase):
     """Windows 설치 관리자 경로(`Program Files\\Blender Foundation\\Blender X.Y`)를 찾고, 여러 판이면 가장 높은 것."""
 

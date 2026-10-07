@@ -147,7 +147,7 @@ def _quad_fit(L, meta):
             o = remap(meta[sh]["tail"]); dlt = [pts[0][i] - o[i] for i in range(3)]
             out.append({"name": sh, "head": [round(remap(meta[sh]["head"])[i] + dlt[i], 4) for i in range(3)],
                         "tail": [round(pts[0][i], 4) for i in range(3)]})
-    return {"targets": out, "reasoning": "mock 사족: 잰 발 위치에 메타리그 다리 사슬을 심는다", "confidence": 0.5}
+    return {"targets": out, "reasoning": "mock quadruped: metarig leg chains planted at the measured feet", "confidence": 0.5}
 
 
 def mock_backend(step: str, prompt: str, inputs: dict) -> dict:
@@ -201,7 +201,7 @@ def mock_backend(step: str, prompt: str, inputs: dict) -> dict:
         for name, v in t.items():
             base = meta.get(name, {"head": [0, 0, 0], "tail": [0, 0, 0.05]})
             out.append({"name": name, "head": v.get("head", base["head"]), "tail": v.get("tail", base["tail"])})
-        return {"targets": out, "reasoning": "mock: 랜드마크 비례 배치", "confidence": 0.5}
+        return {"targets": out, "reasoning": "mock: placed in proportion to the landmarks", "confidence": 0.5}
     if step == "judge":
         return {"bones_outside_mesh": [], "proportions_ok": True, "issues": [], "confidence": 0.5, "notes": "mock"}
     raise ValueError(step)
