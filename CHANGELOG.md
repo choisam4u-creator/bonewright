@@ -5,10 +5,13 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
-Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command, and the only new flag is `bw --version`.
+Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command; the new flags are `bw --version` and `bw doctor --for-issue`.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `bw doctor --for-issue [RUN_ID]` prints one block to paste into a bug report: bonewright, Python and OS
+  versions, `BW_*` settings, the `bw doctor` result, and one run's `state.json` with the last 40 lines of its newest
+  log (the latest run when no id is given). Home-folder paths are replaced with `~`. The issue templates ask for it.
 - `examples/rig_sample.py`: rig a small sample mesh (procedural capsule doll, the CC0 `adventurer`, or any GLB)
   and write a table of deform-bone count, left/right split and names. `--table x.glb` reads a GLB without Blender.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them

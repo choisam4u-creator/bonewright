@@ -404,7 +404,8 @@ Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. 
 
 When a command stops with `BLOCKED:`, the line starting with `→` says what to change. For an error it did not
 expect, it also prints the run's `logs/` folder (one Blender log per step); prefix the command with `BW_DEBUG=1`
-to get the full Python traceback for an issue report.
+to get the full Python traceback for an issue report. `bw doctor --for-issue <run-id>` gathers the versions, the
+run's `state.json` and the tail of its last log into one block to paste into the issue, with home paths replaced by `~`.
 
 A-pose input rigs as well as T-pose. `--rest-pose t` bakes a T-pose rest, which downstream animation usually expects.
 Measured on one asset posed at several arm angles, against its own original T-pose skeleton:

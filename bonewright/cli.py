@@ -1,8 +1,12 @@
 """bw: bonewright 명령줄. rig · motion · demo · bench · doctor · status · usage · plugin-path"""
 import argparse
+import contextlib
+import io
 import json
 import math
 import os
+import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -56,6 +60,55 @@ def doctor() -> int:
     return 0 if ok else 1
 
 
+def scrub(text: str) -> str:
+    """이슈에 붙일 글에서 개인 경로를 지운다: 홈 폴더 → `~`, 남은 /Users/<이름>·/home/<이름>·C:\\Users\\<이름> → `~`."""
+    home = str(Path.home())
+    if len(home) > 1:
+        text = text.replace(home, "~")
+    return re.sub(r"(/Users/|/home/|[A-Za-z]:\\Users\\)[^/\\\s'\"]+", "~", text)
+
+
+def latest_run(runs: Path) -> str | None:
+    """state.json 이 있는 실행 중 가장 최근 것의 id."""
+    cand = [p for p in runs.iterdir() if (p / "state.json").is_file()] if runs.is_dir() else []
+    return max(cand, key=lambda p: (p / "state.json").stat().st_mtime).name if cand else None
+
+
+def issue_report(run_id: str | None, tail: int = 40) -> int:
+    """`bw doctor --for-issue [RUN_ID]`: 버그 신고에 붙일 한 덩어리(마크다운). 버전·OS·Python·`bw doctor` 결과와
+    실행 하나의 state.json·마지막 로그 꼬리를 모으고 개인 경로를 `~` 로 바꾼다. 이슈 템플릿 3종이 손으로 모으라던 값들."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = doctor()
+    lines = ["<details><summary>bw doctor --for-issue</summary>", "", "```",
+             f"bonewright {__version__}", f"Python {platform.python_version()} ({sys.executable})",
+             f"OS {platform.platform()} {platform.machine()}"]
+    lines += [f"{k}={v}" for k, v in sorted(os.environ.items()) if k.startswith("BW_")]
+    lines += ["", buf.getvalue().rstrip(), "```"]
+    runs = ROOT / "runs"
+    rid = run_id or latest_run(runs)
+    if run_id and not (runs / run_id).is_dir():
+        print("BLOCKED:", scrub(T(f"실행 기록이 없다: {runs / run_id}\n  → `bw status` 로 목록을 보거나 run-id 없이 `bw doctor --for-issue` 를 돌려라",
+                                 f"no such run: {runs / run_id}\n  → list runs with `bw status`, or run `bw doctor --for-issue` without a run-id")), file=sys.stderr)
+        return 2
+    if rid:
+        d = runs / rid
+        lines += ["", f"run `{rid}`", "", "```json",
+                  (d / "state.json").read_text(encoding="utf-8").strip() if (d / "state.json").is_file() else T("(state.json 없음)", "(no state.json)"), "```"]
+        logs = sorted((d / "logs").glob("*.log"), key=lambda p: p.stat().st_mtime) if (d / "logs").is_dir() else []
+        if logs:
+            last = logs[-1].read_text(encoding="utf-8", errors="replace").splitlines()[-tail:]
+            lines += ["", T(f"마지막 로그 `logs/{logs[-1].name}` 끝 {len(last)}줄", f"last log `logs/{logs[-1].name}`, final {len(last)} lines"),
+                      "", "```", *last, "```"]
+    else:
+        lines += ["", T("(runs/ 에 실행 기록 없음)", "(no runs under runs/)")]
+    lines += ["", "</details>"]
+    print(scrub("\n".join(lines)))
+    print(T("\n↑ 위 덩어리를 이슈에 그대로 붙여 넣어라. 붙이기 전에 남은 개인 정보가 없는지 한 번 보라",
+            "\n↑ paste the block above into the issue as is. Check it once for anything private before posting"), file=sys.stderr)
+    return code
+
+
 def recent_logs(since: float, run_id: str | None = None) -> Path | None:
     """실패한 실행의 로그 폴더. run-id 를 안 줬으면 이번 명령이 시작된 뒤 바뀐 runs/ 아래 폴더 중 가장 최근 것."""
     runs = ROOT / "runs"
@@ -83,9 +136,9 @@ def report_unexpected(e: Exception, since: float, run_id: str | None) -> None:
     print(T("  → 원인 추적: 같은 명령 앞에 BW_DEBUG=1 을 붙이면 트레이스백을 보여 준다",
             "  → to see the traceback, run the same command with BW_DEBUG=1 in front"), file=sys.stderr)
     print(T("  → 고쳐지지 않으면 이슈의 'A rig came out wrong' 또는 'Install or `bw doctor` problem' 템플릿에"
-            " 이 출력과 `bw doctor` 결과를 붙여 달라",
+            " 이 출력과 `bw doctor --for-issue` 결과를 붙여 달라",
             "  → if it persists, open an issue with the 'A rig came out wrong' or 'Install or `bw doctor` problem'"
-            " template and paste this output and `bw doctor`"), file=sys.stderr)
+            " template and paste this output and what `bw doctor --for-issue` prints"), file=sys.stderr)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -130,7 +183,10 @@ def build_parser() -> argparse.ArgumentParser:
     bm.add_argument("--weights", choices=["auto", "proxy"], default=None, help=T("스키닝 방법 강제(A/B 비교용)", "force a skinning method (for A/B comparison)"))
     st = sub.add_parser("status", help=T("실행 기록 목록 또는 한 실행의 단계·상태", "list runs, or one run's step and status")); st.add_argument("run_id", nargs="?")
     u = sub.add_parser("usage", help=T("모델 호출 사용량 장부 요약", "summarise the model-usage ledger")); u.add_argument("--days", type=int, default=7)
-    sub.add_parser("doctor", help=T("Blender·bpy·codex·kimodo.cpp 가 준비됐는지 확인", "check that Blender or bpy, codex and kimodo.cpp are reachable"))
+    dr = sub.add_parser("doctor", help=T("Blender·bpy·codex·kimodo.cpp 가 준비됐는지 확인", "check that Blender or bpy, codex and kimodo.cpp are reachable"))
+    dr.add_argument("--for-issue", nargs="?", const="", metavar="RUN_ID",
+                    help=T("버그 신고에 붙일 덩어리를 찍는다: 버전·OS·이 점검 결과·실행 하나(생략하면 가장 최근)의 state.json·마지막 로그 꼬리. 개인 경로는 ~ 로 바꾼다",
+                           "print a block to paste into a bug report: versions, OS, this check, and one run's state.json and log tail (the latest run if omitted). Home paths become ~"))
     sub.add_parser("plugin-path", help=T("Codex 플러그인 폴더 경로 출력", "print the Codex plugin folder"))
     return p
 
@@ -140,7 +196,7 @@ def main() -> int:
     started = time.time() - 1  # 파일 시각 해상도 여유
     try:
         if a.cmd == "doctor":
-            return doctor()
+            return doctor() if a.for_issue is None else issue_report(a.for_issue or None)
         if a.cmd == "plugin-path":
             try:
                 print(plugin_dir()); return 0

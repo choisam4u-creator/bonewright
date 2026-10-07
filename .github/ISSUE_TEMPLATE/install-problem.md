@@ -4,8 +4,9 @@ about: bw will not start, cannot find Blender / bpy / codex, or stops with BLOCK
 labels: install
 ---
 
-**What `bw doctor` prints**, in full (it lists Blender or the `bpy` wheel, the codex CLI and its login, kimodo.cpp,
-and the working folder). Remove anything private from paths before pasting.
+**What `bw doctor --for-issue` prints**, in full (versions, OS, Blender or the `bpy` wheel, the codex CLI and its
+login, kimodo.cpp, the working folder, and the latest run's state and log tail; home paths are already shown as `~`).
+Check it once for anything private before pasting.
 
 ```
 paste here
