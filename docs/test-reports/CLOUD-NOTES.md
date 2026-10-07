@@ -1,5 +1,34 @@
 # 클라우드 회차 기록
 
+## 2026-10-07 (2회차)
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(PR #9 병합분) 빨리감기 병합.
+- `rig.cross_trim` 기본값 문서 정정: v0.2.0 태그의 `config.py` 도 `True` 인데 CHANGELOG 0.2.0 절·ROADMAP 은 "기본 끔"(옛 광선 판정).
+  0.2.0 절을 정정 표기와 함께 고치고 ROADMAP 에 정정 두 줄, `[Unreleased] Fixed` 에 한 줄.
+  `test_docs.DefaultClaimTests`: README·GUIDE·CHANGELOG 의 "`섹션.키` … on/off by default" 를 `config.DEFAULTS` 와 대조.
+- `runs/<id>/report.md` 절대 경로 제거(`pipeline._shown`): 실행 폴더 안 파일은 상대 경로(`targets.json`·`02_rigged.blend`·
+  `motion.blend`), 밖(메시·BVH·`--export` 경로)은 홈 폴더를 `~` 로. 시험 2개 + 리깅·리타겟 블렌더 시험에 단언 추가.
+- 사족 예시: `make_test_mesh` 에 `kind=quadruped`(절차 생성 네 발 캡슐 개, 키 0.92m, 앞 -Y, 꼬리).
+  `rig_sample.py --preset quadruped` → 관문 ok·변형 본 110(앞·뒷다리 체인·발가락). 찾은 발 위치가 놓은 자리와 일치(y 중심 이동 반영).
+  report 에 "조각 사이 빈틈을 지나는 본 4"(뒷다리 shin) 경고는 남는다 — 예시 머리 주석에 적음.
+  `examples/sample-output/capsule_dog.md`, README·README.ko·examples/README 에서 링크. 시험 3개(표 재생성·네 다리·지금 리깅과 대조).
+- 행동 강령: `docs/CODE-OF-CONDUCT-PLAN.md`(선택지·연락처 후보) + `docs/drafts/CODE_OF_CONDUCT.md`(Contributor Covenant 2.1 원문,
+  공식 저장소에서 받음, 연락 칸 비움). 루트에는 넣지 않았다(샘님 결정). 루트로 옮겼는데 연락 칸이 비면 실패하는 시험.
+- 백로그 남은 항목 3개라 새 항목은 추가하지 않음. CONTRIBUTING 시험 수 112(블렌더 14).
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2, Python 3.13 venv) — **112개 모두 통과, 건너뜀 0**(179초). `BW_SKIP_BLENDER=1`(Python 3.11) — 112개 중 14개 건너뜀, 나머지 통과.
+- `python3 scripts/check_license_boundary.py` OK. 렌더는 안 돌렸다(화면 없는 리눅스, CI 와 같은 이유) — 캡슐 개가 눈으로 괜찮은지는 Mac 에서.
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+python3 examples/rig_sample.py --preset quadruped && open examples/out/runs/capsule_dog/   # 렌더 3장으로 네 다리 본 위치 눈으로
+grep -c "$HOME" examples/out/runs/capsule_dog/report.md   # 0 이어야 한다(홈 경로가 ~ 로 바뀜)
+```
+
 ## 2026-10-07
 
 **한 일**
