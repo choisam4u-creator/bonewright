@@ -184,7 +184,7 @@ on the deterministic path; the ROADMAP section named in brackets has the full ta
 - **Replaced — trimming influences with one ray per vertex.** It fixed the hollow skeleton (11 → 0 leak) but on
   mannequiny, built from separate parts, stretch went 4.71 → 7.88x (87 edges over 2x vs 6): the way to a neighbouring
   part always leaves the shell. `rig.cross_trim` now measures voxel-geodesic distance instead and is on by default
-  (`bonewright/bpy_scripts/_voxgeo.py` explains why); ROADMAP and the 0.2.0 changelog still describe the ray version.
+  (`bonewright/bpy_scripts/_voxgeo.py` explains why). The 0.2.0 changelog first described the ray version; corrected.
 - **Open hole — retargeting onto a `--from-shape` rig.** It runs (16 bones mapped on mannequiny) but tears: max stretch
   44x, 1,228 edges over 2x, against under 6x on the preset path, because the arm chain starts inside the chest. Two fixes
   failed (sphere thickness does not separate torso from limbs on low-poly meshes; dropping short chains also cut 2–4 of

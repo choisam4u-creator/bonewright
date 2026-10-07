@@ -233,5 +233,23 @@ class FirstRunTests(unittest.TestCase):
         self.assertIn(f"변형 본 {deform}개", (REPO / "examples" / "README.md").read_text(encoding="utf-8"))
 
 
+class DefaultClaimTests(unittest.TestCase):
+    """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.
+    10/7: 0.2.0 CHANGELOG·ROADMAP 이 옛 광선 판정 때의 "기본 끔"을 적은 채 나갔다(실제는 켬)."""
+    CLAIM = re.compile(r"`(\w+)\.(\w+)`[^.;\n`]{0,100}?\b(on|off)\b\**\s+by default")
+
+    def test_on_off_claims_match_config(self):
+        from bonewright.config import DEFAULTS
+        seen = 0
+        for doc in (REPO / "README.md", REPO / "docs" / "GUIDE.md", REPO / "CHANGELOG.md"):
+            for sec, key, state in self.CLAIM.findall(doc.read_text(encoding="utf-8")):
+                if sec not in DEFAULTS or key not in DEFAULTS[sec]:
+                    continue
+                seen += 1
+                with self.subTest(doc=doc.name, key=f"{sec}.{key}"):
+                    self.assertEqual(bool(DEFAULTS[sec][key]), state == "on")
+        self.assertGreater(seen, 0)   # 정규식이 아무것도 못 잡으면 시험이 아무 일도 안 한 것이다
+
+
 if __name__ == "__main__":
     unittest.main()

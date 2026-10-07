@@ -59,6 +59,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- **`rig.cross_trim` is on by default; the documentation said otherwise.** The 0.2.0 changelog entry and
+  `docs/ROADMAP.md` described the first, ray-based version. The released code uses voxel-geodesic distance and
+  has it on (`bonewright/config.py`). Both texts are corrected, and `tests/test_docs.py` now checks every
+  "`section.key` … on/off by default" claim in the README, guide and changelog against `config.DEFAULTS`.
 - **Input mistakes now stop before Blender starts, and say what to change.** A missing or unsupported mesh,
   a missing `--targets`/`--map`/`--bvh` file, a broken JSON file, or a run id with no rig used to surface as a
   Blender traceback or a bare "file not found". They now raise `Blocked` with a `→` line naming the fix
@@ -118,10 +122,12 @@ Summary: humanoid and quadruped Rigify presets, rejection gate, `--from-skeleton
 - Held props (a weapon, a trident) are detected by weight concentration on hand bones and excluded from every
   size and centre measurement, and bound rigidly to one bone.
 - `scripts/check_license_boundary.py`, enforced in CI: the MIT core must never import `bpy`.
-- `rig.cross_trim` (**off by default**) drops influences whose straight line from the vertex to the bone leaves
-  the mesh. On a hollow ribcage an arm bone reaches across the empty chest and takes the ribs — KayKit skeleton
-  warrior's arm-into-torso leak goes from 11 of 94 vertices to 0. On an ordinary layered game mesh it costs more
-  than it gains (mannequiny retarget stretch 4.71x off, 7.88x on, with no leak either way), so it stays off.
+- `rig.cross_trim` drops influences that reach a vertex through empty space. On a hollow ribcage an arm bone
+  reaches across the empty chest and takes the ribs — KayKit skeleton warrior's arm-into-torso leak goes from 11 of
+  94 vertices to 0. *Corrected in 0.2.1:* this entry first said "off by default" and described a one-ray test.
+  That test cost more than it gained on an ordinary layered game mesh (mannequiny retarget stretch 4.71x off, 7.88x
+  on), so before the release it was replaced by a voxel-geodesic test (`bpy_scripts/_voxgeo.py`), and 0.2.0
+  shipped with `rig.cross_trim` **on by default**.
 - A regression test that retargets a **real** CC0 asset and measures mesh stretch. The procedural test mesh has a
   single shell and never showed the cost above; the real asset fails at 9.34x with the trim on.
 
