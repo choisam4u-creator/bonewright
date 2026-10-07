@@ -68,6 +68,22 @@ class DocLinkTests(unittest.TestCase):
                     self.assertTrue((doc.parent / target).exists(), f"{doc.relative_to(REPO)} → {target} 없음")
 
 
+    def test_guide_anchors_exist(self):
+        """`GUIDE.md#<앵커>` 링크가 GUIDE 의 실제 제목을 가리키는지(GitHub 방식: 소문자, 구두점 삭제, 공백 → -)."""
+        def slug(h):
+            return re.sub(r"[^\w\- ]", "", h.strip().lower()).replace(" ", "-")
+        heads = {slug(ln.lstrip("#")) for ln in (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8").splitlines()
+                 if ln.startswith("#")}
+        self.assertIn("known-gaps-and-failed-attempts", heads)
+        seen = 0
+        for doc in DOCS:
+            for m in re.finditer(r"\]\(([^)\s]*GUIDE\.md)#([^)\s]+)\)", doc.read_text(encoding="utf-8")):
+                seen += 1
+                with self.subTest(doc=doc.name, anchor=m.group(2)):
+                    self.assertIn(m.group(2), heads)
+        self.assertGreater(seen, 2)
+
+
 class DocCommandTests(unittest.TestCase):
     def test_documented_commands_parse(self):
         parser = cli.build_parser()

@@ -47,7 +47,7 @@
 
 - [x] `bw bench`·`bw report`(보고서 md)·mock·codex 진행 문구의 T() 밖 한국어 36곳 영문화(bench 17·pipeline 12·codex 2·gates 2·mock 2·manifest 1) → 10/7 처리, gates 2곳은 한글 범위 비교라 예외 — 근거: 10/6 AST 집계. 화면 진행 로그와 Blender 스크립트는 영어가 됐지만 `bw bench` 표와 `runs/<id>/report.md` 본문이 아직 한국어라 영어 사용자가 결과 보고서를 못 읽는다. 끝나면 `test_i18n` 의 "T() 밖 한글 금지"를 `bonewright/` 전체로 넓힌다
 - [x] 문서 점검 범위 넓히기(10/7, GUIDE 절 제목·config.yml 링크 대조 포함): `tests/test_docs.py` 의 상대 링크·`bw` 명령 점검에 CONTRIBUTING·SECURITY·`.github/ISSUE_TEMPLATE/*`·PR 템플릿·`docs/RELEASING.md` 추가 — 근거: 지금은 README·README.ko·GUIDE·examples/README 4개만 본다. 이슈 템플릿은 `docs/GUIDE.md` 절 제목("Which flag do I want?")과 `--from-skeleton` 등 옵션을 적어 두었고, 공개 뒤 신고자가 처음 따라 하는 문서다
-- [ ] `ROADMAP.md`(한국어 55KB) 영문 요약: CONTRIBUTING(영문)이 "실패한 시도는 ROADMAP 에, 남은 구멍은 ROADMAP 끝에"라고 두 번 가리키는데 영어 사용자가 읽을 수 없다 → GUIDE 에 "Known gaps and failed attempts" 절(숫자 포함 10줄 안팎)을 두고 CONTRIBUTING 이 그 절을 가리키게 — 근거: 10/6 `docs/DOCS-SPLIT-PLAN.md` 의 "그대로 둘 것" 표
+- [x] `ROADMAP.md`(한국어 55KB) 영문 요약(10/7 GUIDE "Known gaps and failed attempts" 7줄, 앵커 시험): CONTRIBUTING(영문)이 "실패한 시도는 ROADMAP 에, 남은 구멍은 ROADMAP 끝에"라고 두 번 가리키는데 영어 사용자가 읽을 수 없다 → GUIDE 에 "Known gaps and failed attempts" 절(숫자 포함 10줄 안팎)을 두고 CONTRIBUTING 이 그 절을 가리키게 — 근거: 10/6 `docs/DOCS-SPLIT-PLAN.md` 의 "그대로 둘 것" 표
 - [ ] 사족 예시 결과: `examples/sample-output/` 에 사람(캡슐 인형)만 있다 → `make_test_mesh` 로 절차 생성한 네 발 메시가 되는지 보고, 되면 `rig_sample.py --preset quadruped` 결과 표를 싣고 README 의 "Rigs humans and four-legged animals" 옆에서 링크 — 근거: README 첫 줄이 사족을 내세우지만 처음 보는 사람이 확인할 예시는 사람 것뿐이다(라이선스: 절차 생성이면 문제 없음)
 - [ ] `CODE_OF_CONDUCT.md` 여부 결정용 메모 — 근거: 저장소 루트에 CONTRIBUTING·SECURITY·LICENSE 는 있고 행동 강령은 없다. GitHub 커뮤니티 프로필 점검 항목이며, 넣을지(Contributor Covenant 2.1 원문)·연락처를 무엇으로 할지는 샘님 결정이라 안과 문안만 준비(연락처 칸 비움)
 

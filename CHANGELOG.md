@@ -9,6 +9,9 @@ Proposed next version: **0.2.1** — fixes, documentation and examples only; no 
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `docs/GUIDE.md` → "Known gaps and failed attempts": an English digest of the open holes and failed experiments
+  recorded in the Korean `docs/ROADMAP.md`, with the numbers. CONTRIBUTING points there; `tests/test_docs.py` checks
+  every `GUIDE.md#anchor` link against the guide's headings.
 - `bw doctor --for-issue [RUN_ID]` prints one block to paste into a bug report: bonewright, Python and OS
   versions, `BW_*` settings, the `bw doctor` result, and one run's `state.json` with the last 40 lines of its newest
   log (the latest run when no id is given). Home-folder paths are replaced with `~`. The issue templates ask for it.
