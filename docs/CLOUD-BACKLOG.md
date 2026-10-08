@@ -64,9 +64,17 @@
 ## 2026-10-08 추가 (공개 준비 기준)
 
 - [x] (10/8: `config._read_user_config`, `test_errors.test_broken_settings_file`) 깨진 `runs/config.json`(끝 쉼표·목록) → 줄·칸을 짚는 `BLOCKED:` — 근거: 10/8 실측, `{"lang": "en",}` 한 글자에 "예상 못 한 오류 — 이슈를 열어라"가 떴다. 사용자가 고칠 수 있는 입력 실수인데 이슈 신고로 안내했다
-- [x] `docs/GUIDE.md` 에 "Settings (`runs/config.json`)" 절: 사용자가 바꿀 만한 키(`lang`·`rig.*`·`blender.app`·`budget`·`kimodo.root`)와 기본값 표, 우선순위(`--lang` > config > `BW_LANG`), `test_docs` 로 표 값과 `config.DEFAULTS` 대조 — 근거: config.json 은 GUIDE 에서 kimodo 한 곳(497줄)만 나오고, 10/8 프롬프트 언어 우선순위에 config 가 끼었는데 적힌 곳이 CHANGELOG 뿐이다
-- [x] `runs/config.json` 의 모르는 키(오타) 경고: `config._merge` 가 `{"rig": {"cross_trimm": false}}` 를 조용히 받아 기본값으로 돈다 → `bw doctor` 와 `bw rig` 시작 줄에 "모르는 설정 키" 한 줄(멈추지는 않음) — 근거: 10/8 코드 읽기. 설정이 안 먹은 줄 모르고 결과가 이상하다는 이슈가 될 수 있다
-- [x] 10/8 CI 새 단계 결과 확인: `check_issue_report.py` 가 unit·unit-windows·blender 잡에서 초록인지(특히 Windows 의 `C:\Users\runneradmin` 치환, git-bash 경로), 빨가면 고친다 — 근거: Windows 홈 경로 치환은 아직 한 번도 실제로 돈 적이 없다(문자열 시험만)
+- [x] (10/8 2회차: GUIDE 표·예시, `test_docs.SettingsTableTests`) `docs/GUIDE.md` 에 "Settings (`runs/config.json`)" 절: 사용자가 바꿀 만한 키(`lang`·`rig.*`·`blender.app`·`budget`·`kimodo.root`)와 기본값 표, 우선순위(`--lang` > config > `BW_LANG`), `test_docs` 로 표 값과 `config.DEFAULTS` 대조 — 근거: config.json 은 GUIDE 에서 kimodo 한 곳(497줄)만 나오고, 10/8 프롬프트 언어 우선순위에 config 가 끼었는데 적힌 곳이 CHANGELOG 뿐이다
+- [x] (10/8 2회차: `config.unknown_keys`·`unknown_keys_line`, `test_errors.test_unknown_settings_key_warns`) `runs/config.json` 의 모르는 키(오타) 경고: `config._merge` 가 `{"rig": {"cross_trimm": false}}` 를 조용히 받아 기본값으로 돈다 → `bw doctor` 와 `bw rig` 시작 줄에 "모르는 설정 키" 한 줄(멈추지는 않음) — 근거: 10/8 코드 읽기. 설정이 안 먹은 줄 모르고 결과가 이상하다는 이슈가 될 수 있다
+- [x] (10/8 2회차: run 37717221862 네 잡 모두 초록. Windows 출력에 `BW_HOME=~\bw-home`·`work folder (ROOT): ~\bw-home` — 치환이 실제로 돈다. 고칠 것 없음) 10/8 CI 새 단계 결과 확인: `check_issue_report.py` 가 unit·unit-windows·blender 잡에서 초록인지(특히 Windows 의 `C:\Users\runneradmin` 치환, git-bash 경로), 빨가면 고친다 — 근거: Windows 홈 경로 치환은 아직 한 번도 실제로 돈 적이 없다(문자열 시험만)
 - [ ] 리타겟 예시 결과: `examples/sample-output/` 에 리깅 표만 있다 → 절차 생성 짧은 BVH(시험의 3프레임 BVH 처럼, 라이선스 문제 없음)로 캡슐 인형에 `bw motion --bvh` 를 돌린 결과(매핑된 본 수·프레임 수·report.md 발췌)를 싣고 README "Motion retargeting" 옆에서 링크, 블렌더 시험으로 현재와 대조 — 근거: README 가 리타겟을 두 번째 기능으로 내세우는데 처음 보는 사람이 확인할 예시가 없다
-- [x] 문서 오류 신고 길: 이슈 템플릿 3종(rig·install·feature)에 "문서가 틀렸다" 칸이 없다 → `docs-problem.md` 템플릿(어느 파일·어느 줄·실제로 본 것) 또는 `config.yml` 에 안내 한 줄, `test_docs` 의 템플릿 점검에 포함 — 근거: 9/20·10/7 문서 감사에서 실제와 다른 주장이 11개·1개 나왔다. 공개 뒤 가장 흔한 첫 기여가 문서 지적이다
+- [x] (10/8 2회차: `.github/ISSUE_TEMPLATE/docs-problem.md`, `test_docs.IssueTemplateTests`) 문서 오류 신고 길: 이슈 템플릿 3종(rig·install·feature)에 "문서가 틀렸다" 칸이 없다 → `docs-problem.md` 템플릿(어느 파일·어느 줄·실제로 본 것) 또는 `config.yml` 에 안내 한 줄, `test_docs` 의 템플릿 점검에 포함 — 근거: 9/20·10/7 문서 감사에서 실제와 다른 주장이 11개·1개 나왔다. 공개 뒤 가장 흔한 첫 기여가 문서 지적이다
 
+
+## 2026-10-08 2회차 추가 (공개 준비 기준)
+
+- [ ] 예제 스크립트 오류 문구 영어: `examples/rig_sample.py` 는 Blender 가 없을 때 `BW_LANG=en` 에서도 한국어 한 줄("Blender 가 없다 — …")로 끝난다 → `T()` 로 두 언어, `test_examples` 에 "Blender 없음" 문구가 화면 언어를 따르는지 시험 — 근거: 10/8 2회차에 bpy 없는 3.11 로 돌려 봄(종료 1, 한국어). 공개 뒤 첫 사용자가 가장 먼저 돌리는 파일이다
+- [ ] `bw doctor --for-issue` 에 `runs/config.json` 싣기: 지금 덩어리엔 `BW_*` 환경 변수만 있고 설정 파일은 없다 → 있으면 내용(홈 경로 `~` 치환)과 모르는 키 경고 한 줄을 넣고 `check_issue_report.py` 로 확인 — 근거: 10/8 2회차에 설정 절·오타 경고를 넣었는데, 설정이 원인인 리깅 이슈는 설정 없이 재현이 안 된다
+- [ ] `blender.prefer_module` 설정이 어디서도 읽히지 않는다(`grep` 결과 `config.py` 한 곳) → bpy 모듈·앱 중 무엇을 먼저 쓸지 실제로 반영하거나 DEFAULTS 에서 빼고 CHANGELOG 한 줄 — 근거: 10/8 2회차 Settings 표를 쓰다 발견. 표에 넣으면 문서가 거짓말을 한다(그래서 뺐다)
+- [ ] CI 액션 버전: 10/8 run 37717221862 Windows 로그에 "Node.js 20 is deprecated … actions/checkout@v4, actions/setup-python@v5 … forced to run on Node.js 24" 경고 → 두 액션을 Node 24 판 메이저로 올리고 네 잡 초록 확인 — 근거: 강제 전환이 끝나면 공개 직후 CI 가 경고 없이 깨질 수 있다
+- [ ] README·README.ko 첫 화면에 설정 파일 한 줄: 프롬프트 언어·쉬는 자세를 `runs/config.json` 으로 고정할 수 있다는 것과 GUIDE "Settings" 링크, 두 README 짝 시험(`FirstRunTests` 처럼) — 근거: README 에 `config.json` 이 한 번도 안 나온다. 영어 사용자가 매번 `--lang en` 을 붙여야 하는 줄 안다
