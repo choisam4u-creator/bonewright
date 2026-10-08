@@ -15,6 +15,9 @@ See `docs/RELEASING.md` for the release steps.
 - `bw doctor --for-issue [RUN_ID]` prints one block to paste into a bug report: bonewright, Python and OS
   versions, `BW_*` settings, the `bw doctor` result, and one run's `state.json` with the last 40 lines of its newest
   log (the latest run when no id is given). Home-folder paths are replaced with `~`. The issue templates ask for it.
+  CI runs the installed command outside the repository on Linux, Windows and the `bpy` job
+  (`scripts/check_issue_report.py`): one `<details>` block, no traceback, and no home-folder path left — with
+  `BW_HOME` placed under the home folder so there is a path to replace (`C:\Users\<name>` on Windows).
 - `examples/rig_sample.py`: rig a small sample mesh (procedural capsule doll, the CC0 `adventurer`, or any GLB)
   and write a table of deform-bone count, left/right split and names. `--table x.glb` reads a GLB without Blender.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them

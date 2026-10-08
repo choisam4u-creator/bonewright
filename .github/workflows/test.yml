@@ -24,6 +24,9 @@ jobs:
       - name: 설치본의 plugin-path 가 실제 플러그인을 가리키는지(저장소 밖에서)
         working-directory: ${{ runner.temp }}
         run: test -f "$(bw plugin-path)/.codex-plugin/plugin.json"
+      - name: 설치본 bw doctor --for-issue — 출력에 홈 경로가 안 남는지(BW_HOME 을 홈 아래에 둬서 치환할 경로를 넣는다)
+        working-directory: ${{ runner.temp }}
+        run: BW_HOME="$HOME/bw-home" python "$GITHUB_WORKSPACE/scripts/check_issue_report.py"
       - name: 라이선스 경계 — bonewright/ 본체는 bpy 를 import 하지 않는다(MIT 유지)
         run: python scripts/check_license_boundary.py
 
@@ -46,6 +49,10 @@ jobs:
         working-directory: ${{ runner.temp }}
         shell: bash
         run: python -c "import pathlib, subprocess, sys; p = pathlib.Path(subprocess.check_output(['bw', 'plugin-path'], text=True).strip()); sys.exit(0 if (p / '.codex-plugin' / 'plugin.json').is_file() else 1)"
+      - name: 설치본 bw doctor --for-issue — C:\Users\<이름> 이 ~ 로 바뀌는지(Windows 홈 경로 치환을 실제로)
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: BW_HOME="$USERPROFILE\bw-home" python "$GITHUB_WORKSPACE/scripts/check_issue_report.py"
       - name: 라이선스 경계
         run: python scripts/check_license_boundary.py
 
@@ -84,3 +91,8 @@ jobs:
           python -c "import bonewright, os, sys; sys.exit('저장소 사본을 import 했다: ' + bonewright.__file__ if bonewright.__file__.startswith(os.environ['REPO']) else 0)"
           bw rig "$REPO/tests/assets/quaternius_adventurer.glb" --no-judge --run-id installed
           test -f bw-home/runs/installed/02_rigged.blend
+      - name: 설치본 bw doctor --for-issue installed — 위 실행의 state.json·로그 꼬리에 /home/runner 가 안 남는지
+        working-directory: ${{ runner.temp }}
+        env:
+          BW_HOME: ${{ runner.temp }}/bw-home
+        run: python "$GITHUB_WORKSPACE/scripts/check_issue_report.py" installed --expect-code 0
