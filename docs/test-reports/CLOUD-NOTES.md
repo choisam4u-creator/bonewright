@@ -29,7 +29,7 @@
 ```bash
 git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
 python3 scripts/check_issue_report.py   # 설치된 bw 로: OK 와 /Users/ 없음
-LANG=en_US.UTF-8 BW_BACKEND=mock bw rig tests/assets/quaternius_adventurer.glb --no-judge && grep -c '"lang"' runs/*/logs/*.log; echo '{"lang":"en",}' > /tmp/x && true   # 프롬프트가 en 판인지는 로그의 첫 문장으로
+mkdir -p runs && echo '{"lang": "en",}' > runs/config.json && bw doctor; rm runs/config.json   # BLOCKED: … line 1, column 1x 가 떠야 한다(이슈 안내 아님)
 ```
 
 ## 2026-10-07 (2회차)
