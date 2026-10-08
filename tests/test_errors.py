@@ -40,7 +40,7 @@ class InputErrorTests(unittest.TestCase):
         cfg.write_text('{"lang": "en",}', encoding="utf-8")
         msg = self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True)
         self.assertIn("설정 파일이 JSON 이 아니다", msg)
-        self.assertIn("1줄 15칸", msg)
+        self.assertRegex(msg, r"1줄 1[45]칸")   # 끝 쉼표 위치: Python 3.11 은 15, 3.13 은 14
         cfg.write_text('["en"]', encoding="utf-8")
         self.assertIn("객체여야 한다", self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True))
 
