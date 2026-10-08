@@ -1,4 +1,5 @@
 """기본 설정. runs/config.json 이 있으면 덮어쓴다(중첩 병합)."""
+import difflib
 import json
 import os
 from pathlib import Path
@@ -42,6 +43,39 @@ def _read_user_config(p: Path) -> dict:
         raise Blocked(T(f"설정 파일은 {{...}} 객체여야 한다: {p} (지금 {type(user).__name__})\n  → 예: {{\"lang\": \"en\"}}",
                         f"the settings file must be a {{...}} object: {p} (got {type(user).__name__})\n  → for example {{\"lang\": \"en\"}}"))
     return user
+
+
+def _unknown(user: dict, known: dict, prefix: str = "") -> list[str]:
+    out = []
+    for k, v in user.items():
+        if k not in known:
+            near = difflib.get_close_matches(k, list(known), n=1)
+            out.append(f"{prefix}{k}" + (f" (→ {prefix}{near[0]}?)" if near else ""))
+        elif isinstance(v, dict) and isinstance(known[k], dict):
+            out += _unknown(v, known[k], f"{prefix}{k}.")
+    return out
+
+
+def unknown_keys(root: Path) -> list[str]:
+    """runs/config.json 에서 기본 설정에 없는 키(대개 오타) — 조용히 무시되면 설정이 안 먹은 줄 모른다.
+    파일이 없거나 깨졌으면 빈 목록(깨진 파일은 load 가 Blocked 로 짚는다)."""
+    p = root / "runs" / "config.json"
+    try:
+        user = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return _unknown(user, DEFAULTS) if isinstance(user, dict) else []
+
+
+def unknown_keys_line(root: Path) -> str | None:
+    """경고 한 줄(없으면 None). 멈추지는 않는다."""
+    from .i18n import T
+    bad = unknown_keys(root)
+    if not bad:
+        return None
+    p = root / "runs" / "config.json"
+    return T(f"⚠ 설정 파일에 모르는 키 {len(bad)}개 — 무시하고 기본값으로 돈다: {', '.join(bad)} ({p})\n  → 이름을 고쳐라. 쓸 수 있는 키는 docs/GUIDE.md 의 \"Settings (`runs/config.json`)\"",
+             f"⚠ {len(bad)} unknown key(s) in the settings file, ignored (defaults used): {', '.join(bad)} ({p})\n  → fix the name; the keys are listed under \"Settings (`runs/config.json`)\" in docs/GUIDE.md")
 
 
 def load(root: Path, lang: str | None = None) -> dict:

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from . import __version__, bench, pipeline
 from .blender import find_blender, has_bpy_module
-from .config import find_root, load
+from .config import find_root, load, unknown_keys_line
 from .i18n import T
 from .ledger import summarize
 
@@ -56,6 +56,8 @@ def doctor() -> int:
     gen, text_model = pipeline.kimodo_paths((ROOT / cfg["kimodo"]["root"]).resolve(), cfg["kimodo"])
     print(opt, "kimodo.cpp:", (T("빌드됨", "built") if text_model else T("빌드됨, 텍스트 인코더 없음 — docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "built, no text encoder — see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md")) if gen else T("없음 — 텍스트→동작(`bw motion --text`)에만 필요, 빌드는 docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "not built — needed only for text→motion (`bw motion --text`); to build, see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md"))
     print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
+    if (warn := unknown_keys_line(ROOT)):
+        print(warn)
     print(T("준비됨" if ok else "준비 안 됨: Blender 앱이나 bpy 모듈 중 하나를 설치하라", "ready" if ok else "not ready: install Blender or the bpy module (either one)"))
     return 0 if ok else 1
 

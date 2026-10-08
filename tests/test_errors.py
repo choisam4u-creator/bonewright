@@ -1,4 +1,5 @@
 """오류 메시지 회귀 테스트: Blender 를 부르기 전에 막히고, 메시지에 '무엇을 바꾸면 되는지'(→)가 들어 있어야 한다. 블렌더 불필요."""
+import contextlib
 import io
 import json
 import os
@@ -43,6 +44,24 @@ class InputErrorTests(unittest.TestCase):
         self.assertRegex(msg, r"1줄 1[45]칸")   # 끝 쉼표 위치: Python 3.11 은 15, 3.13 은 14
         cfg.write_text('["en"]', encoding="utf-8")
         self.assertIn("객체여야 한다", self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True))
+
+    def test_unknown_settings_key_warns(self):
+        """runs/config.json 의 오타 키(`rig.cross_trimm`)를 조용히 받아 기본값으로 돌던 것(10/8 2회차) → 경고 한 줄, 멈추지는 않는다."""
+        from bonewright import config
+        (self.root / "runs").mkdir()
+        cfg = self.root / "runs" / "config.json"
+        cfg.write_text('{"lang": "en", "rig": {"cross_trimm": false, "face": true}, "blendr": {}, "models": {"fit": {"effort": "low"}}}', encoding="utf-8")
+        self.assertEqual(config.unknown_keys(self.root), ["rig.cross_trimm (→ rig.cross_trim?)", "blendr (→ blender?)"])
+        self.assertIn("rig.cross_trimm", config.unknown_keys_line(self.root))
+        self.assertTrue(config.load(self.root)["rig"]["face"])   # 아는 키는 그대로 먹는다
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"))   # 메시가 없어 막혀도 경고는 먼저 나온다
+        self.assertIn("rig.cross_trimm", err.getvalue())
+        cfg.write_text('{"lang": "en", "rig": {"cross_trim": false}}', encoding="utf-8")
+        self.assertIsNone(config.unknown_keys_line(self.root))
+        cfg.write_text('{"lang": "en",}', encoding="utf-8")
+        self.assertEqual(config.unknown_keys(self.root), [])   # 깨진 파일은 load 의 Blocked 가 맡는다
 
     def test_unsupported_mesh_format(self):
         f = self.root / "char.stl"; f.write_bytes(b"solid x")

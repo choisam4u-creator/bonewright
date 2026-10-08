@@ -10,7 +10,7 @@ from typing import NoReturn
 from . import schemas
 from .blender import run_script
 from .codex import CodexError, UsageLimit, run_step
-from .config import load
+from .config import load, unknown_keys_line
 from .from_skeleton import targets_from_skeleton
 from .gates import judge_gates, preflight, rig_gates
 from .i18n import T
@@ -171,6 +171,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
         force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False, from_shape: bool = False) -> Path:
     cfg = load(root, lang)
+    if (warn := unknown_keys_line(root)):   # 경로·형식으로 막히기 전에(설정 오타가 원인일 수 있다)
+        _log(quiet, warn)
     if budget:
         cfg["budget"]["max_input_tokens"] = budget
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")

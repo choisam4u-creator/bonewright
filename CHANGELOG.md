@@ -11,6 +11,10 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `bw doctor` and the start of `bw rig` warn, in one line, about keys in `runs/config.json` that bonewright does not
+  know (usually a typo such as `rig.cross_trimm`), with the nearest real key; they used to be ignored silently. The
+  run goes on with the defaults. `docs/GUIDE.md` → "Settings (`runs/config.json`)" lists the keys worth changing,
+  their defaults and the prompt-language order; `tests/test_docs.py` checks the table against the built-in defaults.
 - `docs/GUIDE.md` → "Known gaps and failed attempts": an English digest of the open holes and failed experiments
   recorded in the Korean `docs/ROADMAP.md`, with the numbers. CONTRIBUTING points there; `tests/test_docs.py` checks
   every `GUIDE.md#anchor` link against the guide's headings.
