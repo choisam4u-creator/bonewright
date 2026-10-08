@@ -270,3 +270,35 @@ class CodeOfConductTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SettingsTableTests(unittest.TestCase):
+    """GUIDE "Settings (`runs/config.json`)" 표의 기본값이 `config.DEFAULTS` 와 같은지(10/8 2회차).
+    프롬프트 언어 우선순위에 config 가 끼었는데 적힌 곳이 CHANGELOG 뿐이었다."""
+    ROW = re.compile(r"^\| `([\w.]+)` \| `([^`]*)` \|", re.M)
+
+    def test_settings_defaults_match_config(self):
+        import json
+        from bonewright.config import DEFAULTS
+        text = (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8")
+        section = text.split("### Settings (`runs/config.json`)", 1)[1].split("\n#", 1)[0]
+        rows = self.ROW.findall(section)
+        self.assertGreaterEqual(len(rows), 8)
+        for key, shown in rows:
+            with self.subTest(key=key):
+                val = DEFAULTS
+                for part in key.split("."):
+                    self.assertIn(part, val, f"DEFAULTS 에 없는 키 {key}")
+                    val = val[part]
+                self.assertEqual(json.loads(shown), val)
+
+    def test_settings_example_is_valid_json_with_known_keys(self):
+        import json
+        from bonewright.config import DEFAULTS
+        text = (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8")
+        section = text.split("### Settings (`runs/config.json`)", 1)[1].split("\n#", 1)[0]
+        example = json.loads(re.search(r"```json\n(.*?)```", section, re.S).group(1))
+        for sec, v in example.items():
+            self.assertIn(sec, DEFAULTS)
+            for k in (v if isinstance(v, dict) else {}):
+                self.assertIn(k, DEFAULTS[sec])

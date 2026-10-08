@@ -467,6 +467,32 @@ bodies whose shoulders sit close in; a natural blend at an elbow or shoulder kee
 are comparable. Measured effect on skinning agreement with the original rigs: mannequiny 0.600 → 0.605, cesium_man
 side agreement 0.997 → 0.998, Quaternius Adventurer unchanged.
 
+### Settings (`runs/config.json`)
+
+Every setting has a built-in default; `runs/config.json` in the project folder (`BW_HOME` if set, else the nearest
+folder upward that holds `runs/`) overrides only the keys it names, section by section. A file that is not valid JSON stops with `BLOCKED:` naming the line and
+column. The keys you are most likely to change:
+
+| Key | Default | What it does |
+|---|---|---|
+| `lang` | `""` | language of the model prompts (`ko` or `en`); empty follows the screen language |
+| `rig.rest_pose` | `"keep"` | `keep` the mesh's own pose, or `t` to bake a T-pose rest (same as `--rest-pose`) |
+| `rig.weights` | `"auto"` | `auto` (Bone Heat, voxel proxy if it leaves gaps) or `proxy` (same as `--weights`) |
+| `rig.cross_trim` | `true` | drop weights that reach across empty space from another body part |
+| `rig.face` | `false` | keep the metarig's face bones |
+| `blender.app` | `""` | path to the Blender executable; empty searches `BW_BLENDER`, `PATH`, then the usual install folders |
+| `blender.timeout` | `600` | seconds one Blender step may run |
+| `budget.max_input_tokens` | `600000` | a run stops once its input tokens reach this (same as `--budget`) |
+| `render.size` | `512` | pixel size of the review renders |
+| `kimodo.root` | `"vendor/kimodo.cpp"` | where the kimodo.cpp build lives (see below) |
+
+The prompt language is picked in this order: `bw rig --lang`, then `lang` here, then `BW_LANG`, then the system
+locale. Command-line flags always beat the file. For example:
+
+```json
+{"lang": "en", "rig": {"rest_pose": "t"}, "blender": {"app": "/opt/blender-5.2/blender"}}
+```
+
 ### Text → motion: building kimodo.cpp (optional)
 
 Only `bw motion --text` needs this. `bw rig`, `bw export`, `bw demo` and `bw motion --bvh` never touch it, and
