@@ -302,3 +302,20 @@ class SettingsTableTests(unittest.TestCase):
             self.assertIn(sec, DEFAULTS)
             for k in (v if isinstance(v, dict) else {}):
                 self.assertIn(k, DEFAULTS[sec])
+
+
+class IssueTemplateTests(unittest.TestCase):
+    """이슈 템플릿마다 name·about·labels 머리말이 있고, CONTRIBUTING 이 모든 템플릿 이름을 든다(10/8 2회차: 문서 오류 템플릿 추가).
+    9/20·10/7 문서 감사에서 실제와 다른 주장이 11개·1개 나왔다 — 공개 뒤 흔한 첫 기여가 문서 지적이다."""
+    def test_templates_have_front_matter_and_are_listed(self):
+        contributing = " ".join((REPO / "CONTRIBUTING.md").read_text(encoding="utf-8").split())
+        templates = sorted((REPO / ".github" / "ISSUE_TEMPLATE").glob("*.md"))
+        self.assertIn("docs-problem.md", [t.name for t in templates])
+        for t in templates:
+            with self.subTest(template=t.name):
+                head = re.match(r"---\n(.*?)\n---\n", t.read_text(encoding="utf-8"), re.S)
+                self.assertIsNotNone(head, "머리말(---) 없음")
+                fields = dict(line.split(":", 1) for line in head.group(1).splitlines() if ":" in line)
+                for key in ("name", "about", "labels"):
+                    self.assertTrue(fields.get(key, "").strip(), f"{key} 비어 있음")
+                self.assertIn(f"*{fields['name'].strip()}*", contributing)

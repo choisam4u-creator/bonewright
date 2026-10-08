@@ -15,6 +15,7 @@ See `docs/RELEASING.md` for the release steps.
   know (usually a typo such as `rig.cross_trimm`), with the nearest real key; they used to be ignored silently. The
   run goes on with the defaults. `docs/GUIDE.md` → "Settings (`runs/config.json`)" lists the keys worth changing,
   their defaults and the prompt-language order; `tests/test_docs.py` checks the table against the built-in defaults.
+- An issue template for documentation that is wrong or unclear (where, what it says, what actually happens).
 - `docs/GUIDE.md` → "Known gaps and failed attempts": an English digest of the open holes and failed experiments
   recorded in the Korean `docs/ROADMAP.md`, with the numbers. CONTRIBUTING points there; `tests/test_docs.py` checks
   every `GUIDE.md#anchor` link against the guide's headings.
