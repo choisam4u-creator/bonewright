@@ -378,7 +378,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual([], hangul)
 
     def test_model_text_in_english_mode_is_labelled(self):
-        """시각 판정의 자유 문장은 프롬프트 언어(기본 ko)로 온다. 영어 화면이면 모델 출력이라고 밝히고 --lang en 을 안내한다."""
+        """시각 판정의 자유 문장은 프롬프트 언어(--lang ko 나 config 로 화면과 다르게 정할 수 있다)로 온다. 영어 화면이면 모델 출력이라고 밝히고 --lang en 을 안내한다."""
         judge = {"bones_outside_mesh": ["왼손"], "proportions_ok": False, "notes": "팔이 너무 길다"}
         with patch.dict(os.environ, {"BW_LANG": "en"}):
             fails = gates.judge_gates(judge)

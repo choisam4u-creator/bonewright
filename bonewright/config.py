@@ -3,8 +3,10 @@ import json
 import os
 from pathlib import Path
 
+from .i18n import lang as screen_lang
+
 DEFAULTS = {
-    "lang": "ko",
+    "lang": "",            # 모델 프롬프트 언어(ko|en). 비우면 화면 언어(BW_LANG, 없으면 로캘)를 따른다
     "default_model": "gpt-6-astra",
     "models": {"fit": {"model": "gpt-6-astra", "effort": "medium"}, "judge": {"model": "gpt-6-astra", "effort": "low"}},
     "budget": {"max_input_tokens": 600_000, "price_input_per_m": 10.0, "price_output_per_m": 50.0},
@@ -34,6 +36,8 @@ def load(root: Path, lang: str | None = None) -> dict:
         cfg = _merge(cfg, json.loads(p.read_text(encoding="utf-8")))
     if lang:
         cfg = _merge(cfg, {"lang": lang})
+    if cfg.get("lang") not in ("ko", "en"):   # --lang > runs/config.json > BW_LANG·로캘
+        cfg = _merge(cfg, {"lang": screen_lang()})
     return cfg
 
 

@@ -135,8 +135,9 @@ def rig_gates(stats: dict, g: dict, verts: int, source_symmetry: float = 0.0, so
 
 
 def _model_text(s: str) -> str:
-    """모델이 쓴 자유 문장은 프롬프트 언어(`--lang`, 기본 ko)로 온다 — 화면 언어(BW_LANG)와 따로다.
-    번역할 길이 없으니, 영어 화면에 한국어가 오면 모델 출력이라고 밝히고 `--lang en` 을 안내한다."""
+    """모델이 쓴 자유 문장은 프롬프트 언어(`--lang`, 생략하면 config 의 lang, 그것도 없으면 화면 언어)로 온다.
+    `--lang ko` 나 runs/config.json 으로 화면과 다르게 정했을 때만 어긋난다. 번역할 길이 없으니,
+    영어 화면에 한국어가 오면 모델 출력이라고 밝히고 `--lang en` 을 안내한다."""
     if lang() == "en" and any("\uac00" <= c <= "\ud7a3" for c in s):
         return f'"{s}" (model output in the prompt language; run with --lang en for English)'
     return s

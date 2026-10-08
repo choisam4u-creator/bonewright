@@ -53,6 +53,9 @@ See `docs/RELEASING.md` for the release steps.
   log, and the analysis warnings and errors raised inside the Blender scripts (`bpy_scripts/_common.T`, the same
   rule without importing the MIT package), the `bw bench` table and summary, and the `runs/<id>/report.md` lines.
   `tests/test_i18n.py` fails on any bare Korean string anywhere in `bonewright/` (docstrings aside).
+- The model prompt language (`bw rig --lang`) now follows the screen language when it is not given: `--lang`, then
+  `lang` in `runs/config.json`, then `BW_LANG` / the locale. It used to default to Korean, so English users got the
+  visual judge's notes and the fit reasoning in Korean.
 - An unexpected error no longer ends in a bare one-line `BLOCKED:`. It names the exception type, points at the
   run's `logs/` folder and the issue templates, and `BW_DEBUG=1` prints the full traceback.
 - README first screen rewritten to what it does / install / first run / example output; the long material moved

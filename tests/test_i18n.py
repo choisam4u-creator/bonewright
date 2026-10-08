@@ -121,5 +121,44 @@ class TPairTests(unittest.TestCase):
         files = sorted(p for p in PKG.rglob("*.py") if "bpy_scripts" not in p.parts)
         self.assertGreater(self.bare_hangul(files), 100)
 
+
+class PromptLangTests(unittest.TestCase):
+    """모델 프롬프트 언어: `--lang` > runs/config.json 의 lang > 화면 언어(BW_LANG·로캘).
+    10/8 전에는 기본이 ko 라 영어 사용자도 판정 문장(notes·reasoning)을 한국어로 받았다."""
+
+    def load(self, env: dict, lang=None, cfg_json=None):
+        import json
+        import os
+        import tempfile
+        from unittest.mock import patch
+        from bonewright import config
+        with tempfile.TemporaryDirectory() as d:
+            if cfg_json is not None:
+                (Path(d) / "runs").mkdir()
+                (Path(d) / "runs" / "config.json").write_text(json.dumps(cfg_json), encoding="utf-8")
+            clean = {k: v for k, v in os.environ.items() if k not in ("BW_LANG", "LC_ALL", "LC_MESSAGES", "LANG")}
+            with patch.dict(os.environ, {**clean, **env}, clear=True):
+                return config.load(Path(d), lang)["lang"]
+
+    def test_follows_screen_language(self):
+        self.assertEqual("en", self.load({}))
+        self.assertEqual("en", self.load({"BW_LANG": "en"}))
+        self.assertEqual("ko", self.load({"BW_LANG": "ko"}))
+        self.assertEqual("ko", self.load({"LANG": "ko_KR.UTF-8"}))
+
+    def test_flag_and_config_win(self):
+        self.assertEqual("ko", self.load({"BW_LANG": "en"}, lang="ko"))
+        self.assertEqual("ko", self.load({"BW_LANG": "en"}, cfg_json={"lang": "ko"}))
+        self.assertEqual("en", self.load({"BW_LANG": "ko"}, lang="en", cfg_json={"lang": "ko"}))
+
+    def test_every_prompt_has_both_languages(self):
+        ko = sorted(p.name for p in (PKG / "prompts" / "ko").glob("*.md"))
+        en = sorted(p.name for p in (PKG / "prompts" / "en").glob("*.md"))
+        self.assertEqual(ko, en)
+        self.assertTrue(ko)
+        for name in en:
+            self.assertFalse(hangul((PKG / "prompts" / "en" / name).read_text(encoding="utf-8")), name)
+
+
 if __name__ == "__main__":
     unittest.main()
