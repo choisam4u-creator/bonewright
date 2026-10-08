@@ -1,5 +1,37 @@
 # 클라우드 회차 기록
 
+## 2026-10-08
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. main 이 앞서 있지 않아 병합 없음.
+- 모델 프롬프트 언어 기본값: `--lang` 생략 시 `runs/config.json` 의 `lang`, 그것도 없으면 `BW_LANG`·로캘(기존 기본 ko →
+  영어 사용자도 판정 notes·fit reasoning 을 한국어로 받았다). `config.DEFAULTS["lang"]` 은 빈 값. 프롬프트 en/ko 판 짝 확인.
+  `test_i18n.PromptLangTests` 3개, CHANGELOG Changed 한 줄, `--lang` 도움말 갱신.
+- CI 에 설치본 `bw doctor --for-issue` 점검(unit·unit-windows·blender 잡): `scripts/check_issue_report.py` — 종료코드 0/1,
+  `<details>` 한 덩어리, traceback 없음, 홈·`/Users/`·`/home/`·`C:\Users\` 경로 없음. BW_HOME 을 홈 아래에 둬 치환할 경로가
+  실제로 출력에 들어가게 함. bpy 잡은 설치본 리깅(`installed`)의 state.json·로그 꼬리까지 본다. 결과는 다음 CI 에서(새 백로그).
+- 다음 버전 제안 0.2.1 → **0.3.0**(새 플래그 `--version`·`--for-issue`, 기본값 변경 2건). `docs/RELEASING.md` 에 "다음 버전 점검" 표,
+  `test_release.ProposedVersionTests`(제안이 지금보다 크고, 셋째 자리 제안이면 "new flag/changed default" 문구 금지). 태그·릴리스 안 함.
+- 깨진 `runs/config.json`(끝 쉼표·목록) → "예상 못 한 오류 — 이슈를 열어라" 대신 줄·칸을 짚는 `BLOCKED:`(`config._read_user_config`).
+  `test_errors.test_broken_settings_file`. 3.13 json 은 칸 번호가 하나 달라(14 vs 15) 시험이 둘 다 받는다.
+- 백로그 남은 항목 0 → 10/8 절에 새 항목 5개(근거 포함: GUIDE 설정 절, 모르는 설정 키 경고, CI 새 단계 결과 확인, 리타겟 예시, 문서 오류 신고 길).
+  CONTRIBUTING 시험 수 117(블렌더 14).
+- PR #10(claude/cloud-work → main)이 열려 있어 새 PR 은 만들지 않음 — 이번 커밋이 그 PR 에 얹힌다.
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2, Python 3.13 venv) — **117개 모두 통과, 건너뜀 0**(151초). `BW_SKIP_BLENDER=1`(Python 3.11) — 117개 중 14개 건너뜀, 나머지 통과.
+- 설치본(저장소 밖 venv): `BW_BACKEND=mock bw rig … --run-id installed` 뒤 `check_issue_report.py installed --expect-code 0` OK,
+  bpy 없는 3.11 설치본은 종료 1·경로 없음 OK. `check_license_boundary.py` OK. 렌더는 안 돌렸다(화면 없는 리눅스).
+- Windows 단계는 여기서 못 돌린다 — GitHub Actions 결과로 확인(백로그).
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+python3 scripts/check_issue_report.py   # 설치된 bw 로: OK 와 /Users/ 없음
+LANG=en_US.UTF-8 BW_BACKEND=mock bw rig tests/assets/quaternius_adventurer.glb --no-judge && grep -c '"lang"' runs/*/logs/*.log; echo '{"lang":"en",}' > /tmp/x && true   # 프롬프트가 en 판인지는 로그의 첫 문장으로
+```
+
 ## 2026-10-07 (2회차)
 
 **한 일**
