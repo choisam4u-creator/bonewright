@@ -1,5 +1,34 @@
 # 클라우드 회차 기록
 
+## 2026-10-08 (2회차)
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 이 앞서 있지 않아 병합 없음(cloud-work 가 13커밋 앞섬).
+- `docs/GUIDE.md` 에 "Settings (`runs/config.json`)" 절: 자주 바꿀 키 10개·기본값 표, 프롬프트 언어 우선순위
+  (`--lang` > config > `BW_LANG` > 로캘), JSON 예시. `test_docs.SettingsTableTests` 가 표·예시를 `config.DEFAULTS` 와 대조.
+  `blender.prefer_module` 은 코드 어디서도 안 읽혀 표에서 뺐다(새 백로그).
+- `runs/config.json` 의 모르는 키(오타) 경고: `bw doctor` 와 `bw rig` 시작에 한 줄, 가까운 키 제안(`rig.cross_trimm (→ rig.cross_trim?)`),
+  멈추지 않음. 메시 경로로 막히기 전에 먼저 나온다. `test_errors.test_unknown_settings_key_warns`, CHANGELOG Added.
+- 10/8 CI 새 단계 확인: run 37717221862 네 잡(unit 3.11·3.13, unit-windows, blender) 모두 초록. Windows 출력에
+  `BW_HOME=~\bw-home`·`work folder (ROOT): ~\bw-home` — `C:\Users\…` 치환이 실제로 돈다. 고칠 것 없음.
+  같은 로그의 Node.js 20 지원 종료 경고(checkout@v4·setup-python@v5)는 새 백로그로.
+- 문서 오류 이슈 템플릿 `.github/ISSUE_TEMPLATE/docs-problem.md`(어디·무엇이라 적혔나·실제로 본 것·버전), CONTRIBUTING 템플릿 목록에 추가.
+  `test_docs.IssueTemplateTests`: 템플릿마다 name·about·labels, CONTRIBUTING 이 모든 템플릿 이름을 든다.
+- 백로그 남은 항목 1개(리타겟 예시) → 2회차 절에 새 항목 5개(예제 오류 문구 영어, `--for-issue` 에 설정 싣기,
+  `prefer_module` 정리, CI 액션 버전, README 설정 안내). CONTRIBUTING 시험 수 121(블렌더 14).
+- PR #10(claude/cloud-work → main)이 열려 있어 새 PR 은 만들지 않음 — 이번 커밋이 그 PR 에 얹힌다.
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2, Python 3.13 venv) — **121개 모두 통과, 건너뜀 0**(177초). `BW_SKIP_BLENDER=1`(Python 3.11) — 121개 중 14개 건너뜀, 나머지 통과.
+- `check_license_boundary.py` OK. 설치본(venv) `check_issue_report.py`(BW_HOME 을 홈 아래) OK. 렌더는 안 돌렸다(화면 없는 리눅스).
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+mkdir -p runs && echo '{"rig": {"cross_trimm": false}}' > runs/config.json && bw doctor | tail -3; rm runs/config.json   # ⚠ … rig.cross_trimm (→ rig.cross_trim?) 한 줄
+```
+
 ## 2026-10-08
 
 **한 일**
