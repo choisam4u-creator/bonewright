@@ -84,6 +84,8 @@ See `docs/RELEASING.md` for the release steps.
   `bw resume` command that does not exist; it now says to rerun, or reuse `runs/<id>/targets.json` with
   `--targets`. `bw status <unknown id>` exits 2 with a hint instead of a traceback. Covered by `tests/test_errors.py`
   (no Blender needed).
+- A broken `runs/config.json` (a trailing comma, a list instead of an object) ended as an "unexpected error — open
+  an issue". It is now a `BLOCKED:` naming the file, the line and column, and the usual causes.
 - **Quadruped judge renders were cropped.** `render_views.py` sized the camera from the character's
   *height*, which is right for a person and wrong for anything longer than it is tall: the wolf
   (2.68 tall, 5.55 long — the tail counts) lost its head and its tail off both edges of the side view, and the model was

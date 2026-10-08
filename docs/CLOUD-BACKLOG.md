@@ -59,3 +59,14 @@
 - [x] (10/8: 생략 시 runs/config.json → BW_LANG·로캘, `test_i18n.PromptLangTests`) 모델 프롬프트 언어 기본값: `config.py` 의 `"lang": "ko"` 라 영어 사용자도 판정 문장(judge notes·reasoning)을 한국어로 받는다(`gates._model_text` 가 "--lang en 으로 다시 돌려라" 안내만 붙임) → `--lang` 생략 시 BW_LANG(로캘) 을 따르게 할지 결정 후 처리(프롬프트 en 판 존재 확인 포함) — 근거: 10/5~10/7 화면 문구는 전부 영어 기본이 됐는데 모델 출력만 남았다
 - [x] (10/8: `scripts/check_issue_report.py`, unit·unit-windows·blender 잡, 결과는 다음 CI 에서) CI 에 `bw doctor --for-issue` 한 단계(설치본·저장소 밖, unit·unit-windows·blender 잡): 종료코드와 출력에 `/home/runner` 가 안 남는지(`~` 치환) — 근거: 10/7 새 명령은 모의 시험(경로 치환·로그 꼬리)만 있고, Windows 홈 경로 치환(`C:\Users\…`)은 실제로 돌려 보지 않았다
 - [x] (10/8: 0.3.0 제안, RELEASING '다음 버전 점검' 표, `test_release.ProposedVersionTests`) `docs/RELEASING.md` 0.2.1 절차 점검: 10/7 까지 `[Unreleased]` 에 새 플래그(`--for-issue`)·영문화·문서 시험이 쌓였다 → 버전 제안(0.2.1 vs 0.3.0, 새 플래그가 있으므로)과 CHANGELOG 문구 정리안만(태그·릴리스는 Mac/샘님) — 근거: CHANGELOG 첫 줄이 "fixes, documentation and examples only" 라 적었는데 10/7 에 새 플래그가 들어갔다
+
+
+## 2026-10-08 추가 (공개 준비 기준)
+
+- [x] (10/8: `config._read_user_config`, `test_errors.test_broken_settings_file`) 깨진 `runs/config.json`(끝 쉼표·목록) → 줄·칸을 짚는 `BLOCKED:` — 근거: 10/8 실측, `{"lang": "en",}` 한 글자에 "예상 못 한 오류 — 이슈를 열어라"가 떴다. 사용자가 고칠 수 있는 입력 실수인데 이슈 신고로 안내했다
+- [ ] `docs/GUIDE.md` 에 "Settings (`runs/config.json`)" 절: 사용자가 바꿀 만한 키(`lang`·`rig.*`·`blender.app`·`budget`·`kimodo.root`)와 기본값 표, 우선순위(`--lang` > config > `BW_LANG`), `test_docs` 로 표 값과 `config.DEFAULTS` 대조 — 근거: config.json 은 GUIDE 에서 kimodo 한 곳(497줄)만 나오고, 10/8 프롬프트 언어 우선순위에 config 가 끼었는데 적힌 곳이 CHANGELOG 뿐이다
+- [ ] `runs/config.json` 의 모르는 키(오타) 경고: `config._merge` 가 `{"rig": {"cross_trimm": false}}` 를 조용히 받아 기본값으로 돈다 → `bw doctor` 와 `bw rig` 시작 줄에 "모르는 설정 키" 한 줄(멈추지는 않음) — 근거: 10/8 코드 읽기. 설정이 안 먹은 줄 모르고 결과가 이상하다는 이슈가 될 수 있다
+- [ ] 10/8 CI 새 단계 결과 확인: `check_issue_report.py` 가 unit·unit-windows·blender 잡에서 초록인지(특히 Windows 의 `C:\Users\runneradmin` 치환, git-bash 경로), 빨가면 고친다 — 근거: Windows 홈 경로 치환은 아직 한 번도 실제로 돈 적이 없다(문자열 시험만)
+- [ ] 리타겟 예시 결과: `examples/sample-output/` 에 리깅 표만 있다 → 절차 생성 짧은 BVH(시험의 3프레임 BVH 처럼, 라이선스 문제 없음)로 캡슐 인형에 `bw motion --bvh` 를 돌린 결과(매핑된 본 수·프레임 수·report.md 발췌)를 싣고 README "Motion retargeting" 옆에서 링크, 블렌더 시험으로 현재와 대조 — 근거: README 가 리타겟을 두 번째 기능으로 내세우는데 처음 보는 사람이 확인할 예시가 없다
+- [ ] 문서 오류 신고 길: 이슈 템플릿 3종(rig·install·feature)에 "문서가 틀렸다" 칸이 없다 → `docs-problem.md` 템플릿(어느 파일·어느 줄·실제로 본 것) 또는 `config.yml` 에 안내 한 줄, `test_docs` 의 템플릿 점검에 포함 — 근거: 9/20·10/7 문서 감사에서 실제와 다른 주장이 11개·1개 나왔다. 공개 뒤 가장 흔한 첫 기여가 문서 지적이다
+

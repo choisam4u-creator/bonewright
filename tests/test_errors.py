@@ -33,6 +33,17 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("메시 파일이 없다", msg)
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_broken_settings_file(self):
+        """runs/config.json 의 끝 쉼표가 '예상 못 한 오류 — 이슈를 열어라'로 끝나던 것(10/8 발견) → 줄·칸을 짚는 Blocked."""
+        (self.root / "runs").mkdir()
+        cfg = self.root / "runs" / "config.json"
+        cfg.write_text('{"lang": "en",}', encoding="utf-8")
+        msg = self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True)
+        self.assertIn("설정 파일이 JSON 이 아니다", msg)
+        self.assertIn("1줄 15칸", msg)
+        cfg.write_text('["en"]', encoding="utf-8")
+        self.assertIn("객체여야 한다", self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True))
+
     def test_unsupported_mesh_format(self):
         f = self.root / "char.stl"; f.write_bytes(b"solid x")
         msg = self.blocked(pipeline.rig, self.root, str(f), quiet=True)

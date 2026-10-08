@@ -29,11 +29,26 @@ def _merge(a: dict, b: dict) -> dict:
     return out
 
 
+def _read_user_config(p: Path) -> dict:
+    """runs/config.json 을 읽는다. 깨졌으면 '예상 못 한 오류'(이슈 신고 안내)가 아니라 고칠 자리를 짚는 Blocked."""
+    from .i18n import T
+    from .pipeline import Blocked   # pipeline 이 이 모듈을 import 하므로 여기서
+    try:
+        user = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Blocked(T(f"설정 파일이 JSON 이 아니다: {p} ({e.lineno}줄 {e.colno}칸: {e.msg})\n  → 그 자리를 고치거나(끝 쉼표·작은따옴표가 흔하다) 파일을 지우면 기본값으로 돈다",
+                        f"the settings file is not valid JSON: {p} (line {e.lineno}, column {e.colno}: {e.msg})\n  → fix that spot (a trailing comma or single quotes are the usual cause), or delete the file to use the defaults")) from None
+    if not isinstance(user, dict):
+        raise Blocked(T(f"설정 파일은 {{...}} 객체여야 한다: {p} (지금 {type(user).__name__})\n  → 예: {{\"lang\": \"en\"}}",
+                        f"the settings file must be a {{...}} object: {p} (got {type(user).__name__})\n  → for example {{\"lang\": \"en\"}}"))
+    return user
+
+
 def load(root: Path, lang: str | None = None) -> dict:
     cfg = DEFAULTS
     p = root / "runs" / "config.json"
     if p.exists():
-        cfg = _merge(cfg, json.loads(p.read_text(encoding="utf-8")))
+        cfg = _merge(cfg, _read_user_config(p))
     if lang:
         cfg = _merge(cfg, {"lang": lang})
     if cfg.get("lang") not in ("ko", "en"):   # --lang > runs/config.json > BW_LANG·로캘
