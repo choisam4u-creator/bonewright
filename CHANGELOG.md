@@ -5,7 +5,9 @@ All notable changes to this project. Numbers are measured against the original a
 
 ## [Unreleased]
 
-Proposed next version: **0.2.1** — fixes, documentation and examples only; no new command; the new flags are `bw --version` and `bw doctor --for-issue`.
+Proposed next version: **0.3.0** — no new command, but new flags (`bw --version`, `bw doctor --for-issue`) and a
+changed default (the model prompt language follows `BW_LANG`); fixes, documentation and examples otherwise. No
+benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
@@ -31,7 +33,6 @@ See `docs/RELEASING.md` for the release steps.
   every `bw <command> --flag` written in them must exist in the CLI parser. Runs in CI without Blender. The same
   checks cover CONTRIBUTING, SECURITY, RELEASING and the issue / pull-request templates, plus the guide section
   titles the templates quote and the files `ISSUE_TEMPLATE/config.yml` links to.
-
 - Package metadata: project URLs (home, guide, issues, changelog) and both license notices (`LICENSE`, MIT, and
   `bonewright/bpy_scripts/LICENSE`, GPL) are now shipped in the sdist and wheel (`license-files`, hatchling ≥ 1.27).
 - CI runs the Blender-free tests on `windows-latest` too. `bw` now finds Blender installed under

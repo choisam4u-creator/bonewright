@@ -29,6 +29,22 @@ class VersionTests(unittest.TestCase):
             self.assertRegex(text, rf"(?m)^\[{re.escape(h)}\]: https://", f"CHANGELOG 맨 아래에 [{h}] 링크가 없다")
 
 
+class ProposedVersionTests(unittest.TestCase):
+    """`[Unreleased]` 첫 줄의 다음 버전 제안이 docs/RELEASING.md 의 표와 어긋나지 않게.
+    10/7 까지 "0.2.1 — fixes only" 라 적힌 채 새 플래그가 쌓였다."""
+
+    def test_proposal_is_ahead_and_matches_the_table(self):
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        body = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+        m = re.search(r"Proposed next version: \*\*(\d+)\.(\d+)\.(\d+)\*\*(.*?)(?:\n\n|$)", body, re.S)
+        self.assertIsNotNone(m, "[Unreleased] 첫 줄에 'Proposed next version: **X.Y.Z**' 가 없다")
+        proposed = tuple(int(x) for x in m.groups()[:3])
+        current = tuple(int(x) for x in bonewright.__version__.split("."))
+        self.assertGreater(proposed, current, "제안 버전이 지금 버전보다 커야 한다")
+        if proposed[:2] == current[:2]:   # 셋째 자리만 올리면 새 옵션·기본값 변경이 없어야 한다
+            self.assertNotRegex(m.group(4), r"(?i)new flag|changed default", "새 플래그·기본값 변경은 둘째 자리(RELEASING.md 표)")
+
+
 class PackageMetadataTests(unittest.TestCase):
     """배포본(sdist·wheel)에 두 라이선스 고지가 실리고 PyPI 페이지에 저장소 링크가 뜨게."""
 
