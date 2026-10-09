@@ -87,3 +87,12 @@
 - [x] `examples/rig_sample.py --help` 와 머리 docstring 이 한국어뿐이다 → argparse 설명·도움말을 `T()` 로 두 언어(문구 언어 시험은 `ExampleMessageTests` 에 추가) — 근거: 10/9 오류 문구는 두 언어가 됐지만 `--help`(사용자가 오류 다음에 치는 것)는 아직 한국어
 - [x] 영어 README 가 링크하는 예시 문서가 한국어다: `examples/README.md`, `sample-output/*.md`(머리글 "리깅 결과"·"옮긴 본"·"report.md 발췌") → 예시 문서 머리글을 영어(또는 두 언어)로 바꾸고 `rig_sample.py` 가 쓰는 문구와 `test_examples` 의 대조(`table_part`·`motion_rows`)를 함께 고친다 — 근거: 10/9 README.md 에 리타겟 예시 링크를 넣으며 확인. 영어 사용자가 첫 클릭에서 한국어 페이지를 만난다
 - [x] GUIDE "Motion retargeting" 절에 BVH 관절 이름 기대치와 새 예시 링크: 10/9 예시에서 `Spine` 은 옮기지 않았다(척추 중간은 `chest` 하나가 받는 `FK_TARGET` 규칙) → 어떤 이름(Mixamo·kimodo 식)이 무엇에 붙는지 짧은 표와 `examples/sample-output/capsule_doll_motion.md` 링크, `test_docs` 의 상대 링크 점검 포함 — 근거: "못 옮긴 BVH 본 1개" 를 처음 보는 사람은 실패로 읽는다. 이유가 문서 어디에도 없다
+
+
+## 2026-10-09 3회차 추가 (공개 준비 기준)
+
+- [ ] 시험: 인자 없는 `python3 -m unittest` 가 시험 0개를 돌리고 종료 5("NO TESTS RAN")로 끝난다(`tests/` 가 패키지가 아니라 발견이 안 된다) → `tests/__init__.py` 등으로 인자 없는 명령도 7개 묶음 전부를 돌게 하고, CONTRIBUTING·tests/README 의 긴 명령 옆에 짧은 형태를 적고, `test_docs` 로 발견 수와 로더 수 대조 — 근거: 10/9 3회차 실측. 기여자가 가장 먼저 치는 명령이 "시험 없음"으로 끝난다
+- [ ] 예제 오류 순서: `rig_sample.py --motion --preset quadruped` 는 사족 리깅(블렌더 수십 초)을 다 끝낸 뒤에야 "--motion 은 사람 프리셋에서만" 으로 멈춘다 → 리깅 전에 인자 조합을 막고(argparse `p.error` 처럼), Blender 없이 도는 시험 — 근거: 10/9 3회차 코드 읽기(`main()` 에서 거절이 `rig_and_table` 뒤에 있다). 기다린 뒤 거절은 첫 사용자에게 가장 나쁜 경험이다
+- [ ] 라이선스 표기 영어: `tests/assets/README.md`(CC0 Adventurer 의 출처·라이선스)와 `fetch_bench_assets.py` 가 쓰는 `bench-assets/README.md` 의 라이선스 줄이 한국어뿐이다 → 영어(두 언어)로, 라이선스·출처 URL 이 빠지지 않았는지 시험 — 근거: 10/9 3회차 실측(한글 32단어). 공개 저장소에서 자산 라이선스는 영어 사용자가 가장 먼저 확인하는 것이다
+- [ ] `scripts/fetch_bench_assets.py --help`·진행 문구가 한국어뿐이다("벤치마크 자산을 원저작자 배포처에서 받는다") → `T()` 로 두 언어, 영어 화면에 한글이 없는지 시험 — 근거: 10/9 3회차 실측. 두 README·examples/README 가 이 명령을 안내한다
+- [ ] 이슈 재현 정보: `rig-problem` 템플릿은 `report.md` 를 붙이라는데 `report.md` 에 bonewright·Blender 버전이 없다(`bw doctor --for-issue` 는 BLOCKED 일 때만 안내) → `report.md` 머리에 버전 한 줄(`bw --version` 과 같은 값)과 템플릿에 `bw --version` 칸, 시험 — 근거: 10/9 3회차 템플릿·`pipeline.py` 읽기. 리그 결과는 버전마다 달라 버전 없는 신고는 재현이 안 된다
