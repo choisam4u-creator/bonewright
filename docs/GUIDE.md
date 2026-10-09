@@ -167,7 +167,7 @@ Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is
 ### Known gaps and failed attempts
 
 An English digest of the end of `docs/ROADMAP.md` (Korean, dated 2026-09-15 to 09-19). Every line below was measured
-on the deterministic path; the ROADMAP section named in brackets has the full tables. Read it before retrying any of these.
+on the deterministic path; the linked ROADMAP section (in Korean) has the full tables. Read it before retrying any of these.
 
 - **Gates only see a character standing still.** On 2026-09-19 three plausible changes passed every gate and made real
   deformation worse; all three surfaced only when a walk was retargeted. Weight changes must be measured *moving*.
@@ -175,12 +175,12 @@ on the deterministic path; the ROADMAP section named in brackets has the full ta
   robot_expressive, KayKit skeleton warrior) share it: an arm or pelvis bone reaches across an empty chest and takes rib
   vertices (11 / 94 sampled on the skeleton warrior; the original author's rig leaks 0). Geodesic trimming changed
   nothing (voxel dilation fills the thin walls too); splitting by part count failed because mannequiny has 60 parts.
-  [막힌 곳: KayKit 해골 전사]
+  [ROADMAP: KayKit skeleton warrior leak](ROADMAP.md#막힌-곳-kaykit-해골-전사의-팔몸통-누수-2026-09-19-다섯-번째-실패)
 - **Failed — deleting finger segments the source does not have.** Rabbit improved slightly (12.19 → 11.30x max edge
-  stretch), godot_player went 1.87 → 8.46x and a KayKit mage stopped rigging. Reverted. [실패: 손가락 마디 지우기]
+  stretch), godot_player went 1.87 → 8.46x and a KayKit mage stopped rigging. Reverted. [ROADMAP: deleting finger segments](ROADMAP.md#실패-원본에-없는-손가락-마디-지우기-2026-09-19)
 - **Failed — copying the original author's weights by joint position.** Leak dropped to 0 / 94, but stretch went
   5.78 → 11.25x (skeleton warrior) and 3.72 → 20.71x (cesium_man): zero-length marker joints make "nearest position"
-  meaningless. Needs those markers rebuilt as segments first. [실패: 원작자의 가중치를 자리로 짝지어]
+  meaningless. Needs those markers rebuilt as segments first. [ROADMAP: original weights by position](ROADMAP.md#실패-원작자의-가중치를-자리로-짝지어-가져오기-2026-09-19)
 - **Replaced — trimming influences with one ray per vertex.** It fixed the hollow skeleton (11 → 0 leak) but on
   mannequiny, built from separate parts, stretch went 4.71 → 7.88x (87 edges over 2x vs 6): the way to a neighbouring
   part always leaves the shell. `rig.cross_trim` now measures voxel-geodesic distance instead and is on by default
@@ -188,9 +188,9 @@ on the deterministic path; the ROADMAP section named in brackets has the full ta
 - **Open hole — retargeting onto a `--from-shape` rig.** It runs (16 bones mapped on mannequiny) but tears: max stretch
   44x, 1,228 edges over 2x, against under 6x on the preset path, because the arm chain starts inside the chest. Two fixes
   failed (sphere thickness does not separate torso from limbs on low-poly meshes; dropping short chains also cut 2–4 of
-  a scorpion's 10 legs). Use shape rigs for posing, weights and export, not motion. [모양 리그에 이름을 붙였다]
+  a scorpion's 10 legs). Use shape rigs for posing, weights and export, not motion. [ROADMAP: naming shape rigs](ROADMAP.md#모양-리그에-이름을-붙였다--되는-것과-안-되는-것-2026-09-19)
 - **Partial — quadruped motion.** Wolf front legs and tails are not retargeted; a clip that leans forward the whole time
-  loses the lean (the reference frame is the clip's most typical pose). [애니메이션 (3단계)]
+  loses the lean (the reference frame is the clip's most typical pose). [ROADMAP: animation, stage 3](ROADMAP.md#애니메이션-3단계--리타게팅-완료-2026-09-15)
 - **Not built — partial meshes.** Upper-body-only meshes are rejected; there is no partial-rig route yet.
 
 ### Which backend produced these numbers
@@ -273,7 +273,7 @@ path back to the body; resample each path into three segments, hang them off a b
 The generic rig above then turns it into controls. Zero model calls.
 
 ```bash
-bw rig scorpion.glb --from-shape     # 팔다리 10개, 본 31개, 게이트 통과
+bw rig scorpion.glb --from-shape     # 10 limbs, 31 bones, gates pass
 ```
 
 Every asset the silhouette gate used to refuse now rigs this way — the insect, `kira` seated in her room, `fox` under

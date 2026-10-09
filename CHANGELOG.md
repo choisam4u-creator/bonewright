@@ -91,6 +91,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- The English guide still had Korean in six places (the ROADMAP section tags under "Known gaps and failed attempts"
+  and one command comment). The tags are now English links to the Korean ROADMAP sections; `tests/test_docs.py`
+  checks the anchors and that no Korean is left outside link targets.
 - `scripts/check_license_boundary.py` (run by CI and the PR checklist) reported in Korean only and did not say how to
   fix a violation; it now follows `BW_LANG` and each line says what to do (move Blender code into
   `bonewright/bpy_scripts/`, restore a missing licence file).

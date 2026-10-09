@@ -83,6 +83,23 @@ class DocLinkTests(unittest.TestCase):
                     self.assertIn(m.group(2), heads)
         self.assertGreater(seen, 2)
 
+    def test_roadmap_anchors_exist(self):
+        """GUIDE "Known gaps" 의 `ROADMAP.md#<앵커>` 링크(한국어 절 제목)가 실제 ROADMAP 제목을 가리키는지."""
+        def slug(h):
+            return re.sub(r"[^\w\- ]", "", h.strip().lower()).replace(" ", "-")
+        heads = {slug(ln.lstrip("#")) for ln in (REPO / "docs" / "ROADMAP.md").read_text(encoding="utf-8").splitlines()
+                 if ln.startswith("#")}
+        links = re.findall(r"\]\(ROADMAP\.md#([^)\s]+)\)", (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(links), 5)
+        for anchor in links:
+            with self.subTest(anchor=anchor):
+                self.assertIn(anchor, heads)
+
+    def test_guide_has_no_korean_outside_link_targets(self):
+        """GUIDE 는 영어 문서다 — 한국어 ROADMAP 을 가리키는 링크 주소 말고는 한글이 없어야 한다(10/9 3회차까지 6곳)."""
+        text = re.sub(r"\]\([^)\s]+\)", "]()", (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8"))
+        self.assertEqual([], [ln for ln in text.splitlines() if re.search(r"[가-힣]", ln)])
+
 
 class DocCommandTests(unittest.TestCase):
     def test_documented_commands_parse(self):
