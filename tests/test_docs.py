@@ -108,6 +108,21 @@ TEST_LISTS = [REPO / ".github" / "workflows" / "test.yml", REPO / "CONTRIBUTING.
 UNITTEST_LINE = re.compile(r"python3? -m unittest(?: -v)?((?: tests\.test_\w+)+)")
 
 
+def all_tests():
+    """tests/test_*.py 의 시험 전부(unittest 로더가 실제로 도는 것)."""
+    def flat(suite):
+        for t in suite:
+            yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
+    loader = unittest.TestLoader()
+    return [t for p in sorted((REPO / "tests").glob("test_*.py")) for t in flat(loader.loadTestsFromName(f"tests.{p.stem}"))]
+
+
+def needs_blender(t):
+    # 클래스에 붙인 것과 메서드 하나에 붙인 것 둘 다 센다
+    return bool(getattr(type(t), "_requires_blender", False)
+                or getattr(getattr(t, t._testMethodName), "_requires_blender", False))
+
+
 class TestListTests(unittest.TestCase):
     """CI·CONTRIBUTING·PR 템플릿·tests/README·RELEASING 의 `python -m unittest …` 목록이 tests/test_*.py 전부와 같은지."""
 
@@ -124,17 +139,40 @@ class TestListTests(unittest.TestCase):
         """CONTRIBUTING 의 `Ran N tests ... (skipped=M)` 예시가 지금 시험 수·블렌더 시험 수와 같은지."""
         m = re.search(r"Ran (\d+) tests \.\.\. OK \(skipped=(\d+)\)", (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8"))
         self.assertIsNotNone(m)
-        loader = unittest.TestLoader()
-
-        def flat(suite):
-            for t in suite:
-                yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
-        tests = [t for p in (REPO / "tests").glob("test_*.py") for t in flat(loader.loadTestsFromName(f"tests.{p.stem}"))]
-        # 클래스에 붙인 것과 메서드 하나에 붙인 것 둘 다 센다
-        blender = [t for t in tests if getattr(type(t), "_requires_blender", False)
-                   or getattr(getattr(t, t._testMethodName), "_requires_blender", False)]
+        tests = all_tests()
         self.assertEqual(int(m.group(1)), len(tests))
-        self.assertEqual(int(m.group(2)), len(blender))
+        self.assertEqual(int(m.group(2)), sum(map(needs_blender, tests)))
+
+    def test_tests_readme_table_is_current(self):
+        """tests/README.md 표의 묶음별 시험 수·블렌더 칸과 '없으면 N개 건너뜀' 이 실제 로더와 같은지
+        (10/9 에 시험 9개를 더할 때 CONTRIBUTING 은 시험이 잡았는데 이 표는 아무도 안 잡았다)."""
+        text = (REPO / "tests" / "README.md").read_text(encoding="utf-8")
+        tests = all_tests()
+        rows = []
+        for line in text.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) == 4 and cells[0].startswith("`tests.test_"):
+                names = re.findall(r"`(\w+(?:\.\w+)?)`", cells[0])
+                rows.append((names[0].split(".")[1], names[1:], "나머지" in cells[0], cells[1], int(cells[2])))
+        self.assertGreater(len(rows), 5, "표 읽기가 망가졌다")
+        self.assertEqual(sorted({r[0] for r in rows}), sorted({t.__module__.split(".")[-1] for t in tests}),
+                         "표에 없는(또는 없어진) 시험 모듈")
+        for mod, classes, rest, need, count in rows:
+            others = {c for r in rows if r[0] == mod and not r[2] for c in r[1]}
+            mine = [t for t in tests if t.__module__.endswith(mod)
+                    and (not others or (type(t).__name__ not in others if rest else type(t).__name__ in classes))]
+            blender = sum(map(needs_blender, mine))
+            with self.subTest(row=f"{mod} {'나머지' if rest else ' '.join(classes)}"):
+                self.assertEqual(count, len(mine))
+                if "불필요" in need:
+                    self.assertEqual(blender, 0)
+                elif "일부" in need:
+                    self.assertTrue(0 < blender < len(mine))
+                else:
+                    self.assertEqual(blender, len(mine))
+        m = re.search(r"없으면 (\d+)개 건너뜀", text)
+        self.assertIsNotNone(m)
+        self.assertEqual(int(m.group(1)), sum(map(needs_blender, tests)))
 
 
 
