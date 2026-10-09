@@ -324,6 +324,32 @@ class RetargetTableTests(unittest.TestCase):
                         self.assertEqual(want[1] if want else None, got.get(n))
 
 
+class AssetLicenceTests(unittest.TestCase):
+    """자산 라이선스 표기는 영어 사용자가 가장 먼저 확인한다 — 10/9 까지 tests/assets/README 와 bench-assets/ATTRIBUTION.md 가 한국어뿐이었다."""
+
+    def test_test_asset_licence_is_stated_in_english(self):
+        text = (REPO / "tests" / "assets" / "README.md").read_text(encoding="utf-8")
+        english = text.split("## 한국어", 1)[0]
+        self.assertEqual([], re.findall(r"[가-힣]+", english))
+        for asset in sorted((REPO / "tests" / "assets").glob("*.glb")):
+            with self.subTest(asset=asset.name):
+                line = next((ln for ln in english.splitlines() if asset.name in ln), "")
+                self.assertRegex(line, r"CC0 1\.0|CC BY|MIT")   # 파일 이름 줄에 라이선스
+        self.assertIn("Source: https://", english)
+
+    def test_bench_attribution_is_english_and_complete(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("fetch_bench_assets", REPO / "scripts" / "fetch_bench_assets.py")
+        fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+        texts = [fb.ATTRIBUTION, *fb.SAMPLES.values(), *(lic for _, _, lic in fb.CHARACTERS.values()), *fb.UNRESOLVED.values()]
+        for t in texts:
+            self.assertEqual([], re.findall(r"[가-힣]+", t), t[:80])
+        for name, (url, _, lic) in fb.CHARACTERS.items():
+            with self.subTest(asset=name):
+                self.assertRegex(lic, r"^(CC0 1\.0|CC BY 4\.0|MIT) ·")
+                self.assertTrue(url.startswith("https://"))
+
+
 class DefaultClaimTests(unittest.TestCase):
     """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.
     10/7: 0.2.0 CHANGELOG·ROADMAP 이 옛 광선 판정 때의 "기본 끔"을 적은 채 나갔다(실제는 켬)."""

@@ -88,6 +88,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- Asset licences were stated in Korean only: `tests/assets/README.md` (the CC0 Adventurer) now leads in English, and
+  the `bench-assets/ATTRIBUTION.md` written by `scripts/fetch_bench_assets.py` (sources, licences, what was left out
+  and why) is in English. `tests/test_docs.py` checks both.
 - `python3 examples/rig_sample.py --motion --preset quadruped` rigged the dog (tens of seconds in Blender) before
   saying `--motion` is humanoid-only; it now stops before rigging. `--motion --table` used to ignore `--motion`
   silently and now says the two do not go together.
