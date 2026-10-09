@@ -4,7 +4,7 @@
 |---|---|---|---|
 | `tests.test_mock` 의 `RigMockTests` | **필요** (`@requires_blender`) | 12 | 리그 생성·스키닝·리타겟·GLB 내보내기 전체 |
 | `tests.test_mock` 의 나머지(`BenchMappingTests`·`GateTests`·`RetargetMappingTests`·`QuadTailMappingTests`·`BvhUpAxisTests`·`FromSkeletonTests`·`MedialShapeTests`) | 불필요 | 29 | 이름 매핑·관문 판정(거절 사유 언어 포함)·BVH 축·순수 기하 |
-| `tests.test_cli` | 불필요 | 19 | 명령줄 입력 검증, `bw plugin-path`, `bw --version`, 도움말 언어(`BW_LANG`), `bw doctor` 필수/선택, `bw doctor --for-issue`(최근 실행·로그 꼬리·설정 파일·개인 경로 `~`), Windows Blender 경로 찾기 |
+| `tests.test_cli` | 불필요 | 20 | 명령줄 입력 검증, `bw plugin-path`, `bw --version`, 도움말 언어(`BW_LANG`), `bw doctor` 필수/선택, `bw doctor --for-issue`(최근 실행·로그 꼬리·설정 파일·개인 경로 `~`), Windows Blender 경로 찾기 |
 | `tests.test_examples` 의 `SampleOutputTests` | **필요** (`@requires_blender`, 일부) | 7 | `examples/sample-output/` 의 리깅·리타겟 예시가 지금 결과와 같은지(블렌더 3개), 표가 손으로 고쳐지지 않았는지·절차 BVH 매핑(블렌더 불필요 4개) |
 | `tests.test_examples` 의 나머지(`ExampleTableTests`·`ExampleMessageTests`) | 불필요 | 5 | `examples/rig_sample.py` 의 GLB 본 표, 막힐 때 문구가 화면 언어를 따르는지 |
 | `tests.test_errors` | 불필요 | 24 | 잘못된 입력이 Blender 호출 전에 막히고 메시지에 고칠 방법(→)이 있는지, 깨진 `runs/config.json`·모르는 설정 키, 예상 못 한 오류에 로그 위치·`BW_DEBUG` 안내, 영어 오류 문구, `report.md` 경로 |

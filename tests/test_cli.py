@@ -114,7 +114,7 @@ class IssueReportTests(unittest.TestCase):
     def run_report(self, root, *args, lang="en"):
         out, err = io.StringIO(), io.StringIO()
         with patch.dict("os.environ", {"BW_LANG": lang}), patch.object(cli, "ROOT", root), \
-                patch.object(cli, "doctor", side_effect=lambda: print("[required] Blender: /Users/someone/Blender.app") or 0), \
+                patch.object(cli, "doctor", side_effect=lambda **kw: print("[required] Blender: /Users/someone/Blender.app") or 0), \
                 patch.object(sys, "argv", ["bw", "doctor", "--for-issue", *args]), \
                 patch("sys.stdout", out), patch("sys.stderr", err):
             code = cli.main()
@@ -170,6 +170,27 @@ class IssueReportTests(unittest.TestCase):
         self.assertIn("`runs/config.json`", out); self.assertIn('"lang": "en"', out)
         self.assertIn('"root": "~', out); self.assertNotIn(str(Path.home()), out)
         self.assertIn("unknown keys (ignored): rig.cross_trimm (→ rig.cross_trim?)", out)
+
+    def test_unknown_key_warned_once(self):
+        """10/9 설치본 출력: 모르는 키가 doctor 의 경고 줄과 설정 절 줄로 두 번 나왔다 → 설정 절에만 한 번.
+        여기서는 doctor 를 가짜로 바꾸지 않는다(가짜 doctor 는 경고를 안 찍어 중복이 안 보인다)."""
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t); (root / "runs").mkdir()
+            (root / "runs" / "config.json").write_text('{"rig": {"cross_trimm": false}}')
+            out, err = io.StringIO(), io.StringIO()
+            with patch.dict("os.environ", {"BW_LANG": "en"}), patch.object(cli, "ROOT", root), \
+                    patch.object(cli, "find_blender", return_value=None), patch.object(cli, "has_bpy_module", return_value=True), \
+                    patch.object(cli.shutil, "which", return_value=None), \
+                    patch.object(sys, "argv", ["bw", "doctor", "--for-issue"]), patch("sys.stdout", out), patch("sys.stderr", err):
+                self.assertEqual(cli.main(), 0)
+            self.assertEqual(out.getvalue().count("rig.cross_trimm (→"), 1, out.getvalue())
+            self.assertIn("unknown keys (ignored): rig.cross_trimm", out.getvalue())
+            plain = io.StringIO()   # 그냥 `bw doctor` 는 경고 줄을 그대로 찍는다
+            with patch.dict("os.environ", {"BW_LANG": "en"}), patch.object(cli, "ROOT", root), \
+                    patch.object(cli, "find_blender", return_value=None), patch.object(cli, "has_bpy_module", return_value=True), \
+                    patch.object(cli.shutil, "which", return_value=None), patch("sys.stdout", plain):
+                cli.doctor()
+            self.assertIn("rig.cross_trimm", plain.getvalue())
 
     def test_no_settings_file_says_defaults(self):
         with tempfile.TemporaryDirectory() as t:

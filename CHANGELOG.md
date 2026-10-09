@@ -85,6 +85,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw doctor --for-issue` listed unknown `runs/config.json` keys twice (in the `bw doctor` part and under the
+  settings file); they now appear once, next to the file they come from. Plain `bw doctor` still warns.
 - CI uses `actions/checkout@v5` and `actions/setup-python@v6` (Node 24); the Node 20 versions printed a
   deprecation warning and will stop running when GitHub removes Node 20.
 - `examples/rig_sample.py` stopped with Korean-only messages (no Blender, missing file, not a GLB) even with

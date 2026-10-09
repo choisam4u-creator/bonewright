@@ -33,8 +33,9 @@ def plugin_dir() -> Path:
                               f"Codex plugin folder not found ({here.parent / 'plugin'}, {here / '_plugin'})\n  → reinstall from the repository with `pip install .`"))
 
 
-def doctor() -> int:
-    """준비 상태. [필수]는 Blender 앱 또는 bpy 모듈 하나뿐이다 — mock·--from-skeleton·--from-shape·--targets 는 codex 없이 된다."""
+def doctor(warn_unknown: bool = True) -> int:
+    """준비 상태. [필수]는 Blender 앱 또는 bpy 모듈 하나뿐이다 — mock·--from-skeleton·--from-shape·--targets 는 codex 없이 된다.
+    warn_unknown=False: 모르는 설정 키 경고를 뺀다(`--for-issue` 는 설정 절에 같은 내용을 한 번 싣는다)."""
     req, opt = T("[필수]", "[required]"), T("[선택]", "[optional]")
     cfg = load(ROOT)
     bl = find_blender(cfg["blender"])
@@ -56,7 +57,7 @@ def doctor() -> int:
     gen, text_model = pipeline.kimodo_paths((ROOT / cfg["kimodo"]["root"]).resolve(), cfg["kimodo"])
     print(opt, "kimodo.cpp:", (T("빌드됨", "built") if text_model else T("빌드됨, 텍스트 인코더 없음 — docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "built, no text encoder — see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md")) if gen else T("없음 — 텍스트→동작(`bw motion --text`)에만 필요, 빌드는 docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "not built — needed only for text→motion (`bw motion --text`); to build, see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md"))
     print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
-    if (warn := unknown_keys_line(ROOT)):
+    if warn_unknown and (warn := unknown_keys_line(ROOT)):
         print(warn)
     print(T("준비됨" if ok else "준비 안 됨: Blender 앱이나 bpy 모듈 중 하나를 설치하라", "ready" if ok else "not ready: install Blender or the bpy module (either one)"))
     return 0 if ok else 1
@@ -96,7 +97,7 @@ def issue_report(run_id: str | None, tail: int = 40) -> int:
     실행 하나의 state.json·마지막 로그 꼬리를 모으고 개인 경로를 `~` 로 바꾼다. 이슈 템플릿 3종이 손으로 모으라던 값들."""
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        code = doctor()
+        code = doctor(warn_unknown=False)   # 모르는 키는 아래 설정 절에 한 번만
     lines = ["<details><summary>bw doctor --for-issue</summary>", "", "```",
              f"bonewright {__version__}", f"Python {platform.python_version()} ({sys.executable})",
              f"OS {platform.platform()} {platform.machine()}"]
