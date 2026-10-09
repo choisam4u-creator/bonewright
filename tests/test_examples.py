@@ -83,6 +83,17 @@ class ExampleMessageTests(unittest.TestCase):
                 rig_sample.main()
         self.assertIn("file not found", str(cm.exception.code))
 
+    def test_motion_on_quadruped_stops_before_rigging(self):
+        """`--motion --preset quadruped` 는 리깅(블렌더 수십 초)을 하기 전에 멈춘다 — 10/9 까지는 다 리깅한 뒤 거절했다."""
+        from unittest import mock
+        for argv in (["--motion", "--preset", "quadruped"], ["--motion", "--table", "adventurer"]):
+            with self.subTest(argv=argv), mock.patch.dict("os.environ", {"BW_LANG": "en"}), \
+                 mock.patch.object(sys, "argv", ["rig_sample.py", *argv]), \
+                 mock.patch.object(rig_sample, "rig_and_table", side_effect=AssertionError("rigged before refusing")):
+                with self.assertRaises(SystemExit) as cm:
+                    rig_sample.main()
+                self.assertIn("--motion", str(cm.exception.code))
+
     def test_help_follows_screen_language(self):
         """`--help` 는 오류 다음에 사용자가 치는 것 — 영어 화면에 한글이 없고 한국어 화면은 한국어."""
         import contextlib, io

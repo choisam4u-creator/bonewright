@@ -88,6 +88,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `python3 examples/rig_sample.py --motion --preset quadruped` rigged the dog (tens of seconds in Blender) before
+  saying `--motion` is humanoid-only; it now stops before rigging. `--motion --table` used to ignore `--motion`
+  silently and now says the two do not go together.
 - `python3 -m unittest` with no arguments ran zero tests ("NO TESTS RAN", exit 5) because `tests/` was not a package;
   it now discovers the same seven modules as the long command in CONTRIBUTING, and `tests/test_docs.py` checks that.
 - `bw doctor --for-issue` listed unknown `runs/config.json` keys twice (in the `bw doctor` part and under the

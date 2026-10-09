@@ -188,6 +188,12 @@ def main() -> int:
                    help=T("리깅 뒤 절차 생성 BVH(손 흔들기)를 리타겟해 요약을 쓴다(사람 프리셋)",
                           "after rigging, retarget a procedural BVH (hand wave) and write a summary (humanoid preset)"))
     a = p.parse_args()
+    if a.motion and a.preset != "humanoid":   # 리깅(수십 초) 전에 막는다 — 기다린 뒤 거절하지 않게
+        raise SystemExit(T("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)",
+                           "--motion works with the humanoid preset only (the procedural BVH is a human skeleton)"))
+    if a.motion and a.table:
+        raise SystemExit(T("--motion 과 --table 은 같이 쓸 수 없다 — --table 은 리깅하지 않는다",
+                           "--motion and --table do not go together — --table does not rig"))
     mesh = SAMPLES.get(a.mesh, Path(a.mesh)) if a.mesh else None
     if mesh is not None and not mesh.exists():
         raise SystemExit(T(f"파일이 없다: {mesh} — 경로를 확인하거나 'adventurer' 를 쓴다. "
@@ -205,9 +211,6 @@ def main() -> int:
     print(out.read_text(encoding="utf-8"), end="")
     print("\n" + T("표: ", "table: ") + str(out.relative_to(ROOT)))
     if a.motion:
-        if a.preset != "humanoid":
-            raise SystemExit(T("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)",
-                               "--motion works with the humanoid preset only (the procedural BVH is a human skeleton)"))
         mo = motion_and_report(name)
         print("\n" + mo.read_text(encoding="utf-8"), end="")
         print("\n" + T("리타겟 요약: ", "retarget summary: ") + str(mo.relative_to(ROOT)))
