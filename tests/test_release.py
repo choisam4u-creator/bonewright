@@ -29,6 +29,14 @@ class VersionTests(unittest.TestCase):
             self.assertRegex(text, rf"(?m)^\[{re.escape(h)}\]: https://", f"CHANGELOG 맨 아래에 [{h}] 링크가 없다")
 
 
+    def test_fetch_script_user_agent_follows_version(self):
+        """`fetch_bench_assets.py` 의 User-Agent 는 원배포처가 보는 이름 — 손으로 박은 0.2 가 0.3.0 에서 어긋났다(10/9 3회차)."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("fetch_bench_assets", ROOT / "scripts" / "fetch_bench_assets.py")
+        fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+        homepage = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["urls"]["Homepage"]
+        self.assertEqual(f"bonewright-bench-fetch/{self.version} (+{homepage})", fb.UA["User-Agent"])
+
 class ReleasingSummaryTests(unittest.TestCase):
     """영어 CHANGELOG 가 "See docs/RELEASING.md" 로 가리킨다 — 맨 위 영어 요약이 있고, 버전 세 곳이 위 시험과 같은지(10/9 3회차)."""
 

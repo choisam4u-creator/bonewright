@@ -14,9 +14,12 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bonewright import __version__  # noqa: E402
 from bonewright.i18n import T  # noqa: E402  화면 언어(BW_LANG·로캘)를 따른다
 
-UA = {"User-Agent": "bonewright-bench-fetch/0.2 (+https://github.com/)"}
+REPO_URL = "https://github.com/choisam4u-creator/bonewright"
+# 원배포처가 누가 받아 가는지 알고 문의할 수 있게: 버전은 패키지에서, 주소는 저장소
+UA = {"User-Agent": f"bonewright-bench-fetch/{__version__} (+{REPO_URL})"}
 
 KHRONOS = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/{n}/glTF-Binary/{n}.glb"
 # Quaternius, Ultimate Animated Animals (2021-07) — CC0 1.0. 공개 구글 드라이브 폴더의 glTF 하위 폴더.
