@@ -29,6 +29,18 @@ class VersionTests(unittest.TestCase):
             self.assertRegex(text, rf"(?m)^\[{re.escape(h)}\]: https://", f"CHANGELOG 맨 아래에 [{h}] 링크가 없다")
 
 
+class ReleasingSummaryTests(unittest.TestCase):
+    """영어 CHANGELOG 가 "See docs/RELEASING.md" 로 가리킨다 — 맨 위 영어 요약이 있고, 버전 세 곳이 위 시험과 같은지(10/9 3회차)."""
+
+    def test_english_summary_names_the_checked_files(self):
+        import re
+        text = (ROOT / "docs" / "RELEASING.md").read_text(encoding="utf-8")
+        summary = "\n".join(ln for ln in text.splitlines() if ln.startswith(">"))
+        self.assertIn("English summary", summary)
+        self.assertIsNone(re.search(r"[가-힣]", summary), summary)
+        for f in ("pyproject.toml", "bonewright/__init__.py", "plugin/.codex-plugin/plugin.json", "[Unreleased]"):
+            self.assertIn(f, summary)
+
 class ProposedVersionTests(unittest.TestCase):
     """`[Unreleased]` 첫 줄의 다음 버전 제안이 docs/RELEASING.md 의 표와 어긋나지 않게.
     10/7 까지 "0.2.1 — fixes only" 라 적힌 채 새 플래그가 쌓였다."""

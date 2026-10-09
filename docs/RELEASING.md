@@ -1,4 +1,20 @@
-# 릴리스 절차
+# 릴리스 절차 (Releasing)
+
+> **English summary.** Only the maintainer tags and publishes releases; contributors and automated sessions prepare
+> steps 1–3 at most. While on 0.x: fixes, docs and examples bump the third number (0.2.0 → 0.2.1); a new command or
+> flag, a changed default, or a change that moves a benchmark number bumps the second (0.2.x → 0.3.0). The proposed
+> next version is the first line under `[Unreleased]` in `CHANGELOG.md`, and `tests/test_release.py` checks it.
+>
+> 1. **Tests** — the whole suite with Blender (`BW_REQUIRE_BLENDER=1 python3 -m unittest`) and
+>    `python3 scripts/check_license_boundary.py`.
+> 2. **Version in three places** — `pyproject.toml`, `bonewright/__init__.py`, `plugin/.codex-plugin/plugin.json`
+>    (`tests/test_release.py` fails if they differ).
+> 3. **CHANGELOG** — move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and fix the compare links at the bottom.
+> 4. **Merge to main, then an annotated tag** `vX.Y.Z` with the benchmark numbers and main features.
+> 5. **GitHub release** whose body is that CHANGELOG section.
+>
+> There is no fixed schedule; a release goes out when `[Unreleased]` holds something worth shipping. The rest of
+> this page is the maintainer's detailed Korean notes.
 
 태그·GitHub 릴리스는 **Mac 총괄(샘님)만** 만든다. 클라우드 회차는 아래 1~3단계 준비까지만 하고 태그는 만들지 않는다.
 

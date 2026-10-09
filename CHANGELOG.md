@@ -11,6 +11,8 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `docs/RELEASING.md`, which this changelog points to, opens with an English summary (who releases, how the version
+  number is chosen, the five steps); the detailed notes below it stay in Korean.
 - `report.md` (rig and motion) starts with a versions line — bonewright, Blender, Python and OS — because the
   "A rig came out wrong" issue template asks for `report.md` and rigs change between versions. The template also
   asks for `bw --version`.
