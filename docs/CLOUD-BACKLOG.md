@@ -114,3 +114,12 @@
 - [x] (10/9 3회차: 단계 이름 13개·주석·스크립트 문구 영어, 명령은 그대로, `test_release.WorkflowActionTests.test_workflow_is_english`) CI(`.github/workflows/test.yml`) 단계 이름·주석이 한국어다(단계 이름 13개) → 단계 이름을 영어로(주석은 두 언어 또는 영어), 공개 뒤 PR 기여자가 보는 Actions 화면 — 근거: 10/9 3회차 `check_license_boundary` 고칠 때 확인. 실패한 단계 이름을 영어 기여자가 못 읽는다
 - [x] (10/9 3회차: 실패 문구는 이미 영어였고 도움말만 한국어 → 도움말 T(), FAIL 아래 → 줄, `test_i18n.IssueReportCheckTests`) `scripts/check_issue_report.py`(CI 가 `bw doctor --for-issue` 출력에서 개인 경로를 찾는 점검)의 실패 문구가 한국어다(한글 71단어) → `T()` 와 고칠 방법(→), `USER_SCRIPTS` 에 추가 — 근거: 10/9 3회차 실측. CI 실패 시 영어 기여자가 처음 보는 문구다
 - [x] (10/9 3회차: 인용 블록 영어 요약·표 머리글 두 언어, `test_tests_readme_table_is_current` 가 요약의 건너뜀 수와 한글 없음까지) `tests/README.md`(CONTRIBUTING 다음으로 기여자가 여는 시험 안내)가 한국어뿐이다(한글 340단어) → 맨 위 영어 요약(세 명령·블렌더 시험 표시법·CI 세 잡)과 표 머리글 영어, `test_docs` 표 대조는 유지 — 근거: 10/9 3회차 실측
+
+
+## 2026-10-09 3회차 넷째 묶음 (공개 준비 기준)
+
+- [ ] 라이선스: `spikes/` 의 `bvh_check.py`·`render_rig2.py`·`rigify_headless.py` 가 `import bpy` 인데 `LICENSE` 는 "bonewright/bpy_scripts/ 말고 전부 MIT" 라 적었다 → (샘님 확인) `LICENSE`·`bonewright/bpy_scripts/README.md` 표에 `spikes/` 를 GPL 로 적거나 스파이크를 정리, `check_license_boundary.py` 가 `bonewright/` 밖(`examples/`·`scripts/`·`spikes/`)의 bpy import 도 보게 — 근거: 10/9 3회차 `grep -l "import bpy" spikes/*.py` 3개. 지금 검사는 `bonewright/` 만 본다
+- [ ] 문서: `addon/README.md` 가 "v0.1 runs headless … add-on is planned for v0.2" 라 적었는데 0.2.0 이 나왔고 add-on 은 없다 → 지금 상태(계획만, 시점 미정)로 고치고 `bpy_scripts/README.md` 표의 "planned" 와 맞춤, 버전 언급이 현재 버전보다 과거면 걸리는 시험 — 근거: 10/9 3회차 실측
+- [ ] 시험 출력: CI 는 `-v` 로 돌아 시험 이름 옆에 docstring 첫 줄을 찍는데 155개 중 65개가 한국어다 → 영어 기여자가 CI 로그에서 어떤 시험이 깨졌는지 읽게(첫 줄 영어 + 둘째 줄부터 한국어 설명, 또는 `-v` 대신 이름만) — 근거: 10/9 3회차 `shortDescription()` 집계
+- [ ] `spikes/` 에 설명이 없다(README 없음, 패키지에도 안 실림) → 무엇을 확인하려던 실험인지·지금 쓰는지·지워도 되는지 한 장(영어), 링크 점검 대상에 포함 — 근거: 10/9 3회차. 공개 뒤 처음 보는 사람은 `spikes/` 를 본체로 오해할 수 있다
+- [ ] `docs/PRE-PUBLIC-AUDIT.md` 의 기준이 `main 27fd528` 이다 → 10/9 까지 새로 든 파일(examples 두 언어 README·sample-output·tests/assets/README·bench-assets ATTRIBUTION 문구)을 같은 방식(개인 경로·메일·자산 출처)으로 다시 훑고 기준 커밋을 갱신, 결과만 적는다(기록 정리 결정은 샘님) — 근거: 10/9 3회차 실측
