@@ -5,7 +5,7 @@
 **한 일**
 - `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 cloud-work 에 이미 들어 있어 병합 없음.
 - CI 액션 Node 24 판: `actions/checkout@v5`·`actions/setup-python@v6`(세 잡 모두). `test_release.WorkflowActionTests` 가 Node 20 판
-  재발을 잡는다. CHANGELOG Fixed. 네 잡 결과는 이번 푸시의 Actions 에서 본다(클라우드에서는 CI 를 못 돌린다).
+  재발을 잡는다. CHANGELOG Fixed. 푸시 뒤 run 37943600285·37943625346(e5b140b) 네 잡 모두 초록 — `Run actions/checkout@v5`·`setup-python@v6` 단계 성공.
 - 두 README 에 설정 한 줄: `runs/config.json` 예시(`{"lang": "en", "rig": {"rest_pose": "t"}}`)와 GUIDE Settings 앵커 링크.
   `test_docs.FirstRunTests.test_settings_line_matches_between_languages`(두 언어 예시가 같고 모르는 키가 없는지).
 - `tests/README.md` 표를 실제와 맞춤(cli 15→20, examples 3→블렌더 묶음 7·나머지 5, errors 15→24, docs 14→22, i18n 7→10,
