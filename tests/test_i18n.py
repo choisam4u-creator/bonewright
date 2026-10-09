@@ -8,7 +8,7 @@ from pathlib import Path
 PKG = Path(__file__).resolve().parent.parent / "bonewright"
 # 사용자가 직접 돌리는 저장소 스크립트(README·examples/README 가 안내한다). 10/9 3회차에 T() 를 넣었다
 USER_SCRIPTS = [PKG.parent / "examples" / "rig_sample.py", PKG.parent / "scripts" / "fetch_bench_assets.py",
-                PKG.parent / "scripts" / "check_license_boundary.py"]
+                PKG.parent / "scripts" / "check_license_boundary.py", PKG.parent / "scripts" / "bench_score.py"]
 
 
 def hangul(s: str) -> bool:
@@ -199,3 +199,31 @@ class FetchScriptLanguageTests(unittest.TestCase):
                 text = out.getvalue()
                 self.assertTrue(text.strip())
                 self.assertFalse(hangul(text), [ln for ln in text.splitlines() if hangul(ln)][:3])
+
+
+class BenchScoreLanguageTests(unittest.TestCase):
+    """`scripts/bench_score.py` 는 README·GUIDE 가 벤치 숫자의 출처로 안내한다 — 영어 화면의 진행 줄·점수·실패 목록에
+    한글이 없는지(10/9 3회차까지 한국어뿐). 리깅·상태·늘어남은 가짜로 바꿔 Blender 없이 돈다."""
+
+    def test_score_lines_follow_screen_language(self):
+        import contextlib, importlib.util, io, sys, tempfile
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("bench_score", PKG.parent / "scripts" / "bench_score.py")
+        bs = importlib.util.module_from_spec(spec); spec.loader.exec_module(bs)
+        with tempfile.TemporaryDirectory() as d:
+            for n in ("a_ok", "b_fail"):
+                (Path(d) / f"{n}.glb").write_bytes(b"glTF")
+            out = io.StringIO()
+            status = lambda home, rid: "ok" if rid == "sc_a_ok_preset" else "rejected"   # noqa: E731
+            with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(bs, "run", return_value=(0, "")), \
+                 mock.patch.object(bs, "status", status), mock.patch.object(bs, "stretch", return_value=(8.0, 0.02)), \
+                 mock.patch.object(sys, "argv", ["bench_score.py", "--assets", d, "--home", d, "--motion-humanoid", "w.bvh"]), \
+                 contextlib.redirect_stdout(out):
+                bs.main()
+        text = out.getvalue()
+        self.assertFalse(hangul(text), text)
+        self.assertIn("rig score     1/2", text)
+        self.assertIn("motion pass   0/1", text)
+        self.assertIn("rig failed: b_fail", text)
+        self.assertIn("motion tear: a_ok", text)
+        self.assertIn(" preset ", text)
