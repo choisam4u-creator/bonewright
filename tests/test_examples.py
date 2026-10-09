@@ -83,6 +83,22 @@ class ExampleMessageTests(unittest.TestCase):
                 rig_sample.main()
         self.assertIn("file not found", str(cm.exception.code))
 
+    def test_help_follows_screen_language(self):
+        """`--help` 는 오류 다음에 사용자가 치는 것 — 영어 화면에 한글이 없고 한국어 화면은 한국어."""
+        import contextlib, io
+        from unittest import mock
+        out = {}
+        for lang in ("en", "ko"):
+            buf = io.StringIO()
+            with mock.patch.dict("os.environ", {"BW_LANG": lang}), mock.patch.object(sys, "argv", ["rig_sample.py", "--help"]), \
+                 contextlib.redirect_stdout(buf), self.assertRaises(SystemExit):
+                rig_sample.main()
+            out[lang] = buf.getvalue()
+        self.assertIsNone(re.search(r"[가-힣]", out["en"]), out["en"])
+        for opt in ("--preset", "--table", "--motion", "pip install bpy==5.2.2"):
+            self.assertIn(opt, out["en"]); self.assertIn(opt, out["ko"])
+        self.assertIn("절차적 캡슐 인형", out["ko"])
+
 
 class SampleOutputTests(unittest.TestCase):
     def test_sample_table_is_what_bone_table_prints(self):

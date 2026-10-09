@@ -91,6 +91,8 @@ See `docs/RELEASING.md` for the release steps.
   deprecation warning and will stop running when GitHub removes Node 20.
 - `examples/rig_sample.py` stopped with Korean-only messages (no Blender, missing file, not a GLB) even with
   `BW_LANG=en`; they now follow the screen language like `bw` itself.
+- `python3 examples/rig_sample.py --help` (what people type right after an error) was Korean only; the
+  description, every option and the result lines now follow `BW_LANG` too.
 - **`runs/<id>/report.md` no longer contains your home folder.** The issue template asks for this file as is, but
   it listed the mesh, the rig `.blend`, `targets.json` and the motion files by absolute path. Files inside the run
   folder are now written relative to it (`targets.json`, `02_rigged.blend`), and paths outside it show the home

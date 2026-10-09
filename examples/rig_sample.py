@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """입력 메시 → 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(BW_BACKEND=mock), 토큰 0.
+Reproduce a rig from a mesh (bone count and name table). Zero model calls, zero tokens. `--help` follows BW_LANG.
 
     python3 examples/rig_sample.py                    # 절차적 캡슐 인형(자산 파일 없음)을 만들어 리깅
     python3 examples/rig_sample.py --preset quadruped # 절차적 캡슐 개(네 발)를 만들어 사족 리깅
@@ -171,11 +172,21 @@ def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("mesh", nargs="?", help="'adventurer', .glb/.gltf 경로, 생략하면 절차적 캡슐 인형")
-    p.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
-    p.add_argument("--table", action="store_true", help="리깅하지 않고 GLB 안의 스킨 본 표만 찍는다(블렌더 불필요)")
-    p.add_argument("--motion", action="store_true", help="리깅 뒤 절차 생성 BVH(손 흔들기)를 리타겟해 요약을 쓴다(사람 프리셋)")
+    p = argparse.ArgumentParser(
+        description=T("입력 메시 → 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(BW_BACKEND=mock), 토큰 0.",
+                      "Reproduce a rig from a mesh (bone count and name table). Zero model calls (BW_BACKEND=mock), zero tokens."),
+        epilog=T("리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/ 에 남는다.",
+                 "Rigging needs Blender (the app or `pip install bpy==5.2.2`). Results go to examples/out/."))
+    p.add_argument("mesh", nargs="?", help=T("'adventurer', .glb/.gltf 경로, 생략하면 절차적 캡슐 인형",
+                                             "'adventurer', a .glb/.gltf path, or omit for a procedural capsule doll"))
+    p.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid",
+                   help=T("메시를 안 주면 만들 절차 인형·리그 종류(기본 humanoid)",
+                          "rig type, and the procedural mesh to build when none is given (default humanoid)"))
+    p.add_argument("--table", action="store_true", help=T("리깅하지 않고 GLB 안의 스킨 본 표만 찍는다(블렌더 불필요)",
+                                                          "print the skin bone table inside a GLB without rigging (no Blender needed)"))
+    p.add_argument("--motion", action="store_true",
+                   help=T("리깅 뒤 절차 생성 BVH(손 흔들기)를 리타겟해 요약을 쓴다(사람 프리셋)",
+                          "after rigging, retarget a procedural BVH (hand wave) and write a summary (humanoid preset)"))
     a = p.parse_args()
     mesh = SAMPLES.get(a.mesh, Path(a.mesh)) if a.mesh else None
     if mesh is not None and not mesh.exists():
@@ -192,14 +203,14 @@ def main() -> int:
     name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else PROCEDURAL[a.preset])
     out = rig_and_table(mesh, name, a.preset)
     print(out.read_text(encoding="utf-8"), end="")
-    print(f"\n표: {out.relative_to(ROOT)}")
+    print("\n" + T("표: ", "table: ") + str(out.relative_to(ROOT)))
     if a.motion:
         if a.preset != "humanoid":
             raise SystemExit(T("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)",
                                "--motion works with the humanoid preset only (the procedural BVH is a human skeleton)"))
         mo = motion_and_report(name)
         print("\n" + mo.read_text(encoding="utf-8"), end="")
-        print(f"\n리타겟 요약: {mo.relative_to(ROOT)}")
+        print("\n" + T("리타겟 요약: ", "retarget summary: ") + str(mo.relative_to(ROOT)))
     return 0
 
 
