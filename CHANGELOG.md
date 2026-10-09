@@ -11,6 +11,9 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `report.md` (rig and motion) starts with a versions line — bonewright, Blender, Python and OS — because the
+  "A rig came out wrong" issue template asks for `report.md` and rigs change between versions. The template also
+  asks for `bw --version`.
 - The guide's Motion retargeting section has a table of which BVH joint (Mixamo-style and kimodo-style names)
   drives which rig control, and why the mid spine (`Spine`) is not moved on purpose — "unmapped ['Spine']" in the
   motion example read like a failure. `tests/test_docs.py` checks the table against the matching code.

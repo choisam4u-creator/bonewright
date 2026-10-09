@@ -1,13 +1,14 @@
 """파이프라인: rig(분석 → 맞춤 판단 → 생성·스키닝 → 게이트 → 렌더 → 시각 판정 → 보고서), motion(kimodo → BVH → 가져오기)."""
 import json
 import os
+import platform
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import NoReturn
 
-from . import schemas
+from . import __version__, schemas
 from .blender import run_script
 from .codex import CodexError, UsageLimit, run_step
 from .config import load, unknown_keys_line
@@ -54,6 +55,12 @@ def need_rig(root: Path, run_id: str) -> Path:
 
 def _prompt(name: str, lang: str) -> str:
     return (PROMPTS / lang / f"{name}.md").read_text(encoding="utf-8")
+
+
+def versions_line(blender_result: dict) -> str:
+    """report.md 둘째 줄: 리그 결과는 버전마다 달라, 버전 없는 이슈는 재현이 안 된다(rig-problem 템플릿이 report.md 를 붙이라 한다)."""
+    return (f"- versions: bonewright {__version__} · Blender {blender_result.get('blender') or '?'} · "
+            f"Python {platform.python_version()} · {platform.system()} {platform.machine()}")
 
 
 def _shown(path: str | Path, base: Path) -> str:
@@ -391,7 +398,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                           f"[6/6] judge: outside {judge['bones_outside_mesh']} · proportions {'ok' if judge['proportions_ok'] else 'off'} · confidence {judge['confidence']}"))
     # 보고서
     t = r.tokens(); status = "ok" if not fails else "needs_review"
-    report = [f"# bonewright rig report · {run_id}", "",
+    report = [f"# bonewright rig report · {run_id}", "", versions_line(a),
               f"- mesh: `{_shown(mesh, r.dir)}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
               f"- import: {json.dumps(a['stats'].get('import'), ensure_ascii=False)}",
               f"- landmarks: chibi={a['landmarks'].get('chibi')} · head_ratio={a['landmarks'].get('head_ratio')} · neck={a['landmarks'].get('neck_from')} · suspect={a['landmarks'].get('suspect')}",
@@ -479,7 +486,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     imp = r.blender("import_bvh", {"bvh": str(Path(bvh).resolve()), "out_blend": str(r.dir / "motion.blend"), "bvh_up": bvh_up})
     _log(quiet, T(f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
                     f"[3/3] import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
-    report = [f"# bonewright motion report · {run_id}", "", f"- source: {'text: ' + text if text else 'bvh: ' + _shown(bvh, r.dir)}",
+    report = [f"# bonewright motion report · {run_id}", "", versions_line(imp), f"- source: {'text: ' + text if text else 'bvh: ' + _shown(bvh, r.dir)}",
               f"- armature: {imp['armature']} · bones {imp['bones']} · frames {imp['frames']} · fps {imp['fps']} · root move {imp['root_move']} m",
               "- blend: `motion.blend`"]
     if rig_run:

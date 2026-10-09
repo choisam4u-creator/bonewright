@@ -256,6 +256,15 @@ class ReportPathTests(unittest.TestCase):
                 self.assertEqual("~" + os.sep + "hero.glb", pipeline._shown(mesh, Path(d) / "runs" / "r1"))
 
 
+    def test_versions_line_for_issue_reports(self):
+        """rig-problem 템플릿은 report.md 를 붙이라 한다 — 버전 없는 신고는 재현이 안 된다(10/9 3회차)."""
+        from bonewright import __version__
+        line = pipeline.versions_line({"blender": "5.2.2 LTS"})
+        self.assertTrue(line.startswith(f"- versions: bonewright {__version__} · Blender 5.2.2 LTS · Python "), line)
+        self.assertIn("Blender ? ·", pipeline.versions_line({}))   # 옛 결과(버전 없음)에도 멈추지 않는다
+        tpl = (Path(pipeline.__file__).resolve().parents[1] / ".github" / "ISSUE_TEMPLATE" / "rig-problem.md").read_text(encoding="utf-8")
+        self.assertIn("bw --version", tpl)
+
 class KimodoPathTests(unittest.TestCase):
     """kimodo.cpp 원본이 빌드 폴더(build-release → build/release)와 텍스트 인코더(구성품 폴더 → GGUF 한 파일)를 바꿨다.
     옛 Mac 빌드와 지금 원본 안내대로 만든 것 둘 다 찾아야 한다."""
