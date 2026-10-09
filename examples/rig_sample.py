@@ -22,6 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from bonewright.i18n import T  # noqa: E402  화면 언어(BW_LANG·로캘)를 따른다
+
 OUT = ROOT / "examples" / "out"
 SAMPLES = {"adventurer": ROOT / "tests" / "assets" / "quaternius_adventurer.glb"}
 PROCEDURAL = {"humanoid": "capsule_doll", "quadruped": "capsule_dog"}   # 메시를 안 주면 절차적으로 만드는 것
@@ -31,10 +33,12 @@ def glb_skin_bones(path: Path) -> list[str]:
     """GLB 의 첫 스킨 관절 이름을 순서대로 돌려준다(순수 파이썬, 블렌더 불필요)."""
     data = Path(path).read_bytes()
     if len(data) < 20 or data[:4] != b"glTF":
-        raise ValueError(f"{path}: GLB 가 아니다 — .glb(바이너리 glTF)를 넣는다. .gltf 는 Blender 로 .glb 로 내보낸 뒤 쓴다")
+        raise ValueError(T(f"{path}: GLB 가 아니다 — .glb(바이너리 glTF)를 넣는다. .gltf 는 Blender 로 .glb 로 내보낸 뒤 쓴다",
+                           f"{path}: not a GLB — give a .glb (binary glTF). Export a .gltf to .glb from Blender first"))
     n, kind = struct.unpack_from("<II", data, 12)
     if kind != 0x4E4F534A:   # 'JSON'
-        raise ValueError(f"{path}: 첫 청크가 JSON 이 아니다 — 파일이 깨졌는지 원본에서 다시 받는다")
+        raise ValueError(T(f"{path}: 첫 청크가 JSON 이 아니다 — 파일이 깨졌는지 원본에서 다시 받는다",
+                           f"{path}: the first chunk is not JSON — the file may be broken; download it again"))
     gltf = json.loads(data[20:20 + n])
     skins = gltf.get("skins") or []
     if not skins:
@@ -142,8 +146,10 @@ def motion_and_report(name: str) -> Path:
 def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     from bonewright import blender, pipeline
     if not (blender.find_blender({}) or blender.has_bpy_module()):
-        raise SystemExit("Blender 가 없다 — Blender 5.2 LTS 를 설치하거나 `pip install bpy==5.2.2`(파이썬 3.13), "
-                         "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. 표만 보려면 --table x.glb")
+        raise SystemExit(T("Blender 가 없다 — Blender 5.2 LTS 를 설치하거나 `pip install bpy==5.2.2`(파이썬 3.13), "
+                           "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. 표만 보려면 --table x.glb",
+                           "Blender not found — install Blender 5.2 LTS or `pip install bpy==5.2.2` (Python 3.13), "
+                           "or put the executable's path in BW_BLENDER. For the bone table alone: --table x.glb"))
     os.environ["BW_BACKEND"] = "mock"
     os.environ.setdefault("BW_NO_RENDER", "1")
     OUT.mkdir(parents=True, exist_ok=True)
@@ -173,11 +179,14 @@ def main() -> int:
     a = p.parse_args()
     mesh = SAMPLES.get(a.mesh, Path(a.mesh)) if a.mesh else None
     if mesh is not None and not mesh.exists():
-        raise SystemExit(f"파일이 없다: {mesh} — 경로를 확인하거나 'adventurer' 를 쓴다. "
-                         "벤치 자산은 `python3 scripts/fetch_bench_assets.py` 로 받는다")
+        raise SystemExit(T(f"파일이 없다: {mesh} — 경로를 확인하거나 'adventurer' 를 쓴다. "
+                           "벤치 자산은 `python3 scripts/fetch_bench_assets.py` 로 받는다",
+                           f"file not found: {mesh} — check the path or use 'adventurer'. "
+                           "Benchmark assets come from `python3 scripts/fetch_bench_assets.py`"))
     if a.table:
         if mesh is None:
-            raise SystemExit("--table 에는 .glb 경로가 필요하다 (예: --table adventurer)")
+            raise SystemExit(T("--table 에는 .glb 경로가 필요하다 (예: --table adventurer)",
+                               "--table needs a .glb path (e.g. --table adventurer)"))
         print(bone_table(glb_skin_bones(mesh)), end="")
         return 0
     name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else PROCEDURAL[a.preset])
@@ -186,7 +195,8 @@ def main() -> int:
     print(f"\n표: {out.relative_to(ROOT)}")
     if a.motion:
         if a.preset != "humanoid":
-            raise SystemExit("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)")
+            raise SystemExit(T("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)",
+                               "--motion works with the humanoid preset only (the procedural BVH is a human skeleton)"))
         mo = motion_and_report(name)
         print("\n" + mo.read_text(encoding="utf-8"), end="")
         print(f"\n리타겟 요약: {mo.relative_to(ROOT)}")

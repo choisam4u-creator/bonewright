@@ -57,6 +57,33 @@ class ExampleTableTests(unittest.TestCase):
 
 
 
+class ExampleMessageTests(unittest.TestCase):
+    """예제는 공개 뒤 첫 사용자가 가장 먼저 돌리는 파일이다 — 막힐 때 문구가 화면 언어(BW_LANG)를 따르는지."""
+
+    def _no_blender_message(self, lang):
+        from unittest import mock
+        from bonewright import blender
+        with mock.patch.dict("os.environ", {"BW_LANG": lang}), \
+             mock.patch.object(blender, "find_blender", return_value=None), \
+             mock.patch.object(blender, "has_bpy_module", return_value=False):
+            with self.assertRaises(SystemExit) as cm:
+                rig_sample.rig_and_table(None, "x", "humanoid")
+        return str(cm.exception.code)
+
+    def test_no_blender_follows_screen_language(self):
+        en, ko = self._no_blender_message("en"), self._no_blender_message("ko")
+        self.assertIn("Blender not found", en); self.assertIn("pip install bpy==5.2.2", en)
+        self.assertIsNone(re.search(r"[가-힣]", en), en)
+        self.assertIn("Blender 가 없다", ko)
+
+    def test_missing_file_follows_screen_language(self):
+        from unittest import mock
+        with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(sys, "argv", ["rig_sample.py", "no/such.glb"]):
+            with self.assertRaises(SystemExit) as cm:
+                rig_sample.main()
+        self.assertIn("file not found", str(cm.exception.code))
+
+
 class SampleOutputTests(unittest.TestCase):
     def test_sample_table_is_what_bone_table_prints(self):
         """실어 둔 예시 표가 손으로 고쳐지지 않았는지: 표 안의 본 이름으로 표를 다시 만들면 같아야 한다."""
