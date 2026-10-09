@@ -77,7 +77,7 @@
 - [x] (10/9: `cli.config_section` — 깨진 JSON 도 그대로, 4000자 상한, 모르는 키 한 줄. CI unit 잡이 홈 경로 든 설정을 두고 `check_issue_report.py --expect-config`) `bw doctor --for-issue` 에 `runs/config.json` 싣기: 지금 덩어리엔 `BW_*` 환경 변수만 있고 설정 파일은 없다 → 있으면 내용(홈 경로 `~` 치환)과 모르는 키 경고 한 줄을 넣고 `check_issue_report.py` 로 확인 — 근거: 10/8 2회차에 설정 절·오타 경고를 넣었는데, 설정이 원인인 리깅 이슈는 설정 없이 재현이 안 된다
 - [x] (10/9: DEFAULTS 에서 삭제. 같은 점검으로 `default_model` 도 안 읽혀 삭제, `test_errors.test_every_default_setting_is_read`, CHANGELOG Changed) `blender.prefer_module` 설정이 어디서도 읽히지 않는다(`grep` 결과 `config.py` 한 곳) → bpy 모듈·앱 중 무엇을 먼저 쓸지 실제로 반영하거나 DEFAULTS 에서 빼고 CHANGELOG 한 줄 — 근거: 10/8 2회차 Settings 표를 쓰다 발견. 표에 넣으면 문서가 거짓말을 한다(그래서 뺐다)
 - [x] (10/9 2회차: checkout@v5·setup-python@v6, `test_release.WorkflowActionTests`, 네 잡 결과는 푸시 뒤 CI) CI 액션 버전: 10/8 run 37717221862 Windows 로그에 "Node.js 20 is deprecated … actions/checkout@v4, actions/setup-python@v5 … forced to run on Node.js 24" 경고 → 두 액션을 Node 24 판 메이저로 올리고 네 잡 초록 확인 — 근거: 강제 전환이 끝나면 공개 직후 CI 가 경고 없이 깨질 수 있다
-- [ ] README·README.ko 첫 화면에 설정 파일 한 줄: 프롬프트 언어·쉬는 자세를 `runs/config.json` 으로 고정할 수 있다는 것과 GUIDE "Settings" 링크, 두 README 짝 시험(`FirstRunTests` 처럼) — 근거: README 에 `config.json` 이 한 번도 안 나온다. 영어 사용자가 매번 `--lang en` 을 붙여야 하는 줄 안다
+- [x] (10/9 2회차: 두 README "Settings/설정" 문단·예시 JSON·GUIDE 앵커 링크, `test_docs.FirstRunTests.test_settings_line_matches_between_languages`) README·README.ko 첫 화면에 설정 파일 한 줄: 프롬프트 언어·쉬는 자세를 `runs/config.json` 으로 고정할 수 있다는 것과 GUIDE "Settings" 링크, 두 README 짝 시험(`FirstRunTests` 처럼) — 근거: README 에 `config.json` 이 한 번도 안 나온다. 영어 사용자가 매번 `--lang en` 을 붙여야 하는 줄 안다
 
 
 ## 2026-10-09 추가 (공개 준비 기준)

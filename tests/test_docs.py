@@ -212,6 +212,29 @@ class FirstRunTests(unittest.TestCase):
                     with self.subTest(doc=doc.name, cmd=cmd):
                         self.assertIsNone(check_command(parser, cmd))
 
+    def test_settings_line_matches_between_languages(self):
+        """두 README 의 설정 한 줄: 같은 예시 JSON 이 읽히고, 그 키가 실제 기본 설정에 있고, GUIDE Settings 로 링크한다
+        (README 에 config.json 이 안 나오면 영어 사용자가 매번 `--lang` 을 붙여야 하는 줄 안다)."""
+        import json
+        import tempfile
+        from bonewright import config
+        examples = []
+        for doc in (self.EN[0], self.KO[0]):
+            text = doc.read_text(encoding="utf-8")
+            with self.subTest(doc=doc.name):
+                self.assertIn("runs/config.json", text)
+                self.assertIn("](docs/GUIDE.md#settings-runsconfigjson)", text)
+                found = re.findall(r"`(\{[^`]*\})`", text)
+                self.assertTrue(found, "설정 예시 JSON 이 없다")
+                examples.append(found)
+        self.assertEqual(examples[0], examples[1], "두 README 의 설정 예시가 다르다")
+        for ex in examples[0]:
+            with tempfile.TemporaryDirectory() as d:
+                (Path(d) / "runs").mkdir()
+                (Path(d) / "runs" / "config.json").write_text(ex, encoding="utf-8")
+                self.assertIsInstance(json.loads(ex), dict)
+                self.assertEqual(config.unknown_keys(Path(d)), [], f"README 예시에 모르는 키: {ex}")
+
     def test_install_extras_exist(self):
         """README 의 `pip install ".[headless]"` 같은 추가 묶음이 pyproject 에 있는지."""
         import tomllib

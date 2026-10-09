@@ -48,6 +48,10 @@ A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-sk
 progress log, the analysis warnings and errors that come from inside the Blender scripts, and the `bw bench` table and
 run reports. The [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
 
+**Settings.** To stop typing the same flags, put them in `runs/config.json` in your project folder, e.g.
+`{"lang": "en", "rig": {"rest_pose": "t"}}` fixes the model prompt language and bakes a T-pose rest on every run.
+Flags still win over the file. Keys and defaults: [guide → Settings](docs/GUIDE.md#settings-runsconfigjson).
+
 ## What you get
 
 <table>

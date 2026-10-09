@@ -43,6 +43,10 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 
 **언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유와 `bw rig`·`bw motion` 진행 로그와 Blender 스크립트 안에서 나온 분석 경고·오류, `bw bench` 표와 실행 보고서(`report.md`)도 같다.
 
+**설정.** 같은 옵션을 매번 붙이기 싫으면 프로젝트 폴더의 `runs/config.json` 에 적어 둔다. 예를 들어
+`{"lang": "en", "rig": {"rest_pose": "t"}}` 는 모델 프롬프트 언어를 고정하고 매번 T자 쉬는 자세로 굽는다.
+명령줄 옵션이 파일보다 앞선다. 키와 기본값: [안내서 → Settings](docs/GUIDE.md#settings-runsconfigjson).
+
 ## 결과 예시
 
 <table>

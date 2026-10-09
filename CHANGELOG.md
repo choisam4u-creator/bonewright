@@ -11,6 +11,9 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- Both READMEs now say, in one line, that repeated flags (prompt language, rest pose) can be fixed in
+  `runs/config.json`, with an example and a link to the guide's Settings table; `tests/test_docs.py` checks that the
+  two examples match and use only real keys.
 - `python3 examples/rig_sample.py --motion` rigs the procedural capsule doll and retargets a procedural 24-frame wave
   BVH onto it (no download, no licence question). The result, `examples/sample-output/capsule_doll_motion.md`
   (18 of 19 joints mapped), is linked from both READMEs; `tests/test_examples.py` compares it with a fresh run.
