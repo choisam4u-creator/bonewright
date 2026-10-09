@@ -1,5 +1,33 @@
 # 클라우드 회차 기록
 
+## 2026-10-09 (2회차)
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 cloud-work 에 이미 들어 있어 병합 없음.
+- CI 액션 Node 24 판: `actions/checkout@v5`·`actions/setup-python@v6`(세 잡 모두). `test_release.WorkflowActionTests` 가 Node 20 판
+  재발을 잡는다. CHANGELOG Fixed. 네 잡 결과는 이번 푸시의 Actions 에서 본다(클라우드에서는 CI 를 못 돌린다).
+- 두 README 에 설정 한 줄: `runs/config.json` 예시(`{"lang": "en", "rig": {"rest_pose": "t"}}`)와 GUIDE Settings 앵커 링크.
+  `test_docs.FirstRunTests.test_settings_line_matches_between_languages`(두 언어 예시가 같고 모르는 키가 없는지).
+- `tests/README.md` 표를 실제와 맞춤(cli 15→20, examples 3→블렌더 묶음 7·나머지 5, errors 15→24, docs 14→22, i18n 7→10,
+  release 4→6, "15개 건너뜀", CI 세 잡). `test_docs.TestListTests.test_tests_readme_table_is_current` 가 묶음별 수·블렌더 칸을
+  unittest 로더와 대조한다(숫자 하나를 틀리게 바꿔 실패하는 것 확인).
+- `bw doctor --for-issue` 의 모르는 설정 키를 한 번만: `doctor(warn_unknown=False)`, 설정 절 줄만 남김. 그냥 `bw doctor` 는 그대로 경고.
+  기존 시험은 doctor 를 가짜로 바꿔 중복이 안 보였다 → 진짜 doctor 로 도는 `test_unknown_key_warned_once`(옛 코드에서 2≠1 로 실패 확인).
+- CONTRIBUTING 시험 수 130 → 135(블렌더 15). 백로그 남은 3개라 새 항목은 안 더함.
+- 실수 기록: tests/README 시험을 확인하다 `git checkout` 으로 커밋 전 편집을 날렸다가 직전 백업으로 되살렸다(커밋 내용에 영향 없음).
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest <7개 모듈>`(bpy 5.2.2, Python 3.13 venv) — **135개 모두 통과, 건너뜀 0**(191초).
+  Python 3.11(블렌더 없음) — 135개 중 15개 건너뜀, 나머지 통과.
+- `check_license_boundary.py` OK. 설치본(venv) `check_issue_report.py --expect-config` OK, 출력에서 `cross_trimm` 은
+  JSON 본문 1번 + 경고 1번. 렌더는 안 돌렸다(화면 없는 리눅스).
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+echo '{"rig": {"cross_trimm": false}}' > runs/config.json && BW_LANG=en bw doctor --for-issue 2>/dev/null | grep -c 'cross_trimm (→'; rm runs/config.json   # 1 이어야 한다(설정이 이미 있으면 먼저 옮겨 둘 것)
+```
+
 ## 2026-10-09
 
 **한 일**
