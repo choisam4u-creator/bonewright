@@ -100,7 +100,7 @@
 
 ## 2026-10-09 3회차 둘째 묶음 (공개 준비 기준)
 
-- [ ] 시험: `test_i18n` 의 `T(한국어, 영어)` 짝 점검(영어 쪽 한글·자리표시자 대조, AST)이 `bonewright/` 만 본다 → 이번 회차에 `T()` 를 넣은 `examples/rig_sample.py`·`scripts/fetch_bench_assets.py` 도 같은 점검에 넣는다 — 근거: 10/9 3회차에 두 파일에 `T()` 30여 개를 넣었는데 자리표시자 대조는 하나도 안 걸린다(`PKG.rglob` 만)
+- [x] (10/9 3회차: `USER_SCRIPTS`, T() 44곳이 짝 점검에 들어감, `test_user_scripts_have_no_bare_hangul`, 자리표시자 하나를 지우면 실패 확인) 시험: `test_i18n` 의 `T(한국어, 영어)` 짝 점검(영어 쪽 한글·자리표시자 대조, AST)이 `bonewright/` 만 본다 → 이번 회차에 `T()` 를 넣은 `examples/rig_sample.py`·`scripts/fetch_bench_assets.py` 도 같은 점검에 넣는다 — 근거: 10/9 3회차에 두 파일에 `T()` 30여 개를 넣었는데 자리표시자 대조는 하나도 안 걸린다(`PKG.rglob` 만)
 - [ ] 오류 메시지: CONTRIBUTING 이 PR 전에 돌리라는 `scripts/check_license_boundary.py` 의 출력("라이선스 경계 OK — MIT 영역 …", 위반 줄)이 한국어뿐이다 → `T()` 두 언어, 위반 줄에 고칠 방법(→ bpy 를 쓰는 코드는 `bpy_scripts/` 로) — 근거: 10/9 3회차 실측. 영어 기여자가 처음 보는 CI 실패 문구다
 - [ ] 문서: `docs/GUIDE.md`(영어)에 한글 6곳 — "Known gaps" 의 ROADMAP 절 꼬리표 `[막힌 곳: …]`·`[실패: …]` 5개와 276줄 명령 주석 → 꼬리표는 영어 설명 + 한국어 절 이름(검색용)으로, 주석은 영어로, GUIDE 에 꼬리표 밖 한글이 없는지 시험 — 근거: 10/9 3회차 실측(한글 25단어)
 - [ ] 문서: 영어 CHANGELOG 가 "See `docs/RELEASING.md`" 로 가리키는 릴리스 절차가 한국어뿐이다(한글 277단어) → 맨 위에 영어 요약(단계 목록·누가 하는지) — 근거: 10/9 3회차 실측. 공개 뒤 기여자가 "언제 릴리스되나" 를 찾는 문서다

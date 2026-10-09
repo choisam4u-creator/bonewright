@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 
 PKG = Path(__file__).resolve().parent.parent / "bonewright"
+# 사용자가 직접 돌리는 저장소 스크립트(README·examples/README 가 안내한다). 10/9 3회차에 T() 를 넣었다
+USER_SCRIPTS = [PKG.parent / "examples" / "rig_sample.py", PKG.parent / "scripts" / "fetch_bench_assets.py"]
 
 
 def hangul(s: str) -> bool:
@@ -40,7 +42,7 @@ def placeholders(node: ast.expr) -> list[str]:
 
 
 def t_calls():
-    for path in sorted(PKG.rglob("*.py")):
+    for path in [*sorted(PKG.rglob("*.py")), *USER_SCRIPTS]:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "T":
@@ -120,6 +122,13 @@ class TPairTests(unittest.TestCase):
         10/7 bench 17·pipeline 12·codex 2·mock 2·manifest 1곳을 T() 로 옮기고 넓혔다."""
         files = sorted(p for p in PKG.rglob("*.py") if "bpy_scripts" not in p.parts)
         self.assertGreater(self.bare_hangul(files), 100)
+
+
+    def test_user_scripts_have_no_bare_hangul(self):
+        """`examples/rig_sample.py`·`scripts/fetch_bench_assets.py`: 영어 화면에 나오는 문자열의 한국어는 T() 안에만."""
+        for path in USER_SCRIPTS:
+            with self.subTest(script=path.name):
+                self.assertGreater(self.bare_hangul([path]), 5)
 
 
 class PromptLangTests(unittest.TestCase):
