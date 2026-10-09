@@ -25,7 +25,7 @@
 **Mac에서 확인할 것**
 ```bash
 git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
-echo '{"rig": {"cross_trimm": false}}' > runs/config.json && BW_LANG=en bw doctor --for-issue 2>/dev/null | grep -c 'cross_trimm (→'; rm runs/config.json   # 1 이어야 한다(설정이 이미 있으면 먼저 옮겨 둘 것)
+d=$(mktemp -d) && mkdir $d/runs && echo '{"rig": {"cross_trimm": false}}' > $d/runs/config.json && BW_HOME=$d BW_LANG=en bw doctor --for-issue 2>/dev/null | grep -c 'cross_trimm (→'   # 1 이어야 한다
 ```
 
 ## 2026-10-09
