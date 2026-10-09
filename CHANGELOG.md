@@ -88,6 +88,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `python3 scripts/fetch_bench_assets.py --help` and its progress lines were Korean only; they now follow `BW_LANG`
+  like `bw` (checked offline by `tests/test_i18n.py`).
 - Asset licences were stated in Korean only: `tests/assets/README.md` (the CC0 Adventurer) now leads in English, and
   the `bench-assets/ATTRIBUTION.md` written by `scripts/fetch_bench_assets.py` (sources, licences, what was left out
   and why) is in English. `tests/test_docs.py` checks both.

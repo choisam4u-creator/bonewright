@@ -162,3 +162,30 @@ class PromptLangTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FetchScriptLanguageTests(unittest.TestCase):
+    """`scripts/fetch_bench_assets.py` 는 두 README·examples/README 가 안내하는 명령이다 — 영어 화면에 한글이 없는지.
+    10/9 까지 `--help`·진행 문구가 한국어뿐이었다. 내려받기는 가짜로 바꿔 네트워크 없이 돈다."""
+
+    def test_help_and_progress_follow_screen_language(self):
+        import contextlib, importlib.util, io, sys, tempfile
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("fetch_bench_assets", PKG.parent / "scripts" / "fetch_bench_assets.py")
+        fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+        calls = iter(range(10_000))
+
+        def fake_get(url, dest):   # 하나는 실패, 나머지는 받은 척
+            if next(calls) == 0:
+                raise OSError("offline")
+            return 2048
+        for argv in (["--help"], ["--out", "{d}"]):
+            with self.subTest(argv=argv[0]), tempfile.TemporaryDirectory() as d:
+                out = io.StringIO()
+                with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(fb, "get", fake_get), \
+                     mock.patch.object(sys, "argv", ["fetch_bench_assets.py", *[a.format(d=d) for a in argv]]), \
+                     contextlib.redirect_stdout(out), contextlib.redirect_stderr(out), contextlib.suppress(SystemExit):
+                    fb.main()
+                text = out.getvalue()
+                self.assertTrue(text.strip())
+                self.assertFalse(hangul(text), [ln for ln in text.splitlines() if hangul(ln)][:3])

@@ -13,6 +13,9 @@ import sys
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bonewright.i18n import T  # noqa: E402  화면 언어(BW_LANG·로캘)를 따른다
+
 UA = {"User-Agent": "bonewright-bench-fetch/0.2 (+https://github.com/)"}
 
 KHRONOS = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/{n}/glTF-Binary/{n}.glb"
@@ -143,91 +146,99 @@ def get(url: str, dest: Path) -> int:
 def check_skinned(p: Path) -> str:
     """받은 파일에 실제로 뼈대가 들어 있는지 본다(정답 대조 벤치는 원본 뼈대가 있어야 한다)"""
     if p.suffix.lower() != ".gltf":
-        return "(glb — 확인 생략)"
+        return T("(glb — 확인 생략)", "(glb — not checked)")
     try:
         d = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
-        return f"읽기 실패: {e}"
+        return T(f"읽기 실패: {e}", f"could not read: {e}")
     skins = d.get("skins") or []
-    return f"스킨 {len(skins)} · 관절 {sum(len(s.get('joints', [])) for s in skins)}" if skins else "뼈대 없음 ⚠"
+    joints = sum(len(s.get("joints", [])) for s in skins)
+    return T(f"스킨 {len(skins)} · 관절 {joints}", f"skins {len(skins)} · joints {joints}") if skins else T("뼈대 없음 ⚠", "no skeleton ⚠")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="벤치마크 자산을 원저작자 배포처에서 받는다(재배포 아님)")
-    ap.add_argument("--out", default="bench-assets", help="받을 폴더(기본 bench-assets)")
-    ap.add_argument("--only", choices=["quadruped", "samples", "monsters", "characters"], help="한 종류만 받기")
+    ap = argparse.ArgumentParser(
+        description=T("벤치마크 자산을 원저작자 배포처에서 받는다(재배포 아님). 출처·라이선스는 <out>/ATTRIBUTION.md 에 남는다.",
+                      "Download the benchmark assets from where their authors publish them (not redistributed). "
+                      "Sources and licences are written to <out>/ATTRIBUTION.md."))
+    ap.add_argument("--out", default="bench-assets", help=T("받을 폴더(기본 bench-assets)", "folder to download into (default bench-assets)"))
+    ap.add_argument("--only", choices=["quadruped", "samples", "monsters", "characters"],
+                    help=T("한 종류만 받기", "download one group only"))
     a = ap.parse_args()
     out = Path(a.out)
     total = 0
     if a.only in (None, "quadruped"):
-        print("사족 10종 (Quaternius, CC0)")
+        print(T("사족 10종 (Quaternius, CC0)", "10 quadrupeds (Quaternius, CC0)"))
         for name, fid in ANIMALS.items():
             dest = out / "quadruped" / f"{name}.gltf"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(GDRIVE.format(id=fid), dest)
                 total += n
-                print(f"  받음 {name:10s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:10s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
     if a.only in (None, "samples"):
-        print("Khronos 샘플")
+        print(T("Khronos 샘플", "Khronos samples"))
         for name in SAMPLES:
             dest = out / "samples" / f"{name}.glb"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(KHRONOS.format(n=name), dest)
                 total += n
-                print(f"  받음 {name:14s} {n/1e6:5.1f}MB")
+                print(T("  받음 ", "  got ") + f"{name:14s} {n/1e6:5.1f}MB")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
     if a.only in (None, "monsters"):
-        print("비인간·괴물 43종 (Quaternius Ultimate Monsters + KayKit Skeletons, 둘 다 CC0)")
+        print(T("비인간·괴물 43종 (Quaternius Ultimate Monsters + KayKit Skeletons, 둘 다 CC0)",
+                "43 non-humans and monsters (Quaternius Ultimate Monsters + KayKit Skeletons, both CC0)"))
         for name, fid in sorted(MONSTERS.items()):
             dest = out / "monsters" / f"{name}.glb"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(POLY.format(id=fid), dest)
                 total += n
-                print(f"  받음 {name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
         for name in KAYKIT:
             dest = out / "monsters" / f"kaykit_{name.lower()}.glb"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(KAYKIT_BASE.format(n=name), dest)
                 total += n
-                print(f"  받음 {name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
     if a.only in (None, "characters"):
-        print("사람·로봇 5종 (라이선스 제각각 — ATTRIBUTION.md 참고)")
+        print(T("사람·로봇 5종 (라이선스 제각각 — ATTRIBUTION.md 참고)", "5 humans and robots (licences differ — see ATTRIBUTION.md)"))
         for name, (url, ext, lic) in CHARACTERS.items():
             dest = out / "characters" / f"{name}.{ext}"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(url, dest)
                 total += n
                 if name == "quaternius_ual":   # 외부 버퍼를 원래 이름으로 같이 받는다
                     total += get(UAL_BIN, dest.parent / "AnimationLibrary_Godot_Standard.bin")
-                print(f"  받음 {name:18s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:18s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
-        print(f"  ⚠ 아직 못 받는 자산 {len(UNRESOLVED)}종: {', '.join(UNRESOLVED)} — 출처 기록이 없다")
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
+        print(T(f"  ⚠ 아직 못 받는 자산 {len(UNRESOLVED)}종: {', '.join(UNRESOLVED)} — 출처 기록이 없다",
+                f"  ⚠ {len(UNRESOLVED)} assets cannot be downloaded yet: {', '.join(UNRESOLVED)} — no record of their source"))
     out.mkdir(parents=True, exist_ok=True)
     (out / "ATTRIBUTION.md").write_text(
         ATTRIBUTION.format(
             samples="\n".join(f"- `{k}.glb` — {v}" for k, v in SAMPLES.items()),
             characters="\n".join(f"- `{k}.{e}` — {lic}\n  - source: {u}" for k, (u, e, lic) in CHARACTERS.items()),
             unresolved="\n".join(f"- `{k}` — {v}" for k, v in UNRESOLVED.items())), encoding="utf-8")
-    print(f"\n총 {total/1e6:.1f}MB → {out}  (출처·라이선스는 {out}/ATTRIBUTION.md)")
-    print("사족 벤치:  bw bench " + str(out / "quadruped") + "/*.gltf --preset quadruped")
+    print(T(f"\n총 {total/1e6:.1f}MB → {out}  (출처·라이선스는 {out}/ATTRIBUTION.md)",
+            f"\ntotal {total/1e6:.1f}MB → {out}  (sources and licences in {out}/ATTRIBUTION.md)"))
+    print(T("사족 벤치:  ", "quadruped bench:  ") + "bw bench " + str(out / "quadruped") + "/*.gltf --preset quadruped")
     return 0
 
 
