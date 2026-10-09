@@ -95,6 +95,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `addon/README.md` still said the bridge add-on was "planned for v0.2"; 0.2.0 shipped without it. It now says it is
+  an unscheduled idea, and `tests/test_docs.py` flags a plan dated to a version that is already out.
 - `scripts/check_issue_report.py` (CI) had Korean-only option help and failed without saying where to look; the
   help follows `BW_LANG` and a failure now points at `scrub()` in `bonewright/cli.py`.
 - CI step names and comments in `.github/workflows/test.yml` were Korean; they are English now, so a contributor can

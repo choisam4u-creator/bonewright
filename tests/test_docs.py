@@ -389,6 +389,18 @@ class ExamplesReadmePairTests(unittest.TestCase):
         self.assertEqual(en[2], ko[2], "입력 예 표")
 
 
+class StaleVersionClaimTests(unittest.TestCase):
+    """"planned for v0.2" 처럼 이미 지난 버전에 무엇이 온다고 적은 문장(10/9 3회차 addon/README — 0.2.0 이 나왔는데 add-on 은 없다)."""
+
+    def test_no_plan_for_a_released_version(self):
+        from bonewright import __version__
+        now = tuple(int(x) for x in __version__.split(".")[:2])
+        for doc in (REPO / "addon" / "README.md", REPO / "bonewright" / "bpy_scripts" / "README.md", REPO / "README.md"):
+            for m in re.finditer(r"(?:planned|coming|arrives?|lands?) (?:for|in) v?(\d+)\.(\d+)", doc.read_text(encoding="utf-8")):
+                with self.subTest(doc=str(doc.relative_to(REPO)), claim=m.group(0)):
+                    self.assertGreater((int(m.group(1)), int(m.group(2))), now)
+
+
 class DefaultClaimTests(unittest.TestCase):
     """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.
     10/7: 0.2.0 CHANGELOG·ROADMAP 이 옛 광선 판정 때의 "기본 끔"을 적은 채 나갔다(실제는 켬)."""
