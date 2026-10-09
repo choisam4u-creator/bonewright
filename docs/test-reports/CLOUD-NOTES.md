@@ -1,5 +1,42 @@
 # 클라우드 회차 기록
 
+**Mac 에서 돌릴 것 (블렌더 필요, 10/9 3회차 기준)**
+```bash
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 156개, 건너뜀 0 이어야 한다(인자 없는 형태가 이제 7개 묶음 전부를 찾는다)
+BW_NO_RENDER=1 python3 examples/rig_sample.py --motion | tail -12 && git diff --stat examples/sample-output   # 결과 문서가 영어이고 sample-output 과 차이 없음
+d=$(mktemp -d) && BW_HOME=$d BW_NO_RENDER=1 BW_BACKEND=mock bw rig tests/assets/quaternius_adventurer.glb --no-judge --run-id v && sed -n 3p $d/runs/v/report.md   # "- versions: bonewright 0.2.0 · Blender 5.2.x · Python … · Darwin arm64"
+```
+
+## 2026-10-09 (3회차)
+
+**한 일** (커밋마다 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 cloud-work 에 이미 들어 있어 병합 없음.
+- 백로그 기존 3개: `rig_sample.py --help` 두 언어 / 예시 문서 영어(`examples/README.md` 영어·`README.ko.md` 한국어,
+  결과 문서·`sample-output/*.md` 머리글 영어) / GUIDE 리타겟 절에 BVH 관절 → 컨트롤 표와 `Spine` 을 안 옮기는 이유
+  (표를 `bvh_mapping` 과 대조하는 시험).
+- 새 항목 5개(첫째 묶음) 모두 처리: 인자 없는 `python3 -m unittest` 가 0개로 끝나던 것(`tests/__init__.py`), `--motion
+  --preset quadruped` 를 리깅 전에 거절, 자산 라이선스 표기 영어(tests/assets·ATTRIBUTION), `fetch_bench_assets.py`
+  두 언어, `report.md` 버전 줄(Blender 쪽 `_common.done` 이 `blender` 버전을 결과에)·rig-problem 템플릿 `bw --version`.
+- 새 항목 5개(둘째 묶음) 모두 처리: T() 짝 점검을 저장소 스크립트까지, `check_license_boundary.py` 두 언어·→,
+  GUIDE 의 한글 6곳(ROADMAP 앵커 링크로), RELEASING 영어 요약, fetch User-Agent 버전·주소.
+- 새 항목 5개(셋째 묶음) 모두 처리: `bench_score.py` 두 언어(판정은 영어 코드 — 실행 id 가 `sc_<자산>_skeleton|preset|shape`
+  로 바뀜), examples README 짝 시험(한국어판에 빠진 GUIDE 링크를 잡음), CI 단계 이름 영어, `check_issue_report.py`
+  도움말·→, tests/README 영어 요약.
+- 넷째 묶음 5개 추가, 그중 `addon/README`("v0.2 예정" 낡은 문구) 처리. 남은 4개.
+- 시험 수 136 → 156(블렌더 15 그대로). CI: d6e4f96 까지 푸시·PR run 모두 초록, 이후 run 은 이 기록을 쓸 때 진행 중.
+
+**막힌 것 / 샘님 결정**
+- 넷째 묶음 첫 항목(라이선스): `spikes/` 의 `bvh_check.py`·`render_rig2.py`·`rigify_headless.py` 가 `import bpy` 인데
+  `LICENSE` 는 bpy_scripts/ 말고 전부 MIT 라 적었다. LICENSE 문구를 바꾸는 일이라 손대지 않았다. 고를 것:
+  (a) LICENSE·`bpy_scripts/README.md` 표에 `spikes/` 를 GPL 로 적는다, (b) 스파이크 셋을 지운다(기록은 git 에 남음).
+  정해지면 `check_license_boundary.py` 가 `bonewright/` 밖도 보게 넓힐 수 있다(지금 넓히면 spikes 때문에 CI 가 빨개진다).
+
+**돌린 시험**
+- `python3 -m unittest`(Python 3.13, 블렌더 없음) — 156개 중 15개 건너뜀, 나머지 통과. 매 커밋 전 같은 명령.
+- bpy 5.2.2 venv(`BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`, 인자 없는 형태): **156개 모두 통과, 건너뜀 0**(230초). 145개 시점에도 한 번 전부 통과.
+- 새 시험마다 고치기 전 코드로 되돌려 실패하는 것 확인(`--help`·`--motion` 순서·발견·fetch 문구·라이선스 문구·addon).
+- `check_license_boundary.py` OK(MIT 영역 15개). 렌더는 안 돌렸다(화면 없는 리눅스).
+
 ## 2026-10-09 (2회차)
 
 **한 일**
