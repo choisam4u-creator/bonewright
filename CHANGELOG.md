@@ -11,6 +11,9 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- The guide's Motion retargeting section has a table of which BVH joint (Mixamo-style and kimodo-style names)
+  drives which rig control, and why the mid spine (`Spine`) is not moved on purpose — "unmapped ['Spine']" in the
+  motion example read like a failure. `tests/test_docs.py` checks the table against the matching code.
 - Both READMEs now say, in one line, that repeated flags (prompt language, rest pose) can be fixed in
   `runs/config.json`, with an example and a link to the guide's Settings table; `tests/test_docs.py` checks that the
   two examples match and use only real keys.

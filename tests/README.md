@@ -9,7 +9,7 @@
 | `tests.test_examples` 의 나머지(`ExampleTableTests`·`ExampleMessageTests`) | 불필요 | 6 | `examples/rig_sample.py` 의 GLB 본 표, 막힐 때 문구·`--help` 가 화면 언어를 따르는지 |
 | `tests.test_errors` | 불필요 | 25 | 잘못된 입력이 Blender 호출 전에 막히고 메시지에 고칠 방법(→)이 있는지, 깨진 `runs/config.json`·모르는 설정 키, 예상 못 한 오류에 로그 위치·`BW_DEBUG` 안내, 영어 오류 문구, `report.md` 경로(심볼릭 링크 홈 포함) |
 | `tests.test_release` | 불필요 | 6 | 버전 문자열 3곳 일치, CHANGELOG 절·링크(`docs/RELEASING.md`)·다음 버전 제안, 패키지 메타데이터, CI 액션이 Node 24 판인지 |
-| `tests.test_docs` | 불필요 | 22 | README·README.ko·GUIDE·examples/README(두 언어)·CONTRIBUTING·SECURITY·RELEASING·이슈/PR 템플릿의 상대 링크가 있는 파일인지, 문서의 `bw <명령> --옵션` 이 실제 argparse 에 있는지, 시험 명령 목록(CI·CONTRIBUTING·PR 템플릿·RELEASING·이 파일)이 `tests/test_*.py` 전부인지, CONTRIBUTING 의 시험 수 예시와 이 표의 시험 수, README 첫 화면(설치·첫 실행 명령·설정 예시가 영문·한국어판에서 같고 실제 명령·`pip` 추가 묶음·설정 키와 맞는지, 본 410·변형 73 이 `examples/sample-output/` 과 같은지), 템플릿이 가리키는 GUIDE 절 제목·`GUIDE.md#앵커`·`config.yml` 링크 파일이 있는지, GUIDE Settings 표가 기본 설정과 같은지 |
+| `tests.test_docs` | 불필요 | 23 | README·README.ko·GUIDE·examples/README(두 언어)·CONTRIBUTING·SECURITY·RELEASING·이슈/PR 템플릿의 상대 링크가 있는 파일인지, 문서의 `bw <명령> --옵션` 이 실제 argparse 에 있는지, 시험 명령 목록(CI·CONTRIBUTING·PR 템플릿·RELEASING·이 파일)이 `tests/test_*.py` 전부인지, CONTRIBUTING 의 시험 수 예시와 이 표의 시험 수, README 첫 화면(설치·첫 실행 명령·설정 예시가 영문·한국어판에서 같고 실제 명령·`pip` 추가 묶음·설정 키와 맞는지, 본 410·변형 73 이 `examples/sample-output/` 과 같은지), 템플릿이 가리키는 GUIDE 절 제목·`GUIDE.md#앵커`·`config.yml` 링크 파일이 있는지, GUIDE Settings 표가 기본 설정과 같은지, GUIDE 리타겟 관절 표가 `bvh_mapping` 과 같은지 |
 | `tests.test_i18n` | 불필요 | 10 | `bonewright/` 의 모든 `T(한국어, 영어)` 호출: 영어 쪽에 한글이 없고 f-문자열 자리표시자가 양쪽에 같은지(AST), 진행 로그·본체(`bonewright/` 전체)·Blender 스크립트(`bpy_scripts/`)에 T() 밖 한국어 문자열이 없는지, 모델 프롬프트 언어 |
 
 ```bash

@@ -295,6 +295,27 @@ class FirstRunTests(unittest.TestCase):
         self.assertIn(f"변형 본 {deform}개", (REPO / "examples" / "README.ko.md").read_text(encoding="utf-8"))
 
 
+class RetargetTableTests(unittest.TestCase):
+    """GUIDE "Motion retargeting" 의 관절 → 컨트롤 표가 retarget.bvh_mapping 과 같은지. 10/9: 예시에서 `Spine` 이
+    안 옮겨진 이유가 문서 어디에도 없어 처음 보는 사람이 실패로 읽었다 — 표가 코드와 어긋나면 같은 혼란이 다시 온다."""
+
+    def test_guide_table_matches_bvh_mapping(self):
+        from bonewright.retarget import bvh_mapping
+        text = (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8")
+        part = text.split("| Rig control | Mixamo-style names | kimodo-style names |", 1)[1].split("\n\n", 1)[0]
+        rows = [[c.strip() for c in ln.strip("|").split("|")] for ln in part.splitlines()[1:] if ln.startswith("|")]
+        self.assertGreaterEqual(len(rows), 12)
+        for col, style in ((1, "Mixamo"), (2, "kimodo")):
+            # 이름순이면 Spine < Spine1 < Spine2 로 실제 BVH 계층 순서와 같다(가슴 판정이 순서를 본다)
+            names = sorted(n for r in rows for n in re.findall(r"`([^`]+)`", r[col]))
+            got = bvh_mapping(names)
+            for r in rows:
+                want = re.match(r"`([^`]+)`", r[0])
+                for n in re.findall(r"`([^`]+)`", r[col]):
+                    with self.subTest(style=style, joint=n):
+                        self.assertEqual(want[1] if want else None, got.get(n))
+
+
 class DefaultClaimTests(unittest.TestCase):
     """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.
     10/7: 0.2.0 CHANGELOG·ROADMAP 이 옛 광선 판정 때의 "기본 끔"을 적은 채 나갔다(실제는 켬)."""
