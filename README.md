@@ -61,6 +61,8 @@ run reports. The [guide](docs/GUIDE.md#rejection-gate) explains the rejection ga
 `bw rig mannequiny.glb`: 7,136 verts → 410 bones (73 deform), every vertex weighted, all gates green.
 On the benchmark, **63 / 66** assets rig with every gate green and **25 / 29** of the ones that can walk
 retarget a walk cleanly (`python3 scripts/bench_score.py`).
+To check retargeting yourself without any download, see [a sample retarget result](examples/sample-output/capsule_doll_motion.md)
+(`python3 examples/rig_sample.py --motion`: a procedural 24-frame wave BVH, 18 of 19 joints mapped).
 
 Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows runs only the Blender-free tests in CI and has never been driven by hand.
 

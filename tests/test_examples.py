@@ -14,6 +14,12 @@ from tests._marks import requires_blender  # noqa: E402
 
 SAMPLE = ROOT / "examples" / "sample-output" / "capsule_doll.md"
 DOG = ROOT / "examples" / "sample-output" / "capsule_dog.md"
+MOTION = ROOT / "examples" / "sample-output" / "capsule_doll_motion.md"
+
+
+def motion_rows(md: str) -> list[str]:
+    """리타겟 예시에서 요약 줄과 '옮긴 본' 표 줄만(오차 숫자는 싣지 않는다)."""
+    return [ln for ln in md.splitlines() if ln.startswith("- BVH 관절") or (ln.startswith("| `") and "` |" in ln)]
 
 
 def table_part(md: str) -> str:
@@ -69,6 +75,30 @@ class SampleOutputTests(unittest.TestCase):
             for bone in ("thigh", "shin", "foot", "front_thigh", "front_shin", "front_foot", "f_index.01", "r_index.01"):
                 self.assertIn(f"DEF-{bone}.{s}", names)
         self.assertFalse({n for n in names if "upper_arm" in n or "forearm" in n})
+
+    def test_wave_bvh_maps_like_the_motion_sample(self):
+        """절차 BVH 의 관절 이름 매핑(블렌더 불필요)이 리타겟 예시의 '옮긴 본' 표와 같고, 파일은 매번 같다."""
+        from bonewright.retarget import bvh_mapping
+        mapping = bvh_mapping([j[1] for j in rig_sample.WAVE_JOINTS])
+        rows = [f"| `{a}` | `{b}` |" for a, b in sorted(mapping.items())]
+        self.assertEqual(rows, [r for r in motion_rows(MOTION.read_text(encoding="utf-8")) if r.startswith("|")])
+        with tempfile.TemporaryDirectory() as d:
+            a, b = rig_sample.wave_bvh(Path(d) / "a.bvh"), rig_sample.wave_bvh(Path(d) / "b.bvh")
+            self.assertEqual(a.read_bytes(), b.read_bytes())
+            self.assertIn("Frames: 24", a.read_text())
+
+    def test_motion_sample_has_no_absolute_path(self):
+        text = MOTION.read_text(encoding="utf-8")
+        for bad in ("/home/", "/Users/", "C:\\"):
+            self.assertNotIn(bad, text)
+
+    @requires_blender
+    def test_capsule_doll_still_retargets_like_the_sample(self):
+        """리타겟이 바뀌면 예시가 낡는다 — 지금 결과의 요약 줄(프레임·옮긴 본 수)과 옮긴 본 표가 예시와 같은지."""
+        rig_sample.rig_and_table(None, "capsule_doll_mcheck", "humanoid")
+        now = rig_sample.motion_and_report("capsule_doll_mcheck").read_text(encoding="utf-8")
+        self.assertEqual(motion_rows(MOTION.read_text(encoding="utf-8")), motion_rows(now),
+                         "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py --motion → examples/sample-output/")
 
     @requires_blender
     def test_capsule_doll_still_rigs_like_the_sample(self):

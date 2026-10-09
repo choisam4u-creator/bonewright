@@ -11,6 +11,9 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `python3 examples/rig_sample.py --motion` rigs the procedural capsule doll and retargets a procedural 24-frame wave
+  BVH onto it (no download, no licence question). The result, `examples/sample-output/capsule_doll_motion.md`
+  (18 of 19 joints mapped), is linked from both READMEs; `tests/test_examples.py` compares it with a fresh run.
 - `bw doctor` and the start of `bw rig` warn, in one line, about keys in `runs/config.json` that bonewright does not
   know (usually a typo such as `rig.cross_trimm`), with the nearest real key; they used to be ignored silently. The
   run goes on with the defaults. `docs/GUIDE.md` → "Settings (`runs/config.json`)" lists the keys worth changing,

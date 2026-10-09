@@ -7,6 +7,7 @@ python3 examples/rig_sample.py                 # 절차적 캡슐 인형을 만�
 python3 examples/rig_sample.py --preset quadruped   # 절차적 네 발 캡슐 개를 만들어 사족 리깅 (자산 파일 없음)
 python3 examples/rig_sample.py adventurer      # tests/assets 의 CC0 캐릭터(1.9MB, Quaternius)
 python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 스킨 본 표만 (블렌더 불필요)
+python3 examples/rig_sample.py --motion        # 캡슐 인형 리깅 뒤 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
 ```
 
 리깅에는 Blender 5.2 LTS 또는 `pip install bpy==5.2.2`(파이썬 3.13)가 필요하다. 결과는 `examples/out/`(git 제외)에
@@ -14,7 +15,9 @@ python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 �
 
 결과가 어떻게 생겼는지는 [sample-output/capsule_doll.md](sample-output/capsule_doll.md)(인자 없이 돌린 결과, 변형 본 73개)에서
 먼저 볼 수 있다. 네 발 짐승은 [sample-output/capsule_dog.md](sample-output/capsule_dog.md)(`--preset quadruped`, 변형 본 110개 —
-Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). `tests/test_examples.py` 가 두 예시와 지금 리깅 결과를 대조한다.
+Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). 동작 리타겟(`bw motion --bvh`)은
+[sample-output/capsule_doll_motion.md](sample-output/capsule_doll_motion.md)(`--motion`, BVH 관절 19개 중 18개를 옮김 —
+`Spine` 은 척추 중간이라 따로 옮기지 않는다). `tests/test_examples.py` 가 세 예시와 지금 결과를 대조한다.
 
 ## 무거운 자산
 

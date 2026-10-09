@@ -6,6 +6,7 @@
     python3 examples/rig_sample.py adventurer         # tests/assets 의 CC0 캐릭터(1.9MB)를 리깅
     python3 examples/rig_sample.py path/to/x.glb      # 아무 메시나
     python3 examples/rig_sample.py --table x.glb      # 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
+    python3 examples/rig_sample.py --motion           # 캡슐 인형을 리깅하고 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
 
 리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/<이름>/ 에 남고
 표는 examples/out/<이름>.md 로 쓴다. 무거운 자산은 저장소에 넣지 않는다 — `scripts/fetch_bench_assets.py` 로 받는다.
@@ -57,6 +58,87 @@ def bone_table(names: list[str]) -> str:
     return "\n".join(rows) + "\n"
 
 
+# 절차 생성 BVH(라이선스 문제 없음): Mixamo 식 이름, Y 위, 미터, T 자세. (부모, 이름, 오프셋, 끝 오프셋)
+WAVE_JOINTS = [
+    (None, "Hips", (0, 0, 0), None),
+    ("Hips", "Spine", (0, 0.10, 0), None), ("Spine", "Chest", (0, 0.15, 0), None),
+    ("Chest", "Neck", (0, 0.20, 0), None), ("Neck", "Head", (0, 0.10, 0), (0, 0.15, 0)),
+    ("Chest", "LeftShoulder", (0.05, 0.15, 0), None), ("LeftShoulder", "LeftArm", (0.12, 0, 0), None),
+    ("LeftArm", "LeftForeArm", (0.27, 0, 0), None), ("LeftForeArm", "LeftHand", (0.25, 0, 0), (0.08, 0, 0)),
+    ("Chest", "RightShoulder", (-0.05, 0.15, 0), None), ("RightShoulder", "RightArm", (-0.12, 0, 0), None),
+    ("RightArm", "RightForeArm", (-0.27, 0, 0), None), ("RightForeArm", "RightHand", (-0.25, 0, 0), (-0.08, 0, 0)),
+    ("Hips", "LeftUpLeg", (0.09, -0.05, 0), None), ("LeftUpLeg", "LeftLeg", (0, -0.42, 0), None),
+    ("LeftLeg", "LeftFoot", (0, -0.42, 0), (0, -0.05, 0.12)),
+    ("Hips", "RightUpLeg", (-0.09, -0.05, 0), None), ("RightUpLeg", "RightLeg", (0, -0.42, 0), None),
+    ("RightLeg", "RightFoot", (0, -0.42, 0), (0, -0.05, 0.12)),
+]
+
+
+def wave_bvh(path: Path, frames: int = 24) -> Path:
+    """왼팔은 내리고 오른팔을 들어 아래팔을 흔드는 짧은 BVH 를 쓴다(순수 파이썬, 매번 같은 파일)."""
+    import math
+    kids: dict = {}
+    for parent, name, off, end in WAVE_JOINTS:
+        kids.setdefault(parent, []).append((name, off, end))
+    lines = ["HIERARCHY"]
+
+    def emit(name, off, end, depth):
+        pad = "\t" * depth
+        lines.append(f"{pad}{'ROOT' if depth == 0 else 'JOINT'} {name}")
+        lines.append(pad + "{")
+        lines.append(f"{pad}\tOFFSET {off[0]:.4f} {off[1]:.4f} {off[2]:.4f}")
+        lines.append(f"{pad}\tCHANNELS " + ("6 Xposition Yposition Zposition " if depth == 0 else "3 ") + "Zrotation Xrotation Yrotation")
+        for k in kids.get(name, []):
+            emit(*k, depth + 1)
+        if end:
+            lines.extend([f"{pad}\tEnd Site", f"{pad}\t{{", f"{pad}\t\tOFFSET {end[0]:.4f} {end[1]:.4f} {end[2]:.4f}", f"{pad}\t}}"])
+        lines.append(pad + "}")
+
+    emit("Hips", (0, 0, 0), None, 0)
+    lines += ["MOTION", f"Frames: {frames}", f"Frame Time: {1 / 24:.6f}"]
+    order = []
+    def walk(name):
+        order.append(name)
+        for k in kids.get(name, []):
+            walk(k[0])
+    walk("Hips")
+    for f in range(frames):
+        w = math.sin(2 * math.pi * f / 12)   # 0.5초에 한 번 흔든다
+        rot = {"LeftArm": (-70, 0, 0), "RightArm": (-60, 0, 0), "RightForeArm": (-30 + 25 * w, 0, 0),
+               "LeftLeg": (0, 5, 0), "RightLeg": (0, 5, 0)}   # (Z, X, Y) 도
+        vals = [0.01 * w, 0.95, 0.0, 0, 0, 0]
+        for name in order[1:]:
+            vals += rot.get(name, (0, 0, 0))
+        lines.append(" ".join(f"{v:.4f}" for v in vals))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def motion_and_report(name: str) -> Path:
+    """rig_and_table 로 리깅한 `name` 에 wave_bvh 를 리타겟하고 결과 요약을 examples/out/<name>_motion.md 로 쓴다."""
+    from bonewright import pipeline
+    bvh = wave_bvh(OUT / "wave.bvh")
+    run = f"{name}_motion"
+    pipeline.motion(OUT, bvh=str(bvh), run_id=run, quiet=True, rig_run=name)
+    rt = json.loads((OUT / "runs" / run / "retarget.json").read_text())
+    mapped = rt["mapped"]
+    pairs = sorted(mapped.items()) if isinstance(mapped, dict) else [(m, "") for m in sorted(mapped)]
+    rep = (OUT / "runs" / run / "report.md").read_text(encoding="utf-8").splitlines()
+    keep = [ln for ln in rep if ln.startswith(("- source:", "- armature:", "- retarget →", "- legs:"))]
+    keep = [re.sub(r" · roll transfer:.*", "", ln) for ln in keep]   # 숫자 오차는 기계마다 조금씩 달라 뺀다
+    keep = [re.sub(r"bvh: .*[/\\]", "bvh: examples/out/", ln) for ln in keep]   # 절대 경로(홈 폴더)를 싣지 않는다
+    frames = re.search(r"frames \[(\d+), (\d+)\]", "\n".join(keep))
+    nframes = int(frames[2]) - int(frames[1]) + 1 if frames else 0
+    md = [f"# {name}: 절차 생성 BVH(손 흔들기) → 리타겟 결과", "",
+          f"- BVH 관절 {len(WAVE_JOINTS)}개 · 프레임 {nframes} · 옮긴 본 {len(pairs)}개 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개",
+          "", "## 옮긴 본", "", "| BVH 관절 | 리그 컨트롤 |", "|---|---|"]
+    md += [f"| `{a}` | {f'`{b}`' if b else ''} |" for a, b in pairs]
+    md += ["", "## report.md 발췌", "", *keep, ""]
+    out = OUT / f"{name}_motion.md"
+    out.write_text("\n".join(md), encoding="utf-8")
+    return out
+
+
 def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     from bonewright import blender, pipeline
     if not (blender.find_blender({}) or blender.has_bpy_module()):
@@ -87,6 +169,7 @@ def main() -> int:
     p.add_argument("mesh", nargs="?", help="'adventurer', .glb/.gltf 경로, 생략하면 절차적 캡슐 인형")
     p.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
     p.add_argument("--table", action="store_true", help="리깅하지 않고 GLB 안의 스킨 본 표만 찍는다(블렌더 불필요)")
+    p.add_argument("--motion", action="store_true", help="리깅 뒤 절차 생성 BVH(손 흔들기)를 리타겟해 요약을 쓴다(사람 프리셋)")
     a = p.parse_args()
     mesh = SAMPLES.get(a.mesh, Path(a.mesh)) if a.mesh else None
     if mesh is not None and not mesh.exists():
@@ -101,6 +184,12 @@ def main() -> int:
     out = rig_and_table(mesh, name, a.preset)
     print(out.read_text(encoding="utf-8"), end="")
     print(f"\n표: {out.relative_to(ROOT)}")
+    if a.motion:
+        if a.preset != "humanoid":
+            raise SystemExit("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)")
+        mo = motion_and_report(name)
+        print("\n" + mo.read_text(encoding="utf-8"), end="")
+        print(f"\n리타겟 요약: {mo.relative_to(ROOT)}")
     return 0
 
 
