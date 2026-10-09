@@ -96,3 +96,12 @@
 - [x] (10/9 3회차: tests/assets/README 영어 먼저·한국어 뒤, ATTRIBUTION·자산별 라이선스 문구 영어, `test_docs.AssetLicenceTests`) 라이선스 표기 영어: `tests/assets/README.md`(CC0 Adventurer 의 출처·라이선스)와 `fetch_bench_assets.py` 가 쓰는 `bench-assets/README.md` 의 라이선스 줄이 한국어뿐이다 → 영어(두 언어)로, 라이선스·출처 URL 이 빠지지 않았는지 시험 — 근거: 10/9 3회차 실측(한글 32단어). 공개 저장소에서 자산 라이선스는 영어 사용자가 가장 먼저 확인하는 것이다
 - [x] (10/9 3회차: 설명·옵션·진행·실패·합계 문구 `T()`, `test_i18n.FetchScriptLanguageTests` — 내려받기 가짜, 옛 코드에서 실패 확인) `scripts/fetch_bench_assets.py --help`·진행 문구가 한국어뿐이다("벤치마크 자산을 원저작자 배포처에서 받는다") → `T()` 로 두 언어, 영어 화면에 한글이 없는지 시험 — 근거: 10/9 3회차 실측. 두 README·examples/README 가 이 명령을 안내한다
 - [x] (10/9 3회차: `pipeline.versions_line`, Blender 쪽 `_common.done` 이 `blender` 버전을 결과에, rig·motion report.md 둘째 줄, rig-problem 템플릿에 `bw --version`, `test_errors` 1개·`RigMockTests` 단언 2개) 이슈 재현 정보: `rig-problem` 템플릿은 `report.md` 를 붙이라는데 `report.md` 에 bonewright·Blender 버전이 없다(`bw doctor --for-issue` 는 BLOCKED 일 때만 안내) → `report.md` 머리에 버전 한 줄(`bw --version` 과 같은 값)과 템플릿에 `bw --version` 칸, 시험 — 근거: 10/9 3회차 템플릿·`pipeline.py` 읽기. 리그 결과는 버전마다 달라 버전 없는 신고는 재현이 안 된다
+
+
+## 2026-10-09 3회차 둘째 묶음 (공개 준비 기준)
+
+- [ ] 시험: `test_i18n` 의 `T(한국어, 영어)` 짝 점검(영어 쪽 한글·자리표시자 대조, AST)이 `bonewright/` 만 본다 → 이번 회차에 `T()` 를 넣은 `examples/rig_sample.py`·`scripts/fetch_bench_assets.py` 도 같은 점검에 넣는다 — 근거: 10/9 3회차에 두 파일에 `T()` 30여 개를 넣었는데 자리표시자 대조는 하나도 안 걸린다(`PKG.rglob` 만)
+- [ ] 오류 메시지: CONTRIBUTING 이 PR 전에 돌리라는 `scripts/check_license_boundary.py` 의 출력("라이선스 경계 OK — MIT 영역 …", 위반 줄)이 한국어뿐이다 → `T()` 두 언어, 위반 줄에 고칠 방법(→ bpy 를 쓰는 코드는 `bpy_scripts/` 로) — 근거: 10/9 3회차 실측. 영어 기여자가 처음 보는 CI 실패 문구다
+- [ ] 문서: `docs/GUIDE.md`(영어)에 한글 6곳 — "Known gaps" 의 ROADMAP 절 꼬리표 `[막힌 곳: …]`·`[실패: …]` 5개와 276줄 명령 주석 → 꼬리표는 영어 설명 + 한국어 절 이름(검색용)으로, 주석은 영어로, GUIDE 에 꼬리표 밖 한글이 없는지 시험 — 근거: 10/9 3회차 실측(한글 25단어)
+- [ ] 문서: 영어 CHANGELOG 가 "See `docs/RELEASING.md`" 로 가리키는 릴리스 절차가 한국어뿐이다(한글 277단어) → 맨 위에 영어 요약(단계 목록·누가 하는지) — 근거: 10/9 3회차 실측. 공개 뒤 기여자가 "언제 릴리스되나" 를 찾는 문서다
+- [ ] 릴리스: `fetch_bench_assets.py` 의 User-Agent 가 `bonewright-bench-fetch/0.2 (+https://github.com/)` 로 버전·주소가 손으로 박혀 있다 → `bonewright.__version__` 과 저장소 주소로, `test_release` 의 버전 일치 점검에 포함 — 근거: 10/9 3회차 코드 읽기. 0.3.0 에서 버전이 어긋나고, 원배포처가 문의할 주소가 없다
