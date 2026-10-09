@@ -82,6 +82,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- CI uses `actions/checkout@v5` and `actions/setup-python@v6` (Node 24); the Node 20 versions printed a
+  deprecation warning and will stop running when GitHub removes Node 20.
 - `examples/rig_sample.py` stopped with Korean-only messages (no Blender, missing file, not a GLB) even with
   `BW_LANG=en`; they now follow the screen language like `bw` itself.
 - **`runs/<id>/report.md` no longer contains your home folder.** The issue template asks for this file as is, but

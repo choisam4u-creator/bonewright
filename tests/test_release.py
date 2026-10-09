@@ -64,5 +64,20 @@ class PackageMetadataTests(unittest.TestCase):
             self.assertRegex(urls.get(key, ""), r"^https://", f"[project.urls] 에 {key} 가 없다")
 
 
+class WorkflowActionTests(unittest.TestCase):
+    """CI 가 Node 20 판 액션을 쓰지 않게(10/8 Windows 로그의 지원 종료 경고 — 강제 전환 뒤 깨질 수 있다)."""
+
+    # Node 24 로 도는 첫 메이저
+    MIN_MAJOR = {"actions/checkout": 5, "actions/setup-python": 6}
+
+    def test_actions_run_on_node24(self):
+        text = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
+        found = re.findall(r"uses:\s*([\w.-]+/[\w.-]+)@v(\d+)", text)
+        self.assertTrue(found, "test.yml 에서 uses: 줄을 못 찾았다")
+        for name, major in found:
+            if name in self.MIN_MAJOR:
+                self.assertGreaterEqual(int(major), self.MIN_MAJOR[name], f"{name}@v{major} 는 Node 20 판이다")
+
+
 if __name__ == "__main__":
     unittest.main()
