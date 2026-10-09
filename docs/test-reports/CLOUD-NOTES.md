@@ -1,5 +1,35 @@
 # 클라우드 회차 기록
 
+## 2026-10-09
+
+**한 일**
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b, PR #9 병합)은 cloud-work 에 이미 들어 있어 병합 없음.
+- 리타겟 예시: `python3 examples/rig_sample.py --motion` — 캡슐 인형을 리깅하고 절차 생성 BVH(`wave_bvh`, Mixamo 식 이름
+  19관절, 손 흔들기 24프레임, 라이선스 문제 없음)를 `pipeline.motion` 으로 옮긴다. 결과 `examples/sample-output/capsule_doll_motion.md`
+  (18개 옮김, `Spine` 1개 안 옮김, report.md 발췌 — 오차 숫자는 기계마다 달라 뺐고 BVH 절대 경로는 `examples/out/` 로).
+  README·README.ko·examples/README 링크. `test_examples`: 매핑 표 대조(블렌더 불필요)·파일 결정성·경로 없음·블렌더 대조.
+- 예제 오류 문구 두 언어: `rig_sample.py` 의 Blender 없음·파일 없음·GLB 아님·`--table`·`--motion` 문구가 `BW_LANG` 을 따른다.
+  `ExampleMessageTests` 2개, CHANGELOG Fixed.
+- `bw doctor --for-issue` 에 `runs/config.json` 절: 내용 그대로(깨진 JSON 도), 4000자 상한, 홈 경로 `~`, 모르는 키 한 줄.
+  `test_cli` 3개, GUIDE·rig-problem 템플릿 문구, CI unit 잡이 홈 경로 든 설정을 두고 `check_issue_report.py --expect-config`.
+- 안 읽히는 설정 삭제: `blender.prefer_module`, 같은 점검으로 찾은 `default_model`. `test_errors.test_every_default_setting_is_read`
+  (기본 설정 키가 모두 `bonewright/` 어딘가에서 읽히는지), CHANGELOG Changed. 옛 설정에 남아 있으면 `bw doctor` 가 모르는 키로 알린다.
+- 백로그 남은 2개(CI 액션 버전·README 설정 안내) → 10/9 절에 새 항목 5개. CONTRIBUTING 시험 수 130(블렌더 15).
+- PR #10(claude/cloud-work → main)이 열려 있어 새 PR 은 만들지 않음 — 이번 커밋이 그 PR 에 얹힌다.
+
+**돌린 시험**
+- `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n`
+  (bpy 5.2.2, Python 3.13 venv) — **130개 모두 통과, 건너뜀 0**(193초). `BW_SKIP_BLENDER=1`(Python 3.11) — 130개 중 15개 건너뜀, 나머지 통과.
+- `check_license_boundary.py` OK. 설치본(venv) `check_issue_report.py --expect-config`(BW_HOME 을 홈 아래, 홈 경로 든 설정) OK.
+  렌더는 안 돌렸다(화면 없는 리눅스). CI 의 새 `--expect-config` 단계 결과는 이번 푸시의 Actions 에서 본다.
+
+**Mac에서 확인할 것**
+```bash
+git fetch && git checkout claude/cloud-work && python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
+BW_NO_RENDER=1 python3 examples/rig_sample.py --motion | tail -8   # 옮긴 본 18개 · 프레임 24, sample-output 과 같은지
+BW_LANG=en bw doctor --for-issue | grep -A3 'runs/config.json'      # 설정 파일이 있으면 내용과 unknown keys 줄
+```
+
 ## 2026-10-08 (2회차)
 
 **한 일**

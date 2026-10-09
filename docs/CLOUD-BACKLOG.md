@@ -82,7 +82,7 @@
 
 ## 2026-10-09 추가 (공개 준비 기준)
 
-- [ ] `tests/README.md` 표의 시험 수가 낡았다(예: `test_examples` 3 → 지금 12, `test_cli` 15 → 21, 블렌더 건너뜀 "13개" → 15) → 표를 고치고, CONTRIBUTING 예시처럼 묶음별 수를 실제 `unittest` 로더 수와 대조하는 `test_docs` 시험 — 근거: 10/9 회차에 시험 9개를 더하며 CONTRIBUTING 은 시험이 잡아 줬지만 tests/README 는 아무도 안 잡았다. 기여자가 처음 여는 시험 안내서다
+- [ ] `tests/README.md` 표의 시험 수가 낡았다(예: `test_examples` 3 → 지금 12, `test_cli` 15 → 18, 블렌더 건너뜀 "13개" → 15) → 표를 고치고, CONTRIBUTING 예시처럼 묶음별 수를 실제 `unittest` 로더 수와 대조하는 `test_docs` 시험 — 근거: 10/9 회차에 시험 9개를 더하며 CONTRIBUTING 은 시험이 잡아 줬지만 tests/README 는 아무도 안 잡았다. 기여자가 처음 여는 시험 안내서다
 - [ ] `bw doctor --for-issue` 에 모르는 설정 키 경고가 두 번 나온다(`bw doctor` 출력의 ⚠ 줄 + 10/9 설정 절의 "unknown keys" 줄) → 한 번만(설정 절 쪽을 남기고 doctor 출력에서 빼거나 반대), `check_issue_report.py --expect-config` 유지 — 근거: 10/9 설치본으로 돌려 본 출력에서 확인. 붙여 넣는 덩어리가 길어지고 읽는 사람이 서로 다른 문제로 볼 수 있다
 - [ ] `examples/rig_sample.py --help` 와 머리 docstring 이 한국어뿐이다 → argparse 설명·도움말을 `T()` 로 두 언어(문구 언어 시험은 `ExampleMessageTests` 에 추가) — 근거: 10/9 오류 문구는 두 언어가 됐지만 `--help`(사용자가 오류 다음에 치는 것)는 아직 한국어
 - [ ] 영어 README 가 링크하는 예시 문서가 한국어다: `examples/README.md`, `sample-output/*.md`(머리글 "리깅 결과"·"옮긴 본"·"report.md 발췌") → 예시 문서 머리글을 영어(또는 두 언어)로 바꾸고 `rig_sample.py` 가 쓰는 문구와 `test_examples` 의 대조(`table_part`·`motion_rows`)를 함께 고친다 — 근거: 10/9 README.md 에 리타겟 예시 링크를 넣으며 확인. 영어 사용자가 첫 클릭에서 한국어 페이지를 만난다
