@@ -91,6 +91,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `scripts/check_license_boundary.py` (run by CI and the PR checklist) reported in Korean only and did not say how to
+  fix a violation; it now follows `BW_LANG` and each line says what to do (move Blender code into
+  `bonewright/bpy_scripts/`, restore a missing licence file).
 - `python3 scripts/fetch_bench_assets.py --help` and its progress lines were Korean only; they now follow `BW_LANG`
   like `bw` (checked offline by `tests/test_i18n.py`).
 - Asset licences were stated in Korean only: `tests/assets/README.md` (the CC0 Adventurer) now leads in English, and

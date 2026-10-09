@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -297,6 +298,32 @@ class KimodoPathTests(unittest.TestCase):
             (k / "kmd-generate").write_text("")
             with self.assertRaisesRegex(pipeline.Blocked, r"download_gguf_weights\.sh"):
                 pipeline.motion(root, text="a person walks", quiet=True)
+
+
+class LicenseBoundaryTests(unittest.TestCase):
+    """`scripts/check_license_boundary.py` 는 CONTRIBUTING·PR 템플릿·CI 가 돌린다 — 영어 기여자가 처음 보는 CI 실패 문구라
+    위반 줄이 영어로, 고칠 방법(→)과 함께 나와야 한다(10/9 3회차까지 한국어뿐, 방법 없음)."""
+
+    def test_violation_says_what_to_do_in_english(self):
+        import importlib.util
+        root_repo = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location("check_license_boundary", root_repo / "scripts" / "check_license_boundary.py")
+        lb = importlib.util.module_from_spec(spec); spec.loader.exec_module(lb)
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
+            root = Path(d)
+            (root / "bonewright" / "bpy_scripts").mkdir(parents=True)
+            (root / "bonewright" / "core.py").write_text("import bpy\nfrom mathutils import Vector\n", encoding="utf-8")
+            (root / "bonewright" / "bpy_scripts" / "ok.py").write_text("import bpy\n", encoding="utf-8")   # GPL 쪽은 된다
+            bad, checked = lb.problems(root)
+        self.assertEqual(1, checked)
+        self.assertEqual(3, len(bad), bad)   # bpy · mathutils · 라이선스 파일 없음
+        self.assertIn("bonewright/core.py:1: the MIT core imports 'bpy'", bad[0])
+        for b in bad:
+            self.assertIn("→", b)
+            self.assertIsNone(re.search(r"[가-힣]", b), b)
+        self.assertIn("LICENSE", bad[2])
+        ok, _ = lb.problems(root_repo)
+        self.assertEqual([], ok)
 
 
 if __name__ == "__main__":
