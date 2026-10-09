@@ -16,6 +16,7 @@ add a line there too when you record a new failure.
 ```bash
 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
                                              # the same list CI runs; Blender-dependent tests skip automatically
+python3 -m unittest                          # short form: discovers the same seven modules
 python3 scripts/check_license_boundary.py    # MIT core must not import bpy
 ```
 
@@ -62,7 +63,7 @@ Locally, the command above runs the whole suite if Blender (or the `bpy` wheel) 
 skips the Blender half if it is not — so check the skip count before trusting a local pass:
 
 ```
-Ran 139 tests ... OK (skipped=15)   ← the fifteen that matter did not run
+Ran 140 tests ... OK (skipped=15)   ← the fifteen that matter did not run
 ```
 
 Set `BW_REQUIRE_BLENDER=1` to make a missing Blender a failure instead of a skip.

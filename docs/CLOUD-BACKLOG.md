@@ -91,7 +91,7 @@
 
 ## 2026-10-09 3회차 추가 (공개 준비 기준)
 
-- [ ] 시험: 인자 없는 `python3 -m unittest` 가 시험 0개를 돌리고 종료 5("NO TESTS RAN")로 끝난다(`tests/` 가 패키지가 아니라 발견이 안 된다) → `tests/__init__.py` 등으로 인자 없는 명령도 7개 묶음 전부를 돌게 하고, CONTRIBUTING·tests/README 의 긴 명령 옆에 짧은 형태를 적고, `test_docs` 로 발견 수와 로더 수 대조 — 근거: 10/9 3회차 실측. 기여자가 가장 먼저 치는 명령이 "시험 없음"으로 끝난다
+- [x] (10/9 3회차: `tests/__init__.py`, `test_docs.TestListTests.test_bare_unittest_discovers_every_test` — 파일을 빼면 실패 확인) 시험: 인자 없는 `python3 -m unittest` 가 시험 0개를 돌리고 종료 5("NO TESTS RAN")로 끝난다(`tests/` 가 패키지가 아니라 발견이 안 된다) → `tests/__init__.py` 등으로 인자 없는 명령도 7개 묶음 전부를 돌게 하고, CONTRIBUTING·tests/README 의 긴 명령 옆에 짧은 형태를 적고, `test_docs` 로 발견 수와 로더 수 대조 — 근거: 10/9 3회차 실측. 기여자가 가장 먼저 치는 명령이 "시험 없음"으로 끝난다
 - [ ] 예제 오류 순서: `rig_sample.py --motion --preset quadruped` 는 사족 리깅(블렌더 수십 초)을 다 끝낸 뒤에야 "--motion 은 사람 프리셋에서만" 으로 멈춘다 → 리깅 전에 인자 조합을 막고(argparse `p.error` 처럼), Blender 없이 도는 시험 — 근거: 10/9 3회차 코드 읽기(`main()` 에서 거절이 `rig_and_table` 뒤에 있다). 기다린 뒤 거절은 첫 사용자에게 가장 나쁜 경험이다
 - [ ] 라이선스 표기 영어: `tests/assets/README.md`(CC0 Adventurer 의 출처·라이선스)와 `fetch_bench_assets.py` 가 쓰는 `bench-assets/README.md` 의 라이선스 줄이 한국어뿐이다 → 영어(두 언어)로, 라이선스·출처 URL 이 빠지지 않았는지 시험 — 근거: 10/9 3회차 실측(한글 32단어). 공개 저장소에서 자산 라이선스는 영어 사용자가 가장 먼저 확인하는 것이다
 - [ ] `scripts/fetch_bench_assets.py --help`·진행 문구가 한국어뿐이다("벤치마크 자산을 원저작자 배포처에서 받는다") → `T()` 로 두 언어, 영어 화면에 한글이 없는지 시험 — 근거: 10/9 3회차 실측. 두 README·examples/README 가 이 명령을 안내한다

@@ -88,6 +88,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `python3 -m unittest` with no arguments ran zero tests ("NO TESTS RAN", exit 5) because `tests/` was not a package;
+  it now discovers the same seven modules as the long command in CONTRIBUTING, and `tests/test_docs.py` checks that.
 - `bw doctor --for-issue` listed unknown `runs/config.json` keys twice (in the `bw doctor` part and under the
   settings file); they now appear once, next to the file they come from. Plain `bw doctor` still warns.
 - CI uses `actions/checkout@v5` and `actions/setup-python@v6` (Node 24); the Node 20 versions printed a

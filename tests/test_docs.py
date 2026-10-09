@@ -143,6 +143,14 @@ class TestListTests(unittest.TestCase):
         self.assertEqual(int(m.group(1)), len(tests))
         self.assertEqual(int(m.group(2)), sum(map(needs_blender, tests)))
 
+    def test_bare_unittest_discovers_every_test(self):
+        """인자 없는 `python3 -m unittest`(저장소 맨 위에서 발견)가 명시한 7개 묶음과 같은 시험을 돈다 — 0개로 끝나지 않게."""
+        def flat(suite):
+            for t in suite:
+                yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
+        found = unittest.TestLoader().discover(str(REPO), top_level_dir=str(REPO))
+        self.assertEqual(sorted(t.id() for t in all_tests()), sorted(t.id() for t in flat(found)))
+
     def test_tests_readme_table_is_current(self):
         """tests/README.md 표의 묶음별 시험 수·블렌더 칸과 '없으면 N개 건너뜀' 이 실제 로더와 같은지
         (10/9 에 시험 9개를 더할 때 CONTRIBUTING 은 시험이 잡았는데 이 표는 아무도 안 잡았다)."""
