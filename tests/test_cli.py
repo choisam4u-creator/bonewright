@@ -1,5 +1,6 @@
 """명령줄 입력 검증 회귀 테스트."""
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -161,12 +162,13 @@ class IssueReportTests(unittest.TestCase):
         """설정이 원인인 이슈는 설정 없이 재현이 안 된다 — 내용(홈 경로는 ~)과 모르는 키 한 줄을 싣는다."""
         with tempfile.TemporaryDirectory() as t:
             root = Path(t); (root / "runs").mkdir()
-            (root / "runs" / "config.json").write_text(
-                '{"lang": "en", "rig": {"cross_trimm": false}, "kimodo": {"root": "%s/kimodo"}}' % Path.home())
+            # json.dumps 로 쓴다: Windows 홈 경로를 문자열에 그대로 끼우면 역슬래시가 JSON 이스케이프로 깨진다(10/9 CI)
+            (root / "runs" / "config.json").write_text(json.dumps(
+                {"lang": "en", "rig": {"cross_trimm": False}, "kimodo": {"root": str(Path.home() / "kimodo")}}))
             code, out, _ = self.run_report(root)
         self.assertEqual(code, 0)
         self.assertIn("`runs/config.json`", out); self.assertIn('"lang": "en"', out)
-        self.assertIn('"root": "~/kimodo"', out); self.assertNotIn(str(Path.home()) + "/kimodo", out)
+        self.assertIn('"root": "~', out); self.assertNotIn(str(Path.home()), out)
         self.assertIn("unknown keys (ignored): rig.cross_trimm (→ rig.cross_trim?)", out)
 
     def test_no_settings_file_says_defaults(self):
@@ -185,6 +187,16 @@ class IssueReportTests(unittest.TestCase):
 
     def test_scrub_windows_and_other_users(self):
         self.assertEqual(cli.scrub(r"C:\Users\kim\x.glb /home/lee/y /Users/park/z"), r"~\x.glb ~/y ~/z")
+
+    def test_scrub_json_escaped_windows_home(self):
+        """runs/config.json 안의 Windows 경로는 역슬래시가 둘씩(`C:\\\\Users\\\\kim`)이라 홈 치환을 비켜 갔다(10/9 CI)."""
+        with patch.object(cli.Path, "home", return_value=cli.Path("C:\\Users\\kim")):
+            self.assertEqual(cli.scrub('{"root": "C:\\\\Users\\\\kim\\\\kimodo"}'), '{"root": "~\\\\kimodo"}')
+        self.assertEqual(cli.scrub('"D:\\\\Users\\\\lee\\\\x"'), '"~\\\\x"')
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cir", cli.Path(__file__).resolve().parent.parent / "scripts" / "check_issue_report.py")
+        cir = importlib.util.module_from_spec(spec); spec.loader.exec_module(cir)
+        self.assertTrue(cir.PRIVATE.search('"C:\\\\Users\\\\kim\\\\x"'))   # CI 점검도 이 꼴을 잡는다
 
 
 class FindBlenderWindowsTests(unittest.TestCase):

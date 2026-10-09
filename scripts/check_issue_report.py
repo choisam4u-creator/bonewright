@@ -14,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PRIVATE = re.compile(r"(/Users/|/home/|[A-Za-z]:\\Users\\)[^/\\\s'\"~]")
+PRIVATE = re.compile(r"(/Users/|/home/|[A-Za-z]:\\{1,2}Users\\{1,2})[^/\\\s'\"~]")
 
 
 def main() -> int:

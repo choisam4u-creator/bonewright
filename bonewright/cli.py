@@ -65,9 +65,9 @@ def doctor() -> int:
 def scrub(text: str) -> str:
     """이슈에 붙일 글에서 개인 경로를 지운다: 홈 폴더 → `~`, 남은 /Users/<이름>·/home/<이름>·C:\\Users\\<이름> → `~`."""
     home = str(Path.home())
-    if len(home) > 1:
-        text = text.replace(home, "~")
-    return re.sub(r"(/Users/|/home/|[A-Za-z]:\\Users\\)[^/\\\s'\"]+", "~", text)
+    if len(home) > 1:   # JSON 안(runs/config.json)의 Windows 경로는 역슬래시가 둘씩이다: C:\\Users\\<이름>
+        text = text.replace(home, "~").replace(home.replace("\\", "\\\\"), "~")
+    return re.sub(r"(/Users/|/home/|[A-Za-z]:\\{1,2}Users\\{1,2})[^/\\\s'\"]+", "~", text)
 
 
 def latest_run(runs: Path) -> str | None:
