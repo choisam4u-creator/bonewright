@@ -1,4 +1,4 @@
-"""문서 점검: README·README.ko·GUIDE·examples/README·CONTRIBUTING·SECURITY·RELEASING·이슈/PR 템플릿의 상대 링크가 실제 파일을 가리키고,
+"""문서 점검: README·README.ko·GUIDE·examples/README(두 언어)·CONTRIBUTING·SECURITY·RELEASING·이슈/PR 템플릿의 상대 링크가 실제 파일을 가리키고,
 문서에 적힌 `bw <명령> --옵션` 이 실제 argparse 에 있는지. 블렌더 불필요.
 (10/1 Mac 이 손으로 한 링크 점검, 9/20 문서 검증의 틀린 주장 11건을 시험으로 굳힌다)"""
 import argparse
@@ -10,7 +10,7 @@ from pathlib import Path
 from bonewright import cli
 
 REPO = Path(__file__).resolve().parent.parent
-DOCS = [REPO / "README.md", REPO / "README.ko.md", REPO / "docs" / "GUIDE.md", REPO / "examples" / "README.md",
+DOCS = [REPO / "README.md", REPO / "README.ko.md", REPO / "docs" / "GUIDE.md", REPO / "examples" / "README.md", REPO / "examples" / "README.ko.md",
         # 10/7 추가: 공개 뒤 기여자·신고자가 처음 따라 하는 문서
         REPO / "CONTRIBUTING.md", REPO / "SECURITY.md", REPO / "docs" / "RELEASING.md",
         REPO / ".github" / "pull_request_template.md", *sorted((REPO / ".github" / "ISSUE_TEMPLATE").glob("*.md"))]
@@ -286,12 +286,13 @@ class FirstRunTests(unittest.TestCase):
         """README 의 '본 410(변형 73)'(mannequiny)과 sample-output 의 캡슐 인형 숫자는 같은 사람 메타리그에서 나온다.
         리그 구성이 바뀌면 둘 다 바뀌어야 한다 — 한쪽만 고치면 여기서 걸린다."""
         sample = (REPO / "examples" / "sample-output" / "capsule_doll.md").read_text(encoding="utf-8")
-        m = re.search(r"리그 본 (\d+)\(변형 (\d+)\)", sample)
+        m = re.search(r"rig bones (\d+) \(deform (\d+)\)", sample)
         self.assertIsNotNone(m)
         total, deform = m.groups()
         self.assertRegex((REPO / "README.md").read_text(encoding="utf-8"), rf"{total} bones \({deform} deform\)")
         self.assertRegex((REPO / "README.ko.md").read_text(encoding="utf-8"), rf"본 {total}개\(변형 본 {deform}개\)")
-        self.assertIn(f"변형 본 {deform}개", (REPO / "examples" / "README.md").read_text(encoding="utf-8"))
+        self.assertIn(f"{deform} deform bones", (REPO / "examples" / "README.md").read_text(encoding="utf-8"))
+        self.assertIn(f"변형 본 {deform}개", (REPO / "examples" / "README.ko.md").read_text(encoding="utf-8"))
 
 
 class DefaultClaimTests(unittest.TestCase):

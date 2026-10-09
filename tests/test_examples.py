@@ -19,12 +19,12 @@ MOTION = ROOT / "examples" / "sample-output" / "capsule_doll_motion.md"
 
 def motion_rows(md: str) -> list[str]:
     """리타겟 예시에서 요약 줄과 '옮긴 본' 표 줄만(오차 숫자는 싣지 않는다)."""
-    return [ln for ln in md.splitlines() if ln.startswith("- BVH 관절") or (ln.startswith("| `") and "` |" in ln)]
+    return [ln for ln in md.splitlines() if ln.startswith("- BVH joints") or (ln.startswith("| `") and "` |" in ln)]
 
 
 def table_part(md: str) -> str:
-    """결과 문서에서 '내보낸 GLB 의 변형 본' 표 부분만."""
-    return md.split("## 내보낸 GLB 의 변형 본", 1)[1].strip()
+    """결과 문서에서 'Deform bones in the exported GLB' 표 부분만."""
+    return md.split("## Deform bones in the exported GLB", 1)[1].strip()
 
 
 def tiny_glb(names):
@@ -39,7 +39,7 @@ class ExampleTableTests(unittest.TestCase):
             p = Path(d) / "x.glb"; p.write_bytes(tiny_glb(["DEF-spine", "DEF-upper_arm.L", "DEF-upper_arm.R"]))
             self.assertEqual(["DEF-spine", "DEF-upper_arm.L", "DEF-upper_arm.R"], rig_sample.glb_skin_bones(p))
             t = rig_sample.bone_table(rig_sample.glb_skin_bones(p))
-            self.assertIn("본 3개 · 왼쪽 1 · 오른쪽 1 · 가운데 1", t)
+            self.assertIn("3 bones · left 1 · right 1 · center 1", t)
             self.assertIn("| upper_arm | 2 |", t)
 
     def test_not_a_glb_says_what_to_do(self):
@@ -130,6 +130,13 @@ class SampleOutputTests(unittest.TestCase):
             self.assertEqual(a.read_bytes(), b.read_bytes())
             self.assertIn("Frames: 24", a.read_text())
 
+    def test_sample_output_is_english(self):
+        """영어 README 가 링크하는 예시 문서 — 첫 클릭에서 한국어 페이지를 만나지 않게(주석 포함 한글 없음)."""
+        for doc in (SAMPLE, DOG, MOTION, ROOT / "examples" / "README.md"):
+            with self.subTest(doc=doc.name):
+                text = doc.read_text(encoding="utf-8").replace("[한국어](README.ko.md)", "")   # 언어 바꾸는 링크는 둔다
+                self.assertEqual([], re.findall(r"[가-힣]+", text))
+
     def test_motion_sample_has_no_absolute_path(self):
         text = MOTION.read_text(encoding="utf-8")
         for bad in ("/home/", "/Users/", "C:\\"):
@@ -148,8 +155,8 @@ class SampleOutputTests(unittest.TestCase):
         """리그가 바뀌면 예시가 낡는다 — 지금 리깅 결과의 관문 줄과 변형 본 표가 예시와 같은지."""
         out = rig_sample.rig_and_table(None, "capsule_doll_check", "humanoid")
         now, sample = out.read_text(encoding="utf-8"), SAMPLE.read_text(encoding="utf-8")
-        gate = [ln for ln in sample.splitlines() if ln.startswith("- 관문:")]
-        self.assertEqual(gate, [ln for ln in now.splitlines() if ln.startswith("- 관문:")],
+        gate = [ln for ln in sample.splitlines() if ln.startswith("- gates:")]
+        self.assertEqual(gate, [ln for ln in now.splitlines() if ln.startswith("- gates:")],
                          "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py → examples/sample-output/")
         self.assertEqual(table_part(sample), table_part(now))
 
@@ -157,8 +164,8 @@ class SampleOutputTests(unittest.TestCase):
     def test_capsule_dog_still_rigs_like_the_sample(self):
         out = rig_sample.rig_and_table(None, "capsule_dog_check", "quadruped")
         now, sample = out.read_text(encoding="utf-8"), DOG.read_text(encoding="utf-8")
-        gate = [ln for ln in sample.splitlines() if ln.startswith("- 관문:")]
-        self.assertEqual(gate, [ln for ln in now.splitlines() if ln.startswith("- 관문:")],
+        gate = [ln for ln in sample.splitlines() if ln.startswith("- gates:")]
+        self.assertEqual(gate, [ln for ln in now.splitlines() if ln.startswith("- gates:")],
                          "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py --preset quadruped → examples/sample-output/")
         self.assertEqual(table_part(sample), table_part(now))
 

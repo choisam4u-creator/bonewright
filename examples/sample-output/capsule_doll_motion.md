@@ -1,13 +1,14 @@
-<!-- 생성: `BW_NO_RENDER=1 python3 examples/rig_sample.py --motion` (bpy 5.2.2 LTS, BW_BACKEND=mock, 2026-10-09).
-     BVH 는 rig_sample.wave_bvh 가 절차적으로 쓴 손 흔들기 24프레임이라 라이선스 문제가 없다. 오차 숫자는 기계마다
-     조금씩 달라 싣지 않는다. tests/test_examples.py 가 옮긴 본 표·프레임 수를 지금 결과와 대조한다. -->
-# capsule_doll: 절차 생성 BVH(손 흔들기) → 리타겟 결과
+<!-- Made with `BW_NO_RENDER=1 python3 examples/rig_sample.py --motion` (bpy 5.2.2 LTS, BW_BACKEND=mock, 2026-10-09).
+     The BVH is a 24-frame hand wave written by rig_sample.wave_bvh, so there is no licence question. Error numbers vary
+     slightly between machines and are left out. tests/test_examples.py compares the mapped-joint table and frame count
+     with a fresh run. `Spine` is not mapped on purpose: the mid spine is carried by `chest` (see docs/GUIDE.md). -->
+# capsule_doll: procedural BVH (hand wave) → retarget result
 
-- BVH 관절 19개 · 프레임 24 · 옮긴 본 18개 · 못 옮긴 BVH 본 1개
+- BVH joints 19 · frames 24 · mapped 18 · unmapped BVH joints 1
 
-## 옮긴 본
+## Mapped joints
 
-| BVH 관절 | 리그 컨트롤 |
+| BVH joint | rig control |
 |---|---|
 | `Chest` | `chest` |
 | `Head` | `head` |
@@ -28,7 +29,7 @@
 | `RightShoulder` | `shoulder.R` |
 | `RightUpLeg` | `thigh_fk.R` |
 
-## report.md 발췌
+## report.md excerpt
 
 - source: bvh: examples/out/wave.bvh
 - armature: wave · bones 19 · frames [1, 24] · fps 24 · root move 0.005 m

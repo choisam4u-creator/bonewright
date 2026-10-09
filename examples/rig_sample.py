@@ -10,7 +10,7 @@ Reproduce a rig from a mesh (bone count and name table). Zero model calls, zero 
     python3 examples/rig_sample.py --motion           # 캡슐 인형을 리깅하고 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
 
 리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/<이름>/ 에 남고
-표는 examples/out/<이름>.md 로 쓴다. 무거운 자산은 저장소에 넣지 않는다 — `scripts/fetch_bench_assets.py` 로 받는다.
+표는 examples/out/<이름>.md 로 쓴다. 결과 문서(표·요약)는 화면 언어와 상관없이 영어다 — sample-output 과 늘 같게. 무거운 자산은 저장소에 넣지 않는다 — `scripts/fetch_bench_assets.py` 로 받는다.
 """
 import argparse
 import json
@@ -57,8 +57,8 @@ def bone_table(names: list[str]) -> str:
         key = re.sub(r"^(DEF-|ORG-|MCH-)", "", n)
         key = re.split(r"[.\d]", key)[0] or n
         groups.setdefault(key, []).append(n)
-    rows = [f"- 본 {len(names)}개 · 왼쪽 {side['L']} · 오른쪽 {side['R']} · 가운데 {side['C']}", "",
-            "| 부위 | 개수 | 이름 |", "|---|---:|---|"]
+    rows = [f"- {len(names)} bones · left {side['L']} · right {side['R']} · center {side['C']}", "",
+            "| part | count | names |", "|---|---:|---|"]
     rows += [f"| {k} | {len(v)} | {', '.join(f'`{x}`' for x in v)} |" for k, v in groups.items()]
     return "\n".join(rows) + "\n"
 
@@ -134,11 +134,11 @@ def motion_and_report(name: str) -> Path:
     keep = [re.sub(r"bvh: .*[/\\]", "bvh: examples/out/", ln) for ln in keep]   # 절대 경로(홈 폴더)를 싣지 않는다
     frames = re.search(r"frames \[(\d+), (\d+)\]", "\n".join(keep))
     nframes = int(frames[2]) - int(frames[1]) + 1 if frames else 0
-    md = [f"# {name}: 절차 생성 BVH(손 흔들기) → 리타겟 결과", "",
-          f"- BVH 관절 {len(WAVE_JOINTS)}개 · 프레임 {nframes} · 옮긴 본 {len(pairs)}개 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개",
-          "", "## 옮긴 본", "", "| BVH 관절 | 리그 컨트롤 |", "|---|---|"]
+    md = [f"# {name}: procedural BVH (hand wave) → retarget result", "",
+          f"- BVH joints {len(WAVE_JOINTS)} · frames {nframes} · mapped {len(pairs)} · unmapped BVH joints {len(rt['unmapped'])}",
+          "", "## Mapped joints", "", "| BVH joint | rig control |", "|---|---|"]
     md += [f"| `{a}` | {f'`{b}`' if b else ''} |" for a, b in pairs]
-    md += ["", "## report.md 발췌", "", *keep, ""]
+    md += ["", "## report.md excerpt", "", *keep, ""]
     out = OUT / f"{name}_motion.md"
     out.write_text("\n".join(md), encoding="utf-8")
     return out
@@ -162,10 +162,10 @@ def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     glb = pipeline.export_rig(OUT, name, quiet=True)
     st = json.loads((OUT / "runs" / name / "rig_stats.json").read_text())["stats"]
     status = json.loads((OUT / "runs" / name / "state.json").read_text())["status"]
-    md = [f"# {name}: `{mesh.name}` → 리깅 결과", "",
-          f"- 관문: **{status}** · 리그 본 {st['rig_bones']}(변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}",
-          f"- 입력 파일의 원래 스킨 본: {len(src)}개 (리깅할 때 버리고 새로 만든다)" if src else "- 입력 파일에 스킨 본 없음",
-          "", "## 내보낸 GLB 의 변형 본", "", bone_table(glb_skin_bones(glb))]
+    md = [f"# {name}: `{mesh.name}` → rig result", "",
+          f"- gates: **{status}** · rig bones {st['rig_bones']} (deform {st['deform_bones']}) · unweighted vertices {st['unweighted_verts']}",
+          f"- skin bones already in the input file: {len(src)} (dropped and rebuilt when rigging)" if src else "- no skin bones in the input file",
+          "", "## Deform bones in the exported GLB", "", bone_table(glb_skin_bones(glb))]
     out = OUT / f"{name}.md"
     out.write_text("\n".join(md), encoding="utf-8")
     return out

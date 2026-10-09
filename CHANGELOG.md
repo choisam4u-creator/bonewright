@@ -93,6 +93,9 @@ See `docs/RELEASING.md` for the release steps.
   `BW_LANG=en`; they now follow the screen language like `bw` itself.
 - `python3 examples/rig_sample.py --help` (what people type right after an error) was Korean only; the
   description, every option and the result lines now follow `BW_LANG` too.
+- The example pages the English README links to were Korean. `examples/README.md` is now English (Korean moved to
+  `examples/README.ko.md`), and `rig_sample.py` writes its result documents (and the committed
+  `examples/sample-output/*.md`) in English; `tests/test_examples.py` checks there is no Korean left in them.
 - **`runs/<id>/report.md` no longer contains your home folder.** The issue template asks for this file as is, but
   it listed the mesh, the rig `.blend`, `targets.json` and the motion files by absolute path. Files inside the run
   folder are now written relative to it (`targets.json`, `02_rigged.blend`), and paths outside it show the home

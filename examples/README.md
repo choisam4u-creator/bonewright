@@ -1,40 +1,48 @@
-# 예제
+# Examples
 
-`rig_sample.py` — 작은 메시를 넣고 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(`BW_BACKEND=mock`), 토큰 0.
+[한국어](README.ko.md)
+
+`rig_sample.py` — feed in a small mesh and reproduce the rig (bone count and name table). Zero model calls
+(`BW_BACKEND=mock`), zero tokens.
 
 ```bash
-python3 examples/rig_sample.py                 # 절차적 캡슐 인형을 만들어 리깅 (자산 파일 없음)
-python3 examples/rig_sample.py --preset quadruped   # 절차적 네 발 캡슐 개를 만들어 사족 리깅 (자산 파일 없음)
-python3 examples/rig_sample.py adventurer      # tests/assets 의 CC0 캐릭터(1.9MB, Quaternius)
-python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 스킨 본 표만 (블렌더 불필요)
-python3 examples/rig_sample.py --motion        # 캡슐 인형 리깅 뒤 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
+python3 examples/rig_sample.py                 # build a procedural capsule doll and rig it (no asset file)
+python3 examples/rig_sample.py --preset quadruped   # build a procedural four-legged capsule dog and rig it as a quadruped
+python3 examples/rig_sample.py adventurer      # the CC0 character in tests/assets (1.9 MB, Quaternius)
+python3 examples/rig_sample.py --table adventurer   # just the skin bone table inside a GLB, no rigging (no Blender needed)
+python3 examples/rig_sample.py --motion        # rig the capsule doll, then retarget a procedural BVH (24-frame hand wave)
 ```
 
-리깅에는 Blender 5.2 LTS 또는 `pip install bpy==5.2.2`(파이썬 3.13)가 필요하다. 결과는 `examples/out/`(git 제외)에
-남고, 표는 `examples/out/<이름>.md` 로 쓴다. 표는 내보낸 `rigged.glb` 의 변형 본을 순수 파이썬으로 읽어 만든다.
+Rigging needs Blender 5.2 LTS or `pip install bpy==5.2.2` (Python 3.13). Results stay in `examples/out/` (ignored by
+git) and the table is written to `examples/out/<name>.md`. The table is read in pure Python from the deform bones of the
+exported `rigged.glb`. Result documents are always in English, whatever `BW_LANG` says, so they match the samples
+below; `--help` and error messages follow `BW_LANG`.
 
-결과가 어떻게 생겼는지는 [sample-output/capsule_doll.md](sample-output/capsule_doll.md)(인자 없이 돌린 결과, 변형 본 73개)에서
-먼저 볼 수 있다. 네 발 짐승은 [sample-output/capsule_dog.md](sample-output/capsule_dog.md)(`--preset quadruped`, 변형 본 110개 —
-Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). 동작 리타겟(`bw motion --bvh`)은
-[sample-output/capsule_doll_motion.md](sample-output/capsule_doll_motion.md)(`--motion`, BVH 관절 19개 중 18개를 옮김 —
-`Spine` 은 척추 중간이라 따로 옮기지 않는다). `tests/test_examples.py` 가 세 예시와 지금 결과를 대조한다.
+See what a result looks like first in [sample-output/capsule_doll.md](sample-output/capsule_doll.md) (no arguments,
+73 deform bones). For four legs, [sample-output/capsule_dog.md](sample-output/capsule_dog.md) (`--preset quadruped`,
+110 deform bones — Rigify's wolf metarig, so the front and hind paws have toe bones). Motion retargeting
+(`bw motion --bvh`) is in [sample-output/capsule_doll_motion.md](sample-output/capsule_doll_motion.md) (`--motion`,
+18 of 19 BVH joints mapped — `Spine` is the mid spine and is not mapped on its own; see
+[Motion retargeting](../docs/GUIDE.md#motion-retargeting)). `tests/test_examples.py` compares all three with a fresh run.
 
-## 무거운 자산
+## Heavy assets
 
-벤치마크용 캐릭터·동물(수십 MB, 라이선스가 재배포를 막는 것 포함)은 저장소에 넣지 않는다. 원배포처에서 받는다:
+Benchmark characters and animals (tens of MB, some under licences that forbid redistribution) are not in the
+repository. Download them from where they are published:
 
 ```bash
 python3 scripts/fetch_bench_assets.py --help
-python3 examples/rig_sample.py <받은 파일>.glb [--preset quadruped]
+python3 examples/rig_sample.py <downloaded file>.glb [--preset quadruped]
 ```
 
-## 입력 예: `--table adventurer` (원본 파일에 든 스킨 본)
+## Input example: `--table adventurer` (skin bones already in the source file)
 
-리깅할 때 이 원본 뼈대는 버리고 Rigify 리그를 새로 만든다(`--from-skeleton` 을 주면 이 관절 위치를 쓴다).
+Rigging throws this source skeleton away and builds a new Rigify rig (`--from-skeleton` uses these joint positions
+instead).
 
-- 본 62개 · 왼쪽 27 · 오른쪽 27 · 가운데 8
+- 62 bones · left 27 · right 27 · center 8
 
-| 부위 | 개수 | 이름 |
+| part | count | names |
 |---|---:|---|
 | Root | 1 | `Root` |
 | Body | 1 | `Body` |

@@ -69,7 +69,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 
 - **[전체 안내서](docs/GUIDE.md)**(영어) — 모든 옵션, 관절을 찾는 방법, 거부 게이트, 동작 리타깃,
   벤치마크와 그 숫자가 뜻하는 것과 뜻하지 않는 것.
-- [examples/](examples/README.md) — 메시 → 리그(본 개수·이름 표)를 토큰 0으로 재현. [결과 예시](examples/sample-output/capsule_doll.md)를 먼저 볼 수 있다.
+- [examples/](examples/README.ko.md) — 메시 → 리그(본 개수·이름 표)를 토큰 0으로 재현. [결과 예시](examples/sample-output/capsule_doll.md)를 먼저 볼 수 있다.
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)
 
 ## 라이선스

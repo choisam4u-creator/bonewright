@@ -1,18 +1,18 @@
-<!-- 생성: `BW_NO_RENDER=1 python3 examples/rig_sample.py --preset quadruped` (bpy 5.2.2 LTS, BW_BACKEND=mock, 2026-10-07).
-     입력은 make_test_mesh(kind=quadruped)가 절차적으로 만든 네 발 캡슐 개(키 0.92m)라 라이선스 문제가 없다.
-     report.md 에는 "조각 사이 빈틈을 지나는 본 4"(뒷다리 DEF-shin) 경고가 같이 나온다 — 관문은 통과.
-     사족 리그는 Rigify 늑대 메타리그라 앞발(f_*)·뒷발(r_*)에 발가락 본이 있다.
-     tests/test_examples.py 가 이 표와 지금 리깅 결과를 대조한다 — 리그가 바뀌면 같은 명령으로 다시 만든다. -->
-# capsule_dog: `capsule_dog.glb` → 리깅 결과
+<!-- Made with `BW_NO_RENDER=1 python3 examples/rig_sample.py --preset quadruped` (bpy 5.2.2 LTS, BW_BACKEND=mock, 2026-10-07).
+     The input is a four-legged capsule dog (0.92 m tall) built by make_test_mesh(kind=quadruped), so there is no licence question.
+     report.md also warns about "4 bones crossing a gap between parts" (hind-leg DEF-shin) — the gates still pass.
+     The quadruped rig is Rigify's wolf metarig, so the front (f_*) and hind (r_*) paws have toe bones.
+     tests/test_examples.py compares this table with a fresh rig — when the rig changes, regenerate with the same command. -->
+# capsule_dog: `capsule_dog.glb` → rig result
 
-- 관문: **ok** · 리그 본 527(변형 110) · 가중치 없는 정점 0
-- 입력 파일에 스킨 본 없음
+- gates: **ok** · rig bones 527 (deform 110) · unweighted vertices 0
+- no skin bones in the input file
 
-## 내보낸 GLB 의 변형 본
+## Deform bones in the exported GLB
 
-- 본 110개 · 왼쪽 43 · 오른쪽 43 · 가운데 24
+- 110 bones · left 43 · right 43 · center 24
 
-| 부위 | 개수 | 이름 |
+| part | count | names |
 |---|---:|---|
 | spine | 12 | `DEF-spine`, `DEF-spine.001`, `DEF-spine.002`, `DEF-spine.003`, `DEF-spine.004`, `DEF-spine.005`, `DEF-spine.006`, `DEF-spine.007`, `DEF-spine.008`, `DEF-spine.009`, `DEF-spine.010`, `DEF-spine.011` |
 | thigh | 4 | `DEF-thigh.L`, `DEF-thigh.L.001`, `DEF-thigh.R`, `DEF-thigh.R.001` |
