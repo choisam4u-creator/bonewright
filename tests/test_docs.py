@@ -195,6 +195,10 @@ class TestListTests(unittest.TestCase):
                     self.assertTrue(0 < blender < len(mine))
                 else:
                     self.assertEqual(blender, len(mine))
+        summary = "\n".join(ln for ln in text.splitlines() if ln.startswith(">"))
+        self.assertIn(f"{sum(map(needs_blender, tests))} Blender tests skip", summary)   # 영어 요약의 건너뜀 수
+        glossary = re.sub(r"(불필요|필요|일부) = (yes|no|some)", "", summary)   # 표 칸 낱말 풀이만 한국어
+        self.assertIsNone(re.search(r"[가-힣]", glossary), glossary)
         m = re.search(r"없으면 (\d+)개 건너뜀", text)
         self.assertIsNotNone(m)
         self.assertEqual(int(m.group(1)), sum(map(needs_blender, tests)))

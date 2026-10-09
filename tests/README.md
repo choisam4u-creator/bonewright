@@ -1,6 +1,15 @@
-# 시험
+# 시험 (Tests)
 
-| 묶음 | 블렌더 | 시험 수 | 무엇을 보나 |
+> **English summary.** Run `python3 -m unittest` from the repository root: it discovers all seven modules. With
+> Blender 5.2 (or `pip install bpy==5.2.2`) everything runs; without it 15 Blender tests skip themselves — check the
+> skip count before trusting a pass. `BW_SKIP_BLENDER=1` skips them on purpose (fast check); `BW_REQUIRE_BLENDER=1`
+> turns a missing Blender into a failure (CI's `blender` job). A new test that calls Blender (`blender.run_script`,
+> `pipeline.rig`, ...) gets `@requires_blender` from `tests/_marks.py`. CI runs three jobs: `unit` (Linux, Python 3.11
+> and 3.13, no Blender), `unit-windows` (no Blender) and `blender` (the `bpy` wheel, headless, rendering off). The
+> table below (in Korean) lists every module, whether it needs Blender (필요 = yes, 불필요 = no, 일부 = some) and
+> how many tests it has; `tests/test_docs.py` checks the numbers against the loader.
+
+| 묶음 (module) | 블렌더 (Blender) | 시험 수 (tests) | 무엇을 보나 (what it checks) |
 |---|---|---|---|
 | `tests.test_mock` 의 `RigMockTests` | **필요** (`@requires_blender`) | 12 | 리그 생성·스키닝·리타겟·GLB 내보내기 전체 |
 | `tests.test_mock` 의 나머지(`BenchMappingTests`·`GateTests`·`RetargetMappingTests`·`QuadTailMappingTests`·`BvhUpAxisTests`·`FromSkeletonTests`·`MedialShapeTests`) | 불필요 | 29 | 이름 매핑·관문 판정(거절 사유 언어 포함)·BVH 축·순수 기하 |

@@ -11,6 +11,8 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `tests/README.md` opens with an English summary (one command, what skips without Blender, the two environment
+  switches, the three CI jobs); `tests/test_docs.py` keeps its skip count honest.
 - `docs/RELEASING.md`, which this changelog points to, opens with an English summary (who releases, how the version
   number is chosen, the five steps); the detailed notes below it stay in Korean.
 - `report.md` (rig and motion) starts with a versions line — bonewright, Blender, Python and OS — because the
