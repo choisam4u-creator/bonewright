@@ -24,7 +24,8 @@ See `docs/RELEASING.md` for the release steps.
   every `GUIDE.md#anchor` link against the guide's headings.
 - `bw doctor --for-issue [RUN_ID]` prints one block to paste into a bug report: bonewright, Python and OS
   versions, `BW_*` settings, the `bw doctor` result, and one run's `state.json` with the last 40 lines of its newest
-  log (the latest run when no id is given). Home-folder paths are replaced with `~`. The issue templates ask for it.
+  log (the latest run when no id is given), plus `runs/config.json` as it is (even when broken) with any unknown
+  keys named. Home-folder paths are replaced with `~`. The issue templates ask for it.
   CI runs the installed command outside the repository on Linux, Windows and the `bpy` job
   (`scripts/check_issue_report.py`): one `<details>` block, no traceback, and no home-folder path left — with
   `BW_HOME` placed under the home folder so there is a path to replace (`C:\Users\<name>` on Windows).

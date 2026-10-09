@@ -6,7 +6,7 @@
   - 홈 폴더(`Path.home()`)·`/Users/<이름>`·`/home/<이름>`·`C:\\Users\\<이름>` 이 하나도 안 남았는지 본다.
 CI 는 BW_HOME 을 홈 폴더 아래에 두고 돌린다 — 치환할 경로가 실제로 출력에 들어가야 시험이 된다.
 
-    python scripts/check_issue_report.py [RUN_ID] [--expect-code 0]
+    python scripts/check_issue_report.py [RUN_ID] [--expect-code 0] [--expect-config]
 """
 import argparse
 import re
@@ -20,6 +20,7 @@ PRIVATE = re.compile(r"(/Users/|/home/|[A-Za-z]:\\Users\\)[^/\\\s'\"~]")
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("run_id", nargs="?")
+    ap.add_argument("--expect-config", action="store_true", help="runs/config.json 이 있다 — 그 절과 모르는 키 줄이 실렸는지 본다")
     ap.add_argument("--expect-code", type=int, choices=[0, 1], help="종료코드를 이 값으로 못박는다(생략 시 0·1 모두 허용)")
     a = ap.parse_args()
     cmd = ["bw", "doctor", "--for-issue"] + ([a.run_id] if a.run_id else [])
@@ -34,6 +35,8 @@ def main() -> int:
         problems.append("output is not one <details> block")
     if a.run_id and f"run `{a.run_id}`" not in out:
         problems.append(f"run {a.run_id} missing")
+    if a.expect_config and not ("`runs/config.json`" in out and "unknown keys (ignored)" in out):
+        problems.append("runs/config.json section or its unknown-keys line missing")
     home = str(Path.home())
     if len(home) > 1 and home in out:
         problems.append(f"home folder left: {home}")

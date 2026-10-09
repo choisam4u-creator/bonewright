@@ -76,6 +76,21 @@ def latest_run(runs: Path) -> str | None:
     return max(cand, key=lambda p: (p / "state.json").stat().st_mtime).name if cand else None
 
 
+def config_section(p: Path, limit: int = 4000) -> list[str]:
+    """`--for-issue` 에 실을 설정 파일 절: 내용 그대로(깨진 JSON 도 — 그게 원인일 수 있다)와 모르는 키 한 줄.
+    설정이 원인인 리깅 이슈는 설정 없이 재현이 안 된다. 경로 치환은 issue_report 의 scrub 이 한다."""
+    if not p.is_file():
+        return ["", T("(runs/config.json 없음 — 기본 설정)", "(no runs/config.json — default settings)")]
+    text = p.read_text(encoding="utf-8", errors="replace").strip()
+    if len(text) > limit:
+        text = text[:limit] + "\n" + T(f"… ({len(text) - limit}자 줄임)", f"… ({len(text) - limit} characters cut)")
+    out = ["", "`runs/config.json`", "", "```json", text, "```"]
+    from .config import unknown_keys
+    if (bad := unknown_keys(ROOT)):
+        out.append(T(f"모르는 키(무시됨): {', '.join(bad)}", f"unknown keys (ignored): {', '.join(bad)}"))
+    return out
+
+
 def issue_report(run_id: str | None, tail: int = 40) -> int:
     """`bw doctor --for-issue [RUN_ID]`: 버그 신고에 붙일 한 덩어리(마크다운). 버전·OS·Python·`bw doctor` 결과와
     실행 하나의 state.json·마지막 로그 꼬리를 모으고 개인 경로를 `~` 로 바꾼다. 이슈 템플릿 3종이 손으로 모으라던 값들."""
@@ -87,6 +102,7 @@ def issue_report(run_id: str | None, tail: int = 40) -> int:
              f"OS {platform.platform()} {platform.machine()}"]
     lines += [f"{k}={v}" for k, v in sorted(os.environ.items()) if k.startswith("BW_")]
     lines += ["", buf.getvalue().rstrip(), "```"]
+    lines += config_section(ROOT / "runs" / "config.json")
     runs = ROOT / "runs"
     rid = run_id or latest_run(runs)
     if run_id and not (runs / run_id).is_dir():

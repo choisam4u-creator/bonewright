@@ -157,6 +157,32 @@ class IssueReportTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("실행 기록 없음", out)
 
+    def test_settings_file_included_with_unknown_keys(self):
+        """설정이 원인인 이슈는 설정 없이 재현이 안 된다 — 내용(홈 경로는 ~)과 모르는 키 한 줄을 싣는다."""
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t); (root / "runs").mkdir()
+            (root / "runs" / "config.json").write_text(
+                '{"lang": "en", "rig": {"cross_trimm": false}, "kimodo": {"root": "%s/kimodo"}}' % Path.home())
+            code, out, _ = self.run_report(root)
+        self.assertEqual(code, 0)
+        self.assertIn("`runs/config.json`", out); self.assertIn('"lang": "en"', out)
+        self.assertIn('"root": "~/kimodo"', out); self.assertNotIn(str(Path.home()) + "/kimodo", out)
+        self.assertIn("unknown keys (ignored): rig.cross_trimm (→ rig.cross_trim?)", out)
+
+    def test_no_settings_file_says_defaults(self):
+        with tempfile.TemporaryDirectory() as t:
+            code, out, _ = self.run_report(Path(t))
+        self.assertIn("no runs/config.json", out)
+
+    def test_broken_settings_file_still_shown(self):
+        """깨진 JSON 도 그대로 싣는다(원인일 수 있다). 보고서 자체는 멈추지 않는다."""
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t); (root / "runs").mkdir()
+            (root / "runs" / "config.json").write_text('{"lang": "en",}')
+            code, out, _ = self.run_report(root)
+        self.assertEqual(code, 0); self.assertIn('{"lang": "en",}', out)
+        self.assertTrue(out.rstrip().endswith("</details>"))
+
     def test_scrub_windows_and_other_users(self):
         self.assertEqual(cli.scrub(r"C:\Users\kim\x.glb /home/lee/y /Users/park/z"), r"~\x.glb ~/y ~/z")
 
