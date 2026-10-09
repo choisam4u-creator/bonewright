@@ -93,6 +93,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- CI step names and comments in `.github/workflows/test.yml` were Korean; they are English now, so a contributor can
+  read which step failed. `tests/test_release.py` keeps them that way.
 - `scripts/bench_score.py`, the source of the benchmark numbers in the READMEs, printed its progress, scores and
   failure list in Korean only and had no option help; it now follows `BW_LANG` (verdicts are fixed codes internally,
   so run ids are `sc_<asset>_skeleton|preset|shape`).

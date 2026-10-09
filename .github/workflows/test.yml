@@ -1,8 +1,8 @@
-# 두 갈래로 돈다.
-#   unit    — Blender 없이 도는 것만(빠름). 리그·가중치·리타겟 테스트는 자동으로 건너뛴다
-#   unit-windows — unit 과 같은 시험을 Windows 에서(Blender 없이). Windows 지원 여부를 판단할 첫 근거
-#   blender — `bpy` 휠을 깔고 **전부** 돈다. 이 프로젝트의 본체가 여기서 검증된다
-# unit 만 보고 "초록불" 이라 하면 "파이썬 import 는 된다" 는 뜻밖에 안 된다 — 그래서 blender 를 나눠 뒀다.
+# Three jobs.
+#   unit         — only what runs without Blender (fast). Rig, weight and retarget tests skip themselves
+#   unit-windows — the same tests on Windows (no Blender); the first evidence for Windows support
+#   blender      — installs the `bpy` wheel and runs **everything**. This is where the project itself is verified
+# A green `unit` alone only means "the Python imports"; that is why `blender` is a separate job.
 name: test
 on: [push, pull_request]
 jobs:
@@ -17,25 +17,25 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install .
-      - name: 테스트(Blender 필요한 것은 자동 skip)
+      - name: Tests (Blender-dependent ones skip themselves)
         run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
-      - name: CLI 가 임포트되는지
+      - name: CLI imports
         run: bw --help
-      - name: 설치본의 plugin-path 가 실제 플러그인을 가리키는지(저장소 밖에서)
+      - name: Installed plugin-path points at the real plugin (outside the repository)
         working-directory: ${{ runner.temp }}
         run: test -f "$(bw plugin-path)/.codex-plugin/plugin.json"
-      - name: 설치본 bw doctor --for-issue — 출력에 홈 경로가 안 남는지(BW_HOME 을 홈 아래에 둬서 치환할 경로를 넣는다)
+      - name: Installed bw doctor --for-issue leaves no home path (BW_HOME sits under home so there is one to replace)
         working-directory: ${{ runner.temp }}
         run: |
           mkdir -p "$HOME/bw-home/runs" && printf '{"kimodo": {"root": "%s/kimodo"}, "rig": {"cross_trimm": false}}' "$HOME" > "$HOME/bw-home/runs/config.json"
           BW_HOME="$HOME/bw-home" python "$GITHUB_WORKSPACE/scripts/check_issue_report.py" --expect-config
-      - name: 라이선스 경계 — bonewright/ 본체는 bpy 를 import 하지 않는다(MIT 유지)
+      - name: Licence boundary — the bonewright/ core does not import bpy (stays MIT)
         run: python scripts/check_license_boundary.py
 
   unit-windows:
     runs-on: windows-latest
     env:
-      # 파이프로 받은 표준출력이 cp1252 라 시험 이름(한국어 docstring)을 못 찍는다. 실제 콘솔은 UTF-8 이다
+      # Piped stdout is cp1252 and cannot print test names (Korean docstrings). A real console is UTF-8
       PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v5
@@ -43,24 +43,24 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install .
-      - name: 테스트(Blender 필요한 것은 자동 skip)
+      - name: Tests (Blender-dependent ones skip themselves)
         run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
-      - name: CLI 가 임포트되는지
+      - name: CLI imports
         run: bw --help
-      - name: 설치본의 plugin-path 가 실제 플러그인을 가리키는지(저장소 밖에서)
+      - name: Installed plugin-path points at the real plugin (outside the repository)
         working-directory: ${{ runner.temp }}
         shell: bash
         run: python -c "import pathlib, subprocess, sys; p = pathlib.Path(subprocess.check_output(['bw', 'plugin-path'], text=True).strip()); sys.exit(0 if (p / '.codex-plugin' / 'plugin.json').is_file() else 1)"
-      - name: 설치본 bw doctor --for-issue — C:\Users\<이름> 이 ~ 로 바뀌는지(Windows 홈 경로 치환을 실제로)
+      - name: Installed bw doctor --for-issue turns C:\Users\<name> into ~ (Windows home replacement, for real)
         working-directory: ${{ runner.temp }}
         shell: bash
         run: BW_HOME="$USERPROFILE\bw-home" python "$GITHUB_WORKSPACE/scripts/check_issue_report.py"
-      - name: 라이선스 경계
+      - name: Licence boundary
         run: python scripts/check_license_boundary.py
 
   blender:
-    # 리그 생성·스키닝·리타겟까지 **실제로** 돌린다.
-    # 파이썬 3.13 고정: `bpy` 5.2.x 휠은 macOS·리눅스·윈도우 모두 있지만 **전부 cp313 전용**이라 3.11 에서는 안 깔린다
+    # Actually runs rig building, skinning and retargeting.
+    # Python 3.13 only: `bpy` 5.2.x wheels exist for macOS, Linux and Windows but are **all cp313**, so 3.11 cannot install them
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -68,21 +68,21 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: bpy 휠이 쓰는 시스템 라이브러리
+      - name: System libraries the bpy wheel needs
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libsm6
       - run: pip install . bpy==5.2.2
-      - name: bpy 가 실제로 올라오는지
+      - name: bpy really imports
         run: python -c "import bpy; print('Blender', bpy.app.version_string)"
-      - name: 전체 테스트(리그·가중치·리타겟 포함)
-        # 렌더는 끈다: 화면 없는 러너에서 렌더러가 죽는다(-6). 렌더는 사람이 볼 그림이지 판정이 아니다
-        # BW_REQUIRE_BLENDER: bpy 가 안 올라오면 건너뛰지 말고 실패한다(몰래 초록불 방지)
+      - name: Full tests (rig, weights, retargeting included)
+        # Rendering is off: the renderer dies on a headless runner (-6). Renders are pictures for people, not verdicts
+        # BW_REQUIRE_BLENDER: fail instead of skipping when bpy does not import (no silent green)
         env:
           BW_NO_RENDER: "1"
           BW_REQUIRE_BLENDER: "1"
         run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
-      - name: 설치본으로 끝까지 리깅(저장소 밖에서 — bpy_scripts·prompts 가 휠에 실렸는지)
-        # 위 시험은 저장소 안의 bonewright 를 import 한다. 여기서는 `pip install .` 한 설치본의 `bw` 만 쓴다
-        # (10/4 `bw plugin-path` 가 설치본에서만 틀렸다 — 휠에 안 실린 파일은 저장소 안 시험으로는 안 보인다)
+      - name: Rig end to end with the installed package (outside the repository — bpy_scripts and prompts are in the wheel)
+        # The tests above import bonewright from the repository. This step uses only the `bw` from `pip install .`
+        # (on 10/4 `bw plugin-path` was wrong only when installed — files missing from the wheel are invisible in-repo)
         working-directory: ${{ runner.temp }}
         env:
           BW_BACKEND: mock
@@ -90,10 +90,10 @@ jobs:
           BW_HOME: ${{ runner.temp }}/bw-home
           REPO: ${{ github.workspace }}
         run: |
-          python -c "import bonewright, os, sys; sys.exit('저장소 사본을 import 했다: ' + bonewright.__file__ if bonewright.__file__.startswith(os.environ['REPO']) else 0)"
+          python -c "import bonewright, os, sys; sys.exit('imported the repository copy: ' + bonewright.__file__ if bonewright.__file__.startswith(os.environ['REPO']) else 0)"
           bw rig "$REPO/tests/assets/quaternius_adventurer.glb" --no-judge --run-id installed
           test -f bw-home/runs/installed/02_rigged.blend
-      - name: 설치본 bw doctor --for-issue installed — 위 실행의 state.json·로그 꼬리에 /home/runner 가 안 남는지
+      - name: Installed bw doctor --for-issue installed — no /home/runner in that run's state.json or log tail
         working-directory: ${{ runner.temp }}
         env:
           BW_HOME: ${{ runner.temp }}/bw-home

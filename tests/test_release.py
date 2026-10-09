@@ -98,6 +98,11 @@ class WorkflowActionTests(unittest.TestCase):
             if name in self.MIN_MAJOR:
                 self.assertGreaterEqual(int(major), self.MIN_MAJOR[name], f"{name}@v{major} 는 Node 20 판이다")
 
+    def test_workflow_is_english(self):
+        """공개 뒤 PR 기여자가 Actions 화면에서 보는 단계 이름·주석 — 10/9 3회차까지 한국어였다."""
+        text = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
+        self.assertEqual([], [ln for ln in text.splitlines() if re.search(r"[가-힣]", ln)])
+
 
 if __name__ == "__main__":
     unittest.main()

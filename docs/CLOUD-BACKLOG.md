@@ -111,6 +111,6 @@
 
 - [x] (10/9 3회차: 판정·단계를 영어 코드 + `label()`, 옵션 도움말, `test_i18n.BenchScoreLanguageTests` — 리깅 가짜) `scripts/bench_score.py`(README·GUIDE 가 벤치 숫자의 출처로 안내)의 출력이 한국어다(한글 317단어, `--help` 는 설명 없음) → 진행·표·오류 문구 `T()`, 옵션 도움말, `test_i18n.USER_SCRIPTS` 에 추가 — 근거: 10/9 3회차 실측. 영어 사용자가 README 숫자를 재현하려고 처음 돌리는 스크립트다
 - [x] (10/9 3회차: `test_docs.ExamplesReadmePairTests` — 첫 실행에서 한국어판에 GUIDE 링크가 빠진 것을 잡아 고침) `examples/README.md`(영어)와 `README.ko.md` 가 갈라질 수 있다 → 두 파일의 코드 블록 명령과 링크 목록이 같은지 보는 짝 시험(`FirstRunTests` 처럼) — 근거: 10/9 3회차에 한 파일을 둘로 나눴다. 명령을 한쪽만 고치면 아무 시험도 안 걸린다
-- [ ] CI(`.github/workflows/test.yml`) 단계 이름·주석이 한국어다(단계 이름 13개) → 단계 이름을 영어로(주석은 두 언어 또는 영어), 공개 뒤 PR 기여자가 보는 Actions 화면 — 근거: 10/9 3회차 `check_license_boundary` 고칠 때 확인. 실패한 단계 이름을 영어 기여자가 못 읽는다
+- [x] (10/9 3회차: 단계 이름 13개·주석·스크립트 문구 영어, 명령은 그대로, `test_release.WorkflowActionTests.test_workflow_is_english`) CI(`.github/workflows/test.yml`) 단계 이름·주석이 한국어다(단계 이름 13개) → 단계 이름을 영어로(주석은 두 언어 또는 영어), 공개 뒤 PR 기여자가 보는 Actions 화면 — 근거: 10/9 3회차 `check_license_boundary` 고칠 때 확인. 실패한 단계 이름을 영어 기여자가 못 읽는다
 - [ ] `scripts/check_issue_report.py`(CI 가 `bw doctor --for-issue` 출력에서 개인 경로를 찾는 점검)의 실패 문구가 한국어다(한글 71단어) → `T()` 와 고칠 방법(→), `USER_SCRIPTS` 에 추가 — 근거: 10/9 3회차 실측. CI 실패 시 영어 기여자가 처음 보는 문구다
 - [ ] `tests/README.md`(CONTRIBUTING 다음으로 기여자가 여는 시험 안내)가 한국어뿐이다(한글 340단어) → 맨 위 영어 요약(세 명령·블렌더 시험 표시법·CI 세 잡)과 표 머리글 영어, `test_docs` 표 대조는 유지 — 근거: 10/9 3회차 실측
