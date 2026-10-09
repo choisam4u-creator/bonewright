@@ -242,6 +242,19 @@ class ReportPathTests(unittest.TestCase):
             self.assertEqual("~" + os.sep + os.path.join("models", "hero.glb"), pipeline._shown(mesh, run))
             self.assertEqual(str(Path(d) / "alicex.glb"), pipeline._shown(Path(d) / "alicex.glb", run))   # 이름이 겹칠 뿐인 형제 경로는 그대로
 
+    def test_symlinked_home_is_hidden_too(self):
+        """홈이 심볼릭 링크(/home/alice → /mnt/users/alice)면 rig() 가 resolve 한 메시 경로는 실제 쪽에 있다(10/7 Codex 리뷰)."""
+        with tempfile.TemporaryDirectory() as d:
+            real = Path(d) / "mnt" / "alice"; real.mkdir(parents=True)
+            link = Path(d) / "alice"
+            try:
+                link.symlink_to(real, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("심볼릭 링크를 만들 권한이 없다(Windows 일반 계정)")
+            with patch.object(Path, "home", return_value=link):
+                mesh = (link / "hero.glb").resolve()
+                self.assertEqual("~" + os.sep + "hero.glb", pipeline._shown(mesh, Path(d) / "runs" / "r1"))
+
 
 class KimodoPathTests(unittest.TestCase):
     """kimodo.cpp 원본이 빌드 폴더(build-release → build/release)와 텍스트 인코더(구성품 폴더 → GGUF 한 파일)를 바꿨다.

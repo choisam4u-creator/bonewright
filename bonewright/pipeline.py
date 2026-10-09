@@ -63,9 +63,11 @@ def _shown(path: str | Path, base: Path) -> str:
     try:
         return p.resolve().relative_to(base.resolve()).as_posix()
     except ValueError:
-        home = str(Path.home())
         s = str(p)
-        return "~" + s[len(home):] if home not in ("", "/") and (s == home or s.startswith(home + os.sep)) else s
+        for home in dict.fromkeys((str(Path.home()), str(Path.home().resolve()))):   # 홈이 심볼릭 링크면 resolve 된 메시 경로는 실제 쪽에 있다
+            if home not in ("", "/") and (s == home or s.startswith(home + os.sep)):
+                return "~" + s[len(home):]
+        return s
 
 
 def _log(quiet: bool, msg: str) -> None:
@@ -402,7 +404,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  f" · ⚠ bones crossing gaps between parts {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}") if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
-              "- targets: `targets.json` " + T("(손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)", "(edit by hand and rerun with `bw rig <mesh> --targets`, 0 tokens)")
+              f"- targets: `runs/{run_id}/targets.json` " + T(f"(손으로 고쳐 `bw rig <mesh> --targets runs/{run_id}/targets.json` 로 토큰 0 재실행)", f"(edit by hand and rerun with `bw rig <mesh> --targets runs/{run_id}/targets.json`, 0 tokens)")
               + (T(f" · 고정 {sorted(pins)}", f" · pinned {sorted(pins)}") if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
