@@ -45,6 +45,21 @@ class InputErrorTests(unittest.TestCase):
         cfg.write_text('["en"]', encoding="utf-8")
         self.assertIn("객체여야 한다", self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True))
 
+    def test_every_default_setting_is_read(self):
+        """기본 설정의 키는 모두 코드 어딘가에서 읽힌다 — 안 읽히는 키를 문서에 적으면 문서가 거짓말을 한다.
+        (10/9: `blender.prefer_module`·`default_model` 이 어디서도 안 읽혀 뺐다. 옛 설정 파일에 남아 있으면 모르는 키로 알린다.)"""
+        from bonewright import config
+        src = "".join(p.read_text(encoding="utf-8") for p in (Path(__file__).resolve().parents[1] / "bonewright").rglob("*.py") if p.name != "config.py")
+
+        def leaves(d, pre=""):
+            for k, v in d.items():
+                yield from (leaves(v, f"{pre}{k}.") if isinstance(v, dict) and v else [f"{pre}{k}"])
+        unread = [k for k in leaves(config.DEFAULTS) if f'"{k.rsplit(".", 1)[-1]}"' not in src and f"'{k.rsplit('.', 1)[-1]}'" not in src]
+        self.assertEqual([], unread)
+        (self.root / "runs").mkdir()
+        (self.root / "runs" / "config.json").write_text('{"blender": {"prefer_module": false}}', encoding="utf-8")
+        self.assertEqual(["blender.prefer_module"], config.unknown_keys(self.root))
+
     def test_unknown_settings_key_warns(self):
         """runs/config.json 의 오타 키(`rig.cross_trimm`)를 조용히 받아 기본값으로 돌던 것(10/8 2회차) → 경고 한 줄, 멈추지는 않는다."""
         from bonewright import config

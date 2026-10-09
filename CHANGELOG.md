@@ -61,6 +61,10 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- Two settings that nothing ever read are gone from the defaults: `blender.prefer_module` (bonewright always tries
+  the Blender app first and the `bpy` wheel second) and `default_model` (the models are set per role under
+  `models`). If your `runs/config.json` still has them, `bw doctor` names them as unknown keys; delete them.
+  `tests/test_errors.py` now fails on any default setting the code does not read.
 - `bw --help`, `bw doctor` and `BLOCKED:` error messages follow `BW_LANG` (or the locale): English by default,
   Korean for `ko`. So do the gate rejection reasons listed under `BLOCKED:` and the `bw rig` / `bw motion` progress
   log, and the analysis warnings and errors raised inside the Blender scripts (`bpy_scripts/_common.T`, the same
