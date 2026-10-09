@@ -93,6 +93,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `scripts/check_issue_report.py` (CI) had Korean-only option help and failed without saying where to look; the
+  help follows `BW_LANG` and a failure now points at `scrub()` in `bonewright/cli.py`.
 - CI step names and comments in `.github/workflows/test.yml` were Korean; they are English now, so a contributor can
   read which step failed. `tests/test_release.py` keeps them that way.
 - `scripts/bench_score.py`, the source of the benchmark numbers in the READMEs, printed its progress, scores and

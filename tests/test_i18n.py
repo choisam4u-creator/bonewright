@@ -8,7 +8,8 @@ from pathlib import Path
 PKG = Path(__file__).resolve().parent.parent / "bonewright"
 # 사용자가 직접 돌리는 저장소 스크립트(README·examples/README 가 안내한다). 10/9 3회차에 T() 를 넣었다
 USER_SCRIPTS = [PKG.parent / "examples" / "rig_sample.py", PKG.parent / "scripts" / "fetch_bench_assets.py",
-                PKG.parent / "scripts" / "check_license_boundary.py", PKG.parent / "scripts" / "bench_score.py"]
+                PKG.parent / "scripts" / "check_license_boundary.py", PKG.parent / "scripts" / "bench_score.py",
+                PKG.parent / "scripts" / "check_issue_report.py"]
 
 
 def hangul(s: str) -> bool:
@@ -227,3 +228,23 @@ class BenchScoreLanguageTests(unittest.TestCase):
         self.assertIn("rig failed: b_fail", text)
         self.assertIn("motion tear: a_ok", text)
         self.assertIn(" preset ", text)
+
+
+class IssueReportCheckTests(unittest.TestCase):
+    """`scripts/check_issue_report.py`(CI): 개인 경로가 남으면 영어로 실패하고 고칠 곳(→ scrub())을 짚는지. bw 는 가짜."""
+
+    def test_private_path_fails_with_a_hint(self):
+        import contextlib, importlib.util, io, subprocess, sys
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("check_issue_report", PKG.parent / "scripts" / "check_issue_report.py")
+        ci = importlib.util.module_from_spec(spec); spec.loader.exec_module(ci)
+        fake = subprocess.CompletedProcess(["bw"], 0, stdout="<details>\nBW_HOME=/home/alice/bw\n</details>\n", stderr="")
+        err = io.StringIO()
+        with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(ci.subprocess, "run", return_value=fake), \
+             mock.patch.object(sys, "argv", ["check_issue_report.py"]), \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            code = ci.main()
+        self.assertEqual(1, code)
+        self.assertIn("private path left: /home/a", err.getvalue())
+        self.assertIn("→", err.getvalue()); self.assertIn("scrub()", err.getvalue())
+        self.assertFalse(hangul(err.getvalue()), err.getvalue())
