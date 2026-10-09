@@ -19,7 +19,7 @@ python3 examples/rig_sample.py --motion        # 캡슐 인형 리깅 뒤 절차
 먼저 볼 수 있다. 네 발 짐승은 [sample-output/capsule_dog.md](sample-output/capsule_dog.md)(`--preset quadruped`, 변형 본 110개 —
 Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). 동작 리타겟(`bw motion --bvh`)은
 [sample-output/capsule_doll_motion.md](sample-output/capsule_doll_motion.md)(`--motion`, BVH 관절 19개 중 18개를 옮김 —
-`Spine` 은 척추 중간이라 따로 옮기지 않는다). `tests/test_examples.py` 가 세 예시와 지금 결과를 대조한다.
+`Spine` 은 척추 중간이라 따로 옮기지 않는다 — [Motion retargeting](../docs/GUIDE.md#motion-retargeting) 의 관절 표). `tests/test_examples.py` 가 세 예시와 지금 결과를 대조한다.
 
 ## 무거운 자산
 

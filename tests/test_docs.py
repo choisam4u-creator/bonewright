@@ -367,6 +367,24 @@ class AssetLicenceTests(unittest.TestCase):
                 self.assertTrue(url.startswith("https://"))
 
 
+class ExamplesReadmePairTests(unittest.TestCase):
+    """examples/README.md(영어)와 README.ko.md 는 10/9 3회차에 한 파일을 둘로 나눴다 — 명령·링크를 한쪽만 고치면 갈라진다."""
+
+    def parts(self, name):
+        text = (REPO / "examples" / name).read_text(encoding="utf-8")
+        cmds = [re.sub(r"<[^>]+>", "<>", ln.split("#")[0].strip()) for block in re.findall(r"```bash\n(.*?)```", text, re.S) for ln in block.splitlines()]
+        links = sorted(set(re.findall(r"\]\(([^)\s]+)\)", text)) - {"README.md", "README.ko.md"})
+        table = text.split("| part | count | names |", 1)[1]
+        return cmds, links, table
+
+    def test_commands_links_and_table_match(self):
+        en, ko = self.parts("README.md"), self.parts("README.ko.md")
+        self.assertGreater(len(en[0]), 5)
+        self.assertEqual(en[0], ko[0], "코드 블록 명령")
+        self.assertEqual(en[1], ko[1], "링크")
+        self.assertEqual(en[2], ko[2], "입력 예 표")
+
+
 class DefaultClaimTests(unittest.TestCase):
     """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.
     10/7: 0.2.0 CHANGELOG·ROADMAP 이 옛 광선 판정 때의 "기본 끔"을 적은 채 나갔다(실제는 켬)."""
