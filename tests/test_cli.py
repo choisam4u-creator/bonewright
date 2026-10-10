@@ -254,11 +254,33 @@ class BrokenStateTests(unittest.TestCase):
                     self.assertEqual(0, cli.main())
                 lines = out.getvalue().splitlines()
                 self.assertEqual(4, len(lines), out.getvalue())
-                self.assertEqual("a-good: gates done · in 0", lines[0])
+                self.assertEqual("a-good: gates done · " + ("input tokens 0" if lang == "en" else "입력 토큰 0"), lines[0])
                 for line, rid in zip(lines[1:], ("b-nokey", "c-broken", "d-list")):
                     self.assertTrue(line.startswith(rid + ": state.json"), line)
                     self.assertIn(str(runs / rid), line)
                 self.assertNotIn("BW_DEBUG", err.getvalue())
+
+
+class StatusLineTests(unittest.TestCase):
+    def test_failed_run_says_where_to_look(self):
+        """A failed run's status line names the token count plainly and points at `bw doctor --for-issue <id>`, which parses.
+
+        10/10 8회차: 목록 줄의 `· in 0` 이 무엇인지 안 보였고, 실패한 실행의 이유를 볼 곳이 없었다."""
+        import os
+        with tempfile.TemporaryDirectory() as t:
+            runs = Path(t) / "runs"
+            for rid, body in (("ok1", '{"step": "final", "status": "ok", "input_tokens": 1234}'),
+                              ("bad1", '{"step": "analyze", "status": "failed", "input_tokens": 0}')):
+                (runs / rid).mkdir(parents=True); (runs / rid / "state.json").write_text(body, encoding="utf-8")
+            out = io.StringIO()
+            with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(cli, "ROOT", Path(t)), \
+                    patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                self.assertEqual(0, cli.main())
+        lines = out.getvalue().splitlines()
+        self.assertEqual("bad1: analyze failed · input tokens 0  → why: `bw doctor --for-issue bad1`", lines[0])
+        self.assertEqual("ok1: final ok · input tokens 1,234", lines[1])
+        ns = cli.build_parser().parse_args(["doctor", "--for-issue", "bad1"])
+        self.assertEqual("doctor", ns.cmd)
 
 
 class NextStepTests(unittest.TestCase):
