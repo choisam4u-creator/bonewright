@@ -197,6 +197,14 @@ def _hint_on_bad_command(p: argparse.ArgumentParser, sub) -> None:
     p.error = error
 
 
+def _hint_on_conflict(p: argparse.ArgumentParser, hint: str) -> None:
+    """argparse 의 '…not allowed with argument …' 끝에 무엇을 고를지 한 줄(종료 2 그대로)."""
+    orig = p.error
+    def error(message: str):
+        orig(message + "\n" + hint if "not allowed with argument" in message else message)
+    p.error = error
+
+
 def positive_int(flag: str, example: int):
     """argparse type: 1 이상 정수만. 0·음수는 리그·렌더까지 간 뒤에야 실패하거나(demo) 빈 결과로 끝나서(usage) 여기서 막는다."""
     def parse(text: str) -> int:
@@ -223,8 +231,11 @@ def build_parser() -> argparse.ArgumentParser:
                           "cap on model input tokens (default 600,000 — budget.max_input_tokens in runs/config.json); the run stops when it is reached"))
     r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help=T("캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤", "which way the character faces. auto=decide from the feet and turn it to -Y")); r.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     r.add_argument("--force", action="store_true", help=T("거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)", "ignore the rejection gate and rig anyway (non-human or oddly sized meshes too)"))
-    r.add_argument("--from-shape", action="store_true", help=T("메시 속 중심선에서 뼈대를 직접 만들어 리깅한다(토큰 0). 뼈대가 없고 사람·개과 비율도 아닌 메시(곤충·괴물)에 쓴다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다", "build the skeleton from the mesh's own centrelines (0 tokens). For meshes with no skeleton and neither human nor dog proportions (insects, monsters) — controls follow the shape, not anatomical joints"))
-    r.add_argument("--from-skeleton", action="store_true", help=T("파일에 든 원본 뼈대의 관절을 그대로 써서 Rigify 리그를 만든다(토큰 0). 실루엣으로 관절을 못 찾는 로봇·양식화 캐릭터에 쓴다", "build the Rigify rig on the joints of the skeleton already in the file (0 tokens). For robots and stylised characters whose silhouette hides the joints"))
+    _hint_on_conflict(r, T("→ 하나만 준다: --from-skeleton 은 파일에 든 원본 뼈대를 쓰고, --from-shape 은 뼈대가 없을 때 메시 모양에서 만든다",
+                           "→ pick one: --from-skeleton uses the skeleton already in the file, --from-shape builds one from the mesh when there is none"))
+    source = r.add_mutually_exclusive_group()   # 뼈대를 어디서 얻을지는 하나만(10/10 8회차: 둘 다 받아 어느 쪽이 이기는지 안 보였다)
+    source.add_argument("--from-shape", action="store_true", help=T("메시 속 중심선에서 뼈대를 직접 만들어 리깅한다(토큰 0). 뼈대가 없고 사람·개과 비율도 아닌 메시(곤충·괴물)에 쓴다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다", "build the skeleton from the mesh's own centrelines (0 tokens). For meshes with no skeleton and neither human nor dog proportions (insects, monsters) — controls follow the shape, not anatomical joints"))
+    source.add_argument("--from-skeleton", action="store_true", help=T("파일에 든 원본 뼈대의 관절을 그대로 써서 Rigify 리그를 만든다(토큰 0). 실루엣으로 관절을 못 찾는 로봇·양식화 캐릭터에 쓴다", "build the Rigify rig on the joints of the skeleton already in the file (0 tokens). For robots and stylised characters whose silhouette hides the joints"))
     r.add_argument("--rest-pose", choices=["keep", "t"], default=None, help=T("쉬는 자세: keep=메시 자세 그대로(기본), t=팔을 수평으로 굳혀 T 포즈로", "rest pose: keep=the mesh's own pose (default), t=bake arms horizontal into a T-pose"))
     r.add_argument("--weights", choices=["auto", "proxy"], default=None, help=T("스키닝: auto=Bone Heat(비면 복셀 대리), proxy=항상 복셀 대리", "skinning: auto=Bone Heat (voxel proxy if it leaves gaps), proxy=always the voxel proxy"))
     r.add_argument("--pin", action="append", metavar=T("본=x,y,z[/x,y,z]", "BONE=x,y,z[/x,y,z]"),

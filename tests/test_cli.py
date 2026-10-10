@@ -236,6 +236,22 @@ class HelpDefaultTests(unittest.TestCase):
         self.assertGreaterEqual(seen, 8)
 
 
+class SkeletonSourceTests(unittest.TestCase):
+    def test_from_skeleton_and_from_shape_are_exclusive(self):
+        """`bw rig --from-skeleton --from-shape` stops at the parser (exit 2) and says what each does; rig is not called."""
+        import os
+        for lang, want in (("en", "pick one"), ("ko", "하나만 준다")):
+            err = io.StringIO()
+            with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), \
+                    patch.object(sys, "argv", ["bw", "rig", "m.glb", "--from-skeleton", "--from-shape"]), \
+                    patch.object(cli.pipeline, "rig", side_effect=AssertionError("rig 를 부르면 안 된다")), patch("sys.stderr", err):
+                with self.assertRaises(SystemExit) as cm:
+                    cli.main()
+                self.assertEqual(2, cm.exception.code)
+                self.assertIn(want, err.getvalue())
+        self.assertTrue(cli.build_parser().parse_args(["rig", "m.glb", "--from-shape"]).from_shape)   # 하나만은 그대로 된다
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 
