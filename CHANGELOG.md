@@ -95,6 +95,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw motion --bvh` progress started at `[3/3]`, as if two steps had been skipped. The step numbers now count
+  only the steps that run: `[1/1]` for a BVH alone, `[1/3]`…`[3/3]` with `--rig` and `--export`.
 - Running `bw rig` (or `motion`, `demo`, `export`, `bench`) without Blender was reported as an unexpected error:
   it pointed at an empty log folder, `BW_DEBUG=1` and the issue templates, and left the run as `running` in
   `bw status`. It is now a plain `BLOCKED:` that names the download page and `bw doctor`, the run is marked

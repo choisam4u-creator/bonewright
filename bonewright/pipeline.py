@@ -453,6 +453,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     rig_blend = need_rig(root, rig_run) if rig_run else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     r = Run(root, run_id, cfg, quiet)
+    # 단계 번호는 실제로 도는 단계만 센다: `--bvh` 만이면 [1/1] 로 시작한다(10/10 까지 [3/3] 부터라 앞 단계가 빠진 줄 알았다)
+    steps = (["kimodo", "bvh"] if text else []) + ["import"] + (["retarget"] if rig_run else []) + (["export"] if rig_run and export else [])
+    def n(step: str) -> str:
+        return f"[{steps.index(step) + 1}/{len(steps)}]"
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
     if text:
         gen, text_model = kimodo_paths(kroot, k)
@@ -472,13 +476,13 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         (r.logs).mkdir(exist_ok=True); (r.logs / "kimodo.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
         if proc.returncode != 0:
             r.state("kimodo", "failed"); raise Blocked(T("kimodo 실패: ", "kimodo failed: ") + proc.stderr[-500:])
-        _log(quiet, f"[1/3] kimodo: {proc.stdout.strip()} · {time.time() - t:.1f}s")
+        _log(quiet, f"{n('kimodo')} kimodo: {proc.stdout.strip()} · {time.time() - t:.1f}s")
         bvh = str(r.dir / "motion" / "motion.bvh")
         proc = subprocess.run([sys.executable, str(kroot / "scripts" / "export_bvh.py"), "--motion-dir", str(r.dir / "motion"), "--output", bvh, "--fps", "30", "--scale", "1.0"],
                               capture_output=True, text=True)
         if proc.returncode != 0:
             raise Blocked(T("BVH 변환 실패: ", "BVH conversion failed: ") + proc.stderr[-500:])
-        _log(quiet, f"[2/3] bvh: {bvh}")
+        _log(quiet, f"{n('bvh')} bvh: {bvh}")
     r.state("import", "running")
     from .retarget import detect_bvh_up
     if rig_run and preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid). 위 축 판단에도 필요하다
@@ -486,10 +490,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
     if bvh_up == "auto":   # 위 축을 틀리면 조용히 망가진다(늑대 걷기: 발이 바닥에서 1m 뜸) → 머리·발 위치로 정한다
         bvh_up = detect_bvh_up(str(Path(bvh).resolve()), preset or "humanoid")
-        _log(quiet, T(f"[3/3] bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)", f"[3/3] bvh up axis detected: {bvh_up} (if wrong, set it with --bvh-up)"))
+        _log(quiet, T(f"{n('import')} bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)", f"{n('import')} bvh up axis detected: {bvh_up} (if wrong, set it with --bvh-up)"))
     imp = r.blender("import_bvh", {"bvh": str(Path(bvh).resolve()), "out_blend": str(r.dir / "motion.blend"), "bvh_up": bvh_up})
-    _log(quiet, T(f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
-                    f"[3/3] import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
+    _log(quiet, T(f"{n('import')} import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
+                    f"{n('import')} import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
     report = [f"# bonewright motion report · {run_id}", "", versions_line(imp), f"- source: {'text: ' + text if text else 'bvh: ' + _shown(bvh, r.dir)}",
               f"- armature: {imp['armature']} · bones {imp['bones']} · frames {imp['frames']} · fps {imp['fps']} · root move {imp['root_move']} m",
               "- blend: `motion.blend`"]
@@ -508,9 +512,9 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         rt = r.blender("retarget_bvh", {"blend": str(blend), "bvh": str(Path(bvh).resolve()), "mapping": mapping,
                                         "out_blend": str(r.dir / "retargeted.blend"), "out_dir": str(r.dir),
                                         "render_frames": rf, "height": (an.get("landmarks") or {}).get("height", 1.8), "roll": roll, "bvh_up": bvh_up, "legs": legs})
-        _log(quiet, T(f"[4/4] retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
+        _log(quiet, T(f"{n('retarget')} retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
                       f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
-                      f"[4/4] retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved · "
+                      f"{n('retarget')} retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved · "
                       f"mean bone direction error {rt.get('mean_dir_deg')}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)"))
         report += [f"- retarget → `{rig_run}`: mapped {len(rt['mapped'])} bones, unmapped {rt['unmapped']}",
                    f"- legs: {rt.get('legs')} · IK {rt.get('ik_legs') or []} · FK(no foot joint in source) {rt.get('ik_skipped') or []} · roll transfer: {rt.get('roll')} · hand/foot twist error vs BVH: " + ", ".join(f"{k} {v['mean_deg']}°(max {v['max_deg']})" for k, v in (rt.get('roll_deg') or {}).items()),
@@ -528,8 +532,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             out = (r.dir / "animated.glb") if export == "auto" else Path(export).resolve()
             r.state("export", "running")
             ex = r.blender("export_anim", {"blend": str(r.dir / "retargeted.blend"), "out": str(out)})
-            _log(quiet, T(f"[5/5] export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm",
-                              f"[5/5] export: {out.name} · bones {ex['bones']} · frames {ex['frames']} · re-read hand/foot max difference {ex['max_diff_cm']}cm"))
+            _log(quiet, T(f"{n('export')} export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm",
+                              f"{n('export')} export: {out.name} · bones {ex['bones']} · frames {ex['frames']} · re-read hand/foot max difference {ex['max_diff_cm']}cm"))
             report += [f"- export: `{_shown(out, r.dir)}` · {ex['bones']} deform bones · {ex['verts']} verts · frames {ex['frames']} · "
                        f"re-import check at frame {ex['probe_frame']}: {ex['reimport_diff_cm']} (cm)"]
     else:

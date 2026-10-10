@@ -363,6 +363,33 @@ class KimodoPathTests(unittest.TestCase):
                 pipeline.motion(root, text="a person walks", quiet=True)
 
 
+class MotionStepNumberTests(unittest.TestCase):
+    """Motion progress counts only the steps that run (a BVH alone starts at [1/1], not [3/3]).
+
+    10/10 4회차 실측: `bw motion --bvh` 첫 줄이 `[3/3]` 이라 앞 단계가 빠진 줄 안다. Blender 는 가짜로 바꿔 끼운다."""
+    FAKE = {"import_bvh": {"bones": 2, "frames": [1, 3], "fps": 30, "root_move": 0.0, "armature": "A", "bone_names": ["Hips", "Spine"]},
+            "retarget_bvh": {"mapped": {"Hips": "torso"}, "unmapped": ["Spine"], "scale": 1.0},
+            "export_anim": {"bones": 1, "frames": [1, 3], "max_diff_cm": 0.0, "verts": 8, "probe_frame": 2, "reimport_diff_cm": 0.0}}
+
+    def steps(self, **kw):
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}), \
+                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(self.FAKE[name])):
+            root = Path(d); bvh = root / "walk.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
+            if kw.get("rig_run"):
+                (root / "runs" / "r1").mkdir(parents=True); (root / "runs" / "r1" / "02_rigged.blend").write_text("")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                pipeline.motion(root, bvh=str(bvh), run_id="m1", bvh_up="y", **kw)
+        return re.findall(r"\[(\d+)/(\d+)\] (\w+)", err.getvalue())
+
+    def test_bvh_only_is_one_step(self):
+        self.assertEqual([("1", "1", "import")], self.steps())
+
+    def test_bvh_with_rig_and_export_counts_from_one(self):
+        self.assertEqual([("1", "3", "import"), ("2", "3", "retarget"), ("3", "3", "export")],
+                         self.steps(rig_run="r1", export="auto"))
+
+
 class LicenseBoundaryTests(unittest.TestCase):
     """`scripts/check_license_boundary.py` 는 CONTRIBUTING·PR 템플릿·CI 가 돌린다 — 영어 기여자가 처음 보는 CI 실패 문구라
     위반 줄이 영어로, 고칠 방법(→)과 함께 나와야 한다(10/9 3회차까지 한국어뿐, 방법 없음)."""
