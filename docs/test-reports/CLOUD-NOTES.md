@@ -2,7 +2,7 @@
 
 **Mac 에서 돌릴 것 (블렌더 필요, 10/10 4회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 162개, 건너뜀 0
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 163개, 건너뜀 0
 d=$(mktemp -d) && BW_HOME=$d bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge | tail -3   # README 첫 명령: codex 없이 렌더까지 하고 "done (ok)"
 d=$(mktemp -d) && BW_HOME=$d BW_BLENDER=/nope bw rig tests/assets/quaternius_adventurer.glb; BW_HOME=$d bw status   # "points at a file that does not exist: /nope", 이슈 안내 없음, 실행은 failed
 ```
@@ -18,14 +18,15 @@ d=$(mktemp -d) && BW_HOME=$d BW_BLENDER=/nope bw rig tests/assets/quaternius_adv
   다운로드 주소 + `bw doctor`, 실행 `failed`, 없는 BW_BLENDER 경로를 짚음, codex 없음에 토큰 0 경로 /
   README 첫 실행 맨 위에 저장소 안 캐릭터로 모델·codex 없이 도는 명령(설치 → 첫 결과 3단계, 전에는 codex 설치·로그인 포함 5단계) /
   `bw doctor | head` 의 BrokenPipeError.
-- 시험 수 156 → 162(블렌더 15 그대로).
+- 시험 수 156 → 163(블렌더 15 그대로).
 
 **돌린 시험**
-- `python3 -m unittest`(3.11, 블렌더 없음): 162개 중 15개 건너뜀, 나머지 통과. 매 커밋 전.
-- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **162개 모두 통과, 건너뜀 0**(172초).
+- `python3 -m unittest`(3.11, 블렌더 없음): 163개 중 15개 건너뜀, 나머지 통과. 매 커밋 전.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **163개 모두 통과, 건너뜀 0**(172초).
 - README 첫 명령을 codex 없는 bpy 환경에서 실제로: 관문 pass, report 나옴(렌더는 화면 없는 리눅스라 `BW_NO_RENDER=1`).
 - `scripts/check_license_boundary.py` OK.
-- CI: 10/9 마지막 run(54ed738) 네 잡 모두 초록 — blender 잡 pending 아님(4분 안팎에 끝남).
+- CI: blender 잡은 pending 아님(매 run 4분 안팎에 끝남). 33c0adb 에서 unit(3.11)이 빨강 — BrokenPipe 가 끝날 때 flush 에서
+  나는 경우를 로컬은 경쟁 때문에 못 잡았다 → d58b6b4 에서 `main()` 안 flush + 경쟁 없는 시험, unit 셋 초록.
 
 **완료 수·추가 수**: 완료 6(기존 3 + 새 3) · 추가 5 · 남은 [ ] 3(그중 1개는 샘님 결정 대기).
 
