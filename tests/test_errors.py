@@ -535,6 +535,16 @@ class MotionRigOnlyFlagTests(unittest.TestCase):
                 self.assertFalse((root / "runs" / "m1").exists())
 
 
+class FfmpegHintTests(unittest.TestCase):
+    def test_install_command_matches_the_os(self):
+        """The no-ffmpeg line names an install command for the OS it runs on (not brew everywhere)."""
+        self.assertEqual("`brew install ffmpeg`", pipeline.ffmpeg_install("Darwin"))
+        self.assertEqual("`winget install ffmpeg`", pipeline.ffmpeg_install("Windows"))
+        self.assertEqual("`sudo apt install ffmpeg`", pipeline.ffmpeg_install("Linux"))
+        src = Path(pipeline.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("(brew install ffmpeg)", src)
+
+
 class BenchInputTests(unittest.TestCase):
     """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
 

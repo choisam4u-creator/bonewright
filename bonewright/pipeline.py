@@ -617,6 +617,13 @@ def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = Fa
     return dst
 
 
+def ffmpeg_install(system: str | None = None) -> str:
+    """이 OS 에서 ffmpeg 를 까는 명령 하나(10/10 8회차: 한국어판은 macOS 의 brew 만, 영어판은 "install ffmpeg" 뿐이었다)."""
+    import platform
+    system = system or platform.system()
+    return {"Darwin": "`brew install ffmpeg`", "Windows": "`winget install ffmpeg`"}.get(system, "`sudo apt install ffmpeg`")
+
+
 def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: int = 96) -> Path:
     """리그 결과 데모 영상(토큰 0): runs/<id>/02_rigged.blend → demo.mp4(+ ffmpeg 가 있으면 demo.gif)."""
     import shutil
@@ -637,6 +644,7 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-vf", "fps=12,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse", str(gif)])
         out = mp4
     else:
-        _log(quiet, T("ffmpeg 가 없어 PNG 프레임만 남긴다 (brew install ffmpeg)", "no ffmpeg, so only PNG frames are kept (install ffmpeg)"))
+        _log(quiet, T(f"ffmpeg 가 없어 PNG 프레임만 남긴다 → {ffmpeg_install()} 뒤 같은 명령을 다시",
+                      f"no ffmpeg, so only PNG frames are kept → {ffmpeg_install()}, then run the same command again"))
     _log(quiet, T(f"demo: {out} · 프레임 {d['frames']} · 컨트롤 {d['controls']}", f"demo: {out} · frames {d['frames']} · controls {d['controls']}"))
     return out
