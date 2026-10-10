@@ -184,3 +184,12 @@
 - [x] (10/10 8회차: GUIDE 명령 블록 두 줄 + 한 문단, 예시 줄을 실제 출력과 대조하는 `test_cli.StatusGuideTests`) `bw status` 가 README·GUIDE 어디에도 없다(`grep` 0건) — 그런데 오류 문구 여럿이 `bw status` 를 가리킨다 → GUIDE "Install and run" 에 목록·한 실행·실패 줄의 `→ why` 를 짧게, `test_docs` 명령 점검 포함 — 근거: 10/10 8회차 `grep -n "bw status" README.md docs/GUIDE.md`
 - [x] (10/10 8회차: 확인 순서를 need_rig → BW_NO_RENDER → Blender → 실행 상태로, `MissingToolTests.test_demo_with_no_render_says_so_even_without_blender`) `BW_NO_RENDER=1 bw demo <id>` 는 렌더 안 한다는 안내 전에 Blender 를 찾는다 — Blender 가 없으면 "Blender not found" 가 나와, 어차피 영상은 안 만든다는 진짜 이유가 가려진다 → `BW_NO_RENDER` 확인을 Blender·실행 폴더 확인보다 앞으로, 시험 — 근거: 10/10 8회차 `pipeline.demo` 읽기(8회차에 넣은 `need_blender` 가 그 앞에 있다)
 - [x] (10/10 8회차: 도움말의 "default N"/"기본 N" 을 argparse default·`config.DEFAULTS` 와 대조하는 `test_cli.HelpDefaultTests` — 숫자 하나를 바꾸면 실패 확인) `bw rig --help` 의 `--budget` 기본값(600,000)·`--size`(640) 같은 숫자가 도움말 문자열에 손으로 박혀 있다 → `config.DEFAULTS`·argparse default 에서 채워 넣거나, 도움말 숫자와 실제 기본값을 대조하는 시험 — 근거: 10/10 8회차에 도움말 21개를 쓰며 숫자 4곳을 손으로 적었다(기본값이 바뀌면 도움말이 거짓말을 한다)
+
+
+## 2026-10-10 8회차 넷째 묶음 (공개 준비 기준 — 실측)
+
+- [ ] `bw rig a.glb --from-skeleton --from-shape` 가 둘 다 받아 Blender 까지 간다 — 서로 다른 길이라 어느 쪽이 이기는지 사용자는 모른다 → argparse 상호 배타 그룹(두 언어 오류에 각 옵션이 무엇인지 한 줄), 시험 — 근거: 10/10 8회차 실측(종료는 Blender 없음 때문, 조합 자체는 통과)
+- [ ] `bw rig a.glb --pin nosuchbone=0,0,1`: 없는 본 이름이 Blender 전에 걸리지 않는다 → 프리셋 메타리그 본 이름 목록과 대조해 가장 가까운 이름(`difflib`)을 주는 `BLOCKED:`, 시험 — 근거: 10/10 8회차 실측(Blender 단계까지 감)
+- [ ] `bw rig a.glb --targets a.glb`(메시를 잘못 줌): "--targets file is not JSON ('utf-8' codec can't decode …) → 편집 중 쉼표·괄호가 깨졌는지" — 바이너리 파일에 쉼표 안내는 틀렸다 → 디코드 실패면 "JSON 이 아니라 바이너리 파일, 메시를 준 것 아닌가? `--targets runs/<id>/targets.json`", 시험 — 근거: 10/10 8회차 실측
+- [ ] `bw bench a.glb --gt-mesh nope.glb` 가 "mesh file not found: nope.glb" 라 한다 — 어느 인자인지 안 보인다 → "--gt-mesh 파일이 없다", 시험 — 근거: 10/10 8회차 실측
+- [ ] `bw demo` 의 ffmpeg 없음 안내가 한국어판은 `brew install ffmpeg`(macOS 전용), 영어판은 "install ffmpeg" 뿐이다 → OS 별 한 줄(macOS brew·Linux apt·Windows winget), 시험 — 근거: 10/10 8회차 `pipeline.demo` 읽기
