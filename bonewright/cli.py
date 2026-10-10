@@ -260,6 +260,10 @@ def _main() -> int:
             if a.run_id and not (runs / a.run_id / "state.json").exists():
                 print("BLOCKED:", T(f"실행 기록이 없다: {runs / a.run_id}\n  → `bw status` 로 목록을 보거나 BW_HOME(지금 {ROOT})을 확인하라",
                                    f"no such run: {runs / a.run_id}\n  → list runs with `bw status`, or check BW_HOME (now {ROOT})"), file=sys.stderr); return 2
+            if not ids:   # 빈 출력은 설치가 깨졌는지 BW_HOME 이 다른지 구분이 안 된다
+                print(T(f"아직 실행이 없다(찾은 곳: {runs})\n  → `bw rig <메시>` 로 시작하거나, 다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
+                        f"no runs yet (looked in {runs})\n  → start with `bw rig <mesh>`, or if you ran bonewright from another folder, set BW_HOME to it"),
+                      file=sys.stderr)
             for rid in ids:
                 s = json.loads((runs / rid / "state.json").read_text()); print(f"{rid}: {s['step']} {s['status']} · in {s.get('input_tokens', 0):,}")
             return 0

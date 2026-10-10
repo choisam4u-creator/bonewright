@@ -76,6 +76,26 @@ class BareCommandTests(unittest.TestCase):
                 self.assertEqual(lang == "ko", bool(re.search("[가-힣]", text.splitlines()[-1])))
 
 
+class EmptyStatusTests(unittest.TestCase):
+    """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
+
+    10/10 5회차 실측: 빈 출력은 설치가 깨졌는지 BW_HOME 이 다른지 구분이 안 된다."""
+
+    def test_no_runs_names_the_folder_and_next_step(self):
+        import os
+        import re
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                out, err = io.StringIO(), io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", err):
+                    self.assertEqual(0, cli.main())
+                self.assertEqual("", out.getvalue())          # 실행 목록을 읽는 스크립트에는 여전히 빈 stdout
+                self.assertIn(str(Path(t) / "runs"), err.getvalue())
+                self.assertIn("`bw rig", err.getvalue()); self.assertIn("BW_HOME", err.getvalue())
+                self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err.getvalue())))
+
+
 class HelpLanguageTests(unittest.TestCase):
     """bw --help 는 BW_LANG(없으면 로캘)을 따른다. README 는 영문이므로 영어가 기본."""
 

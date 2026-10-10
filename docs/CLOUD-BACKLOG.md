@@ -136,7 +136,7 @@
 
 ## 2026-10-10 5회차 (공개 준비 기준, 사용자 체감 우선 — 빈 BW_HOME·Blender 없음 상태로 `bw` 명령을 직접 돌려 찾음)
 
-- [ ] 첫 화면: 실행이 하나도 없을 때 `bw status` 는 아무것도 찍지 않고 종료 0 이다 → "아직 실행이 없다(찾은 곳: `<BW_HOME>/runs`) → `bw rig …`" 한 줄, BW_HOME 을 잘못 잡았는지도 알 수 있게, 두 언어 시험 — 근거: 10/10 5회차 실측. 빈 출력은 설치가 깨졌는지 BW_HOME 이 다른지 구분이 안 된다
+- [x] (10/10 5회차: stderr 에 찾은 폴더·`bw rig <메시>`·BW_HOME 한 줄, stdout 은 빈 채로(목록을 읽는 스크립트용), 종료 0 유지, `test_cli.EmptyStatusTests` 두 언어 — 옛 코드에서 실패 확인, CHANGELOG, 시험 수 167) 첫 화면: 실행이 하나도 없을 때 `bw status` 는 아무것도 찍지 않고 종료 0 이다 → "아직 실행이 없다(찾은 곳: `<BW_HOME>/runs`) → `bw rig …`" 한 줄, BW_HOME 을 잘못 잡았는지도 알 수 있게, 두 언어 시험 — 근거: 10/10 5회차 실측. 빈 출력은 설치가 깨졌는지 BW_HOME 이 다른지 구분이 안 된다
 - [ ] 오류 메시지: `bw bench 빈폴더` 는 종료 0 에 "measured 0/0 · mean Nonecm", `bw bench 없는파일.glb` 는 파일 없음 대신 "nope: Blender not found"(설치 주소 없음)에 종료 0 → 메시를 하나도 못 찾으면·파일이 없으면 Blender 전에 `BLOCKED:`(→ 고칠 방법), Blender 없음은 한 번만 설치 안내로, 하나도 못 쟀으면 종료 0 이 아니게 — 근거: 10/10 5회차 실측. README·GUIDE 가 벤치 숫자를 재현하라고 안내하는 명령이다
 - [ ] 입력 확인: `bw motion --bvh x.bvh --export`(또는 `--map`·`--legs ik`·`--no-roll`)를 `--rig` 없이 주면 아무 말 없이 무시된다(내보내기는 `rig_run` 일 때만) → Blender 전에 "`--export` 는 `--rig <run-id>` 와 함께" 로 거절, 시험 — 근거: 10/10 5회차 코드 읽기(`pipeline.motion` 의 `if rig_run:` 안에서만 쓰임). 기다린 끝에 GLB 가 없으면 원인을 못 찾는다
 - [ ] `bw doctor`: Blender 와 bpy 둘 다 `[required]` 로 찍혀 둘 다 깔아야 하는 줄 안다(마지막 줄에서야 "either one") → 표시를 "[required: one of]" 처럼 둘 중 하나임을 줄마다, 하나라도 있으면 없는 쪽은 `[not needed]`, 두 언어 시험 — 근거: 10/10 5회차 실측 출력. 설치 문제 이슈 템플릿이 붙이라는 출력이다

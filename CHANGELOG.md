@@ -95,6 +95,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw status` with no runs printed nothing, so a broken install and a different `BW_HOME` looked the same. It now
+  says where it looked and suggests `bw rig <mesh>` or setting `BW_HOME` (on stderr; stdout stays empty).
 - A bare `bw` ended with argparse's one line `error: the following arguments are required: cmd`. It now prints
   the command list and a next step (`bw doctor`, then the README's first-run command); the exit code is still 2.
 - `bw motion --bvh` progress started at `[3/3]`, as if two steps had been skipped. The step numbers now count
