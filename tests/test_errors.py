@@ -390,6 +390,23 @@ class MotionStepNumberTests(unittest.TestCase):
                          self.steps(rig_run="r1", export="auto"))
 
 
+class MotionRigOnlyFlagTests(unittest.TestCase):
+    """`bw motion` refuses retarget-only flags without `--rig`, before Blender and before a run folder.
+
+    10/10 5회차 코드 읽기: `--export`·`--map`·`--legs`·`--no-roll` 은 `if rig_run:` 안에서만 쓰여 말없이 버려졌다."""
+
+    def test_rig_only_flags_need_rig(self):
+        cases = {"--export": {"export": "auto"}, "--map": {"bone_map": "map.json"}, "--legs ik": {"legs": "ik"}, "--no-roll": {"roll": False}}
+        for flag, kw in cases.items():
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}), \
+                    patch.object(pipeline, "run_script", side_effect=AssertionError("Blender must not start")):
+                root = Path(d); bvh = root / "walk.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
+                with self.assertRaises(pipeline.Blocked) as cm:
+                    pipeline.motion(root, bvh=str(bvh), run_id="m1", quiet=True, **kw)
+                self.assertIn(flag, str(cm.exception)); self.assertIn("--rig", str(cm.exception)); self.assertIn("→", str(cm.exception))
+                self.assertFalse((root / "runs" / "m1").exists())
+
+
 class LicenseBoundaryTests(unittest.TestCase):
     """`scripts/check_license_boundary.py` 는 CONTRIBUTING·PR 템플릿·CI 가 돌린다 — 영어 기여자가 처음 보는 CI 실패 문구라
     위반 줄이 영어로, 고칠 방법(→)과 함께 나와야 한다(10/9 3회차까지 한국어뿐, 방법 없음)."""

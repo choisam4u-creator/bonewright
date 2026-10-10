@@ -450,6 +450,11 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                         "no motion source\n  → `bw motion --bvh walk.bvh --rig <rig run-id>` or `bw motion --text \"a person walks\"`"))
     if bvh and not text:
         need_file(bvh, "BVH", T("경로를 확인하라. BVH 는 Mixamo·CMU 등에서 받거나 `--text` 로 만든다", "check the path. Get a BVH from Mixamo, CMU etc., or make one with `--text`"), (".bvh",))
+    if not rig_run:   # 리타겟 옵션은 `if rig_run:` 안에서만 쓰인다 — 말없이 버리면 기다린 끝에 GLB 가 없다
+        unused = [f for f, on in (("--export", export), ("--map", bone_map), (f"--legs {legs}", legs != "auto"), ("--no-roll", not roll)) if on]
+        if unused:
+            raise Blocked(T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다\n  → `--rig <리그 run-id>` 를 함께 주거나(목록은 `bw status`) 그 옵션을 빼라",
+                            f"{' · '.join(unused)} only apply when retargeting onto a rig\n  → add `--rig <rig run-id>` (list runs with `bw status`), or drop the option"))
     rig_blend = need_rig(root, rig_run) if rig_run else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     r = Run(root, run_id, cfg, quiet)
