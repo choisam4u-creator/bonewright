@@ -1,11 +1,41 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/9 3회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/10 4회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 156개, 건너뜀 0 이어야 한다(인자 없는 형태가 이제 7개 묶음 전부를 찾는다)
-BW_NO_RENDER=1 python3 examples/rig_sample.py --motion | tail -12 && git diff --stat examples/sample-output   # 결과 문서가 영어이고 sample-output 과 차이 없음
-d=$(mktemp -d) && BW_HOME=$d BW_NO_RENDER=1 BW_BACKEND=mock bw rig tests/assets/quaternius_adventurer.glb --no-judge --run-id v && sed -n 3p $d/runs/v/report.md   # "- versions: bonewright 0.2.0 · Blender 5.2.x · Python … · Darwin arm64"
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 162개, 건너뜀 0
+d=$(mktemp -d) && BW_HOME=$d bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge | tail -3   # README 첫 명령: codex 없이 렌더까지 하고 "done (ok)"
+d=$(mktemp -d) && BW_HOME=$d BW_BLENDER=/nope bw rig tests/assets/quaternius_adventurer.glb; BW_HOME=$d bw status   # "points at a file that does not exist: /nope", 이슈 안내 없음, 실행은 failed
 ```
+
+## 2026-10-10 (4회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 백로그 남은 3개: 시험 설명(`-v` 가 찍는 docstring 첫 줄) 65개 영어 + 지키는 시험 / `spikes/README.md`(영어, `walk_wave.bvh`
+  는 시험·GIF 가 써서 지우면 안 된다는 것) / `PRE-PUBLIC-AUDIT.md` 다시 훑음.
+- 새 묶음(사용자 체감 기준, 설치 직후 상태로 `bw` 명령을 직접 돌려 찾음) 5개 중 3개:
+  Blender 없음이 '예상 못 한 오류'(빈 로그 폴더·BW_DEBUG·이슈 안내, 실행은 계속 `running`)로 빠지던 것 → `BLOCKED:` +
+  다운로드 주소 + `bw doctor`, 실행 `failed`, 없는 BW_BLENDER 경로를 짚음, codex 없음에 토큰 0 경로 /
+  README 첫 실행 맨 위에 저장소 안 캐릭터로 모델·codex 없이 도는 명령(설치 → 첫 결과 3단계, 전에는 codex 설치·로그인 포함 5단계) /
+  `bw doctor | head` 의 BrokenPipeError.
+- 시험 수 156 → 162(블렌더 15 그대로).
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 162개 중 15개 건너뜀, 나머지 통과. 매 커밋 전.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **162개 모두 통과, 건너뜀 0**(172초).
+- README 첫 명령을 codex 없는 bpy 환경에서 실제로: 관문 pass, report 나옴(렌더는 화면 없는 리눅스라 `BW_NO_RENDER=1`).
+- `scripts/check_license_boundary.py` OK.
+- CI: 10/9 마지막 run(54ed738) 네 잡 모두 초록 — blender 잡 pending 아님(4분 안팎에 끝남).
+
+**완료 수·추가 수**: 완료 6(기존 3 + 새 3) · 추가 5 · 남은 [ ] 3(그중 1개는 샘님 결정 대기).
+
+**샘님 결정 필요**
+- `--from-skeleton`·`--from-shape` 는 맞춤 호출만 건너뛰고 시각 판정(judge)은 모델을 부른다. GUIDE(160·368·422행)와
+  `bw rig --help` 는 "0 tokens" 라 적었다. README·codex 없음 문구는 `--no-judge` 를 함께 적도록 고쳤다. 고를 것:
+  (a) 문서를 고친다(GUIDE·help 에 "판정 포함 시 모델 1회"), (b) 두 옵션이 판정을 기본으로 끄게 바꾼다(동작 변경, CHANGELOG).
+- 공개 전 점검: GitHub 웹 병합 커밋의 개인 메일이 2 → 9개(PR #1~#9). GitHub → Settings → Emails 의
+  "Keep my email addresses private" 를 켜기 전에는 PR #10 병합도 하나를 더한다. 자세히는 `docs/PRE-PUBLIC-AUDIT.md` "다시 훑음".
+- 10/9 3회차의 `spikes/` 라이선스 결정은 그대로 남음(아래).
 
 ## 2026-10-09 (3회차)
 
