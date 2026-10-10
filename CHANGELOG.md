@@ -95,6 +95,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw doctor` printed both Blender and `bpy` as `[required]`, so it read as if both had to be installed; only the
+  last line said "either one". Each line now says `[required: one of]`, and once one is found the other is
+  `[not needed]` (a missing Blender with `bpy` present reads "the bpy module is used instead").
 - `bw bench` on an empty folder or a missing file ended with exit code 0 and "mean Nonecm", and a missing file
   was reported as "Blender not found". Inputs are now checked before Blender starts, a missing Blender stops the
   whole bench once with the install hint, and a bench that measured nothing is `BLOCKED:` (exit 2) with a pointer

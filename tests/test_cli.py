@@ -189,13 +189,37 @@ class DoctorTests(unittest.TestCase):
     def test_no_blender_and_no_bpy_fails(self):
         code, text = self.run_doctor(None, False, "/usr/bin/codex")
         self.assertEqual(code, 1)
-        self.assertIn("[필수]", text)
+        self.assertIn("[필수: 둘 중 하나]", text)
 
     def test_english_output(self):
         code, text = self.run_doctor(["/opt/blender"], False, None, lang="en")
         self.assertEqual(code, 0)
         self.assertIn("[optional] codex CLI: not found", text)
         self.assertNotIn("없음", text)
+
+    def test_blender_and_bpy_are_marked_one_of_on_each_line(self):
+        """Blender and bpy each say "one of", and the one not needed is marked so (Korean and English).
+
+        10/10 5회차 실측: 둘 다 `[required]` 로 찍혀 둘 다 깔아야 하는 줄 알았다(마지막 줄에서야 "either one")."""
+        for lang, either, unneeded in (("ko", "[필수: 둘 중 하나]", "[필요 없음]"), ("en", "[required: one of]", "[not needed]")):
+            with self.subTest(lang=lang, case="neither"):
+                code, text = self.run_doctor(None, False, None, lang=lang)
+                lines = text.splitlines()
+                self.assertEqual(code, 1)
+                self.assertTrue(lines[0].startswith(either + " Blender:"), lines[0])
+                self.assertTrue(lines[1].startswith(either + " bpy"), lines[1])
+                self.assertNotIn(unneeded, text)
+            with self.subTest(lang=lang, case="bpy only"):
+                code, text = self.run_doctor(None, True, None, lang=lang)
+                lines = text.splitlines()
+                self.assertEqual(code, 0)
+                self.assertTrue(lines[0].startswith(unneeded + " Blender:"), lines[0])
+                self.assertTrue(lines[1].startswith(either + " bpy"), lines[1])
+            with self.subTest(lang=lang, case="Blender app"):
+                code, text = self.run_doctor(["/opt/blender"], False, None, lang=lang)
+                self.assertEqual(code, 0)
+                self.assertIn(either + " Blender: /opt/blender", text)
+                self.assertIn(unneeded + " bpy", text)
 
 
 class IssueReportTests(unittest.TestCase):

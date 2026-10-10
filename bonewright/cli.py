@@ -34,19 +34,24 @@ def plugin_dir() -> Path:
 
 
 def doctor(warn_unknown: bool = True) -> int:
-    """준비 상태. [필수]는 Blender 앱 또는 bpy 모듈 하나뿐이다 — mock·--from-skeleton·--from-shape·--targets 는 codex 없이 된다.
+    """준비 상태. 필수는 Blender 앱 또는 bpy 모듈 둘 중 하나뿐이다 — mock·--from-skeleton·--from-shape·--targets 는 codex 없이 된다.
     warn_unknown=False: 모르는 설정 키 경고를 뺀다(`--for-issue` 는 설정 절에 같은 내용을 한 번 싣는다)."""
-    req, opt = T("[필수]", "[required]"), T("[선택]", "[optional]")
+    # Blender 앱과 bpy 모듈은 둘 중 하나만 있으면 된다 — 줄마다 그렇게 적고, 하나가 있으면 다른 쪽은 [필요 없음].
+    # (10/10 5회차 실측: 둘 다 [required] 로 찍혀 둘 다 깔아야 하는 줄 알았다. 마지막 줄에서야 "either one")
+    either, opt, unneeded = T("[필수: 둘 중 하나]", "[required: one of]"), T("[선택]", "[optional]"), T("[필요 없음]", "[not needed]")
     cfg = load(ROOT)
     bl = find_blender(cfg["blender"])
-    print(req, "Blender:", bl[0] if bl else T(f"없음 (Blender 5.2 LTS 설치 {blender.DOWNLOAD} 또는 BW_BLENDER 에 경로)", f"not found (install Blender 5.2 LTS from {blender.DOWNLOAD}, or set BW_BLENDER to its path)"))
+    bpy_ok = False if bl else has_bpy_module()
+    ok = bool(bl) or bpy_ok
+    print(either if bl or not ok else unneeded, "Blender:", bl[0] if bl else
+          (T("없음 — bpy 모듈을 대신 쓴다", "not found — the bpy module is used instead") if bpy_ok else
+           T(f"없음 (Blender 5.2 LTS 설치 {blender.DOWNLOAD} 또는 BW_BLENDER 에 경로)", f"not found (install Blender 5.2 LTS from {blender.DOWNLOAD}, or set BW_BLENDER to its path)")))
     if bl:
         v = subprocess.run(bl + ["--version"], capture_output=True, text=True).stdout.splitlines()
         print("  ", v[0] if v else "?")
-    ok = bool(bl)
-    if not bl:
-        ok = has_bpy_module()
-        print(req, T("bpy 모듈:", "bpy module:"), T("있음", "found") if ok else T("없음 (pip install bpy==5.2.2, Python 3.13)", "not found (pip install bpy==5.2.2, Python 3.13)"))
+        print(unneeded, T("bpy 모듈: 확인 안 함 — Blender 앱을 쓴다", "bpy module: not checked — the Blender app is used"))
+    else:
+        print(either, T("bpy 모듈:", "bpy module:"), T("있음", "found") if bpy_ok else T("없음 (pip install bpy==5.2.2, Python 3.13)", "not found (pip install bpy==5.2.2, Python 3.13)"))
     codex = shutil.which("codex")
     print(opt, "codex CLI:", codex or T("없음 — 모델 판정(기본 `bw rig`)에만 필요. 토큰 0 경로(--from-skeleton·--from-shape·--targets·BW_BACKEND=mock)는 없이 된다 → https://developers.openai.com/codex",
                                        "not found — needed only for the model judge (default `bw rig`). The 0-token routes (--from-skeleton, --from-shape, --targets, BW_BACKEND=mock) work without it → https://developers.openai.com/codex"))
