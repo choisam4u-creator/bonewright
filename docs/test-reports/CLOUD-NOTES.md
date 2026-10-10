@@ -1,11 +1,37 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/10 4회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/10 5회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 163개, 건너뜀 0
-d=$(mktemp -d) && BW_HOME=$d bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge | tail -3   # README 첫 명령: codex 없이 렌더까지 하고 "done (ok)"
-d=$(mktemp -d) && BW_HOME=$d BW_BLENDER=/nope bw rig tests/assets/quaternius_adventurer.glb; BW_HOME=$d bw status   # "points at a file that does not exist: /nope", 이슈 안내 없음, 실행은 failed
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 171개, 건너뜀 0
+d=$(mktemp -d) && BW_HOME=$d bw; BW_HOME=$d bw status; BW_HOME=$d bw bench $d   # 명령 목록+`bw doctor` 안내(종료 2) / "no runs yet" / "no meshes to measure"
+d=$(mktemp -d) && BW_HOME=$d bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id r && BW_HOME=$d bw motion --bvh spikes/motion_out/walk_wave.bvh --rig r --export   # [1/3] import … [3/3] export
 ```
+
+## 2026-10-10 (5회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 백로그 남은 2개(샘님 결정 대기 1개 제외): `bw motion --bvh` 진행이 `[3/3]` 부터 시작하던 것 → 실제로 도는 단계만 셈(`[1/1]`,
+  `--rig --export` 면 `[1/3]`…`[3/3]`) / 인자 없는 `bw` 가 argparse 한 줄 오류로 끝나던 것 → 명령 목록 + "처음이면 `bw doctor`
+  → README 첫 실행 첫 명령"(종료 2 유지).
+- 남은 [ ] 가 1개라 새 항목 5개 추가(빈 BW_HOME·Blender 없음 상태로 `bw` 명령을 직접 돌려 찾음), 그중 3개:
+  실행 없는 `bw status` 의 빈 출력 → 찾은 폴더·`bw rig`·BW_HOME 안내 / `bw motion` 이 `--rig` 없는 `--export`·`--map`·`--legs`·
+  `--no-roll` 을 말없이 버리던 것 → Blender 전에 거절 / `bw bench` 빈 폴더·없는 파일이 종료 0 에 "mean Nonecm"·"Blender not found"
+  → Blender 전에 `BLOCKED:`(→ `fetch_bench_assets.py`), Blender 없음은 설치 안내 한 번, 하나도 못 쟀으면 종료 2.
+- 새 시험은 모두 옛 코드에서 실패하는 것을 확인. 시험 수 163 → 171(블렌더 15 그대로).
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 171개 중 15개 건너뜀, 나머지 통과. 매 커밋 전.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: 이 기록을 쓸 때 진행 중(결과는 다음 커밋)
+- `scripts/check_license_boundary.py` OK. 렌더는 화면 없는 리눅스라 안 돌림(Mac 명령 위).
+- CI: blender 잡은 pending 아님(매 run 4분 안팎에 끝남). 결과는 PR #10 체크.
+
+**완료 수·추가 수**: 완료 5(기존 2 + 새 3) · 추가 5 · 남은 [ ] 3(그중 1개 `spikes/` 라이선스는 샘님 결정 대기, 나머지 `bw doctor`
+Blender/bpy 표시·빈 `bw usage` 안내).
+
+**샘님 결정 필요** (4회차와 같음, 새 것 없음)
+- `--from-skeleton`·`--from-shape` "0 tokens" 문구(GUIDE·`--help`·`bw doctor` 의 codex 줄): 문서를 고칠지, 판정을 기본으로 끌지.
+- 웹 병합 커밋의 개인 메일(GitHub Emails 설정), `spikes/` 라이선스.
 
 ## 2026-10-10 (4회차)
 
