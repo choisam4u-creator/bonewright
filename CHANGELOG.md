@@ -98,6 +98,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- README Install (both languages) started at `pip install .` with no clone, although First run uses files inside the
+  repository; on macOS Homebrew and recent Linux Python a global `pip install` is refused (PEP 668); and the
+  `bw doctor` comment claimed a Rigify check doctor does not make. It now goes clone → venv → `pip install .` →
+  `bw doctor` (Blender or bpy, either one), with the Windows venv line.
 - `bw status` stopped at the first run whose `state.json` it could not read (a missing key, broken JSON — e.g. a
   sync-conflict copy or a run from an older version) with an "unexpected error, open an issue" message. That run
   now gets its own line saying it was skipped and which folder can be deleted; the other runs are still listed.

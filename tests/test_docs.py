@@ -301,6 +301,21 @@ class FirstRunTests(unittest.TestCase):
         for i in (1, 2):
             self.assertEqual(section_commands(self.EN[0], self.EN[i]), section_commands(self.KO[0], self.KO[i]))
 
+    def test_install_starts_from_nothing(self):
+        """Install starts with the clone (First run uses files inside it), then a venv, and says what doctor checks.
+
+        10/10 6회차: `pip install .` 앞에 저장소를 받는 줄이 없었고, macOS Homebrew 파이썬은 venv 없이 PEP 668 로
+        거절하며, doctor 주석은 doctor 가 보지 않는 Rigify 를 확인한다고 적었다."""
+        for doc, install, _ in (self.EN, self.KO):
+            with self.subTest(doc=doc.name):
+                cmds = section_commands(doc, install)
+                self.assertTrue(cmds[0].startswith("git clone ") and cmds[0].endswith("&& cd bonewright"), cmds[0])
+                self.assertIn(cmds[0].split()[2], (REPO / "pyproject.toml").read_text(encoding="utf-8"))   # Homepage 와 같은 주소
+                self.assertTrue(cmds[1].startswith("python3 -m venv .venv"), cmds[1])
+                self.assertLess(cmds.index("python3 -m venv .venv && source .venv/bin/activate"), cmds.index("pip install ."))
+                doctor_line = next(ln for ln in doc.read_text(encoding="utf-8").splitlines() if ln.startswith("bw doctor "))
+                self.assertNotIn("Rigify", doctor_line)
+
     def test_first_command_needs_no_model(self):
         """The first `bw rig` in "First run" runs on a file in the repository with 0 model calls (no codex needed).
 

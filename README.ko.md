@@ -21,9 +21,14 @@
 파이썬 3와 Blender 5.2 LTS(또는 `bpy` 휠)가 필요하다. CLI 자체는 의존성이 없다.
 
 ```bash
-pip install .                 # Blender.app 대신 bpy 휠을 쓰려면: pip install ".[headless]"
-bw doctor                     # Blender와 Rigify가 잡히는지 확인
+git clone https://github.com/choisam4u-creator/bonewright && cd bonewright
+python3 -m venv .venv && source .venv/bin/activate   # Homebrew·리눅스 파이썬은 전역 pip install 을 거절한다(PEP 668)
+pip install .                 # Blender.app 대신 bpy 휠을 쓰려면: pip install ".[headless]" (Python 3.13)
+bw doctor                     # Blender 나 bpy 중 하나가 잡히는지 확인하고, 선택 항목을 표시
 ```
+
+Windows 에서는 둘째 줄이 `py -m venv .venv` 다음 `.venv\Scripts\activate` 다. 새 터미널에서는 `bw` 전에 venv 를 다시
+켠다.
 
 ## 첫 실행
 

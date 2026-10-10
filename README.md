@@ -23,9 +23,14 @@ Python drives the steps, `codex exec` judges, gates verify. [한국어](README.k
 Needs Python 3 and Blender 5.2 LTS (or the `bpy` wheel). The CLI itself has no dependencies.
 
 ```bash
-pip install .                 # or: pip install ".[headless]" to use the bpy wheel instead of Blender.app
-bw doctor                     # checks that Blender and Rigify are reachable
+git clone https://github.com/choisam4u-creator/bonewright && cd bonewright
+python3 -m venv .venv && source .venv/bin/activate   # Homebrew / Linux Python refuses a global pip install (PEP 668)
+pip install .                 # or: pip install ".[headless]" to use the bpy wheel instead of Blender.app (Python 3.13)
+bw doctor                     # checks that Blender or bpy is found (either one) and marks what is optional
 ```
+
+On Windows the second line is `py -m venv .venv` then `.venv\Scripts\activate`. In a new terminal, activate the venv
+again before `bw`.
 
 ## First run
 
