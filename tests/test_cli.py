@@ -24,8 +24,8 @@ class PinInputTests(unittest.TestCase):
 
     def test_accepts_finite_head_and_tail(self):
         with patch.object(sys, "argv", ["bw", "rig", "mesh.glb", "--pin", "hand.L=0,0,1/1,0,1"]), \
-                patch.object(cli.pipeline, "rig", return_value="report") as rig, \
-                patch("sys.stdout", new_callable=io.StringIO):
+                patch.object(cli.pipeline, "rig", return_value="runs/r/report.md") as rig, \
+                patch("sys.stdout", new_callable=io.StringIO), patch("sys.stderr", new_callable=io.StringIO):
             self.assertEqual(cli.main(), 0)
         self.assertEqual(rig.call_args.kwargs["pins"],
                          {"hand.L": {"head": [0.0, 0.0, 1.0], "tail": [1.0, 0.0, 1.0]}})
