@@ -51,6 +51,31 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(out.getvalue().strip(), f"bonewright {cli.__version__}")
 
 
+class BareCommandTests(unittest.TestCase):
+    """A bare `bw` shows the command list and points at `bw doctor` (exit code stays 2).
+
+    10/10 4회차 실측: argparse 의 `error: the following arguments are required: cmd` 한 줄로 끝났다."""
+
+    def bare(self, lang: str) -> tuple[int, str]:
+        import os
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw"]), patch("sys.stderr", err):
+            code = cli.main()
+        return code, err.getvalue()
+
+    def test_bare_bw_lists_commands_and_first_step(self):
+        import re
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang):
+                code, text = self.bare(lang)
+                self.assertEqual(2, code)
+                self.assertNotIn("required", text)
+                for cmd in ("rig", "motion", "doctor", "status"):
+                    self.assertIn(cmd, text)
+                self.assertIn("`bw doctor`", text.splitlines()[-1])
+                self.assertEqual(lang == "ko", bool(re.search("[가-힣]", text.splitlines()[-1])))
+
+
 class HelpLanguageTests(unittest.TestCase):
     """bw --help 는 BW_LANG(없으면 로캘)을 따른다. README 는 영문이므로 영어가 기본."""
 

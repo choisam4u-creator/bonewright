@@ -235,7 +235,14 @@ def main() -> int:
 
 
 def _main() -> int:
-    a = build_parser().parse_args()
+    parser = build_parser()
+    if len(sys.argv) <= 1:   # 인자 없는 `bw`: argparse 는 "required: cmd" 한 줄로 끝난다. 설치 직후 가장 먼저 치는 것이라 명령 목록과 첫 걸음을
+        parser.print_help(sys.stderr)
+        print(T("\n처음이면: `bw doctor` 로 Blender·codex 준비를 확인한 뒤 README 의 \"첫 실행\"(영어판 \"First run\") 첫 명령을 돌려라(모델 호출 없음)",
+                "\nnew here? run `bw doctor` to check Blender and codex, then the first command under \"First run\" in the README (no model calls)"),
+              file=sys.stderr)
+        return 2
+    a = parser.parse_args()
     started = time.time() - 1  # 파일 시각 해상도 여유
     try:
         if a.cmd == "doctor":
