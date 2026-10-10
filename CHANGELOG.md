@@ -98,6 +98,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw rig <folder>` said "mesh file not found" although the folder exists; it now says a folder was given, names a
+  mesh inside it and points at `bw bench <folder>` for measuring all of them.
 - `bw rig --budget 0` was silently ignored and a negative budget stopped the run only after the Blender analysis;
   it now accepts 1 or more, and `bw rig --help` says it caps model input tokens (default 600,000).
 - `bw demo --size 0` / `--frames -1` created a run folder and reached the Blender render before failing, and

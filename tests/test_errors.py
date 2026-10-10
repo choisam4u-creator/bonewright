@@ -35,6 +35,20 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("메시 파일이 없다", msg)
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_folder_instead_of_mesh(self):
+        """A folder passed as the mesh says so, names a mesh inside and points at `bw bench`.
+
+        `bw rig .` 이 "메시 파일이 없다: ." 라 했다(폴더는 있다, 10/10 8회차)."""
+        d = self.root / "models"; d.mkdir()
+        (d / "hero.glb").write_bytes(b"glTF"); (d / "notes.txt").write_text("x")
+        msg = self.blocked(pipeline.rig, self.root, str(d), quiet=True)
+        self.assertIn("폴더를 줬다", msg); self.assertNotIn("파일이 없다", msg)
+        self.assertIn("hero.glb", msg); self.assertNotIn("notes.txt", msg)
+        self.assertIn(f"bw bench {d}", msg)
+        self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            self.assertIn("this is a folder, not a file", self.blocked(pipeline.rig, self.root, str(d), quiet=True))
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 

@@ -29,10 +29,16 @@ class Blocked(RuntimeError):
 MESH_EXTS = (".glb", ".gltf", ".fbx", ".obj", ".blend")   # bpy_scripts/_common.py import_mesh 가 읽는 형식
 
 
-def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = ()) -> Path:
+def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (), many: str = "") -> Path:
     """입력 파일을 Blender·모델을 부르기 **전에** 확인한다. 없거나 형식이 틀리면 고칠 방법을 담아 Blocked.
-    what·fix 는 호출하는 쪽에서 T(한국어, 영어)로 넘긴다."""
+    what·fix·many 는 호출하는 쪽에서 T(한국어, 영어)로 넘긴다. many: 폴더를 줬을 때 여러 파일을 한 번에 다루는 명령."""
     p = Path(path).expanduser()
+    if p.is_dir():   # "파일이 없다" 는 거짓말이다 — 폴더는 있다(10/10 8회차 `bw rig .`)
+        inside = sorted(f for f in p.iterdir() if f.is_file() and (not exts or f.suffix.lower() in exts))
+        first = T(f" 예: {inside[0]}", f" e.g. {inside[0]}") if inside else ""
+        also = f"\n  → {many}" if many else ""
+        raise Blocked(T(f"{what} 자리에 폴더를 줬다: {p}\n  → 파일 하나를 준다.{first}{also}",
+                        f"{what}: this is a folder, not a file: {p}\n  → pass one file.{first}{also}"))
     if not p.is_file():
         raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}", f"{what} file not found: {p}\n  → {fix}"))
     if exts and p.suffix.lower() not in exts:
@@ -189,7 +195,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     if budget is not None:   # 0 을 말없이 무시하지 않는다(cli 는 1 이상만 넘긴다)
         cfg["budget"]["max_input_tokens"] = budget
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")
-    mesh = str(need_file(mesh, T("메시", "mesh"), T("경로를 확인하라(따옴표로 감싼 공백 경로 포함)", "check the path (quote paths with spaces)"), MESH_EXTS).resolve())
+    mesh = str(need_file(mesh, T("메시", "mesh"), T("경로를 확인하라(따옴표로 감싼 공백 경로 포함)", "check the path (quote paths with spaces)"), MESH_EXTS,
+                         many=T(f"폴더 안 메시 여럿을 한 번에 재려면 `bw bench {mesh}`", f"to measure every mesh in the folder at once: `bw bench {mesh}`")).resolve())
     targets_loaded = None
     if targets_file:   # 형식 오류도 Blender·실행 폴더를 건드리기 전에 막는다(같은 run-id 의 기존 결과를 지키려고)
         tf = need_file(targets_file, "--targets", T("이전 실행의 runs/<id>/targets.json 또는 거절 때 남긴 targets_draft.json 을 지정하라",
