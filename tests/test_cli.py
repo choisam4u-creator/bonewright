@@ -156,7 +156,9 @@ class PositiveNumberTests(unittest.TestCase):
 
 class BudgetHelpTests(unittest.TestCase):
     def test_budget_help_says_what_it_caps(self):
-        """`--budget` 는 `bw rig --help` 에 설명이 없었다 — 무엇의 상한인지(입력 토큰)와 기본값을 두 언어로."""
+        """`bw rig --help` says what --budget caps (input tokens) and its default.
+
+        `--budget` 는 `bw rig --help` 에 설명이 없었다 — 무엇의 상한인지(입력 토큰)와 기본값을 두 언어로."""
         from bonewright import config
         default = f"{config.DEFAULTS['budget']['max_input_tokens']:,}"
         for lang, word in (("en", "input tokens"), ("ko", "입력 토큰")):
