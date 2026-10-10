@@ -98,6 +98,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- Without Blender, `bw rig`, `bw motion`, `bw export` and `bw demo` made a `runs/<id>` folder before failing, so
+  `bw status` filled up with "analyze failed" runs. Blender is now looked for first (and `bw motion --text` checks
+  kimodo.cpp first too); nothing is written until both are there.
 - `bw motion --map` with a missing or broken file was only caught after Blender had imported the BVH; it is now
   checked with the other inputs, before Blender and before a run folder is made.
 - `bw export <id> --out` with a folder or a non-GLB name (`out.fbx`) only failed after Blender started. A folder now

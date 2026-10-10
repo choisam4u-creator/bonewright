@@ -79,6 +79,13 @@ def has_bpy_module(python: str = sys.executable) -> bool:
     return r.returncode == 0
 
 
+def require(cfg: dict) -> None:
+    """Blender(앱 또는 bpy 모듈)를 찾을 수 있는지 실행 폴더를 만들기 **전에** 본다. 없으면 BlenderMissing.
+    10/10 8회차: 없는 채로 `bw rig`·`bw motion` 을 치면 runs/<id> 를 먼저 만들고 실패해 `bw status` 에 실패 실행이 쌓였다."""
+    if not (find_blender(cfg) or has_bpy_module()):
+        raise BlenderMissing(missing_message(cfg))
+
+
 def run_script(name: str, params: dict, cfg: dict, log_dir: Path, mock: bool = False) -> dict:
     """bpy_scripts/<name>.py 를 Blender 로 실행하고 결과 JSON 을 돌려준다."""
     log_dir.mkdir(parents=True, exist_ok=True)

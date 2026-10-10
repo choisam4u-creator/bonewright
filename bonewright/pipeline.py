@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from . import __version__, schemas
-from .blender import BlenderError, run_script
+from .blender import BlenderError, require as need_blender, run_script
 from .codex import CodexError, UsageLimit, run_step
 from .config import load, unknown_keys_line
 from .from_skeleton import targets_from_skeleton
@@ -230,6 +230,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         except ValueError as e:
             raise Blocked(T(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라",
                             f"--targets file is not JSON: {targets_file} ({e})\n  → check for a broken comma or bracket from editing"))
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
     r = Run(root, run_id, cfg, quiet)
     _log(quiet, f"rig {run_id} · {preset} · {mesh}")
     # 1 분석
@@ -489,13 +490,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     rig_blend = need_rig(root, rig_run) if rig_run else None
     user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
-    r = Run(root, run_id, cfg, quiet)
-    # 단계 번호는 실제로 도는 단계만 센다: `--bvh` 만이면 [1/1] 로 시작한다(10/10 까지 [3/3] 부터라 앞 단계가 빠진 줄 알았다)
-    steps = (["kimodo", "bvh"] if text else []) + ["import"] + (["retarget"] if rig_run else []) + (["export"] if rig_run and export else [])
-    def n(step: str) -> str:
-        return f"[{steps.index(step) + 1}/{len(steps)}]"
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
-    if text:
+    if text:   # kimodo 도 실행 폴더·Blender 전에 본다(설치 안내가 더 구체적이다)
         gen, text_model = kimodo_paths(kroot, k)
         if gen is None:
             raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
@@ -505,6 +501,13 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                             "  → `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1` 로 받거나, runs/config.json 의 kimodo.text_bundle 에 경로를 적어라",
                             f"kimodo.cpp text encoder not found: neither {kroot / k['text_bundle']} nor a GGUF beside `tokenizer.gguf`\n"
                             "  → get it with `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1`, or set kimodo.text_bundle in runs/config.json"))
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    r = Run(root, run_id, cfg, quiet)
+    # 단계 번호는 실제로 도는 단계만 센다: `--bvh` 만이면 [1/1] 로 시작한다(10/10 까지 [3/3] 부터라 앞 단계가 빠진 줄 알았다)
+    steps = (["kimodo", "bvh"] if text else []) + ["import"] + (["retarget"] if rig_run else []) + (["export"] if rig_run and export else [])
+    def n(step: str) -> str:
+        return f"[{steps.index(step) + 1}/{len(steps)}]"
+    if text:
         r.state("kimodo", "running")
         (r.dir / "prompt.txt").write_text(text, encoding="utf-8")
         t = time.time()
@@ -597,6 +600,7 @@ def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = Fa
             raise Blocked(T(f"출력 폴더가 없다: {dst.parent}\n  → 먼저 만들거나(`mkdir -p {dst.parent}`) 있는 폴더를 준다",
                             f"output folder does not exist: {dst.parent}\n  → create it first (`mkdir -p {dst.parent}`) or pass an existing one"))
         dst = dst.resolve()
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
     r = Run(root, run_id, cfg, quiet)
     dst = dst or (r.dir / "rigged.glb")
     ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
@@ -611,6 +615,7 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     import shutil
     cfg = load(root)
     blend = need_rig(root, run_id)
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
     r = Run(root, run_id, cfg, quiet)
     if os.environ.get("BW_NO_RENDER") == "1":
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)

@@ -71,7 +71,7 @@ class InputErrorTests(unittest.TestCase):
             seen.update(params)
             return {"bones": 1, "verts": 1, "verts_in_source": 1, "max_diff_cm": 0.0}
         out = self.root / "exports"; out.mkdir()
-        with patch.object(pipeline, "run_script", side_effect=fake):
+        with patch.object(pipeline, "run_script", side_effect=fake), patch.object(pipeline, "need_blender", lambda cfg: None):
             dst = pipeline.export_rig(self.root, "r1", out=str(out), quiet=True)
         self.assertEqual(out.resolve() / "r1.glb", dst); self.assertEqual(str(dst), seen["out"])
 
@@ -357,8 +357,15 @@ class MissingToolTests(unittest.TestCase):
         self.assertIn("`bw doctor`", err)
         self.assertNotIn("open an issue", err)
         self.assertNotIn("BW_DEBUG", err)
-        state = json.loads((self.root / "runs" / "nob" / "state.json").read_text(encoding="utf-8"))
-        self.assertEqual("failed", state["status"])
+        # 10/10 8회차부터 실행 폴더를 만들기 전에 막는다 — `bw status` 에 실패 실행이 쌓이지 않는다
+        self.assertFalse((self.root / "runs" / "nob").exists())
+
+    def test_motion_without_blender_leaves_no_run_folder(self):
+        """`bw motion` without Blender stops before making runs/<id>, so `bw status` does not fill with failed runs."""
+        bvh = self.root / "w.bvh"; bvh.write_text("HIERARCHY\n")
+        code, err = self.run_bw("motion", "--bvh", str(bvh), "--run-id", "m1")
+        self.assertEqual(2, code); self.assertIn("BLOCKED: Blender not found", err)
+        self.assertFalse((self.root / "runs" / "m1").exists())
 
     def test_bw_blender_pointing_nowhere_is_named(self):
         """BW_BLENDER set to a missing file: the message names that path instead of "set BW_BLENDER"."""
@@ -465,7 +472,8 @@ class MotionStepNumberTests(unittest.TestCase):
 
     def steps(self, **kw):
         with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}), \
-                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(self.FAKE[name])):
+                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(self.FAKE[name])), \
+                patch.object(pipeline, "need_blender", lambda cfg: None):
             root = Path(d); bvh = root / "walk.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
             if kw.get("rig_run"):
                 (root / "runs" / "r1").mkdir(parents=True); (root / "runs" / "r1" / "02_rigged.blend").write_text("")
