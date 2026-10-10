@@ -49,6 +49,16 @@ class InputErrorTests(unittest.TestCase):
         with patch.dict(os.environ, {"BW_LANG": "en"}):
             self.assertIn("this is a folder, not a file", self.blocked(pipeline.rig, self.root, str(d), quiet=True))
 
+    def test_empty_or_fake_glb_stops_before_blender(self):
+        """An empty or non-glTF .glb is refused before Blender starts.
+
+        0바이트 .glb 가 Blender 를 띄운 뒤에야 실패했다 — Blender 가 없는 곳에선 'Blender not found' 가 원인을 가렸다(10/10 8회차)."""
+        empty, fake = self.root / "empty.glb", self.root / "fake.glb"
+        empty.write_bytes(b""); fake.write_text("<html>not a model</html>")
+        self.assertIn("비었다(0바이트)", self.blocked(pipeline.rig, self.root, str(empty), quiet=True))
+        self.assertIn("GLB 가 아니다", self.blocked(pipeline.rig, self.root, str(fake), quiet=True))
+        self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 

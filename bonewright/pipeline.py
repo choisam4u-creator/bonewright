@@ -47,6 +47,23 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
     return p
 
 
+def need_mesh_bytes(p: Path) -> None:
+    """Blender 를 띄우기 전에 빈 파일·GLB 머리가 틀린 파일을 막는다. 10/10 8회차: 0바이트 .glb 가 Blender 를 띄운 뒤에야
+    실패했고, Blender 가 없는 곳에선 'Blender not found' 가 진짜 원인을 가렸다."""
+    size = p.stat().st_size
+    if size == 0:
+        raise Blocked(T(f"메시 파일이 비었다(0바이트): {p}\n  → 내보내기·내려받기가 끝까지 됐는지 보고 원본에서 다시 내보내라",
+                        f"the mesh file is empty (0 bytes): {p}\n  → check that the export or download finished, and export it again"))
+    if p.suffix.lower() == ".glb":
+        with open(p, "rb") as f:
+            head = f.read(4)
+        if head != b"glTF":
+            raise Blocked(T(f"GLB 가 아니다(머리가 'glTF' 가 아님, {size:,}바이트): {p}\n  → 이름만 .glb 인 다른 파일일 수 있다. "
+                            "Blender 등에서 glTF Binary(.glb)로 다시 내보내라",
+                            f"not a GLB (the file does not start with 'glTF', {size:,} bytes): {p}\n  → it may be another format "
+                            "renamed to .glb. Export it again as glTF Binary (.glb), e.g. from Blender"))
+
+
 def need_rig(root: Path, run_id: str) -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다."""
     blend = root / "runs" / run_id / "02_rigged.blend"
@@ -197,6 +214,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")
     mesh = str(need_file(mesh, T("메시", "mesh"), T("경로를 확인하라(따옴표로 감싼 공백 경로 포함)", "check the path (quote paths with spaces)"), MESH_EXTS,
                          many=T(f"폴더 안 메시 여럿을 한 번에 재려면 `bw bench {mesh}`", f"to measure every mesh in the folder at once: `bw bench {mesh}`")).resolve())
+    need_mesh_bytes(Path(mesh))
     targets_loaded = None
     if targets_file:   # 형식 오류도 Blender·실행 폴더를 건드리기 전에 막는다(같은 run-id 의 기존 결과를 지키려고)
         tf = need_file(targets_file, "--targets", T("이전 실행의 runs/<id>/targets.json 또는 거절 때 남긴 targets_draft.json 을 지정하라",
