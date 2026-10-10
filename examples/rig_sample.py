@@ -6,7 +6,7 @@ Reproduce a rig from a mesh (bone count and name table). Zero model calls, zero 
     python3 examples/rig_sample.py --preset quadruped # 절차적 캡슐 개(네 발)를 만들어 사족 리깅
     python3 examples/rig_sample.py adventurer         # tests/assets 의 CC0 캐릭터(1.9MB)를 리깅
     python3 examples/rig_sample.py path/to/x.glb      # 아무 메시나
-    python3 examples/rig_sample.py --table x.glb      # 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
+    python3 examples/rig_sample.py --table adventurer # 저장소의 캐릭터, 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
     python3 examples/rig_sample.py --motion           # 캡슐 인형을 리깅하고 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
 
 리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/<이름>/ 에 남고
@@ -148,9 +148,11 @@ def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     from bonewright import blender, pipeline
     if not (blender.find_blender({}) or blender.has_bpy_module()):
         raise SystemExit(T("Blender 가 없다 — Blender 5.2 LTS 를 설치하거나 `pip install bpy==5.2.2`(파이썬 3.13), "
-                           "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. 표만 보려면 --table x.glb",
+                           "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. Blender 없이 본 표만 보려면: "
+                           "python3 examples/rig_sample.py --table adventurer",
                            "Blender not found — install Blender 5.2 LTS or `pip install bpy==5.2.2` (Python 3.13), "
-                           "or put the executable's path in BW_BLENDER. For the bone table alone: --table x.glb"))
+                           "or put the executable's path in BW_BLENDER. For the bone table alone, without Blender: "
+                           "python3 examples/rig_sample.py --table adventurer"))
     os.environ["BW_BACKEND"] = "mock"
     os.environ.setdefault("BW_NO_RENDER", "1")
     OUT.mkdir(parents=True, exist_ok=True)

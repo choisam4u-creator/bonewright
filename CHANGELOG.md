@@ -98,6 +98,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `examples/rig_sample.py` without Blender pointed at `--table x.glb`, a file nobody has. It now ends with
+  `python3 examples/rig_sample.py --table adventurer`, which runs as pasted on the character in the repository;
+  `tests/test_examples.py` runs that command in both languages.
 - README Install (both languages) started at `pip install .` with no clone, although First run uses files inside the
   repository; on macOS Homebrew and recent Linux Python a global `pip install` is refused (PEP 668); and the
   `bw doctor` comment claimed a Rigify check doctor does not make. It now goes clone → venv → `pip install .` →

@@ -1,5 +1,6 @@
 """examples/rig_sample.py 의 표 부분(블렌더 불필요). 리깅 부분은 RigMockTests 가 같은 경로를 이미 본다."""
 import json
+import os
 import re
 import struct
 import sys
@@ -75,6 +76,22 @@ class ExampleMessageTests(unittest.TestCase):
         self.assertIn("Blender not found", en); self.assertIn("pip install bpy==5.2.2", en)
         self.assertIsNone(re.search(r"[가-힣]", en), en)
         self.assertIn("Blender 가 없다", ko)
+
+    def test_no_blender_hint_runs_as_pasted(self):
+        """The no-Blender hint ends in a command that runs as pasted and prints a bone table.
+
+        자리표시 파일(x.glb) 대신 저장소에 든 캐릭터로 — 두 언어 모두 그 명령을 그대로 돌려 본다."""
+        import subprocess
+        for lang in ("en", "ko"):
+            msg = self._no_blender_message(lang)
+            cmd = re.search(r"python3 examples/rig_sample\.py [^\n`]*$", msg)
+            self.assertIsNotNone(cmd, msg)
+            argv = cmd[0].split()
+            self.assertNotIn("x.glb", argv)
+            r = subprocess.run([sys.executable, *argv[1:]], cwd=ROOT, capture_output=True, text=True,
+                               env={**os.environ, "BW_LANG": lang}, timeout=60)
+            self.assertEqual(0, r.returncode, r.stderr)
+            self.assertIn("UpperArm.L", r.stdout)
 
     def test_missing_file_follows_screen_language(self):
         from unittest import mock
