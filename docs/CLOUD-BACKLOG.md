@@ -166,3 +166,12 @@
 - [x] (10/10 8회차: `pipeline.need_mesh_bytes`, `test_errors.test_empty_or_fake_glb_stops_before_blender` — 옛 코드에서 실패 확인) 0바이트·glTF 가 아닌 `.glb` 를 `bw rig` 에 주면 Blender 를 띄운 뒤에야 실패한다(Blender 없는 곳에선 "Blender not found" 로 원인이 가려진다) → Blender 전에 파일 크기 0·GLB 머리(`glTF`) 를 보고 `BLOCKED:` + 다시 내보내라는 안내, 시험 — 근거: 10/10 8회차 실측(`touch broken.glb; bw rig broken.glb` → "Blender not found")
 - [x] (10/10 8회차: 21개 모두 두 언어, `test_cli.ArgumentHelpTests` — 옛 코드에서 40곳 실패) 하위 명령 도움말이 비어 있는 인자 21개(`bw rig` 의 `mesh`·`--preset`·`--run-id`·`--budget`·`--quiet`, `bw demo` 의 `--size`·`--frames`, `bw usage --days` 등) → 두 언어 한 줄씩, 모든 하위 명령의 모든 인자에 help 가 있는지 보는 시험 — 근거: 10/10 8회차 파서 집계(rig 5·motion 4·export 2·demo 4·bench 4·status 1·usage 1)
 - [x] (10/10 8회차: `cli._hint_on_bad_command` — difflib, `resume` 은 무엇이 대신하는지, `test_cli.BadCommandTests` 2개 — 옛 코드에서 실패) 틀린 하위 명령(`bw resume`·`bw run` 등)에 argparse 기본 "invalid choice" 만 나온다 → 가장 가까운 명령(`difflib`)과 `bw --help` 를 붙인 한 줄(종료 2 유지), 두 언어 시험 — 근거: 10/10 8회차 실측(`bw resume nope` → 선택지 나열만). README 옛 판에 `bw resume` 이 있었다(`test_checker_catches_mistakes`)
+
+
+## 2026-10-10 8회차 둘째 묶음 (공개 준비 기준 — 실측)
+
+- [ ] `bw export <id> --out <폴더>`·`--out x.fbx`: 출력 경로 검사가 없어 Blender 를 띄운 뒤에야 실패한다 → 폴더면 그 안 `<id>.glb` 로, `.glb` 가 아니면 Blender 전에 `BLOCKED:` + `--out runs/<id>/rigged.glb` 예, 시험 — 근거: 10/10 8회차 실측(Blender 없는 곳에선 "Blender not found" 로 가려짐)
+- [ ] `bw motion --map nope.json`: 없는 매핑 파일이 BVH 를 Blender 로 가져온 뒤에야 걸린다 → `--bvh`·`--rig` 처럼 Blender 전에 `need_file`, 시험 — 근거: 10/10 8회차 실측(`--map nope.json` → "⚙ blender import_bvh" 뒤 Blender 단계)
+- [ ] Blender 가 없을 때 `bw rig`·`bw motion` 이 실행 폴더(`runs/rig-…`, `runs/motion-…`)를 먼저 만들고 실패해 `bw status` 에 "analyze failed"·"import_bvh failed" 가 쌓인다 → Blender 를 찾을 수 있는지 실행 폴더를 만들기 전에 보고, 시험 — 근거: 10/10 8회차 실측(이 컨테이너 `bw status` 에 실패 실행 3개)
+- [ ] 이미 리깅된 실행에 `bw export` 가 실패하면 그 실행의 `bw status` 가 "export_rig failed" 로 바뀌어 리그까지 실패한 것처럼 보인다 → 내보내기 실패는 리그 상태를 덮지 않게(따로 기록), 시험 — 근거: 10/10 8회차 실측(`runs/r1` 에 `02_rigged.blend` 를 두고 `bw export r1` → status "r1: export_rig failed")
+- [ ] `bw status` 목록 줄의 `· in 0` 이 무엇인지 안 보인다(입력 토큰) → "tokens in 0" 처럼 단위를 붙이고, 실패 줄 끝에 `bw status <id>` 로 이유를 보라는 안내, 시험 — 근거: 10/10 8회차 실측
