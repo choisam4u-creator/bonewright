@@ -13,7 +13,9 @@ REPO = Path(__file__).resolve().parent.parent
 DOCS = [REPO / "README.md", REPO / "README.ko.md", REPO / "docs" / "GUIDE.md", REPO / "examples" / "README.md", REPO / "examples" / "README.ko.md",
         # 10/7 추가: 공개 뒤 기여자·신고자가 처음 따라 하는 문서
         REPO / "CONTRIBUTING.md", REPO / "SECURITY.md", REPO / "docs" / "RELEASING.md",
-        REPO / ".github" / "pull_request_template.md", *sorted((REPO / ".github" / "ISSUE_TEMPLATE").glob("*.md"))]
+        REPO / ".github" / "pull_request_template.md", *sorted((REPO / ".github" / "ISSUE_TEMPLATE").glob("*.md")),
+        # 10/10 추가: 공개 뒤 spikes/ 를 본체로 오해하지 않게 붙인 설명
+        REPO / "spikes" / "README.md"]
 
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)|<img[^>]*\ssrc=\"([^\"]+)\"")
 INLINE_BW = re.compile(r"`((?:[A-Z_]+=\S+\s+)*bw\s[^`]*)`")
