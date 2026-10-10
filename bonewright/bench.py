@@ -207,8 +207,11 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
     if not meshes:
         raise Blocked(T(f"잴 메시가 없다(폴더 안에 .glb·.gltf·.fbx 가 없다)\n  → 원본 뼈대가 든 GLB/FBX 파일이나 그것이 든 폴더를 줘라. {fetch}",
                         f"no meshes to measure (no .glb · .gltf · .fbx in the folder)\n  → pass GLB/FBX files that carry their own skeleton, or a folder of them. {fetch}"))
-    for m in meshes + ([gt_mesh] if gt_mesh else []):
+    for m in meshes:
         pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx"))
+    if gt_mesh:   # 어느 인자인지 이름을 댄다(10/10 8회차: "mesh file not found" 로만 나왔다)
+        pipeline.need_file(gt_mesh, "--gt-mesh", T("정답 뼈대를 가져올 원본(T 포즈) 파일 경로를 확인하라", "check the path of the original (T-pose) file to take the reference skeleton from"),
+                           (".glb", ".gltf", ".fbx"))
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)

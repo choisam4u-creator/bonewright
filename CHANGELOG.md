@@ -100,6 +100,7 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw bench --gt-mesh nope.glb` said "mesh file not found"; it now names `--gt-mesh`.
 - `bw rig a.glb --targets a.glb` (the mesh passed by mistake) was told to look for "a broken comma or bracket"; a
   binary file is now called that, with the `--targets runs/<id>/targets.json` it expects.
 - `bw rig --from-skeleton --from-shape` accepted both, leaving it unclear which path ran; they are now mutually

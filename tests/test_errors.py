@@ -555,6 +555,16 @@ class BenchInputTests(unittest.TestCase):
                 self.assertIn(want, str(cm.exception)); self.assertIn("fetch_bench_assets.py", str(cm.exception))
             self.assertFalse((root / "runs").exists())
 
+    def test_missing_gt_mesh_is_named(self):
+        """A missing `--gt-mesh` file is named as --gt-mesh, not as "mesh"."""
+        from bonewright import bench
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d); a = root / "a.glb"; a.write_bytes(b"glTF")
+            with patch.dict(os.environ, {"BW_LANG": "en"}), self.assertRaises(pipeline.Blocked) as cm:
+                bench.run(root, [str(a)], run_id="b1", quiet=True, gt_mesh=str(root / "nope.glb"))
+            self.assertIn("--gt-mesh file not found", str(cm.exception))
+            self.assertFalse((root / "runs").exists())
+
     def test_missing_blender_is_raised_once(self):
         from bonewright import blender
         with tempfile.TemporaryDirectory() as d:
