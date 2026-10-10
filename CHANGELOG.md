@@ -99,6 +99,8 @@ See `docs/RELEASING.md` for the release steps.
   it pointed at an empty log folder, `BW_DEBUG=1` and the issue templates, and left the run as `running` in
   `bw status`. It is now a plain `BLOCKED:` that names the download page and `bw doctor`, the run is marked
   `failed`, and a `BW_BLENDER` that points at a missing file is named as such. `bw doctor` shows the download page too.
+- Piping `bw` into something that stops reading early (`bw doctor | head -1`) printed `BLOCKED: BrokenPipeError`
+  and the issue-template hint. It now ends quietly.
 - "codex executable not found" now also names the 0-token routes (`--from-skeleton --no-judge`,
   `--from-shape --no-judge`, `BW_BACKEND=mock`), so a first run without codex has somewhere to go.
 - The READMEs said `--from-skeleton` costs zero tokens; it skips the fit call, but the visual judge still calls the

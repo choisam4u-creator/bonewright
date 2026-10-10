@@ -1,6 +1,8 @@
 """명령줄 입력 검증 회귀 테스트."""
 import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -71,6 +73,24 @@ class HelpLanguageTests(unittest.TestCase):
     def test_korean_help_when_asked(self):
         self.assertIn("리깅", self.help_text(lang="ko"))
 
+
+
+class ClosedPipeTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "a closed pipe is EINVAL, not EPIPE, on Windows")
+    def test_reader_closing_early_is_not_an_error(self):
+        """`bw doctor | head -1`: the reader closing early is not reported as an error or an issue to open.
+
+        10/10 4회차 실측: `BLOCKED: BrokenPipeError` 와 이슈 템플릿 안내가 나왔다. 이슈 템플릿이 doctor 출력을
+        붙이라 해서 `| head`·`| pbcopy` 로 자주 돈다."""
+        with tempfile.TemporaryDirectory() as t:
+            env = {**os.environ, "BW_HOME": t, "BW_LANG": "en", "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
+            p = subprocess.Popen([sys.executable, "-c", "import sys; from bonewright.cli import main; sys.exit(main())", "doctor"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+            p.stdout.close()          # head 처럼 아무것도 안 읽고 닫는다
+            err = p.stderr.read().decode("utf-8", "replace"); p.wait(timeout=60); p.stderr.close()
+        self.assertNotIn("BrokenPipe", err)
+        self.assertNotIn("open an issue", err)
+        self.assertNotIn("Traceback", err)
 
 if __name__ == "__main__":
     unittest.main()

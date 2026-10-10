@@ -210,6 +210,16 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _closed_stdout() -> int:
+    """읽는 쪽이 닫힌 stdout 을 devnull 로 돌려, 끝날 때의 flush 가 또 BrokenPipeError 를 내지 않게 한다(파이썬 문서 signal 절 방식)."""
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+    except (OSError, ValueError, io.UnsupportedOperation):
+        pass
+    return 1
+
+
 def main() -> int:
     a = build_parser().parse_args()
     started = time.time() - 1  # 파일 시각 해상도 여유
@@ -271,6 +281,8 @@ def main() -> int:
             out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export, roll=not a.no_roll, preset=a.preset, bvh_up=a.bvh_up, legs=a.legs, bone_map=a.bone_map)
     except (pipeline.Blocked, blender.BlenderMissing) as e:   # 설치·설정으로 고치는 것: 이슈 안내 없이
         print("BLOCKED:", e, file=sys.stderr); return 2
+    except BrokenPipeError:   # `bw doctor | head` 처럼 읽는 쪽이 먼저 닫았다 — 오류가 아니다
+        return _closed_stdout()
     except Exception as e:  # Blender 오류 등
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
     print(T("보고서:", "report:"), out); return 0
