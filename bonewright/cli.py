@@ -119,6 +119,9 @@ def issue_report(run_id: str | None, tail: int = 40) -> int:
         d = runs / rid
         lines += ["", f"run `{rid}`", "", "```json",
                   (d / "state.json").read_text(encoding="utf-8").strip() if (d / "state.json").is_file() else T("(state.json 없음)", "(no state.json)"), "```"]
+        for extra in ("export_state.json", "demo_state.json"):   # 8회차부터 export·demo 는 리그 state 를 덮지 않고 따로 적는다
+            if (d / extra).is_file():
+                lines += ["", f"`{extra}`", "", "```json", (d / extra).read_text(encoding="utf-8", errors="replace").strip(), "```"]
         logs = sorted((d / "logs").glob("*.log"), key=lambda p: p.stat().st_mtime) if (d / "logs").is_dir() else []
         if logs:
             last = logs[-1].read_text(encoding="utf-8", errors="replace").splitlines()[-tail:]

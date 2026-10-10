@@ -98,6 +98,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw doctor --for-issue <id>` now includes `export_state.json` / `demo_state.json` when they exist, so a report
+  about a failed export carries the export's own status.
 - `bw status` lines ended in an unexplained `· in 0`; they now say `input tokens 0`, and a failed or stopped run
   adds where to see why: `bw doctor --for-issue <id>`.
 - A failed `bw export` or `bw demo` overwrote the rig run's `state.json`, so `bw status` showed a finished rig as

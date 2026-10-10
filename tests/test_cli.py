@@ -505,6 +505,17 @@ class IssueReportTests(unittest.TestCase):
         self.assertNotIn("/Users/", out)
         self.assertIn("paste the block", err)
 
+    def test_export_state_is_included(self):
+        """A failed `bw export` writes export_state.json; the issue block carries it next to state.json, home scrubbed."""
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            self.make_run(root, "r1", ["rig ok"], 1000)
+            (root / "runs" / "r1" / "export_state.json").write_text('{"step": "export_rig", "status": "failed", "out": "%s/a.glb"}' % Path.home())
+            code, out, _ = self.run_report(root, "r1")
+        self.assertEqual(0, code)
+        self.assertIn("`export_state.json`", out); self.assertIn('"step": "export_rig"', out)
+        self.assertIn('"out": "~/a.glb"', out)
+
     def test_named_run_and_missing_run(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
