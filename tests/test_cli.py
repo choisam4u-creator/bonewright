@@ -184,6 +184,37 @@ class ArgumentHelpTests(unittest.TestCase):
                                 self.assertIsNone(re.search(r"[가-힣]", act.help), act.help)
 
 
+class BadCommandTests(unittest.TestCase):
+    def run_cli(self, word, lang):
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", word]), patch("sys.stderr", err):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertEqual(2, cm.exception.code)
+        return err.getvalue()
+
+    def test_typo_suggests_the_nearest_command(self):
+        """A mistyped subcommand names the nearest real one, and the suggestion parses.
+
+        argparse 기본 "invalid choice" 만 나오던 것(10/10 8회차 `bw resume nope`)."""
+        import re
+        for word, want in (("rigs", "rig"), ("statsu", "status"), ("exprot", "export")):
+            with self.subTest(word=word):
+                en = self.run_cli(word, "en")
+                self.assertIn(f"did you mean `bw {want}`?", en)
+                self.assertIn(f"혹시 `bw {want}`?", self.run_cli(word, "ko"))
+                self.assertIsNone(re.search(r"[가-힣]", en))
+        self.assertIn("all commands: `bw --help`", self.run_cli("xyz", "en"))
+
+    def test_resume_explains_what_replaced_it(self):
+        """`bw resume` (in old docs) says to rerun or reuse targets.json; the suggested command parses."""
+        en = self.run_cli("resume", "en")
+        self.assertIn("there is no `bw resume`", en)
+        ns = cli.build_parser().parse_args(["rig", "m.glb", "--targets", "runs/r1/targets.json"])
+        self.assertEqual("runs/r1/targets.json", ns.targets)
+        self.assertIn("`bw rig <mesh> --targets runs/<id>/targets.json`", en)
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 

@@ -173,6 +173,27 @@ def _hint_on_missing(p: argparse.ArgumentParser, arg: str, hint: str) -> None:
     p.error = error
 
 
+def _hint_on_bad_command(p: argparse.ArgumentParser, sub) -> None:
+    """틀린 하위 명령(`bw resume`·`bw rigs`)에 가장 가까운 명령과 `bw --help` 를 붙인다(종료 2 그대로)."""
+    import difflib
+    import re
+    orig = p.error
+    def error(message: str):
+        m = re.search(r"argument cmd: invalid choice: '([^']*)'", message)
+        if m:
+            near = difflib.get_close_matches(m.group(1), list(sub.choices), n=1, cutoff=0.5)
+            if m.group(1) == "resume":   # 옛 안내에 있던 명령. 멈춘 리깅은 같은 명령을 다시 돌리거나 targets 로 토큰 0 재실행
+                message += "\n" + T("→ `bw resume` 은 없다. 같은 `bw rig` 명령을 다시 돌리거나, 모델 호출 없이 "
+                                     "`bw rig <메시> --targets runs/<id>/targets.json`(멈춘 곳은 `bw status <id>`)",
+                                     "→ there is no `bw resume`. Run the same `bw rig` command again, or without model calls: "
+                                     "`bw rig <mesh> --targets runs/<id>/targets.json` (where it stopped: `bw status <id>`)")
+                return orig(message)
+            message += "\n" + (T(f"→ 혹시 `bw {near[0]}`? 명령 목록: `bw --help`", f"→ did you mean `bw {near[0]}`? All commands: `bw --help`") if near
+                               else T("→ 명령 목록: `bw --help`", "→ all commands: `bw --help`"))
+        orig(message)
+    p.error = error
+
+
 def positive_int(flag: str, example: int):
     """argparse type: 1 이상 정수만. 0·음수는 리그·렌더까지 간 뒤에야 실패하거나(demo) 빈 결과로 끝나서(usage) 여기서 막는다."""
     def parse(text: str) -> int:
@@ -191,6 +212,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
+    _hint_on_bad_command(p, sub)
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh", help=T("리깅할 메시(.glb·.gltf·.fbx·.obj·.blend)", "mesh to rig (.glb, .gltf, .fbx, .obj, .blend)")); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid). 네 발 짐승은 quadruped", "rig type (default humanoid); quadruped for four-legged animals"))
     r.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
