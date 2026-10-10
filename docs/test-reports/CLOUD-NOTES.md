@@ -1,11 +1,46 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/10 5회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/10 6회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 171개, 건너뜀 0
-d=$(mktemp -d) && BW_HOME=$d bw; BW_HOME=$d bw status; BW_HOME=$d bw bench $d   # 명령 목록+`bw doctor` 안내(종료 2) / "no runs yet" / "no meshes to measure"
-d=$(mktemp -d) && BW_HOME=$d bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id r && BW_HOME=$d bw motion --bvh spikes/motion_out/walk_wave.bvh --rig r --export   # [1/3] import … [3/3] export
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 177개, 건너뜀 0
+bw doctor; d=$(mktemp -d) && BW_HOME=$d bw usage >/dev/null   # Blender·bpy 줄마다 "둘 중 하나"/"필요 없음" / 장부 없음 안내 한 줄
+d=$(mktemp -d) && cd $d && git clone -b claude/cloud-work https://github.com/choisam4u-creator/bonewright b && cd b && python3 -m venv .venv && source .venv/bin/activate && pip install . && bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # README 설치 절 그대로 → 끝에 "next:" 줄
 ```
+
+## 2026-10-10 (6회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 백로그 남은 2개(샘님 결정 대기 1개 제외): `bw doctor` 가 Blender·bpy 를 둘 다 `[required]` 로 찍던 것 → 줄마다
+  `[required: one of]`, 찾은 쪽이 있으면 다른 쪽은 `[not needed]` / 호출 없는 `bw usage` 의 0 만 든 JSON → stderr 에 장부 위치
+  (없으면 BW_HOME 확인)·토큰 0 경로·`--days` 한 줄(stdout JSON 그대로).
+- 남은 [ ] 가 1개라 새 항목 5개 추가(빈 BW_HOME 에서 `bw`·`examples/` 를 직접 돌리고 README 설치 절을 처음부터 따라 함), 그중 3개:
+  `bw status` 가 읽히지 않는 state.json 하나로 목록 전체를 '예상 못 한 오류'로 막던 것 → 그 실행만 한 줄 / `bw rig` 끝에
+  run-id 를 넣은 다음 명령(`bw demo`·`bw export`·`bw motion --rig`) 한 줄 / README 설치 절이 clone 없이 `pip install .` 부터,
+  Homebrew 파이썬의 PEP 668 거절, doctor 주석의 'Rigify 확인'(doctor 는 안 본다) → clone → venv → pip → doctor.
+- 설치~첫 결과 단계: 빈 Mac 기준 clone·venv·pip·(Blender 설치)·`bw rig` — 전에는 clone·venv 가 README 에 없어 따라 하면
+  `pip install .` 에서 막혔다(저장소 밖이면 "not a Python project", Homebrew 면 PEP 668).
+- 새 시험은 모두 옛 코드에서 실패하는 것을 확인. 시험 수 171 → 177(블렌더 15 그대로).
+- 실수 하나: 4ea8636 을 기존 시험 하나가 실패한 채 푸시했다(`unittest | tail -1 && git commit` 이 tail 의 종료 코드를 봄).
+  그 시험(`test_early_commands_also_reported`)은 깨진 state.json 으로 '예상 못 한 오류' 안내를 시험했는데 status 가 이제 그걸
+  건너뛰므로 `bw usage` 로 옮겨 e9c30b0 에서 고침. 이후 커밋은 시험 결과 파일의 마지막 줄을 보고 커밋했다.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 177개 중 15개 건너뜀, 나머지 통과. 매 커밋 전.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **177개 모두 통과, 건너뜀 0**(231초).
+- README 첫 명령을 bpy 환경에서 실제로: `final ok`, 끝에 "next: `bw demo rig-…`" 줄, 그 줄의 `bw export <id>` 를 그대로 붙여
+  GLB 나옴. 설치 절은 로컬 clone 에 venv 를 만들고 `pip install .` → `bw doctor` 까지(Blender 없음이라 종료 1, 새 표시 확인).
+- `scripts/check_license_boundary.py` OK. 렌더는 화면 없는 리눅스라 안 돌림(Mac 명령 위).
+- CI: blender 잡은 pending 아님(5회차 마지막 run 도 4분 안팎에 success). 결과는 PR #10 체크.
+
+**완료 수·추가 수**: 완료 5(기존 2 + 새 3) · 추가 5 · 남은 [ ] 3(그중 1개 `spikes/` 라이선스는 샘님 결정 대기, 나머지
+`examples/rig_sample.py` 의 Blender 없음 안내가 자리표시 `x.glb` 를 주는 것, run-id 없는 `bw demo`·`bw export`).
+
+**샘님 결정 필요** (5회차와 같음, 새 것 없음)
+- `--from-skeleton`·`--from-shape` "0 tokens" 문구(GUIDE·`--help`·`bw doctor` 의 codex 줄): 문서를 고칠지, 판정을 기본으로 끌지.
+- 웹 병합 커밋의 개인 메일(GitHub Emails 설정), `spikes/` 라이선스.
+- README 설치 절의 clone 주소는 지금 비공개 저장소다(공개 전에는 샘님만 받을 수 있다). 공개할 때 주소가 바뀌면
+  `test_install_starts_from_nothing` 이 pyproject Homepage 와 함께 바꾸라고 알린다.
 
 ## 2026-10-10 (5회차)
 
