@@ -22,7 +22,7 @@ d=$(mktemp -d) && BW_HOME=$d bw rig tests/assets/quaternius_adventurer.glb --fro
 
 **돌린 시험**
 - `python3 -m unittest`(3.11, 블렌더 없음): 171개 중 15개 건너뜀, 나머지 통과. 매 커밋 전.
-- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: 이 기록을 쓸 때 진행 중(결과는 다음 커밋)
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **171개 모두 통과, 건너뜀 0**(194초, 36a0415)
 - `scripts/check_license_boundary.py` OK. 렌더는 화면 없는 리눅스라 안 돌림(Mac 명령 위).
 - CI: blender 잡은 pending 아님(매 run 4분 안팎에 끝남). 결과는 PR #10 체크.
 
