@@ -75,6 +75,30 @@ class BareCommandTests(unittest.TestCase):
                 self.assertIn("`bw doctor`", text.splitlines()[-1])
                 self.assertEqual(lang == "ko", bool(re.search("[가-힣]", text.splitlines()[-1])))
 
+    def test_bare_rig_ends_with_a_command_that_parses(self):
+        """`bw rig` with no mesh ends with the README's first command, which parses and names a real file.
+
+        10/10 7회차 실측: 사용법 7줄 + "required: mesh" 로 끝났다. 안내한 명령을 그대로 cli 에 넣어 본다."""
+        import re
+        for lang in ("en", "ko"):
+            err = io.StringIO()
+            with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), \
+                    patch.object(sys, "argv", ["bw", "rig"]), patch("sys.stderr", err):
+                with self.assertRaises(SystemExit) as cm:
+                    cli.main()
+                self.assertEqual(2, cm.exception.code)
+                last = err.getvalue().splitlines()[-1]
+                self.assertEqual(lang == "ko", bool(re.search("[가-힣]", last)), last)
+                cmd = re.search(r"bw rig (\S+\.glb)[^(]*", last)
+                self.assertIsNotNone(cmd, last)
+                self.assertTrue((Path(__file__).resolve().parents[1] / cmd[1]).is_file(), cmd[1])
+                readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+                self.assertIn(cmd[0].strip(), readme)
+                with patch.object(sys, "argv", cmd[0].split()), patch.object(cli.pipeline, "rig", return_value="runs/r/report.md") as rig, \
+                        patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                self.assertTrue(rig.call_args.kwargs["from_skeleton"]); self.assertTrue(rig.call_args.kwargs["no_judge"])
+
 
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).

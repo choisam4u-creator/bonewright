@@ -165,6 +165,14 @@ def report_unexpected(e: Exception, since: float, run_id: str | None) -> None:
             " template and paste this output and what `bw doctor --for-issue` prints"), file=sys.stderr)
 
 
+def _hint_on_missing(p: argparse.ArgumentParser, arg: str, hint: str) -> None:
+    """argparse 의 '…required: <arg>' 한 줄 끝에 다음 할 일을 붙인다(종료 2·사용법 줄은 그대로)."""
+    orig = p.error
+    def error(message: str):
+        orig(message + "\n" + hint if message.rstrip().endswith(": " + arg) else message)
+    p.error = error
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
@@ -181,6 +189,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--pin", action="append", metavar=T("본=x,y,z[/x,y,z]", "BONE=x,y,z[/x,y,z]"),
                    help=T("관절을 직접 고정한다. 예: --pin spine.004=0,0,1.42 (머리만), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (머리/꼬리). 여러 번 쓸 수 있다", "pin a joint by hand. e.g. --pin spine.004=0,0,1.42 (head only), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (head/tail). Repeatable"))
     r.add_argument("--targets", metavar="targets.json", help=T("이전 실행의 targets.json 을 그대로 쓴다(모델 호출 0회, 토큰 0)", "reuse a previous run's targets.json (0 model calls, 0 tokens)"))
+    _hint_on_missing(r, "mesh", T("→ 처음이면 저장소 폴더에서, 저장소에 든 캐릭터로(모델 호출 없음): bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge  (README \"첫 실행\")",
+                                  "→ new here? from the repository folder, on the character it ships (no model calls): bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge  (README \"First run\")"))
     m = sub.add_parser("motion", help=T("텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다", "make motion from text (kimodo.cpp) or a BVH and bring it into Blender"))
     m.add_argument("--text"); m.add_argument("--bvh"); m.add_argument("--run-id"); m.add_argument("--quiet", action="store_true")
     m.add_argument("--rig", help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
