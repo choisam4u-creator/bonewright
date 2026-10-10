@@ -221,6 +221,20 @@ def _closed_stdout() -> int:
 
 
 def main() -> int:
+    """`bw doctor | head` 처럼 읽는 쪽이 먼저 닫으면 오류가 아니다. 파이프로 나가는 stdout 은 블록 버퍼라 끝날 때
+    flush 에서야 터지므로, 여기서 flush 까지 하고 받는다(10/10 CI 에서 드러남)."""
+    try:
+        try:
+            code = _main()
+        except SystemExit:          # argparse 의 --version·--help 와 입력 오류도 같은 flush 를 거친다
+            sys.stdout.flush(); raise
+        sys.stdout.flush()
+        return code
+    except BrokenPipeError:
+        return _closed_stdout()
+
+
+def _main() -> int:
     a = build_parser().parse_args()
     started = time.time() - 1  # 파일 시각 해상도 여유
     try:
@@ -281,8 +295,8 @@ def main() -> int:
             out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export, roll=not a.no_roll, preset=a.preset, bvh_up=a.bvh_up, legs=a.legs, bone_map=a.bone_map)
     except (pipeline.Blocked, blender.BlenderMissing) as e:   # 설치·설정으로 고치는 것: 이슈 안내 없이
         print("BLOCKED:", e, file=sys.stderr); return 2
-    except BrokenPipeError:   # `bw doctor | head` 처럼 읽는 쪽이 먼저 닫았다 — 오류가 아니다
-        return _closed_stdout()
+    except BrokenPipeError:
+        raise                # main() 이 조용히 끝낸다 — '예상 못 한 오류' 가 아니다
     except Exception as e:  # Blender 오류 등
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
     print(T("보고서:", "report:"), out); return 0

@@ -77,20 +77,45 @@ class HelpLanguageTests(unittest.TestCase):
 
 class ClosedPipeTests(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "a closed pipe is EINVAL, not EPIPE, on Windows")
+    def test_output_flushed_into_a_closed_pipe_ends_quietly(self):
+        """Buffered output flushed into an already-closed pipe ends quietly (the case CI hit, without the race).
+
+        10/10 CI: 출력이 버퍼에 있다가 끝날 때 flush 에서 터져 'Exception ignored … BrokenPipeError' 가 났다.
+        읽는 쪽을 먼저 닫은 파이프를 stdout 으로 두고 같은 프로세스에서 돌려 경쟁 없이 재현한다."""
+        r, w = os.pipe(); os.close(r)
+        out = open(w, "w", encoding="utf-8", buffering=1 << 16)
+        err = io.StringIO()
+        try:
+            with tempfile.TemporaryDirectory() as t, patch.object(cli, "ROOT", Path(t)), patch.object(sys, "stdout", out), \
+                    patch.object(sys, "argv", ["bw", "status"]), patch("sys.stderr", err):
+                (Path(t) / "runs" / "a").mkdir(parents=True)
+                (Path(t) / "runs" / "a" / "state.json").write_text('{"step": "done", "status": "ok"}', encoding="utf-8")
+                code = cli.main()
+        finally:
+            try:
+                out.close()
+            except OSError:
+                pass
+        self.assertEqual(1, code)
+        self.assertEqual("", err.getvalue())
+
+    @unittest.skipIf(os.name == "nt", "a closed pipe is EINVAL, not EPIPE, on Windows")
     def test_reader_closing_early_is_not_an_error(self):
         """`bw doctor | head -1`: the reader closing early is not reported as an error or an issue to open.
 
         10/10 4회차 실측: `BLOCKED: BrokenPipeError` 와 이슈 템플릿 안내가 나왔다. 이슈 템플릿이 doctor 출력을
         붙이라 해서 `| head`·`| pbcopy` 로 자주 돈다."""
-        with tempfile.TemporaryDirectory() as t:
-            env = {**os.environ, "BW_HOME": t, "BW_LANG": "en", "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
-            p = subprocess.Popen([sys.executable, "-c", "import sys; from bonewright.cli import main; sys.exit(main())", "doctor"],
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-            p.stdout.close()          # head 처럼 아무것도 안 읽고 닫는다
-            err = p.stderr.read().decode("utf-8", "replace"); p.wait(timeout=60); p.stderr.close()
-        self.assertNotIn("BrokenPipe", err)
-        self.assertNotIn("open an issue", err)
-        self.assertNotIn("Traceback", err)
+        for argv in (["doctor"], ["status"], ["--version"]):
+            with self.subTest(argv=argv), tempfile.TemporaryDirectory() as t:
+                env = {**os.environ, "BW_HOME": t, "BW_LANG": "en", "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
+                p = subprocess.Popen([sys.executable, "-c", "import sys; from bonewright.cli import main; sys.exit(main())", *argv],
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+                p.stdout.close()          # head 처럼 아무것도 안 읽고 닫는다
+                err = p.stderr.read().decode("utf-8", "replace"); p.wait(timeout=60); p.stderr.close()
+                # 10/10 CI: doctor 가 끝난 뒤 인터프리터의 마지막 flush 에서 'Exception ignored … BrokenPipeError' 가 났다
+                self.assertNotIn("BrokenPipe", err)
+                self.assertNotIn("open an issue", err)
+                self.assertNotIn("Traceback", err)
 
 if __name__ == "__main__":
     unittest.main()
