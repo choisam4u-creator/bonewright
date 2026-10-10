@@ -99,7 +99,7 @@ See `docs/RELEASING.md` for the release steps.
 
 ### Fixed
 - `bw status` lines ended in an unexplained `· in 0`; they now say `input tokens 0`, and a failed or stopped run
-  adds where to see why: `→ why: \`bw doctor --for-issue <id>\``.
+  adds where to see why: `bw doctor --for-issue <id>`.
 - A failed `bw export` or `bw demo` overwrote the rig run's `state.json`, so `bw status` showed a finished rig as
   "export_rig failed". They now record their own `export_state.json` / `demo_state.json`.
 - Without Blender, `bw rig`, `bw motion`, `bw export` and `bw demo` made a `runs/<id>` folder before failing, so
