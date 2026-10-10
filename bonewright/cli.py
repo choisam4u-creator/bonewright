@@ -14,7 +14,7 @@ import time
 import traceback
 from pathlib import Path
 
-from . import __version__, bench, pipeline
+from . import __version__, bench, blender, pipeline
 from .blender import find_blender, has_bpy_module
 from .config import find_root, load, unknown_keys_line
 from .i18n import T
@@ -39,7 +39,7 @@ def doctor(warn_unknown: bool = True) -> int:
     req, opt = T("[필수]", "[required]"), T("[선택]", "[optional]")
     cfg = load(ROOT)
     bl = find_blender(cfg["blender"])
-    print(req, "Blender:", bl[0] if bl else T("없음 (Blender.app 설치 또는 BW_BLENDER)", "not found (install Blender or set BW_BLENDER)"))
+    print(req, "Blender:", bl[0] if bl else T(f"없음 (Blender 5.2 LTS 설치 {blender.DOWNLOAD} 또는 BW_BLENDER 에 경로)", f"not found (install Blender 5.2 LTS from {blender.DOWNLOAD}, or set BW_BLENDER to its path)"))
     if bl:
         v = subprocess.run(bl + ["--version"], capture_output=True, text=True).stdout.splitlines()
         print("  ", v[0] if v else "?")
@@ -269,7 +269,7 @@ def main() -> int:
             out = pipeline.demo(ROOT, a.run_id, quiet=a.quiet, size=a.size, frames=a.frames)
         else:
             out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export, roll=not a.no_roll, preset=a.preset, bvh_up=a.bvh_up, legs=a.legs, bone_map=a.bone_map)
-    except pipeline.Blocked as e:
+    except (pipeline.Blocked, blender.BlenderMissing) as e:   # 설치·설정으로 고치는 것: 이슈 안내 없이
         print("BLOCKED:", e, file=sys.stderr); return 2
     except Exception as e:  # Blender 오류 등
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2

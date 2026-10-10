@@ -232,6 +232,59 @@ class EnglishErrorTests(unittest.TestCase):
         self.assertNotRegex(str(cm.exception), "[가-힣]")
 
 
+
+class MissingToolTests(unittest.TestCase):
+    """A missing Blender or codex says what to install and how to check it, not "open an issue".
+
+    10/10 4회차 실측: Blender 없이 `bw rig` 를 치면 '예상 못 한 오류' 로 빠져 빈 로그 폴더·BW_DEBUG·이슈 템플릿을
+    안내했고, state.json 은 'running' 으로 남아 `bw status` 가 계속 도는 중이라 했다."""
+    MESH = Path(__file__).resolve().parent / "assets" / "quaternius_adventurer.glb"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        env = {k: v for k, v in os.environ.items() if k != "BW_BLENDER"}
+        env.update(BW_LANG="en", BW_BACKEND="mock")
+        e = patch.dict(os.environ, env, clear=True); e.start(); self.addCleanup(e.stop)
+
+    def run_bw(self, *argv: str) -> tuple[int, str]:
+        from bonewright import blender
+        err = io.StringIO()
+        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err), \
+                patch("sys.stdout", io.StringIO()), patch.object(blender, "find_blender", return_value=None), \
+                patch.object(blender, "has_bpy_module", return_value=False):
+            code = cli.main()
+        return code, err.getvalue()
+
+    def test_rig_without_blender_points_at_install_and_doctor(self):
+        """`bw rig` without Blender: BLOCKED with the download page and `bw doctor`, no issue line, run marked failed."""
+        code, err = self.run_bw("rig", str(self.MESH), "--no-judge", "--run-id", "nob")
+        self.assertEqual(2, code)
+        self.assertIn("BLOCKED: Blender not found", err)
+        self.assertIn("https://www.blender.org/download/", err)
+        self.assertIn("`bw doctor`", err)
+        self.assertNotIn("open an issue", err)
+        self.assertNotIn("BW_DEBUG", err)
+        state = json.loads((self.root / "runs" / "nob" / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual("failed", state["status"])
+
+    def test_bw_blender_pointing_nowhere_is_named(self):
+        """BW_BLENDER set to a missing file: the message names that path instead of "set BW_BLENDER"."""
+        os.environ["BW_BLENDER"] = str(self.root / "no" / "blender")
+        code, err = self.run_bw("rig", str(self.MESH), "--no-judge")
+        self.assertEqual(2, code)
+        self.assertIn("points at a file that does not exist", err)
+        self.assertIn(str(self.root / "no" / "blender"), err)
+
+    def test_missing_codex_offers_zero_token_routes(self):
+        """codex not installed: the message also offers the 0-token routes a first-time user can take now."""
+        from bonewright import codex
+        with patch.object(codex.subprocess, "Popen", side_effect=FileNotFoundError("codex")), patch.dict(os.environ, {"BW_BACKEND": "codex"}):
+            with self.assertRaises(codex.CodexMissing) as cm:
+                codex.run_step("fit", "prompt", {}, {}, {"model": "m"}, {}, self.root / "logs")
+        for route in ("--from-skeleton", "--from-shape", "BW_BACKEND=mock"):
+            self.assertIn(route, str(cm.exception))
+
 class ReportPathTests(unittest.TestCase):
     """report.md 는 이슈에 그대로 붙인다(템플릿 'A rig came out wrong'). 실행 폴더 안 파일은 상대 경로로,
     밖의 파일은 홈 폴더를 `~` 로 적어 사용자 이름이 들어가지 않게 한다."""

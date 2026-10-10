@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from . import __version__, schemas
-from .blender import run_script
+from .blender import BlenderError, run_script
 from .codex import CodexError, UsageLimit, run_step
 from .config import load, unknown_keys_line
 from .from_skeleton import targets_from_skeleton
@@ -130,7 +130,11 @@ class Run:
     def blender(self, name: str, params: dict) -> dict:
         _log(self.quiet, f"  ⚙ blender {name}")
         t = time.time()
-        r = run_script(name, params, self.cfg["blender"], self.logs)
+        try:
+            r = run_script(name, params, self.cfg["blender"], self.logs)
+        except BlenderError:
+            self.state(name, "failed")   # 'running' 으로 남으면 `bw status` 가 영원히 도는 중이라 한다
+            raise
         _log(self.quiet, f"  ⚙ {name} {time.time() - t:.1f}s")
         return r
 

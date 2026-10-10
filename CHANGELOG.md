@@ -95,6 +95,12 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- Running `bw rig` (or `motion`, `demo`, `export`, `bench`) without Blender was reported as an unexpected error:
+  it pointed at an empty log folder, `BW_DEBUG=1` and the issue templates, and left the run as `running` in
+  `bw status`. It is now a plain `BLOCKED:` that names the download page and `bw doctor`, the run is marked
+  `failed`, and a `BW_BLENDER` that points at a missing file is named as such. `bw doctor` shows the download page too.
+- "codex executable not found" now also names the 0-token routes (`--from-skeleton`, `--from-shape`,
+  `BW_BACKEND=mock`), so a first run without codex has somewhere to go.
 - `addon/README.md` still said the bridge add-on was "planned for v0.2"; 0.2.0 shipped without it. It now says it is
   an unscheduled idea, and `tests/test_docs.py` flags a plan dated to a version that is already out.
 - `scripts/check_issue_report.py` (CI) had Korean-only option help and failed without saying where to look; the

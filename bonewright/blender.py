@@ -17,6 +17,31 @@ class BlenderError(RuntimeError):
     pass
 
 
+class BlenderMissing(BlenderError):
+    """Blender 도 bpy 모듈도 없음. 사용자가 설치로 고치는 것이라 이슈 신고 안내를 붙이지 않는다."""
+
+
+DOWNLOAD = "https://www.blender.org/download/"
+
+
+def missing_message(cfg: dict) -> str:
+    """Blender 없음 문구. BW_BLENDER(또는 설정의 app)를 이미 줬는데 그 파일이 없으면 그 경로를 짚는다."""
+    app = cfg.get("app") or os.environ.get("BW_BLENDER")
+    if app and not Path(app).exists():
+        return T(f"BW_BLENDER(또는 runs/config.json 의 blender.app)가 가리키는 파일이 없다: {app}\n"
+                 "  → Blender 실행 파일의 전체 경로로 고쳐라(macOS: /Applications/Blender.app/Contents/MacOS/Blender)\n"
+                 "  → 고친 뒤 `bw doctor` 로 확인",
+                 f"BW_BLENDER (or blender.app in runs/config.json) points at a file that does not exist: {app}\n"
+                 "  → set it to the full path of the Blender executable (macOS: /Applications/Blender.app/Contents/MacOS/Blender)\n"
+                 "  → then check with `bw doctor`")
+    return T("Blender 를 찾을 수 없다\n"
+             f"  → Blender 5.2 LTS 를 설치하거나({DOWNLOAD}) `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 에 실행 파일 경로를 지정하라\n"
+             "  → 설치한 뒤 `bw doctor` 로 확인하고 같은 명령을 다시 실행",
+             "Blender not found\n"
+             f"  → install Blender 5.2 LTS ({DOWNLOAD}), or `pip install bpy==5.2.2` (Python 3.13), or set BW_BLENDER to its path\n"
+             "  → then check with `bw doctor` and run the same command again")
+
+
 def find_blender(cfg: dict) -> list[str] | None:
     app = cfg.get("app") or os.environ.get("BW_BLENDER")
     if app and Path(app).exists():
@@ -68,8 +93,7 @@ def run_script(name: str, params: dict, cfg: dict, log_dir: Path, mock: bool = F
     elif has_bpy_module():
         cmd = [sys.executable, "-c", boot]
     else:
-        raise BlenderError(T("Blender 를 찾을 수 없다\n  → Blender.app 을 설치하거나 `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 경로를 지정하라",
-                             "Blender not found\n  → install Blender, or `pip install bpy==5.2.2` (Python 3.13), or set BW_BLENDER to its path"))
+        raise BlenderMissing(missing_message(cfg))
     env = {**os.environ, "BW_PARAMS": str(work / "params.json")}
     with open(log_dir / f"{name}.log", "w", encoding="utf-8") as log:
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=cfg.get("timeout", 600), env=env, cwd=str(work))
