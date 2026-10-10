@@ -75,6 +75,16 @@ class InputErrorTests(unittest.TestCase):
             dst = pipeline.export_rig(self.root, "r1", out=str(out), quiet=True)
         self.assertEqual(out.resolve() / "r1.glb", dst); self.assertEqual(str(dst), seen["out"])
 
+    def test_missing_map_stops_before_blender(self):
+        """`bw motion --map` that does not exist (or is not JSON) stops before the BVH import.
+
+        10/10 8회차: 없는 매핑 파일이 Blender 로 BVH 를 가져온 뒤에야 걸렸다."""
+        (self.root / "runs" / "r1").mkdir(parents=True); (self.root / "runs" / "r1" / "02_rigged.blend").write_bytes(b"x")
+        bvh = self.root / "w.bvh"; bvh.write_text("HIERARCHY\n")
+        msg = self.blocked(pipeline.motion, self.root, bvh=str(bvh), rig_run="r1", bone_map=str(self.root / "nope.json"), quiet=True)
+        self.assertIn("--map 파일이 없다", msg)
+        self.assertEqual(["r1"], sorted(p.name for p in (self.root / "runs").iterdir()), "실행 폴더를 만들면 안 된다")
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 

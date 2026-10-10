@@ -162,7 +162,20 @@ class Run:
         return r
 
 
-def apply_bone_map(mapping: dict, path: Path, bvh_bones: list) -> tuple[dict, int, list]:
+def load_bone_map(path: str | Path) -> dict:
+    """`--map` 파일을 읽고 모양을 본다. motion() 이 Blender 를 띄우기 **전에** 부른다(10/10 8회차: 없는 파일이 BVH 가져오기 뒤에야 걸렸다)."""
+    try:
+        user = json.loads(need_file(path, "--map", T('{"LeftArm": "upper_arm.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm.L"}')).read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm.L\"}}",
+                        f"--map file is not JSON: {path} ({e})\n  → e.g. {{\"LeftArm\": \"upper_arm.L\"}}"))
+    if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
+        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}',
+                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path}\n  → e.g. {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}'))
+    return user
+
+
+def apply_bone_map(mapping: dict, bone_map: "dict | str | Path", bvh_bones: list) -> tuple[dict, int, list]:
     """사용자 매핑 파일을 자동 매핑 위에 덮어쓴다. {"BVH 본": "리그 본"} 형태.
 
     이름으로 짝짓는 자동 매핑은 **이름이 없는 리그에서 아무것도 못 붙인다** — 메시 모양에서 만든 사슬
@@ -172,14 +185,7 @@ def apply_bone_map(mapping: dict, path: Path, bvh_bones: list) -> tuple[dict, in
 
     BVH 에 없는 이름은 조용히 넘기지 않고 세어서 돌려준다 — 오타를 말해 주지 않으면 사용자는
     "왜 안 붙지"만 반복한다. 돌려주는 값은 (덮어쓴 매핑, 적용된 개수, 무시된 이름들)."""
-    try:
-        user = json.loads(need_file(path, "--map", T('{"LeftArm": "upper_arm.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm.L"}')).read_text(encoding="utf-8"))
-    except ValueError as e:
-        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm.L\"}}",
-                        f"--map file is not JSON: {path} ({e})\n  → e.g. {{\"LeftArm\": \"upper_arm.L\"}}"))
-    if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
-        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}',
-                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path}\n  → e.g. {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}'))
+    user = bone_map if isinstance(bone_map, dict) else load_bone_map(bone_map)
     known = {k: v for k, v in user.items() if k in bvh_bones}
     return {**mapping, **known}, len(known), [k for k in user if k not in bvh_bones]
 
@@ -481,6 +487,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             raise Blocked(T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다\n  → `--rig <리그 run-id>` 를 함께 주거나(목록은 `bw status`) 그 옵션을 빼라",
                             f"{' · '.join(unused)} only apply when retargeting onto a rig\n  → add `--rig <rig run-id>` (list runs with `bw status`), or drop the option"))
     rig_blend = need_rig(root, rig_run) if rig_run else None
+    user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     r = Run(root, run_id, cfg, quiet)
     # 단계 번호는 실제로 도는 단계만 센다: `--bvh` 만이면 [1/1] 로 시작한다(10/10 까지 [3/3] 부터라 앞 단계가 빠진 줄 알았다)
@@ -532,7 +539,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         blend = rig_blend
         mapping = bvh_mapping(imp["bone_names"], preset)
         if bone_map:
-            mapping, applied, unknown = apply_bone_map(mapping, Path(bone_map), imp["bone_names"])
+            mapping, applied, unknown = apply_bone_map(mapping, user_map, imp["bone_names"])
             _log(quiet, T(f"  📄 --map {applied}개 적용", f"  📄 --map applied {applied}")
                         + (T(f" · BVH 에 없는 이름 {len(unknown)}개 무시: {', '.join(unknown[:4])}", f" · ignored {len(unknown)} names not in the BVH: {', '.join(unknown[:4])}") if unknown else ""))
         r.state("retarget", "running")
