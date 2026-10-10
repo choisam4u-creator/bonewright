@@ -276,8 +276,13 @@ def _main() -> int:
                 print(T(f"아직 실행이 없다(찾은 곳: {runs})\n  → `bw rig <메시>` 로 시작하거나, 다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
                         f"no runs yet (looked in {runs})\n  → start with `bw rig <mesh>`, or if you ran bonewright from another folder, set BW_HOME to it"),
                       file=sys.stderr)
-            for rid in ids:
-                s = json.loads((runs / rid / "state.json").read_text()); print(f"{rid}: {s['step']} {s['status']} · in {s.get('input_tokens', 0):,}")
+            for rid in ids:   # 읽히지 않는 실행 하나(동기화 충돌 사본·옛 버전)가 목록 전체를 막지 않게 그 줄만 알린다
+                try:
+                    s = json.loads((runs / rid / "state.json").read_text(encoding="utf-8")); line = f"{rid}: {s['step']} {s['status']} · in {s.get('input_tokens', 0):,}"
+                except (ValueError, KeyError, TypeError, OSError) as e:
+                    line = T(f"{rid}: state.json 을 읽지 못함({type(e).__name__}: {e}) — 이 실행만 건너뜀. 필요 없으면 {runs / rid} 를 지워도 된다",
+                             f"{rid}: state.json unreadable ({type(e).__name__}: {e}) — skipped this run only. If you don't need it, {runs / rid} can be deleted")
+                print(line)
             return 0
         def parse_pins(items: list[str] | None) -> dict[str, dict[str, list[float]]]:
             """--pin 본=x,y,z[/x,y,z] → {"본": {"head": [...], "tail": [...]}}"""

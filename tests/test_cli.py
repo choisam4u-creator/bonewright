@@ -96,6 +96,32 @@ class EmptyStatusTests(unittest.TestCase):
                 self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err.getvalue())))
 
 
+class BrokenStateTests(unittest.TestCase):
+    """One unreadable state.json is reported on its own line; the other runs are still listed (exit 0).
+
+    10/10 6회차 실측: `{"status":"running"}` 하나로 목록 전체가 `BLOCKED: KeyError: 'step'` 과 이슈 안내로 끝났다."""
+
+    def test_bad_run_does_not_hide_the_others(self):
+        import os
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                runs = Path(t) / "runs"
+                for rid, body in (("a-good", '{"step": "gates", "status": "done"}'), ("b-nokey", '{"status": "running"}'),
+                                  ("c-broken", '{"step": '), ("d-list", "[]")):
+                    (runs / rid).mkdir(parents=True); (runs / rid / "state.json").write_text(body, encoding="utf-8")
+                out, err = io.StringIO(), io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", err):
+                    self.assertEqual(0, cli.main())
+                lines = out.getvalue().splitlines()
+                self.assertEqual(4, len(lines), out.getvalue())
+                self.assertEqual("a-good: gates done · in 0", lines[0])
+                for line, rid in zip(lines[1:], ("b-nokey", "c-broken", "d-list")):
+                    self.assertTrue(line.startswith(rid + ": state.json"), line)
+                    self.assertIn(str(runs / rid), line)
+                self.assertNotIn("BW_DEBUG", err.getvalue())
+
+
 class EmptyUsageTests(unittest.TestCase):
     """`bw usage` with no model calls says so on stderr and names the ledger; the JSON on stdout is unchanged.
 
