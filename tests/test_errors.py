@@ -367,6 +367,19 @@ class MissingToolTests(unittest.TestCase):
         self.assertEqual(2, code); self.assertIn("BLOCKED: Blender not found", err)
         self.assertFalse((self.root / "runs" / "m1").exists())
 
+    def test_failed_export_keeps_the_rig_status(self):
+        """A failed `bw export` writes export_state.json and leaves the rig's state.json as it was."""
+        from bonewright import blender
+        run = self.root / "runs" / "r1"; run.mkdir(parents=True)
+        (run / "02_rigged.blend").write_bytes(b"x")
+        (run / "state.json").write_text('{"step": "final", "status": "ok"}', encoding="utf-8")
+        with patch.object(pipeline, "need_blender", lambda cfg: None), \
+                patch.object(pipeline, "run_script", side_effect=blender.BlenderError("export_rig: exit 1")):
+            with self.assertRaises(blender.BlenderError):
+                pipeline.export_rig(self.root, "r1", quiet=True)
+        self.assertEqual("ok", json.loads((run / "state.json").read_text(encoding="utf-8"))["status"])
+        self.assertEqual("failed", json.loads((run / "export_state.json").read_text(encoding="utf-8"))["status"])
+
     def test_bw_blender_pointing_nowhere_is_named(self):
         """BW_BLENDER set to a missing file: the message names that path instead of "set BW_BLENDER"."""
         os.environ["BW_BLENDER"] = str(self.root / "no" / "blender")

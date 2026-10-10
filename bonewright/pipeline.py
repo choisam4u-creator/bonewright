@@ -106,15 +106,17 @@ def _log(quiet: bool, msg: str) -> None:
 
 
 class Run:
-    def __init__(self, root: Path, run_id: str, cfg: dict, quiet: bool = False) -> None:
-        self.root, self.run_id, self.cfg, self.quiet = root, run_id, cfg, quiet
+    def __init__(self, root: Path, run_id: str, cfg: dict, quiet: bool = False, state_file: str = "state.json") -> None:
+        # state_file: export·demo 는 이미 끝난 리그 실행 폴더를 빌려 쓴다 — 그 실패가 리그의 state.json 을 덮어
+        # `bw status` 가 리그까지 실패한 것처럼 보이지 않게 따로 적는다(10/10 8회차)
+        self.root, self.run_id, self.cfg, self.quiet, self.state_file = root, run_id, cfg, quiet, state_file
         self.dir = root / "runs" / run_id
         self.logs = self.dir / "logs"
         self.dir.mkdir(parents=True, exist_ok=True)
         self.usage: list[dict] = []
 
     def state(self, step: str, status: str, **extra) -> None:
-        atomic_write(self.dir / "state.json", json.dumps({"step": step, "status": status, "at": time.time(), "pid": os.getpid(),
+        atomic_write(self.dir / self.state_file, json.dumps({"step": step, "status": status, "at": time.time(), "pid": os.getpid(),
                                                           "input_tokens": self.tokens()["input"], **extra}, ensure_ascii=False, indent=2))
 
     def tokens(self) -> dict:
@@ -601,7 +603,7 @@ def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = Fa
                             f"output folder does not exist: {dst.parent}\n  → create it first (`mkdir -p {dst.parent}`) or pass an existing one"))
         dst = dst.resolve()
     need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
-    r = Run(root, run_id, cfg, quiet)
+    r = Run(root, run_id, cfg, quiet, state_file="export_state.json")
     dst = dst or (r.dir / "rigged.glb")
     ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
     _log(quiet, T(f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm",
@@ -616,7 +618,7 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     cfg = load(root)
     blend = need_rig(root, run_id)
     need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
-    r = Run(root, run_id, cfg, quiet)
+    r = Run(root, run_id, cfg, quiet, state_file="demo_state.json")
     if os.environ.get("BW_NO_RENDER") == "1":
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
         raise Blocked(T("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다\n  → 화면이 있는 환경에서 `BW_NO_RENDER` 를 지우고 다시 실행하라",

@@ -98,6 +98,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A failed `bw export` or `bw demo` overwrote the rig run's `state.json`, so `bw status` showed a finished rig as
+  "export_rig failed". They now record their own `export_state.json` / `demo_state.json`.
 - Without Blender, `bw rig`, `bw motion`, `bw export` and `bw demo` made a `runs/<id>` folder before failing, so
   `bw status` filled up with "analyze failed" runs. Blender is now looked for first (and `bw motion --text` checks
   kimodo.cpp first too); nothing is written until both are there.
