@@ -1,11 +1,41 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/10 7회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/10 8회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 182개, 건너뜀 0, 출력에 점·요약 말고 다른 줄이 있는지도 볼 것
-bw rig; bw bench; bw demo; python3 examples/rig_sample.py --table adventurer | head -3   # 앞 셋은 종료 2 + 다음 명령 한 줄, 넷째는 표
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge && bw demo    # run-id 없이 → "latest rig: `bw demo rig-…`"
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 203개, 건너뜀 0
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id mac8 && bw export mac8 --out /tmp && ls /tmp/mac8.glb && bw status   # --out 폴더 → <id>.glb, status 줄 "input tokens"
+bw demo mac8 --size 320 --frames 24; bw status mac8   # 영상(ffmpeg 없으면 OS 별 설치 명령 한 줄), 리그 상태는 그대로 final ok
 ```
+
+## 2026-10-10 (8회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- 7회차 이후 상태에서 이어감. `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 이미 들어 있어 병합 없음.
+- 기존 2개: `bw demo --size/--frames`·`bw usage --days` 1 이상만(`cli.positive_int`, 고쳐 칠 예).
+- 새 항목 20개 추가(실측 근거), 그중 19개 처리:
+  - 입력: `--budget` 1 이상·도움말, `bw rig <폴더>` → 폴더라고·안의 메시·`bw bench`, 0바이트·가짜 `.glb` 를 Blender 전에,
+    `--from-skeleton`/`--from-shape` 상호 배타, `--targets` 에 바이너리, `bw bench --gt-mesh` 이름, `bw export --out` 폴더·확장자,
+    `bw motion --map` 을 Blender 전에.
+  - 순서: Blender 를 실행 폴더보다 먼저 확인(`blender.require`), `bw motion --text` 의 kimodo 확인도 그 앞, `BW_NO_RENDER=1 bw demo` 는 Blender 확인보다 먼저.
+  - 상태: export·demo 실패가 리그 `state.json` 을 덮지 않음(`export_state.json`·`demo_state.json`, `--for-issue` 에도 실음),
+    `bw status` 줄 "input tokens N"·실패 줄 끝 `→ why: bw doctor --for-issue <id>`, GUIDE 에 `bw status` 절.
+  - 도움말·명령: 인자 21개 두 언어 도움말, 도움말 숫자를 실제 기본값과 대조, 틀린 하위 명령에 가까운 명령(`bw resume` 은 대신할 것).
+  - 기타: `has_bpy_module` 캐시(0.7초짜리 프로세스를 단계마다 띄우던 것), ffmpeg 설치 안내 OS 별.
+- 시험 수 182 → 203(블렌더 15 그대로).
+
+**실수 기록**
+- `--budget` 커밋(5f81117)을 시험 실패 상태로 푸시했다(새 시험 docstring 첫 줄이 한국어 — 7회차에 생긴 규칙). 바로 다음 커밋에서 고침.
+  이후로는 `python3 -m unittest` 가 OK 일 때만 커밋되게 명령을 묶었다.
+- 같은 크기 숫자를 sed 로 바꿨다 되돌리면 `.pyc` 가 낡은 채 남아 시험이 거짓 실패했다 → 확인 뒤 `__pycache__` 를 지우고 돌림.
+
+**막힌 것 / 다음**
+- `spikes/` 라이선스(10/9 3회차부터 샘님 결정 대기) — 그대로.
+- `--pin` 의 없는 본 이름: 메타리그 본 이름 목록이 Blender 안에만 있어 Blender 전 대조 방법을 정하지 못했다. 다음 회차.
+
+**돌린 시험**
+- `python3 -m unittest`(3.13, 블렌더 없음): 203개 중 15개 건너뜀, 나머지 통과. 커밋마다.
+- bpy 5.2.2 venv `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **203개 모두 통과, 건너뜀 0**(137초). 192개 시점에도 한 번 전부 통과.
+- 새 시험은 고치기 전 코드(해당 파일만 되돌림)에서 실패하는 것을 확인(도움말 숫자 시험은 기본값 하나를 바꿔 실패 확인).
 
 ## 2026-10-10 (7회차)
 
