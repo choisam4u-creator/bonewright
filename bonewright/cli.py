@@ -193,7 +193,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh"); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
-    r.add_argument("--run-id"); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=int)
+    r.add_argument("--run-id"); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
+                   help=T("모델 입력 토큰 상한(기본 600,000 — runs/config.json 의 budget.max_input_tokens). 넘으면 멈춘다",
+                          "cap on model input tokens (default 600,000 — budget.max_input_tokens in runs/config.json); the run stops when it is reached"))
     r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help=T("캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤", "which way the character faces. auto=decide from the feet and turn it to -Y")); r.add_argument("--quiet", action="store_true")
     r.add_argument("--force", action="store_true", help=T("거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)", "ignore the rejection gate and rig anyway (non-human or oddly sized meshes too)"))
     r.add_argument("--from-shape", action="store_true", help=T("메시 속 중심선에서 뼈대를 직접 만들어 리깅한다(토큰 0). 뼈대가 없고 사람·개과 비율도 아닌 메시(곤충·괴물)에 쓴다 — 해부학적 관절이 아니라 모양을 따라가는 조작 장치다", "build the skeleton from the mesh's own centrelines (0 tokens). For meshes with no skeleton and neither human nor dog proportions (insects, monsters) — controls follow the shape, not anatomical joints"))

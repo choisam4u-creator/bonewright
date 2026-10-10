@@ -161,7 +161,7 @@
 
 ## 2026-10-10 8회차 추가 (공개 준비 기준 — 하위 명령을 틀린 값으로 쳐 본 실측)
 
-- [ ] `bw rig --budget 0`·`-1`: `pipeline.rig` 가 `if budget:` 라 0 은 말없이 무시되고, 음수는 Blender 분석을 다 한 뒤 첫 모델 호출에서 "예산 상한 도달" 로 멈춘다. `--help` 에 설명도 없다 → 1 이상만(8회차 `positive_int`), 무엇의 상한인지(입력 토큰, 기본 600,000) 도움말 한 줄, 시험 — 근거: 10/10 8회차 코드 읽기(`pipeline.py:189`, `config.DEFAULTS["budget"]`)
+- [x] (10/10 8회차: `positive_int`·`metavar TOKENS`·도움말, `pipeline` 은 `is not None`, `test_cli.BudgetHelpTests`·`PositiveNumberTests` 확장 — 옛 코드에서 실패 확인) `bw rig --budget 0`·`-1`: `pipeline.rig` 가 `if budget:` 라 0 은 말없이 무시되고, 음수는 Blender 분석을 다 한 뒤 첫 모델 호출에서 "예산 상한 도달" 로 멈춘다. `--help` 에 설명도 없다 → 1 이상만(8회차 `positive_int`), 무엇의 상한인지(입력 토큰, 기본 600,000) 도움말 한 줄, 시험 — 근거: 10/10 8회차 코드 읽기(`pipeline.py:189`, `config.DEFAULTS["budget"]`)
 - [ ] `bw rig .`(폴더)이 "mesh file not found: ." 라 한다 — 폴더는 있다 → 폴더면 "메시 파일 하나를 준다, 여럿이면 `bw bench <폴더>`" 와 그 폴더 안 첫 메시로 친 명령 한 줄, 시험 — 근거: 10/10 8회차 실측(종료 2, 거짓 안내)
 - [ ] 0바이트·glTF 가 아닌 `.glb` 를 `bw rig` 에 주면 Blender 를 띄운 뒤에야 실패한다(Blender 없는 곳에선 "Blender not found" 로 원인이 가려진다) → Blender 전에 파일 크기 0·GLB 머리(`glTF`) 를 보고 `BLOCKED:` + 다시 내보내라는 안내, 시험 — 근거: 10/10 8회차 실측(`touch broken.glb; bw rig broken.glb` → "Blender not found")
 - [ ] 하위 명령 도움말이 비어 있는 인자 21개(`bw rig` 의 `mesh`·`--preset`·`--run-id`·`--budget`·`--quiet`, `bw demo` 의 `--size`·`--frames`, `bw usage --days` 등) → 두 언어 한 줄씩, 모든 하위 명령의 모든 인자에 help 가 있는지 보는 시험 — 근거: 10/10 8회차 파서 집계(rig 5·motion 4·export 2·demo 4·bench 4·status 1·usage 1)

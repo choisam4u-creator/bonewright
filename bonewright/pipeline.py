@@ -186,7 +186,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     cfg = load(root, lang)
     if (warn := unknown_keys_line(root)):   # 경로·형식으로 막히기 전에(설정 오타가 원인일 수 있다)
         _log(quiet, warn)
-    if budget:
+    if budget is not None:   # 0 을 말없이 무시하지 않는다(cli 는 1 이상만 넘긴다)
         cfg["budget"]["max_input_tokens"] = budget
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")
     mesh = str(need_file(mesh, T("메시", "mesh"), T("경로를 확인하라(따옴표로 감싼 공백 경로 포함)", "check the path (quote paths with spaces)"), MESH_EXTS).resolve())

@@ -98,6 +98,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw rig --budget 0` was silently ignored and a negative budget stopped the run only after the Blender analysis;
+  it now accepts 1 or more, and `bw rig --help` says it caps model input tokens (default 600,000).
 - `bw demo --size 0` / `--frames -1` created a run folder and reached the Blender render before failing, and
   `bw usage --days 0` reported "no model calls in the last 0 days"; all three now accept only whole numbers of 1 or
   more and say what to type instead (e.g. `--size 640`, `--days 30`).

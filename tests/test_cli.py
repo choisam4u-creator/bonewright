@@ -133,6 +133,7 @@ class PositiveNumberTests(unittest.TestCase):
         err = io.StringIO()
         with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", *argv]), \
              patch.object(cli.pipeline, "demo", side_effect=AssertionError("demo 를 부르면 안 된다")), \
+             patch.object(cli.pipeline, "rig", side_effect=AssertionError("rig 를 부르면 안 된다")), \
              patch.object(cli, "summarize", side_effect=AssertionError("usage 를 세면 안 된다")), \
              patch("sys.stderr", err), patch("sys.stdout", new_callable=io.StringIO):
             with self.assertRaises(SystemExit) as cm:
@@ -142,14 +143,26 @@ class PositiveNumberTests(unittest.TestCase):
 
     def test_zero_and_negative_are_refused_with_an_example(self):
         for argv, example in ((["demo", "r1", "--size", "0"], "--size 640"), (["demo", "r1", "--frames", "-1"], "--frames 96"),
-                              (["usage", "--days", "0"], "--days 30"), (["usage", "--days", "x"], "--days 30")):
+                              (["usage", "--days", "0"], "--days 30"), (["usage", "--days", "x"], "--days 30"),
+                              (["rig", "m.glb", "--budget", "0"], "--budget 600000"), (["rig", "m.glb", "--budget", "-1"], "--budget 600000")):
             with self.subTest(argv=argv):
                 en = self.run_cli(argv, "en")
                 self.assertIn("must be a whole number of 1 or more", en); self.assertIn(f"e.g. {example}", en)
                 self.assertIn("1 이상 정수", self.run_cli(argv, "ko"))
                 # 안내한 예는 그대로 받아들여진다
-                ns = cli.build_parser().parse_args([argv[0], *(["r1"] if argv[0] == "demo" else []), *example.split()])
+                ns = cli.build_parser().parse_args([argv[0], *{"demo": ["r1"], "rig": ["m.glb"]}.get(argv[0], []), *example.split()])
                 self.assertGreater(getattr(ns, example.split()[0].lstrip("-")), 0)
+
+
+class BudgetHelpTests(unittest.TestCase):
+    def test_budget_help_says_what_it_caps(self):
+        """`--budget` 는 `bw rig --help` 에 설명이 없었다 — 무엇의 상한인지(입력 토큰)와 기본값을 두 언어로."""
+        from bonewright import config
+        default = f"{config.DEFAULTS['budget']['max_input_tokens']:,}"
+        for lang, word in (("en", "input tokens"), ("ko", "입력 토큰")):
+            with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}):
+                rig = [a for a in cli.build_parser()._subparsers._group_actions[0].choices["rig"]._actions if "--budget" in a.option_strings][0]
+                self.assertIn(word, rig.help); self.assertIn(default, rig.help)
 
 
 class EmptyStatusTests(unittest.TestCase):
