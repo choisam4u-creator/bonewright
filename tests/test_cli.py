@@ -99,6 +99,31 @@ class BareCommandTests(unittest.TestCase):
                     self.assertEqual(0, cli.main())
                 self.assertTrue(rig.call_args.kwargs["from_skeleton"]); self.assertTrue(rig.call_args.kwargs["no_judge"])
 
+    def test_bare_bench_points_at_fetch_script(self):
+        """`bw bench` with no meshes ends with the fetch command and a folder to pass, both of which parse.
+
+        10/10 7회차 실측: "required: meshes" 로 끝났다. 자산은 저장소에 없어 첫 사용자는 무엇을 넣을지 모른다."""
+        import re
+        root = Path(__file__).resolve().parents[1]
+        for lang in ("en", "ko"):
+            err = io.StringIO()
+            with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), \
+                    patch.object(sys, "argv", ["bw", "bench"]), patch("sys.stderr", err):
+                with self.assertRaises(SystemExit) as cm:
+                    cli.main()
+                self.assertEqual(2, cm.exception.code)
+                last = err.getvalue().splitlines()[-1]
+                fetch, run = re.search(r"(python3 scripts/fetch_bench_assets\.py[^&]*)&& (bw bench \S+)$", last).groups()
+                r = subprocess.run([sys.executable, *fetch.split()[1:], "--help"], cwd=root, capture_output=True, text=True, timeout=60)
+                self.assertEqual(0, r.returncode, r.stderr)
+                only = fetch.split()[fetch.split().index("--only") + 1]
+                self.assertIn(only, r.stdout)
+                self.assertTrue(run.endswith(f"/{only}"), run)   # 받은 하위 폴더를 그대로 넘긴다
+                self.assertIn(run.split()[2].split("/")[0], r.stdout)   # --out 기본값(bench-assets)과 같은 폴더
+                with patch.object(sys, "argv", run.split()), patch.object(cli.bench, "run", return_value="r.md"), \
+                        patch("sys.stdout", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+
 
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).

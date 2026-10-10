@@ -98,6 +98,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw bench` with no meshes ended with "the following arguments are required: meshes", though the benchmark assets
+  are not in the repository. It now adds the command that fetches the four Khronos samples and the folder to pass
+  (`python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples`).
 - `bw rig` with no mesh ended with seven lines of usage and "the following arguments are required: mesh". It now
   adds the README's first command on the character in the repository
   (`bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge`, no model calls); exit code 2 as before.
