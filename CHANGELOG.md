@@ -100,6 +100,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw rig a.glb --targets a.glb` (the mesh passed by mistake) was told to look for "a broken comma or bracket"; a
+  binary file is now called that, with the `--targets runs/<id>/targets.json` it expects.
 - `bw rig --from-skeleton --from-shape` accepted both, leaving it unclear which path ran; they are now mutually
   exclusive, and the error says what each one does.
 - `BW_NO_RENDER=1 bw demo` looked for Blender before saying it makes no video, so without Blender the real reason

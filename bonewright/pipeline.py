@@ -229,6 +229,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                                                 "pass runs/<id>/targets.json from an earlier run, or the targets_draft.json left by a rejection"))
         try:
             targets_loaded = json.loads(tf.read_text(encoding="utf-8"))
+        except UnicodeDecodeError:   # 텍스트가 아니다 — 쉼표·괄호 안내는 틀린 말이 된다(10/10 8회차: 메시를 --targets 에 줌)
+            raise Blocked(T(f"--targets 파일이 글자 파일이 아니다(바이너리): {targets_file}\n  → 메시를 준 것 아닌가? "
+                            "--targets 에는 이전 실행의 JSON 을 준다: `--targets runs/<id>/targets.json`",
+                            f"--targets is not a text file (binary): {targets_file}\n  → did you pass the mesh? "
+                            "--targets takes an earlier run's JSON: `--targets runs/<id>/targets.json`"))
         except ValueError as e:
             raise Blocked(T(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라",
                             f"--targets file is not JSON: {targets_file} ({e})\n  → check for a broken comma or bracket from editing"))

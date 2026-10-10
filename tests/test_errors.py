@@ -85,6 +85,12 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("--map 파일이 없다", msg)
         self.assertEqual(["r1"], sorted(p.name for p in (self.root / "runs").iterdir()), "실행 폴더를 만들면 안 된다")
 
+    def test_binary_targets_file_is_named_as_such(self):
+        """A binary file passed to --targets (usually the mesh) is called binary, not "a broken comma"."""
+        mesh = self.root / "a.glb"; mesh.write_bytes(b"glTF\x02\x00\x00\x00\xaa\xff\xfe")
+        msg = self.blocked(pipeline.rig, self.root, str(mesh), targets_file=str(mesh), quiet=True)
+        self.assertIn("바이너리", msg); self.assertNotIn("쉼표", msg); self.assertIn("runs/<id>/targets.json", msg)
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 
