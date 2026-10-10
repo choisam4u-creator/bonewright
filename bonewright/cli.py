@@ -18,7 +18,7 @@ from . import __version__, bench, blender, pipeline
 from .blender import find_blender, has_bpy_module
 from .config import find_root, load, unknown_keys_line
 from .i18n import T
-from .ledger import summarize
+from .ledger import path as ledger_path, summarize
 
 ROOT = find_root()
 
@@ -258,7 +258,14 @@ def _main() -> int:
             except FileNotFoundError as e:
                 print("BLOCKED:", e, file=sys.stderr); return 2
         if a.cmd == "usage":
-            print(json.dumps(summarize(ROOT, a.days), ensure_ascii=False, indent=2)); return 0
+            report = summarize(ROOT, a.days)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            if not report["total"]["calls"]:   # 0 만 든 JSON 은 '기록 안 됨' 인지 '안 썼음' 인지 모른다 → stderr 한 줄(stdout JSON 은 그대로)
+                book = ledger_path(ROOT)
+                where = book if book.exists() else T(f"{book} — 아직 없음, BW_HOME(지금 {ROOT})이 맞는지 확인", f"{book} — not created yet; check BW_HOME (now {ROOT})")
+                print(T(f"최근 {a.days}일 모델 호출 없음(장부: {where}). 토큰 0 경로(--from-skeleton·--from-shape·--targets·BW_BACKEND=mock)만 썼다면 정상 → 더 길게: `bw usage --days 30`",
+                        f"no model calls in the last {a.days} days (ledger: {where}). Normal if you only used the 0-token routes (--from-skeleton, --from-shape, --targets, BW_BACKEND=mock) → look further back: `bw usage --days 30`"), file=sys.stderr)
+            return 0
         if a.cmd == "status":
             runs = ROOT / "runs"
             ids = [a.run_id] if a.run_id else sorted(p.name for p in runs.iterdir() if (p / "state.json").exists()) if runs.is_dir() else []

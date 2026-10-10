@@ -96,6 +96,42 @@ class EmptyStatusTests(unittest.TestCase):
                 self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err.getvalue())))
 
 
+class EmptyUsageTests(unittest.TestCase):
+    """`bw usage` with no model calls says so on stderr and names the ledger; the JSON on stdout is unchanged.
+
+    10/10 5회차 실측: 0 만 든 JSON 은 '기록 안 됨' 인지 '안 썼음' 인지 모른다."""
+
+    def run_usage(self, root: Path, lang: str) -> tuple[str, str]:
+        import os
+        out, err = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", root), \
+                patch.object(sys, "argv", ["bw", "usage"]), patch("sys.stdout", out), patch("sys.stderr", err):
+            self.assertEqual(0, cli.main())
+        return out.getvalue(), err.getvalue()
+
+    def test_empty_ledger_explains_the_zero(self):
+        import json
+        import re
+        from bonewright import ledger
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                out, err = self.run_usage(Path(t), lang)
+                self.assertEqual(0, json.loads(out)["total"]["calls"])   # 스크립트가 읽는 stdout 은 JSON 그대로
+                self.assertIn(str(ledger.path(Path(t))), err)
+                self.assertIn("BW_HOME", err)                             # 장부 파일이 없으면 BW_HOME 을 의심하게
+                self.assertIn("--from-skeleton", err); self.assertIn("--days", err)
+                self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err)))
+
+    def test_ledger_with_calls_stays_quiet(self):
+        import json
+        from bonewright import ledger
+        with tempfile.TemporaryDirectory() as t:
+            ledger.append(Path(t), {"run_id": "r", "backend": "codex", "in": 10, "out": 2})
+            out, err = self.run_usage(Path(t), "en")
+            self.assertEqual(1, json.loads(out)["total"]["calls"])
+            self.assertEqual("", err)
+
+
 class HelpLanguageTests(unittest.TestCase):
     """bw --help 는 BW_LANG(없으면 로캘)을 따른다. README 는 영문이므로 영어가 기본."""
 

@@ -95,6 +95,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw usage` with no model calls printed a JSON of zeros, which could mean "nothing recorded" as well as "nothing
+  used". It now adds one line on stderr naming the ledger file (or that it does not exist yet, with `BW_HOME`), that
+  the 0-token routes are not recorded, and `--days`; the JSON on stdout is unchanged.
 - `bw doctor` printed both Blender and `bpy` as `[required]`, so it read as if both had to be installed; only the
   last line said "either one". Each line now says `[required: one of]`, and once one is found the other is
   `[not needed]` (a missing Blender with `bpy` present reads "the bpy module is used instead").
