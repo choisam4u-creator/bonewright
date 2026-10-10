@@ -98,6 +98,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw export <id> --out` with a folder or a non-GLB name (`out.fbx`) only failed after Blender started. A folder now
+  gets `<id>.glb` inside it; another extension, or a missing parent folder, stops before Blender with the fix.
 - A mistyped command (`bw rigs`, `bw statsu`) got only argparse's "invalid choice"; it now names the nearest command
   and `bw --help`. `bw resume`, which old notes mentioned, says to rerun or reuse `runs/<id>/targets.json`.
 - 21 arguments had no help line in `bw <command> --help` (the mesh and `--preset` of `bw rig`, `--size` and

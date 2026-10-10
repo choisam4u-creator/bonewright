@@ -170,7 +170,7 @@
 
 ## 2026-10-10 8회차 둘째 묶음 (공개 준비 기준 — 실측)
 
-- [ ] `bw export <id> --out <폴더>`·`--out x.fbx`: 출력 경로 검사가 없어 Blender 를 띄운 뒤에야 실패한다 → 폴더면 그 안 `<id>.glb` 로, `.glb` 가 아니면 Blender 전에 `BLOCKED:` + `--out runs/<id>/rigged.glb` 예, 시험 — 근거: 10/10 8회차 실측(Blender 없는 곳에선 "Blender not found" 로 가려짐)
+- [x] (10/10 8회차: 폴더 → `<id>.glb`, 다른 확장자·없는 부모 폴더는 Blender 전 BLOCKED, `test_errors.test_export_out_is_checked_before_blender` — 옛 코드에서 실패) `bw export <id> --out <폴더>`·`--out x.fbx`: 출력 경로 검사가 없어 Blender 를 띄운 뒤에야 실패한다 → 폴더면 그 안 `<id>.glb` 로, `.glb` 가 아니면 Blender 전에 `BLOCKED:` + `--out runs/<id>/rigged.glb` 예, 시험 — 근거: 10/10 8회차 실측(Blender 없는 곳에선 "Blender not found" 로 가려짐)
 - [ ] `bw motion --map nope.json`: 없는 매핑 파일이 BVH 를 Blender 로 가져온 뒤에야 걸린다 → `--bvh`·`--rig` 처럼 Blender 전에 `need_file`, 시험 — 근거: 10/10 8회차 실측(`--map nope.json` → "⚙ blender import_bvh" 뒤 Blender 단계)
 - [ ] Blender 가 없을 때 `bw rig`·`bw motion` 이 실행 폴더(`runs/rig-…`, `runs/motion-…`)를 먼저 만들고 실패해 `bw status` 에 "analyze failed"·"import_bvh failed" 가 쌓인다 → Blender 를 찾을 수 있는지 실행 폴더를 만들기 전에 보고, 시험 — 근거: 10/10 8회차 실측(이 컨테이너 `bw status` 에 실패 실행 3개)
 - [ ] 이미 리깅된 실행에 `bw export` 가 실패하면 그 실행의 `bw status` 가 "export_rig failed" 로 바뀌어 리그까지 실패한 것처럼 보인다 → 내보내기 실패는 리그 상태를 덮지 않게(따로 기록), 시험 — 근거: 10/10 8회차 실측(`runs/r1` 에 `02_rigged.blend` 를 두고 `bw export r1` → status "r1: export_rig failed")

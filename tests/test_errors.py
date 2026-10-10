@@ -59,6 +59,22 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("GLB 가 아니다", self.blocked(pipeline.rig, self.root, str(fake), quiet=True))
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_export_out_is_checked_before_blender(self):
+        """`bw export --out` must be a .glb or a folder, checked before Blender starts.
+
+        10/10 8회차: 폴더·.fbx 가 Blender 를 띄운 뒤에야 실패했다."""
+        (self.root / "runs" / "r1").mkdir(parents=True); (self.root / "runs" / "r1" / "02_rigged.blend").write_bytes(b"x")
+        self.assertIn("GLB 만 쓴다", self.blocked(pipeline.export_rig, self.root, "r1", out=str(self.root / "a.fbx"), quiet=True))
+        self.assertIn("출력 폴더가 없다", self.blocked(pipeline.export_rig, self.root, "r1", out=str(self.root / "no" / "a.glb"), quiet=True))
+        seen = {}
+        def fake(name, params, *a, **k):
+            seen.update(params)
+            return {"bones": 1, "verts": 1, "verts_in_source": 1, "max_diff_cm": 0.0}
+        out = self.root / "exports"; out.mkdir()
+        with patch.object(pipeline, "run_script", side_effect=fake):
+            dst = pipeline.export_rig(self.root, "r1", out=str(out), quiet=True)
+        self.assertEqual(out.resolve() / "r1.glb", dst); self.assertEqual(str(dst), seen["out"])
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 

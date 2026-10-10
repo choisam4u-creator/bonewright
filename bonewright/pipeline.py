@@ -578,8 +578,20 @@ def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = Fa
     """리깅 결과 → 변형 본만 든 GLB(토큰 0). 다시 읽어 본 위치를 대조한다."""
     cfg = load(root)
     blend = need_rig(root, run_id)
+    dst = None
+    if out:   # Blender 를 띄우기 전에(10/10 8회차: 폴더·.fbx 가 Blender 단계에서야 실패했다)
+        dst = Path(out).expanduser()
+        if dst.is_dir():
+            dst = dst / f"{run_id}.glb"   # 폴더를 주면 그 안에 <id>.glb
+        elif dst.suffix.lower() != ".glb":
+            raise Blocked(T(f"내보내기는 GLB 만 쓴다: {out}\n  → `--out {Path(out).with_suffix('.glb')}` 처럼 .glb 로, 또는 폴더를 준다(그 안에 {run_id}.glb)",
+                            f"export writes GLB only: {out}\n  → use a .glb path such as `--out {Path(out).with_suffix('.glb')}`, or a folder (it gets {run_id}.glb)"))
+        if not dst.parent.is_dir():
+            raise Blocked(T(f"출력 폴더가 없다: {dst.parent}\n  → 먼저 만들거나(`mkdir -p {dst.parent}`) 있는 폴더를 준다",
+                            f"output folder does not exist: {dst.parent}\n  → create it first (`mkdir -p {dst.parent}`) or pass an existing one"))
+        dst = dst.resolve()
     r = Run(root, run_id, cfg, quiet)
-    dst = Path(out).resolve() if out else (r.dir / "rigged.glb")
+    dst = dst or (r.dir / "rigged.glb")
     ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
     _log(quiet, T(f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm",
                     f"export: {dst} · deform bones {ex['bones']} · verts {ex['verts']}/{ex['verts_in_source']} · re-read bone max difference {ex['max_diff_cm']}cm"))
