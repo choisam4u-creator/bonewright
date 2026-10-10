@@ -29,8 +29,11 @@ bw doctor                     # checks that Blender and Rigify are reachable
 
 ## First run
 
+Try it first on the character that ships with the repository — no model, no codex, 0 tokens:
+
 ```bash
-bw rig character.glb          # rig it; results land in runs/<run-id>/ (report path printed)
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # reuses the file's own skeleton
+bw rig character.glb          # your mesh; results land in runs/<run-id>/ (report path printed)
 bw demo <run-id>              # mp4/gif of the rig moving through its IK controls
 bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 ```
@@ -38,10 +41,12 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 | your file | command |
 |---|---|
 | human or dog proportions, no skeleton | `bw rig x.glb` (add `--preset quadruped` for animals) |
-| already has a skeleton | `bw rig x.glb --from-skeleton` (0 model tokens) |
+| already has a skeleton | `bw rig x.glb --from-skeleton` (no fit call; add `--no-judge` for 0 tokens) |
 | no skeleton and no preset fits | `bw rig x.glb --from-shape` |
 
-A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-skeleton` costs zero tokens.
+A `bw rig` run makes two model calls (about $1): fit and the visual judge. `--from-skeleton` / `--from-shape` skip the
+fit call, `--no-judge` skips the judge, and `BW_BACKEND=mock` skips both, so any of the first two with `--no-judge`
+needs no codex at all.
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
 `ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line and the `bw rig` / `bw motion`

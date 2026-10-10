@@ -27,8 +27,11 @@ bw doctor                     # Blender와 Rigify가 잡히는지 확인
 
 ## 첫 실행
 
+먼저 저장소에 든 캐릭터로 확인해 본다 — 모델·codex 없이, 토큰 0:
+
 ```bash
-bw rig character.glb          # 리깅; 결과는 runs/<run-id>/ 에 (보고서 경로가 출력됨)
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # 파일에 든 뼈대를 그대로 쓴다
+bw rig character.glb          # 내 메시; 결과는 runs/<run-id>/ 에 (보고서 경로가 출력됨)
 bw demo <run-id>              # IK 컨트롤로 움직이는 mp4/gif
 bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러와 검사
 ```
@@ -36,10 +39,11 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 | 파일 | 명령 |
 |---|---|
 | 사람·개 비율, 뼈대 없음 | `bw rig x.glb` (동물은 `--preset quadruped`) |
-| 이미 뼈대가 있음 | `bw rig x.glb --from-skeleton` (모델 토큰 0) |
+| 이미 뼈대가 있음 | `bw rig x.glb --from-skeleton` (맞춤 호출 없음, `--no-judge` 를 더하면 토큰 0) |
 | 뼈대 없고 맞는 프리셋도 없음 | `bw rig x.glb --from-shape` |
 
-`bw rig` 한 번은 모델 호출 2회(약 1달러)다. `BW_BACKEND=mock`이나 `--from-skeleton`은 토큰이 들지 않는다.
+`bw rig` 한 번은 모델 호출 2회(약 1달러)다: 맞춤(fit)과 시각 판정(judge). `--from-skeleton`·`--from-shape` 는 맞춤 호출을,
+`--no-judge` 는 판정을, `BW_BACKEND=mock` 은 둘 다 건너뛴다. 그래서 앞의 둘 중 하나에 `--no-judge` 를 붙이면 codex 가 아예 필요 없다.
 
 **언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유와 `bw rig`·`bw motion` 진행 로그와 Blender 스크립트 안에서 나온 분석 경고·오류, `bw bench` 표와 실행 보고서(`report.md`)도 같다.
 

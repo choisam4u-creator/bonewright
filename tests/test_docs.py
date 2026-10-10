@@ -301,6 +301,19 @@ class FirstRunTests(unittest.TestCase):
         for i in (1, 2):
             self.assertEqual(section_commands(self.EN[0], self.EN[i]), section_commands(self.KO[0], self.KO[i]))
 
+    def test_first_command_needs_no_model(self):
+        """The first `bw rig` in "First run" runs on a file in the repository with 0 model calls (no codex needed).
+
+        10/10 4회차: 첫 명령 `bw rig character.glb` 는 codex 설치·로그인·약 $1 이 있어야 결과가 나왔다.
+        `--from-skeleton`·`--from-shape` 는 맞춤 호출만 건너뛰고 시각 판정은 그대로라 `--no-judge` 도 있어야 0 토큰이다."""
+        for doc, _, first in (self.EN, self.KO):
+            with self.subTest(doc=doc.name):
+                cmd = next(c for c in section_commands(doc, first) if c.startswith("bw rig "))
+                words = cmd.split()
+                self.assertTrue((REPO / words[2]).is_file(), f"{words[2]} 가 저장소에 없다")
+                self.assertIn("--no-judge", words)
+                self.assertTrue({"--from-skeleton", "--from-shape"} & set(words), cmd)
+
     def test_quickstart_commands_parse(self):
         parser = cli.build_parser()
         for doc, install, first in (self.EN, self.KO):

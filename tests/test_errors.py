@@ -282,7 +282,7 @@ class MissingToolTests(unittest.TestCase):
         with patch.object(codex.subprocess, "Popen", side_effect=FileNotFoundError("codex")), patch.dict(os.environ, {"BW_BACKEND": "codex"}):
             with self.assertRaises(codex.CodexMissing) as cm:
                 codex.run_step("fit", "prompt", {}, {}, {"model": "m"}, {}, self.root / "logs")
-        for route in ("--from-skeleton", "--from-shape", "BW_BACKEND=mock"):
+        for route in ("--from-skeleton --no-judge", "--from-shape --no-judge", "BW_BACKEND=mock"):
             self.assertIn(route, str(cm.exception))
 
 class ReportPathTests(unittest.TestCase):

@@ -155,9 +155,9 @@ def run_step(name: str, prompt: str, schema: dict, inputs: dict[str, str], role_
                                         env={**os.environ, "NO_COLOR": "1"})
             except FileNotFoundError as error:
                 raise CodexMissing(T("codex 실행 파일을 찾을 수 없음. `npm i -g @openai/codex` 로 설치하고 `bw doctor` 로 확인\n"
-                                       "  → 모델 없이(토큰 0) 해 보려면: 뼈대가 든 파일은 `--from-skeleton`, 아니면 `--from-shape`, 시험 삼아서는 BW_BACKEND=mock",
+                                       "  → 모델 없이(토큰 0) 해 보려면: 뼈대가 든 파일은 `--from-skeleton --no-judge`, 아니면 `--from-shape --no-judge`, 시험 삼아서는 BW_BACKEND=mock",
                                        "codex executable not found. Install it with `npm i -g @openai/codex` and check with `bw doctor`\n"
-                                       "  → to try it without a model (0 tokens): `--from-skeleton` if the file has a skeleton, else `--from-shape`, or BW_BACKEND=mock for a dry run")) from error
+                                       "  → to try it without a model (0 tokens): `--from-skeleton --no-judge` if the file has a skeleton, else `--from-shape --no-judge`, or BW_BACKEND=mock for a dry run")) from error
             try:
                 _wait_with_heartbeat(proc, events, codex_cfg.get("timeout", 900), heartbeat)
             except subprocess.TimeoutExpired as error:
