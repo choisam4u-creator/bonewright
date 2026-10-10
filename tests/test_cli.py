@@ -125,6 +125,33 @@ class BareCommandTests(unittest.TestCase):
                     self.assertEqual(0, cli.main())
 
 
+class PositiveNumberTests(unittest.TestCase):
+    """`bw demo --size 0`·`--frames -1` 은 리그가 있으면 실행 폴더를 만들고 렌더까지 간 뒤 실패했고, `bw usage --days 0` 은
+    빈 결과로 종료 0 이었다(10/10 7회차). 파서에서 1 이상만 받고, 그대로 고쳐 칠 수 있는 예를 준다."""
+
+    def run_cli(self, argv, lang):
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", *argv]), \
+             patch.object(cli.pipeline, "demo", side_effect=AssertionError("demo 를 부르면 안 된다")), \
+             patch.object(cli, "summarize", side_effect=AssertionError("usage 를 세면 안 된다")), \
+             patch("sys.stderr", err), patch("sys.stdout", new_callable=io.StringIO):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertEqual(2, cm.exception.code)
+        return err.getvalue()
+
+    def test_zero_and_negative_are_refused_with_an_example(self):
+        for argv, example in ((["demo", "r1", "--size", "0"], "--size 640"), (["demo", "r1", "--frames", "-1"], "--frames 96"),
+                              (["usage", "--days", "0"], "--days 30"), (["usage", "--days", "x"], "--days 30")):
+            with self.subTest(argv=argv):
+                en = self.run_cli(argv, "en")
+                self.assertIn("must be a whole number of 1 or more", en); self.assertIn(f"e.g. {example}", en)
+                self.assertIn("1 이상 정수", self.run_cli(argv, "ko"))
+                # 안내한 예는 그대로 받아들여진다
+                ns = cli.build_parser().parse_args([argv[0], *(["r1"] if argv[0] == "demo" else []), *example.split()])
+                self.assertGreater(getattr(ns, example.split()[0].lstrip("-")), 0)
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 

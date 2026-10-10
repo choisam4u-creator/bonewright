@@ -173,6 +173,20 @@ def _hint_on_missing(p: argparse.ArgumentParser, arg: str, hint: str) -> None:
     p.error = error
 
 
+def positive_int(flag: str, example: int):
+    """argparse type: 1 이상 정수만. 0·음수는 리그·렌더까지 간 뒤에야 실패하거나(demo) 빈 결과로 끝나서(usage) 여기서 막는다."""
+    def parse(text: str) -> int:
+        try:
+            v = int(text)
+        except ValueError:
+            v = 0
+        if v < 1:
+            raise argparse.ArgumentTypeError(T(f"1 이상 정수여야 한다(받은 값 {text!r}) → 예: {flag} {example}",
+                                               f"must be a whole number of 1 or more (got {text!r}) → e.g. {flag} {example}"))
+        return v
+    return parse
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
@@ -205,7 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
     ex = sub.add_parser("export", help=T("리그 결과를 변형 본만 든 GLB 로 내보내기(게임 엔진용), 토큰 0", "export a rig as a deform-only GLB for game engines (0 tokens)"))
     ex.add_argument("run_id", nargs="?"); ex.add_argument("--out", help=T("출력 경로(기본 runs/<id>/rigged.glb)", "output path (default runs/<id>/rigged.glb)")); ex.add_argument("--quiet", action="store_true")
     d = sub.add_parser("demo", help=T("리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0", "render a demo video (mp4/gif) of the rig moving through its IK controls (0 tokens)"))
-    d.add_argument("run_id", nargs="?"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
+    d.add_argument("run_id", nargs="?"); d.add_argument("--size", type=positive_int("--size", 640), default=640); d.add_argument("--frames", type=positive_int("--frames", 96), default=96); d.add_argument("--quiet", action="store_true")
     bm = sub.add_parser("bench", help=T("원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)", "measure joint error in cm against characters that carry their own skeleton (0 tokens)"))
     bm.add_argument("meshes", nargs="+", help=T("GLB/FBX 파일 또는 폴더", "GLB/FBX files or folders"))
     _hint_on_missing(bm, "meshes", T("→ 벤치 자산은 저장소에 없다. 받은 뒤 폴더째로(샘플 4개): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples",
@@ -218,7 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     bm.add_argument("--skin", action="store_true", help=T("스키닝 일치도도 잰다(원본 가중치와 대조, 토큰 0)", "also measure skinning agreement with the original weights (0 tokens)"))
     bm.add_argument("--weights", choices=["auto", "proxy"], default=None, help=T("스키닝 방법 강제(A/B 비교용)", "force a skinning method (for A/B comparison)"))
     st = sub.add_parser("status", help=T("실행 기록 목록 또는 한 실행의 단계·상태", "list runs, or one run's step and status")); st.add_argument("run_id", nargs="?")
-    u = sub.add_parser("usage", help=T("모델 호출 사용량 장부 요약", "summarise the model-usage ledger")); u.add_argument("--days", type=int, default=7)
+    u = sub.add_parser("usage", help=T("모델 호출 사용량 장부 요약", "summarise the model-usage ledger")); u.add_argument("--days", type=positive_int("--days", 30), default=7)
     dr = sub.add_parser("doctor", help=T("Blender·bpy·codex·kimodo.cpp 가 준비됐는지 확인", "check that Blender or bpy, codex and kimodo.cpp are reachable"))
     dr.add_argument("--for-issue", nargs="?", const="", metavar="RUN_ID",
                     help=T("버그 신고에 붙일 덩어리를 찍는다: 버전·OS·이 점검 결과·실행 하나(생략하면 가장 최근)의 state.json·마지막 로그 꼬리. 개인 경로는 ~ 로 바꾼다",

@@ -98,6 +98,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw demo --size 0` / `--frames -1` created a run folder and reached the Blender render before failing, and
+  `bw usage --days 0` reported "no model calls in the last 0 days"; all three now accept only whole numbers of 1 or
+  more and say what to type instead (e.g. `--size 640`, `--days 30`).
 - `bw bench` with no meshes ended with "the following arguments are required: meshes", though the benchmark assets
   are not in the repository. It now adds the command that fetches the four Khronos samples and the folder to pass
   (`python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples`).
