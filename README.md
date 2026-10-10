@@ -34,7 +34,7 @@ Try it first on the character that ships with the repository — no model, no co
 ```bash
 bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # reuses the file's own skeleton
 bw rig character.glb          # your mesh; results land in runs/<run-id>/ (report path printed)
-bw demo <run-id>              # mp4/gif of the rig moving through its IK controls
+bw demo <run-id>              # mp4/gif of the rig moving through its IK controls (`bw rig` ends with this, run-id filled in, on its "next:" line)
 bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 ```
 

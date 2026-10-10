@@ -122,6 +122,32 @@ class BrokenStateTests(unittest.TestCase):
                 self.assertNotIn("BW_DEBUG", err.getvalue())
 
 
+class NextStepTests(unittest.TestCase):
+    """A finished `bw rig` names the next commands with its run-id (stderr); stdout stays the report path.
+
+    10/10 6회차: README 첫 실행 다음 줄이 `bw demo <run-id>` 인데 id 는 보고서 경로 안에만 있었다."""
+
+    def test_rig_prints_next_commands_with_run_id(self):
+        import os
+        import re
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                report = Path(t) / "runs" / "rig-20261010-120000" / "report.md"
+                out, err = io.StringIO(), io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(cli.pipeline, "rig", return_value=report), \
+                        patch.object(sys, "argv", ["bw", "rig", "x.glb"]), patch("sys.stdout", out), patch("sys.stderr", err):
+                    self.assertEqual(0, cli.main())
+                self.assertEqual(1, len(out.getvalue().splitlines()))
+                self.assertTrue(out.getvalue().rstrip().endswith(str(report)))
+                for cmd in ("demo", "export"):
+                    self.assertIn(f"`bw {cmd} rig-20261010-120000`", err.getvalue())
+                self.assertIn("--rig rig-20261010-120000`", err.getvalue())
+                self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err.getvalue())))
+                for cmd in re.findall(r"`(bw [^`]+)`", err.getvalue()):   # 안내한 명령이 실제 argparse 에 맞는지
+                    cli.build_parser().parse_args(re.sub(r"<[^>]+>", "w.bvh", cmd).split()[1:])
+
+
 class EmptyUsageTests(unittest.TestCase):
     """`bw usage` with no model calls says so on stderr and names the ledger; the JSON on stdout is unchanged.
 

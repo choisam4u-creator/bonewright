@@ -32,7 +32,7 @@ bw doctor                     # Blender와 Rigify가 잡히는지 확인
 ```bash
 bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # 파일에 든 뼈대를 그대로 쓴다
 bw rig character.glb          # 내 메시; 결과는 runs/<run-id>/ 에 (보고서 경로가 출력됨)
-bw demo <run-id>              # IK 컨트롤로 움직이는 mp4/gif
+bw demo <run-id>              # IK 컨트롤로 움직이는 mp4/gif (run-id 를 넣은 이 명령이 `bw rig` 끝 "다음:" 줄에 나온다)
 bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러와 검사
 ```
 

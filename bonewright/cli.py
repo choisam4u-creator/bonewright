@@ -327,7 +327,12 @@ def _main() -> int:
         raise                # main() 이 조용히 끝낸다 — '예상 못 한 오류' 가 아니다
     except Exception as e:  # Blender 오류 등
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
-    print(T("보고서:", "report:"), out); return 0
+    print(T("보고서:", "report:"), out)
+    if a.cmd == "rig":   # README 다음 줄이 `bw demo <run-id>` 라 id 를 경로에서 오려 내지 않게(stdout 은 보고서 경로 한 줄 그대로)
+        rid = Path(out).parent.name
+        print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh <파일.bvh> --rig {rid}`",
+                f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh <file.bvh> --rig {rid}`"), file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

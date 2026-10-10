@@ -11,6 +11,9 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- A finished `bw rig` ends with a `next:` line on stderr naming `bw demo`, `bw export` and `bw motion --rig` with its
+  run-id filled in, so the README's next step no longer means cutting the id out of the report path. stdout is still
+  the one report line.
 - `tests/README.md` opens with an English summary (one command, what skips without Blender, the two environment
   switches, the three CI jobs); `tests/test_docs.py` keeps its skip count honest.
 - `docs/RELEASING.md`, which this changelog points to, opens with an English summary (who releases, how the version
