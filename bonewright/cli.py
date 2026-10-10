@@ -193,9 +193,9 @@ def build_parser() -> argparse.ArgumentParser:
                           'BVH bone → rig bone map {"LeftArm": "upper_arm.L"}. Rigs without standard names (a shape rig\'s Limb3_2 etc.) need one written by hand'))
     m.add_argument("--export", nargs="?", const="auto", help=T("리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb", "export the retargeted result as GLB (deform bones only, animation baked). Default path runs/<id>/animated.glb"))
     ex = sub.add_parser("export", help=T("리그 결과를 변형 본만 든 GLB 로 내보내기(게임 엔진용), 토큰 0", "export a rig as a deform-only GLB for game engines (0 tokens)"))
-    ex.add_argument("run_id"); ex.add_argument("--out", help=T("출력 경로(기본 runs/<id>/rigged.glb)", "output path (default runs/<id>/rigged.glb)")); ex.add_argument("--quiet", action="store_true")
+    ex.add_argument("run_id", nargs="?"); ex.add_argument("--out", help=T("출력 경로(기본 runs/<id>/rigged.glb)", "output path (default runs/<id>/rigged.glb)")); ex.add_argument("--quiet", action="store_true")
     d = sub.add_parser("demo", help=T("리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0", "render a demo video (mp4/gif) of the rig moving through its IK controls (0 tokens)"))
-    d.add_argument("run_id"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
+    d.add_argument("run_id", nargs="?"); d.add_argument("--size", type=int, default=640); d.add_argument("--frames", type=int, default=96); d.add_argument("--quiet", action="store_true")
     bm = sub.add_parser("bench", help=T("원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)", "measure joint error in cm against characters that carry their own skeleton (0 tokens)"))
     bm.add_argument("meshes", nargs="+", help=T("GLB/FBX 파일 또는 폴더", "GLB/FBX files or folders"))
     bm.add_argument("--run-id"); bm.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto")
@@ -284,6 +284,19 @@ def _main() -> int:
                              f"{rid}: state.json unreadable ({type(e).__name__}: {e}) — skipped this run only. If you don't need it, {runs / rid} can be deleted")
                 print(line)
             return 0
+        if a.cmd in ("export", "demo") and not a.run_id:   # argparse 의 "required: run_id" 는 어떤 id 를 넣을지 말해 주지 않는다
+            runs = ROOT / "runs"
+            rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+            if rigged:
+                rid = max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name
+                print("BLOCKED:", T(f"run-id 가 필요하다 — 가장 최근 리그: `bw {a.cmd} {rid}`\n  → 다른 실행은 `bw status` 로 목록을 본다",
+                                   f"needs a run-id — latest rig: `bw {a.cmd} {rid}`\n  → list other runs with `bw status`"), file=sys.stderr)
+            else:
+                print("BLOCKED:", T(f"run-id 가 필요한데 리깅을 마친 실행이 없다(찾은 곳: {runs})\n  → 먼저 `bw rig <메시>`, 끝에 나오는 `next:` 줄에 id 가 있다. "
+                                   "다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
+                                   f"needs a run-id, and no finished rig was found (looked in {runs})\n  → run `bw rig <mesh>` first; its `next:` line carries the id. "
+                                   "If you ran bonewright from another folder, set BW_HOME to it"), file=sys.stderr)
+            return 2
         def parse_pins(items: list[str] | None) -> dict[str, dict[str, list[float]]]:
             """--pin 본=x,y,z[/x,y,z] → {"본": {"head": [...], "tail": [...]}}"""
             out: dict[str, dict[str, list[float]]] = {}

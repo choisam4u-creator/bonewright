@@ -98,6 +98,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw demo` and `bw export` without a run-id ended with argparse's "the following arguments are required: run_id".
+  They now say `BLOCKED:` with the latest finished rig as a command to paste (`bw demo rig-…`) and `bw status`, or,
+  with no rig yet, to run `bw rig <mesh>` first and where they looked (exit code 2 as before).
 - `examples/rig_sample.py` without Blender pointed at `--table x.glb`, a file nobody has. It now ends with
   `python3 examples/rig_sample.py --table adventurer`, which runs as pasted on the character in the repository;
   `tests/test_examples.py` runs that command in both languages.

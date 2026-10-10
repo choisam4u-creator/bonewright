@@ -131,6 +131,48 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("→", err.getvalue())
 
 
+class MissingRunIdTests(unittest.TestCase):
+    """`bw demo` / `bw export` with no run-id name the latest rig as a command to paste, or say how to get one.
+
+    10/10 6회차 실측: argparse 의 "the following arguments are required: run_id" 로 끝났고, README 첫 실행은
+    `bw demo <run-id>` 를 자리표시 그대로 보여 준다."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def run_bw(self, lang: str, *argv: str) -> tuple[int, str]:
+        err = io.StringIO()
+        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err), \
+                patch.dict(os.environ, {"BW_LANG": lang}):
+            code = cli.main()
+        return code, err.getvalue()
+
+    def test_latest_rig_is_named(self):
+        """With rigs on disk, the message carries the newest finished rig, not a motion run or an unfinished one."""
+        for i, rid in enumerate(("rig-old", "rig-new")):
+            (self.root / "runs" / rid).mkdir(parents=True)
+            blend = self.root / "runs" / rid / "02_rigged.blend"; blend.write_bytes(b"")
+            os.utime(blend, (1000 + i, 1000 + i))
+        (self.root / "runs" / "rig-unfinished").mkdir()
+        (self.root / "runs" / "rig-unfinished" / "state.json").write_text("{}", encoding="utf-8")
+        for cmd in ("demo", "export"):
+            for lang in ("en", "ko"):
+                with self.subTest(cmd=cmd, lang=lang):
+                    code, err = self.run_bw(lang, cmd)
+                    self.assertEqual(2, code)
+                    self.assertIn(f"`bw {cmd} rig-new`", err)
+                    self.assertIn("`bw status`", err)
+                    self.assertNotIn("required", err)
+
+    def test_no_runs_points_at_rig(self):
+        """With no finished rig, the message says to run `bw rig` first and where it looked."""
+        code, err = self.run_bw("en", "demo")
+        self.assertEqual(2, code)
+        self.assertIn("BLOCKED:", err); self.assertIn("`bw rig <mesh>`", err); self.assertIn(str(self.root / "runs"), err)
+        self.assertIsNone(re.search(r"[가-힣]", err), err)
+
+
 class UnexpectedErrorTests(unittest.TestCase):
     """포괄 except: 한 줄 메시지 대신 오류 종류·로그 위치·BW_DEBUG 안내가 나와야 한다."""
 
