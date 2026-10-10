@@ -180,7 +180,7 @@
 ## 2026-10-10 8회차 셋째 묶음 (공개 준비 기준)
 
 - [x] (10/10 8회차: 있으면 두 파일을 JSON 블록으로, 로그 꼬리는 원래대로 가장 최근 로그(내보내기면 export_rig.log), `test_cli.IssueReportTests.test_export_state_is_included`) `bw doctor --for-issue <id>` 가 `state.json` 만 싣는다 — 8회차부터 export·demo 실패는 `export_state.json`·`demo_state.json` 에 따로 적으므로 "export 가 안 된다" 신고에 정작 그 상태가 빠진다 → 있으면 함께 싣고 로그 꼬리도 그 단계 것으로, 시험 — 근거: 10/10 8회차 `Run(state_file=…)` 변경
-- [ ] `blender.has_bpy_module()` 가 부를 때마다 `python -c "import bpy"` 를 새로 띄운다(실측 0.76초) — Blender 앱 없이 bpy 휠로 도는 `bw rig` 는 Blender 단계마다(+8회차 `require`) 이 비용을 낸다 → 프로세스당 한 번만(캐시), 시험 — 근거: 10/10 8회차 bpy 5.2.2 venv 실측
+- [x] (10/10 8회차: 파이썬 경로별 `_BPY_CACHE`, `test_errors.BpyProbeCacheTests` — 옛 코드에서 실패) `blender.has_bpy_module()` 가 부를 때마다 `python -c "import bpy"` 를 새로 띄운다(실측 0.76초) — Blender 앱 없이 bpy 휠로 도는 `bw rig` 는 Blender 단계마다(+8회차 `require`) 이 비용을 낸다 → 프로세스당 한 번만(캐시), 시험 — 근거: 10/10 8회차 bpy 5.2.2 venv 실측
 - [ ] `bw status` 가 README·GUIDE 어디에도 없다(`grep` 0건) — 그런데 오류 문구 여럿이 `bw status` 를 가리킨다 → GUIDE "Install and run" 에 목록·한 실행·실패 줄의 `→ why` 를 짧게, `test_docs` 명령 점검 포함 — 근거: 10/10 8회차 `grep -n "bw status" README.md docs/GUIDE.md`
 - [ ] `BW_NO_RENDER=1 bw demo <id>` 는 렌더 안 한다는 안내 전에 Blender 를 찾는다 — Blender 가 없으면 "Blender not found" 가 나와, 어차피 영상은 안 만든다는 진짜 이유가 가려진다 → `BW_NO_RENDER` 확인을 Blender·실행 폴더 확인보다 앞으로, 시험 — 근거: 10/10 8회차 `pipeline.demo` 읽기(8회차에 넣은 `need_blender` 가 그 앞에 있다)
 - [ ] `bw rig --help` 의 `--budget` 기본값(600,000)·`--size`(640) 같은 숫자가 도움말 문자열에 손으로 박혀 있다 → `config.DEFAULTS`·argparse default 에서 채워 넣거나, 도움말 숫자와 실제 기본값을 대조하는 시험 — 근거: 10/10 8회차에 도움말 21개를 쓰며 숫자 4곳을 손으로 적었다(기본값이 바뀌면 도움말이 거짓말을 한다)

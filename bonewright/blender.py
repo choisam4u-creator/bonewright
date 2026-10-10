@@ -74,9 +74,16 @@ def _windows_blender() -> Path | None:
     return max(found, key=_version_key) if found else None
 
 
+_BPY_CACHE: dict[str, bool] = {}
+
+
 def has_bpy_module(python: str = sys.executable) -> bool:
-    r = subprocess.run([python, "-c", "import bpy"], capture_output=True, text=True)
-    return r.returncode == 0
+    """`python -c "import bpy"` 가 되는지. 한 번 띄우는 데 0.7초쯤 걸려(10/10 8회차 실측) 프로세스당 파이썬마다 한 번만 본다 —
+    앱 없이 bpy 휠로 도는 `bw rig` 는 Blender 단계마다 이걸 불렀다."""
+    if python not in _BPY_CACHE:
+        r = subprocess.run([python, "-c", "import bpy"], capture_output=True, text=True)
+        _BPY_CACHE[python] = r.returncode == 0
+    return _BPY_CACHE[python]
 
 
 def require(cfg: dict) -> None:

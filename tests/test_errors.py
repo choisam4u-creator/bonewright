@@ -588,5 +588,23 @@ class LicenseBoundaryTests(unittest.TestCase):
         self.assertEqual([], ok)
 
 
+class BpyProbeCacheTests(unittest.TestCase):
+    def test_import_bpy_probe_runs_once_per_python(self):
+        """`has_bpy_module` starts `python -c "import bpy"` once per interpreter, not once per Blender step.
+
+        한 번에 0.7초쯤 든다(10/10 8회차 실측) — bpy 휠로 도는 `bw rig` 는 단계마다 이 값을 다시 냈다."""
+        import subprocess
+        from bonewright import blender
+        calls = []
+        def fake(cmd, **kw):
+            calls.append(cmd[0])
+            return subprocess.CompletedProcess(cmd, 1, "", "")
+        with patch.dict(blender._BPY_CACHE, clear=True), patch.object(blender.subprocess, "run", side_effect=fake):
+            self.assertFalse(blender.has_bpy_module("/x/python"))
+            self.assertFalse(blender.has_bpy_module("/x/python"))
+            self.assertFalse(blender.has_bpy_module("/y/python"))
+        self.assertEqual(["/x/python", "/y/python"], calls)
+
+
 if __name__ == "__main__":
     unittest.main()
