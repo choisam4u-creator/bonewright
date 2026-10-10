@@ -162,12 +162,12 @@ class UnexpectedErrorTests(unittest.TestCase):
         self.assertNotIn("Traceback", out)
 
     def test_early_commands_also_reported(self):
-        # bw status 처럼 파이프라인 전에 끝나는 명령도 같은 안내를 거친다(Codex 리뷰 #4 지적)
-        d = self.root / "runs" / "rig-bad"; d.mkdir(parents=True)
-        (d / "state.json").write_text("{잘림", encoding="utf-8")
+        # bw usage 처럼 파이프라인 전에 끝나는 명령도 같은 안내를 거친다(Codex 리뷰 #4 지적).
+        # 예전에는 깨진 state.json 으로 `bw status` 를 썼지만, 10/10 6회차부터 status 는 그 실행만 건너뛴다(BrokenStateTests)
         err = io.StringIO()
-        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", "rig-bad"]), \
-                patch("sys.stderr", err), patch.dict(os.environ):
+        with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "usage"]), \
+                patch.object(cli, "summarize", side_effect=json.JSONDecodeError("잘림", "{", 1)), \
+                patch("sys.stderr", err), patch("sys.stdout", io.StringIO()), patch.dict(os.environ):
             os.environ.pop("BW_DEBUG", None)
             self.assertEqual(cli.main(), 2)
         self.assertIn("BLOCKED: JSONDecodeError", err.getvalue())
