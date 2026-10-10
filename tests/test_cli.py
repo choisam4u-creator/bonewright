@@ -215,6 +215,27 @@ class BadCommandTests(unittest.TestCase):
         self.assertIn("`bw rig <mesh> --targets runs/<id>/targets.json`", en)
 
 
+class HelpDefaultTests(unittest.TestCase):
+    def test_numbers_in_help_are_the_real_defaults(self):
+        """A "default N" written into a help line equals the argument's real default (or config's, for --budget).
+
+        10/10 8회차에 도움말 21개를 쓰며 숫자를 손으로 적었다 — 기본값이 바뀌면 도움말이 거짓말을 한다."""
+        import os, re
+        from bonewright import config
+        real = {"--budget": config.DEFAULTS["budget"]["max_input_tokens"]}
+        seen = 0
+        for lang, word in (("en", "default"), ("ko", "기본")):
+            with patch.dict(os.environ, {"BW_LANG": lang}):
+                for name, sp in cli.build_parser()._subparsers._group_actions[0].choices.items():
+                    for act in sp._actions:
+                        for num in re.findall(rf"{word} ([\d,]+)", act.help or ""):
+                            seen += 1
+                            flag = (act.option_strings or [act.dest])[0]
+                            with self.subTest(lang=lang, cmd=name, arg=flag):
+                                self.assertEqual(real.get(flag, act.default), int(num.replace(",", "")))
+        self.assertGreaterEqual(seen, 8)
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 
