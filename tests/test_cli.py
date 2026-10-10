@@ -283,6 +283,25 @@ class StatusLineTests(unittest.TestCase):
         self.assertEqual("doctor", ns.cmd)
 
 
+class StatusGuideTests(unittest.TestCase):
+    def test_guide_example_line_is_what_bw_status_prints(self):
+        """The `bw status` example line in docs/GUIDE.md is exactly what the command prints for that state."""
+        import os, re
+        guide = (Path(__file__).resolve().parents[1] / "docs" / "GUIDE.md").read_text(encoding="utf-8")
+        m = re.search(r"`((rig-\d{8}-\d{6}): (\w+) (\w+) · input tokens ([\d,]+))`", guide)
+        self.assertIsNotNone(m, "GUIDE 에 bw status 예시 줄이 없다")
+        line, rid, step, status, tokens = m.groups()
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "runs" / rid).mkdir(parents=True)
+            (Path(t) / "runs" / rid / "state.json").write_text(
+                f'{{"step": "{step}", "status": "{status}", "input_tokens": {tokens.replace(",", "")}}}', encoding="utf-8")
+            out = io.StringIO()
+            with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(cli, "ROOT", Path(t)), \
+                    patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                cli.main()
+        self.assertEqual(line, out.getvalue().strip())
+
+
 class NextStepTests(unittest.TestCase):
     """A finished `bw rig` names the next commands with its run-id (stderr); stdout stays the report path.
 

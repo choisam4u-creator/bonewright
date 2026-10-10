@@ -11,6 +11,8 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- The guide's "Install and run" now shows `bw status` (it was mentioned by error messages but documented nowhere):
+  what a line means, where a failed run's reason is, and that export/demo keep their own state.
 - A finished `bw rig` ends with a `next:` line on stderr naming `bw demo`, `bw export` and `bw motion --rig` with its
   run-id filled in, so the README's next step no longer means cutting the id out of the report path. stdout is still
   the one report line.

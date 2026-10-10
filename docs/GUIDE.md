@@ -425,7 +425,15 @@ bw motion --bvh walk.bvh --rig <run-id> --export         # retarget a BVH onto a
 bw demo <run-id>         # mp4/gif of the rig moving through IK controls (0 tokens)
 bw export <run-id>       # game-ready GLB: deform bones only (73, not 410) + skin, re-imported and checked (0 tokens)
 bw bench a.glb b.glb     # compare against the original skeletons (0 tokens)
+bw status                # every run under runs/: step, status, input tokens
+bw status <run-id>       # one run
 ```
+
+Each run lives in `runs/<run-id>/` (`report.md`, `targets.json`, the `.blend` files, `logs/`). `bw status` lists them
+one per line — `rig-20261010-101500: final ok · input tokens 81,234`. A run that failed or was stopped by the budget
+or a usage limit ends with `→ why: bw doctor --for-issue <run-id>`, which shows its state and the end of its log.
+`bw export` and `bw demo` record their own `export_state.json` / `demo_state.json`, so a failed export never turns a
+finished rig into a failed one.
 
 Cost: one `bw rig` makes **2 model calls** — a fit call (~80k input tokens) and a visual judge call (2 images).
 Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. A rejected mesh costs nothing, and
