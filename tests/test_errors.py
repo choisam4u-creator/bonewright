@@ -380,6 +380,15 @@ class MissingToolTests(unittest.TestCase):
         self.assertEqual("ok", json.loads((run / "state.json").read_text(encoding="utf-8"))["status"])
         self.assertEqual("failed", json.loads((run / "export_state.json").read_text(encoding="utf-8"))["status"])
 
+    def test_demo_with_no_render_says_so_even_without_blender(self):
+        """`BW_NO_RENDER=1 bw demo` explains that no video is made, instead of "Blender not found"."""
+        run = self.root / "runs" / "r1"; run.mkdir(parents=True); (run / "02_rigged.blend").write_bytes(b"x")
+        os.environ["BW_NO_RENDER"] = "1"
+        code, err = self.run_bw("demo", "r1")
+        self.assertEqual(2, code)
+        self.assertIn("BW_NO_RENDER=1, so no demo video is made", err); self.assertNotIn("Blender not found", err)
+        self.assertFalse((run / "demo_state.json").exists())
+
     def test_bw_blender_pointing_nowhere_is_named(self):
         """BW_BLENDER set to a missing file: the message names that path instead of "set BW_BLENDER"."""
         os.environ["BW_BLENDER"] = str(self.root / "no" / "blender")

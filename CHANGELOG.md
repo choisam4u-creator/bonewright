@@ -100,6 +100,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `BW_NO_RENDER=1 bw demo` looked for Blender before saying it makes no video, so without Blender the real reason
+  was hidden behind "Blender not found"; the render switch is now checked first.
 - With the `bpy` wheel and no Blender app, every Blender step started a fresh `python -c "import bpy"` probe
   (about 0.7 s each); the answer is now remembered for the rest of the command.
 - `bw doctor --for-issue <id>` now includes `export_state.json` / `demo_state.json` when they exist, so a report

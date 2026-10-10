@@ -617,12 +617,12 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     import shutil
     cfg = load(root)
     blend = need_rig(root, run_id)
-    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
-    r = Run(root, run_id, cfg, quiet, state_file="demo_state.json")
-    if os.environ.get("BW_NO_RENDER") == "1":
+    if os.environ.get("BW_NO_RENDER") == "1":   # Blender 확인보다 먼저: 없으면 "Blender not found" 가 진짜 이유를 가렸다
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
         raise Blocked(T("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다\n  → 화면이 있는 환경에서 `BW_NO_RENDER` 를 지우고 다시 실행하라",
                         "BW_NO_RENDER=1, so no demo video is made\n  → unset `BW_NO_RENDER` and run again on a machine with a display"))
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    r = Run(root, run_id, cfg, quiet, state_file="demo_state.json")
     a = json.loads((r.dir / "analysis.json").read_text(encoding="utf-8"))
     d = r.blender("render_demo", {"blend": str(blend), "out_dir": str(r.dir), "stats": a["stats"], "height": a["landmarks"]["height"], "size": size, "frames": frames})
     out = Path(d["frames_dir"])
