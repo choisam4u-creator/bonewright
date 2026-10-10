@@ -167,6 +167,23 @@ class BudgetHelpTests(unittest.TestCase):
                 self.assertIn(word, rig.help); self.assertIn(default, rig.help)
 
 
+class ArgumentHelpTests(unittest.TestCase):
+    def test_every_argument_has_help_in_both_languages(self):
+        """Every argument of every subcommand has a help line, and the English one has no Korean.
+
+        10/10 8회차까지 21개(`bw rig` 의 mesh·--preset·--run-id·--budget·--quiet, `bw demo --size` 등)가 빈 칸이었다."""
+        import re
+        for lang in ("en", "ko"):
+            with patch.dict(os.environ, {"BW_LANG": lang}):
+                sub = cli.build_parser()._subparsers._group_actions[0]
+                for name, sp in sub.choices.items():
+                    for act in sp._actions:
+                        with self.subTest(lang=lang, cmd=name, arg=act.dest):
+                            self.assertTrue(act.help)
+                            if lang == "en":
+                                self.assertIsNone(re.search(r"[가-힣]", act.help), act.help)
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 

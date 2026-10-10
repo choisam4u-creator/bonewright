@@ -98,6 +98,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- 21 arguments had no help line in `bw <command> --help` (the mesh and `--preset` of `bw rig`, `--size` and
+  `--frames` of `bw demo`, every `--run-id` and `--quiet`, ...); each now has one in both languages.
 - An empty mesh file, or a `.glb` that is not glTF (another format renamed), got as far as starting Blender — and
   where Blender is missing, "Blender not found" hid the real problem. `bw rig` now refuses both before Blender, with
   what to do.
