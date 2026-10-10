@@ -9,10 +9,11 @@ import time
 from pathlib import Path
 
 from . import pipeline
-from .blender import run_script
+from .blender import BlenderMissing, run_script
 from .config import load
 from .i18n import T
 from .manifest import atomic_write
+from .pipeline import Blocked
 
 # 우리 변형 본 → 원본 뼈대 이름 후보(정규화된 핵심 이름). 앞에서부터 우선 매칭
 JOINT_MAP = {
@@ -200,6 +201,14 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         preset: str = "humanoid", skin: bool = False, weights: str | None = None, rest_pose: str | None = None,
         gt_mesh: str | None = None) -> Path:
     cfg = load(root)
+    # 입력은 Blender·실행 폴더 전에 확인한다: 빈 폴더가 "measured 0/0 · mean None" 으로 종료 0, 없는 파일이 "Blender not found" 로 보였다
+    fetch = T("벤치 자산은 `python3 scripts/fetch_bench_assets.py` 로 bench-assets/ 에 받는다",
+              "Get the benchmark assets into bench-assets/ with `python3 scripts/fetch_bench_assets.py`")
+    if not meshes:
+        raise Blocked(T(f"잴 메시가 없다(폴더 안에 .glb·.gltf·.fbx 가 없다)\n  → 원본 뼈대가 든 GLB/FBX 파일이나 그것이 든 폴더를 줘라. {fetch}",
+                        f"no meshes to measure (no .glb · .gltf · .fbx in the folder)\n  → pass GLB/FBX files that carry their own skeleton, or a folder of them. {fetch}"))
+    for m in meshes + ([gt_mesh] if gt_mesh else []):
+        pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx"))
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -238,6 +247,8 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
                 if r.get("error_cm") is not None:
                     csv.append(f"{name},{r['joint']},{r['error_cm']},{r['error_pct_height']}," +
                                ",".join(str(v) for v in r["ours"]) + "," + ",".join(str(v) for v in r["gt"]))
+        except BlenderMissing:   # 설치 문제는 자산마다 되풀이하지 않고 설치 안내 한 번으로(cli 가 BLOCKED 로)
+            raise
         except Exception as e:  # 자산 하나가 실패해도 나머지는 계속한다
             row["error"] = str(e).splitlines()[0][:160]
         results.append(row)
@@ -273,6 +284,9 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         else:
             md.append(f"| {r['asset']} | {r['height']} | {r['matched']} | {r['mean_cm']} | {r['median_cm']} | {r['max_cm']} | {r['worst']} |")
     atomic_write(out_dir / "report.md", "\n".join(md) + "\n")
+    if not ok:   # 하나도 못 쟀으면 성공(종료 0)이 아니다
+        raise Blocked(T(f"자산 {len(results)}개 중 하나도 못 쟀다 — 자산별 이유는 {out_dir / 'report.md'}\n  → 원본 뼈대가 든 자산인지 확인하라. {fetch}",
+                        f"measured none of {len(results)} assets — the reason for each is in {out_dir / 'report.md'}\n  → check that they carry their own skeleton. {fetch}"))
     if not quiet:
         print(T(f"\n요약: 측정 {summary['measured']}/{summary['assets']} · 평균 {summary['mean_cm']}cm → {out_dir / 'report.md'}",
                 f"\nsummary: measured {summary['measured']}/{summary['assets']} · mean {summary['mean_cm']}cm → {out_dir / 'report.md'}"))

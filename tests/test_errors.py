@@ -407,6 +407,48 @@ class MotionRigOnlyFlagTests(unittest.TestCase):
                 self.assertFalse((root / "runs" / "m1").exists())
 
 
+class BenchInputTests(unittest.TestCase):
+    """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
+
+    10/10 5회차 실측: 빈 폴더는 종료 0 에 "mean Nonecm", 없는 파일은 "nope: Blender not found" 에 종료 0 이었다."""
+
+    def bench(self, root: Path, meshes: list[str], fake=None):
+        from bonewright import bench, blender
+        run = (lambda name, *a, **k: fake) if fake is not None else _raising(blender.BlenderMissing("Blender not found"))
+        with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(bench, "run_script", run):
+            return bench.run(root, meshes, run_id="b1", quiet=True)
+
+    def test_empty_and_missing_stop_before_blender(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for meshes, want in (([], "no meshes"), ([str(root / "nope.glb")], "not found")):
+                with self.subTest(want=want), self.assertRaises(pipeline.Blocked) as cm:
+                    self.bench(root, meshes, fake={})
+                self.assertIn(want, str(cm.exception)); self.assertIn("fetch_bench_assets.py", str(cm.exception))
+            self.assertFalse((root / "runs").exists())
+
+    def test_missing_blender_is_raised_once(self):
+        from bonewright import blender
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d); a = root / "a.glb"; a.write_text(""); b = root / "b.glb"; b.write_text("")
+            with self.assertRaises(blender.BlenderMissing):
+                self.bench(root, [str(a), str(b)])
+
+    def test_nothing_measured_is_not_success(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d); a = root / "a.glb"; a.write_text("")
+            with self.assertRaises(pipeline.Blocked) as cm:
+                self.bench(root, [str(a)], fake={"joints": []})   # 원본 뼈대 없는 자산
+            self.assertIn("none of 1", str(cm.exception)); self.assertIn("report.md", str(cm.exception))
+            self.assertIn("no skeleton", (root / "runs" / "b1" / "report.md").read_text())
+
+
+def _raising(exc):
+    def run(*a, **k):
+        raise exc
+    return run
+
+
 class LicenseBoundaryTests(unittest.TestCase):
     """`scripts/check_license_boundary.py` 는 CONTRIBUTING·PR 템플릿·CI 가 돌린다 — 영어 기여자가 처음 보는 CI 실패 문구라
     위반 줄이 영어로, 고칠 방법(→)과 함께 나와야 한다(10/9 3회차까지 한국어뿐, 방법 없음)."""

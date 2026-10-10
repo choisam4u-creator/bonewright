@@ -95,6 +95,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw bench` on an empty folder or a missing file ended with exit code 0 and "mean Nonecm", and a missing file
+  was reported as "Blender not found". Inputs are now checked before Blender starts, a missing Blender stops the
+  whole bench once with the install hint, and a bench that measured nothing is `BLOCKED:` (exit 2) with a pointer
+  to `report.md` and `scripts/fetch_bench_assets.py`.
 - `bw motion` silently ignored `--export`, `--map`, `--legs` and `--no-roll` without `--rig`, so a run could end
   with no GLB and no reason. They are now refused before Blender starts, with the fix (`--rig <run-id>`).
 - `bw status` with no runs printed nothing, so a broken install and a different `BW_HOME` looked the same. It now
