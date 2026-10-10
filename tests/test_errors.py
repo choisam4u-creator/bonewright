@@ -36,7 +36,9 @@ class InputErrorTests(unittest.TestCase):
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
     def test_broken_settings_file(self):
-        """runs/config.json 의 끝 쉼표가 '예상 못 한 오류 — 이슈를 열어라'로 끝나던 것(10/8 발견) → 줄·칸을 짚는 Blocked."""
+        """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
+
+        runs/config.json 의 끝 쉼표가 '예상 못 한 오류 — 이슈를 열어라'로 끝나던 것(10/8 발견) → 줄·칸을 짚는 Blocked."""
         (self.root / "runs").mkdir()
         cfg = self.root / "runs" / "config.json"
         cfg.write_text('{"lang": "en",}', encoding="utf-8")
@@ -47,7 +49,9 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("객체여야 한다", self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True))
 
     def test_every_default_setting_is_read(self):
-        """기본 설정의 키는 모두 코드 어딘가에서 읽힌다 — 안 읽히는 키를 문서에 적으면 문서가 거짓말을 한다.
+        """Every default settings key is read somewhere in the code.
+
+        기본 설정의 키는 모두 코드 어딘가에서 읽힌다 — 안 읽히는 키를 문서에 적으면 문서가 거짓말을 한다.
         (10/9: `blender.prefer_module`·`default_model` 이 어디서도 안 읽혀 뺐다. 옛 설정 파일에 남아 있으면 모르는 키로 알린다.)"""
         from bonewright import config
         src = "".join(p.read_text(encoding="utf-8") for p in (Path(__file__).resolve().parents[1] / "bonewright").rglob("*.py") if p.name != "config.py")
@@ -62,7 +66,9 @@ class InputErrorTests(unittest.TestCase):
         self.assertEqual(["blender.prefer_module"], config.unknown_keys(self.root))
 
     def test_unknown_settings_key_warns(self):
-        """runs/config.json 의 오타 키(`rig.cross_trimm`)를 조용히 받아 기본값으로 돌던 것(10/8 2회차) → 경고 한 줄, 멈추지는 않는다."""
+        """A misspelt settings key (rig.cross_trimm) prints one warning and does not stop.
+
+        runs/config.json 의 오타 키(`rig.cross_trimm`)를 조용히 받아 기본값으로 돌던 것(10/8 2회차) → 경고 한 줄, 멈추지는 않는다."""
         from bonewright import config
         (self.root / "runs").mkdir()
         cfg = self.root / "runs" / "config.json"
@@ -244,7 +250,9 @@ class ReportPathTests(unittest.TestCase):
             self.assertEqual(str(Path(d) / "alicex.glb"), pipeline._shown(Path(d) / "alicex.glb", run))   # 이름이 겹칠 뿐인 형제 경로는 그대로
 
     def test_symlinked_home_is_hidden_too(self):
-        """홈이 심볼릭 링크(/home/alice → /mnt/users/alice)면 rig() 가 resolve 한 메시 경로는 실제 쪽에 있다(10/7 Codex 리뷰)."""
+        """report.md hides the home even when it is a symlink and the mesh path was resolved.
+
+        홈이 심볼릭 링크(/home/alice → /mnt/users/alice)면 rig() 가 resolve 한 메시 경로는 실제 쪽에 있다(10/7 Codex 리뷰)."""
         with tempfile.TemporaryDirectory() as d:
             real = Path(d) / "mnt" / "alice"; real.mkdir(parents=True)
             link = Path(d) / "alice"
@@ -258,7 +266,9 @@ class ReportPathTests(unittest.TestCase):
 
 
     def test_versions_line_for_issue_reports(self):
-        """rig-problem 템플릿은 report.md 를 붙이라 한다 — 버전 없는 신고는 재현이 안 된다(10/9 3회차)."""
+        """report.md carries a versions line (bonewright, Blender, Python, OS) for issue reports.
+
+        rig-problem 템플릿은 report.md 를 붙이라 한다 — 버전 없는 신고는 재현이 안 된다(10/9 3회차)."""
         from bonewright import __version__
         line = pipeline.versions_line({"blender": "5.2.2 LTS"})
         self.assertTrue(line.startswith(f"- versions: bonewright {__version__} · Blender 5.2.2 LTS · Python "), line)

@@ -76,7 +76,9 @@ class TPairTests(unittest.TestCase):
 
 
     def test_progress_log_has_no_bare_hangul(self):
-        """진행 로그(`_log(quiet, 메시지)`)의 한국어는 모두 T() 안에 있어야 영어 모드 첫 화면에 한국어가 안 섞인다."""
+        """Korean in progress log messages (_log) is always inside T().
+
+        진행 로그(`_log(quiet, 메시지)`)의 한국어는 모두 T() 안에 있어야 영어 모드 첫 화면에 한국어가 안 섞인다."""
         def bare(node):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "T":
                 return
@@ -115,19 +117,25 @@ class TPairTests(unittest.TestCase):
         return found
 
     def test_blender_scripts_have_no_bare_hangul(self):
-        """Blender 스크립트(`bpy_scripts/`, GPL 쪽)의 문자열 중 한국어는 docstring 이 아니면 T() 안에 있어야 한다.
+        """Korean strings in bpy_scripts/ are inside T() unless they are docstrings.
+
+        Blender 스크립트(`bpy_scripts/`, GPL 쪽)의 문자열 중 한국어는 docstring 이 아니면 T() 안에 있어야 한다.
         오류(`error`)·분석 경고(`suspect`)·사족 notes 가 `bw` 화면에 그대로 나오기 때문이다. 주석은 AST 에 없어 상관없다."""
         self.assertGreater(self.bare_hangul(sorted((PKG / "bpy_scripts").glob("*.py"))), 15)   # 10/6: analyze·_quad·_common 등에 20곳
 
     def test_package_has_no_bare_hangul(self):
-        """`bonewright/` 전체(본체): `bw bench` 표·`runs/<id>/report.md`·오류·mock 응답까지 영어 모드에 한국어가 섞이지 않게.
+        """Korean strings anywhere in bonewright/ are inside T() so English mode stays English.
+
+        `bonewright/` 전체(본체): `bw bench` 표·`runs/<id>/report.md`·오류·mock 응답까지 영어 모드에 한국어가 섞이지 않게.
         10/7 bench 17·pipeline 12·codex 2·mock 2·manifest 1곳을 T() 로 옮기고 넓혔다."""
         files = sorted(p for p in PKG.rglob("*.py") if "bpy_scripts" not in p.parts)
         self.assertGreater(self.bare_hangul(files), 100)
 
 
     def test_user_scripts_have_no_bare_hangul(self):
-        """`examples/rig_sample.py`·`scripts/fetch_bench_assets.py`·`scripts/check_license_boundary.py`: 영어 화면에 나오는 문자열의 한국어는 T() 안에만."""
+        """Korean strings in user-facing scripts (examples/, scripts/) are inside T().
+
+        `examples/rig_sample.py`·`scripts/fetch_bench_assets.py`·`scripts/check_license_boundary.py`: 영어 화면에 나오는 문자열의 한국어는 T() 안에만."""
         for path in USER_SCRIPTS:
             with self.subTest(script=path.name):
                 self.assertGreater(self.bare_hangul([path]), 3)

@@ -84,7 +84,9 @@ class ExampleMessageTests(unittest.TestCase):
         self.assertIn("file not found", str(cm.exception.code))
 
     def test_motion_on_quadruped_stops_before_rigging(self):
-        """`--motion --preset quadruped` 는 리깅(블렌더 수십 초)을 하기 전에 멈춘다 — 10/9 까지는 다 리깅한 뒤 거절했다."""
+        """`--motion --preset quadruped` is refused before rigging starts.
+
+        `--motion --preset quadruped` 는 리깅(블렌더 수십 초)을 하기 전에 멈춘다 — 10/9 까지는 다 리깅한 뒤 거절했다."""
         from unittest import mock
         for argv in (["--motion", "--preset", "quadruped"], ["--motion", "--table", "adventurer"]):
             with self.subTest(argv=argv), mock.patch.dict("os.environ", {"BW_LANG": "en"}), \
@@ -95,7 +97,9 @@ class ExampleMessageTests(unittest.TestCase):
                 self.assertIn("--motion", str(cm.exception.code))
 
     def test_help_follows_screen_language(self):
-        """`--help` 는 오류 다음에 사용자가 치는 것 — 영어 화면에 한글이 없고 한국어 화면은 한국어."""
+        """rig_sample.py --help follows the screen language (no Hangul in English).
+
+        `--help` 는 오류 다음에 사용자가 치는 것 — 영어 화면에 한글이 없고 한국어 화면은 한국어."""
         import contextlib, io
         from unittest import mock
         out = {}
@@ -113,7 +117,9 @@ class ExampleMessageTests(unittest.TestCase):
 
 class SampleOutputTests(unittest.TestCase):
     def test_sample_table_is_what_bone_table_prints(self):
-        """실어 둔 예시 표가 손으로 고쳐지지 않았는지: 표 안의 본 이름으로 표를 다시 만들면 같아야 한다."""
+        """The checked-in sample table is exactly what the bone table code prints.
+
+        실어 둔 예시 표가 손으로 고쳐지지 않았는지: 표 안의 본 이름으로 표를 다시 만들면 같아야 한다."""
         for doc, count in ((SAMPLE, 73), (DOG, 110)):
             with self.subTest(doc=doc.name):
                 part = table_part(doc.read_text(encoding="utf-8"))
@@ -123,7 +129,9 @@ class SampleOutputTests(unittest.TestCase):
                 self.assertEqual(part, rig_sample.bone_table(names).strip())
 
     def test_dog_sample_has_four_legs(self):
-        """사족 예시가 사람 리그로 잘못 나오지 않았는지: 앞다리·뒷다리 체인과 앞발·뒷발 발가락이 좌우로 있다."""
+        """The quadruped sample has front/back leg chains and toes on both sides.
+
+        사족 예시가 사람 리그로 잘못 나오지 않았는지: 앞다리·뒷다리 체인과 앞발·뒷발 발가락이 좌우로 있다."""
         names = set(re.findall(r"`(DEF-[^`]+)`", table_part(DOG.read_text(encoding="utf-8"))))
         for s in ("L", "R"):
             for bone in ("thigh", "shin", "foot", "front_thigh", "front_shin", "front_foot", "f_index.01", "r_index.01"):
@@ -131,7 +139,9 @@ class SampleOutputTests(unittest.TestCase):
         self.assertFalse({n for n in names if "upper_arm" in n or "forearm" in n})
 
     def test_wave_bvh_maps_like_the_motion_sample(self):
-        """절차 BVH 의 관절 이름 매핑(블렌더 불필요)이 리타겟 예시의 '옮긴 본' 표와 같고, 파일은 매번 같다."""
+        """The procedural wave BVH maps like the motion sample and is reproducible.
+
+        절차 BVH 의 관절 이름 매핑(블렌더 불필요)이 리타겟 예시의 '옮긴 본' 표와 같고, 파일은 매번 같다."""
         from bonewright.retarget import bvh_mapping
         mapping = bvh_mapping([j[1] for j in rig_sample.WAVE_JOINTS])
         rows = [f"| `{a}` | `{b}` |" for a, b in sorted(mapping.items())]
@@ -142,7 +152,9 @@ class SampleOutputTests(unittest.TestCase):
             self.assertIn("Frames: 24", a.read_text())
 
     def test_sample_output_is_english(self):
-        """영어 README 가 링크하는 예시 문서 — 첫 클릭에서 한국어 페이지를 만나지 않게(주석 포함 한글 없음)."""
+        """Sample output documents linked from the English README contain no Hangul.
+
+        영어 README 가 링크하는 예시 문서 — 첫 클릭에서 한국어 페이지를 만나지 않게(주석 포함 한글 없음)."""
         for doc in (SAMPLE, DOG, MOTION, ROOT / "examples" / "README.md"):
             with self.subTest(doc=doc.name):
                 text = doc.read_text(encoding="utf-8").replace("[한국어](README.ko.md)", "")   # 언어 바꾸는 링크는 둔다
@@ -155,7 +167,9 @@ class SampleOutputTests(unittest.TestCase):
 
     @requires_blender
     def test_capsule_doll_still_retargets_like_the_sample(self):
-        """리타겟이 바뀌면 예시가 낡는다 — 지금 결과의 요약 줄(프레임·옮긴 본 수)과 옮긴 본 표가 예시와 같은지."""
+        """Retargeting the capsule doll still matches the motion sample (summary and moved bones).
+
+        리타겟이 바뀌면 예시가 낡는다 — 지금 결과의 요약 줄(프레임·옮긴 본 수)과 옮긴 본 표가 예시와 같은지."""
         rig_sample.rig_and_table(None, "capsule_doll_mcheck", "humanoid")
         now = rig_sample.motion_and_report("capsule_doll_mcheck").read_text(encoding="utf-8")
         self.assertEqual(motion_rows(MOTION.read_text(encoding="utf-8")), motion_rows(now),
@@ -163,7 +177,9 @@ class SampleOutputTests(unittest.TestCase):
 
     @requires_blender
     def test_capsule_doll_still_rigs_like_the_sample(self):
-        """리그가 바뀌면 예시가 낡는다 — 지금 리깅 결과의 관문 줄과 변형 본 표가 예시와 같은지."""
+        """Rigging the capsule doll still matches the sample (gate line and deform bone table).
+
+        리그가 바뀌면 예시가 낡는다 — 지금 리깅 결과의 관문 줄과 변형 본 표가 예시와 같은지."""
         out = rig_sample.rig_and_table(None, "capsule_doll_check", "humanoid")
         now, sample = out.read_text(encoding="utf-8"), SAMPLE.read_text(encoding="utf-8")
         gate = [ln for ln in sample.splitlines() if ln.startswith("- gates:")]

@@ -159,7 +159,9 @@ class IssueReportTests(unittest.TestCase):
         self.assertIn("실행 기록 없음", out)
 
     def test_settings_file_included_with_unknown_keys(self):
-        """설정이 원인인 이슈는 설정 없이 재현이 안 된다 — 내용(홈 경로는 ~)과 모르는 키 한 줄을 싣는다."""
+        """The issue report includes the settings file (home as ~) and one line per unknown key.
+
+        설정이 원인인 이슈는 설정 없이 재현이 안 된다 — 내용(홈 경로는 ~)과 모르는 키 한 줄을 싣는다."""
         with tempfile.TemporaryDirectory() as t:
             root = Path(t); (root / "runs").mkdir()
             # json.dumps 로 쓴다: Windows 홈 경로를 문자열에 그대로 끼우면 역슬래시가 JSON 이스케이프로 깨진다(10/9 CI)
@@ -172,7 +174,9 @@ class IssueReportTests(unittest.TestCase):
         self.assertIn("unknown keys (ignored): rig.cross_trimm (→ rig.cross_trim?)", out)
 
     def test_unknown_key_warned_once(self):
-        """10/9 설치본 출력: 모르는 키가 doctor 의 경고 줄과 설정 절 줄로 두 번 나왔다 → 설정 절에만 한 번.
+        """An unknown settings key is warned about once, in the settings section only.
+
+        10/9 설치본 출력: 모르는 키가 doctor 의 경고 줄과 설정 절 줄로 두 번 나왔다 → 설정 절에만 한 번.
         여기서는 doctor 를 가짜로 바꾸지 않는다(가짜 doctor 는 경고를 안 찍어 중복이 안 보인다)."""
         with tempfile.TemporaryDirectory() as t:
             root = Path(t); (root / "runs").mkdir()
@@ -198,7 +202,9 @@ class IssueReportTests(unittest.TestCase):
         self.assertIn("no runs/config.json", out)
 
     def test_broken_settings_file_still_shown(self):
-        """깨진 JSON 도 그대로 싣는다(원인일 수 있다). 보고서 자체는 멈추지 않는다."""
+        """A broken runs/config.json is still included verbatim and the report does not stop.
+
+        깨진 JSON 도 그대로 싣는다(원인일 수 있다). 보고서 자체는 멈추지 않는다."""
         with tempfile.TemporaryDirectory() as t:
             root = Path(t); (root / "runs").mkdir()
             (root / "runs" / "config.json").write_text('{"lang": "en",}')
@@ -210,7 +216,9 @@ class IssueReportTests(unittest.TestCase):
         self.assertEqual(cli.scrub(r"C:\Users\kim\x.glb /home/lee/y /Users/park/z"), r"~\x.glb ~/y ~/z")
 
     def test_scrub_json_escaped_windows_home(self):
-        """runs/config.json 안의 Windows 경로는 역슬래시가 둘씩(`C:\\\\Users\\\\kim`)이라 홈 치환을 비켜 갔다(10/9 CI)."""
+        """A JSON-escaped Windows home (C:\\Users\\<name>) in the settings file is replaced with ~.
+
+        runs/config.json 안의 Windows 경로는 역슬래시가 둘씩(`C:\\\\Users\\\\kim`)이라 홈 치환을 비켜 갔다(10/9 CI)."""
         with patch.object(cli.Path, "home", return_value=cli.Path("C:\\Users\\kim")):
             self.assertEqual(cli.scrub('{"root": "C:\\\\Users\\\\kim\\\\kimodo"}'), '{"root": "~\\\\kimodo"}')
         self.assertEqual(cli.scrub('"D:\\\\Users\\\\lee\\\\x"'), '"~\\\\x"')

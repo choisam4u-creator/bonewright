@@ -30,7 +30,9 @@ class VersionTests(unittest.TestCase):
 
 
     def test_fetch_script_user_agent_follows_version(self):
-        """`fetch_bench_assets.py` 의 User-Agent 는 원배포처가 보는 이름 — 손으로 박은 0.2 가 0.3.0 에서 어긋났다(10/9 3회차)."""
+        """fetch_bench_assets.py User-Agent follows the package version and repository URL.
+
+        `fetch_bench_assets.py` 의 User-Agent 는 원배포처가 보는 이름 — 손으로 박은 0.2 가 0.3.0 에서 어긋났다(10/9 3회차)."""
         import importlib.util
         spec = importlib.util.spec_from_file_location("fetch_bench_assets", ROOT / "scripts" / "fetch_bench_assets.py")
         fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
@@ -99,7 +101,9 @@ class WorkflowActionTests(unittest.TestCase):
                 self.assertGreaterEqual(int(major), self.MIN_MAJOR[name], f"{name}@v{major} 는 Node 20 판이다")
 
     def test_workflow_is_english(self):
-        """공개 뒤 PR 기여자가 Actions 화면에서 보는 단계 이름·주석 — 10/9 3회차까지 한국어였다."""
+        """CI step names and comments are English.
+
+        공개 뒤 PR 기여자가 Actions 화면에서 보는 단계 이름·주석 — 10/9 3회차까지 한국어였다."""
         text = (ROOT / ".github" / "workflows" / "test.yml").read_text(encoding="utf-8")
         self.assertEqual([], [ln for ln in text.splitlines() if re.search(r"[가-힣]", ln)])
 

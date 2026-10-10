@@ -69,7 +69,9 @@ class DocLinkTests(unittest.TestCase):
 
 
     def test_guide_anchors_exist(self):
-        """`GUIDE.md#<앵커>` 링크가 GUIDE 의 실제 제목을 가리키는지(GitHub 방식: 소문자, 구두점 삭제, 공백 → -)."""
+        """GUIDE.md#<anchor> links point at real GUIDE headings (GitHub slug rules).
+
+        `GUIDE.md#<앵커>` 링크가 GUIDE 의 실제 제목을 가리키는지(GitHub 방식: 소문자, 구두점 삭제, 공백 → -)."""
         def slug(h):
             return re.sub(r"[^\w\- ]", "", h.strip().lower()).replace(" ", "-")
         heads = {slug(ln.lstrip("#")) for ln in (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8").splitlines()
@@ -84,7 +86,9 @@ class DocLinkTests(unittest.TestCase):
         self.assertGreater(seen, 2)
 
     def test_roadmap_anchors_exist(self):
-        """GUIDE "Known gaps" 의 `ROADMAP.md#<앵커>` 링크(한국어 절 제목)가 실제 ROADMAP 제목을 가리키는지."""
+        """ROADMAP.md#<anchor> links in GUIDE "Known gaps" point at real ROADMAP headings.
+
+        GUIDE "Known gaps" 의 `ROADMAP.md#<앵커>` 링크(한국어 절 제목)가 실제 ROADMAP 제목을 가리키는지."""
         def slug(h):
             return re.sub(r"[^\w\- ]", "", h.strip().lower()).replace(" ", "-")
         heads = {slug(ln.lstrip("#")) for ln in (REPO / "docs" / "ROADMAP.md").read_text(encoding="utf-8").splitlines()
@@ -96,7 +100,9 @@ class DocLinkTests(unittest.TestCase):
                 self.assertIn(anchor, heads)
 
     def test_guide_has_no_korean_outside_link_targets(self):
-        """GUIDE 는 영어 문서다 — 한국어 ROADMAP 을 가리키는 링크 주소 말고는 한글이 없어야 한다(10/9 3회차까지 6곳)."""
+        """GUIDE is English: no Hangul outside the targets of links into the Korean ROADMAP.
+
+        GUIDE 는 영어 문서다 — 한국어 ROADMAP 을 가리키는 링크 주소 말고는 한글이 없어야 한다(10/9 3회차까지 6곳)."""
         text = re.sub(r"\]\([^)\s]+\)", "]()", (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8"))
         self.assertEqual([], [ln for ln in text.splitlines() if re.search(r"[가-힣]", ln)])
 
@@ -153,7 +159,9 @@ class TestListTests(unittest.TestCase):
                     self.assertEqual(modules, sorted(listed.split()))
 
     def test_contributing_sample_count_is_current(self):
-        """CONTRIBUTING 의 `Ran N tests ... (skipped=M)` 예시가 지금 시험 수·블렌더 시험 수와 같은지."""
+        """The `Ran N tests ... (skipped=M)` sample in CONTRIBUTING matches the current counts.
+
+        CONTRIBUTING 의 `Ran N tests ... (skipped=M)` 예시가 지금 시험 수·블렌더 시험 수와 같은지."""
         m = re.search(r"Ran (\d+) tests \.\.\. OK \(skipped=(\d+)\)", (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8"))
         self.assertIsNotNone(m)
         tests = all_tests()
@@ -161,15 +169,27 @@ class TestListTests(unittest.TestCase):
         self.assertEqual(int(m.group(2)), sum(map(needs_blender, tests)))
 
     def test_bare_unittest_discovers_every_test(self):
-        """인자 없는 `python3 -m unittest`(저장소 맨 위에서 발견)가 명시한 7개 묶음과 같은 시험을 돈다 — 0개로 끝나지 않게."""
+        """Bare `python3 -m unittest` discovers the same tests as the seven named modules.
+
+        인자 없는 `python3 -m unittest`(저장소 맨 위에서 발견)가 명시한 7개 묶음과 같은 시험을 돈다 — 0개로 끝나지 않게."""
         def flat(suite):
             for t in suite:
                 yield from (flat(t) if isinstance(t, unittest.TestSuite) else [t])
         found = unittest.TestLoader().discover(str(REPO), top_level_dir=str(REPO))
         self.assertEqual(sorted(t.id() for t in all_tests()), sorted(t.id() for t in flat(found)))
 
+    def test_verbose_test_names_are_english(self):
+        """The line `unittest -v` prints next to each test name (first docstring line) is English.
+
+        CI 는 `-v` 로 돌아 docstring 첫 줄을 찍는다 — 10/9 3회차까지 156개 중 65개가 한국어라 영어 기여자가
+        CI 로그에서 무엇이 깨졌는지 못 읽었다. 한국어 설명은 둘째 단락부터."""
+        korean = [t.id() for t in all_tests() if re.search("[가-힣]", t.shortDescription() or "")]
+        self.assertEqual([], korean, "→ put an English first line, then a blank line, then the Korean explanation")
+
     def test_tests_readme_table_is_current(self):
-        """tests/README.md 표의 묶음별 시험 수·블렌더 칸과 '없으면 N개 건너뜀' 이 실제 로더와 같은지
+        """Per-module counts, Blender column and skip count in tests/README.md match the loader.
+
+        tests/README.md 표의 묶음별 시험 수·블렌더 칸과 '없으면 N개 건너뜀' 이 실제 로더와 같은지
         (10/9 에 시험 9개를 더할 때 CONTRIBUTING 은 시험이 잡았는데 이 표는 아무도 안 잡았다)."""
         text = (REPO / "tests" / "README.md").read_text(encoding="utf-8")
         tests = all_tests()
@@ -207,7 +227,9 @@ class TestListTests(unittest.TestCase):
 
 class CodePointsAtDocsTests(unittest.TestCase):
     def test_guide_sections_named_in_messages_exist(self):
-        """오류·doctor 문구가 `"<절 제목>" ... docs/GUIDE.md` 로 가리키는 절이 GUIDE 에 실제로 있는지."""
+        """GUIDE sections that error and doctor messages name by title actually exist.
+
+        오류·doctor 문구가 `"<절 제목>" ... docs/GUIDE.md` 로 가리키는 절이 GUIDE 에 실제로 있는지."""
         heads = {ln.lstrip("#").strip() for ln in (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8").splitlines()
                  if ln.startswith("#")}
         named = set()
@@ -221,7 +243,9 @@ class CodePointsAtDocsTests(unittest.TestCase):
                 self.assertTrue(any(h.startswith(title) for h in heads), f"GUIDE 에 '{title}' 절이 없다")
 
     def test_guide_sections_named_in_docs_exist(self):
-        """이슈 템플릿 등이 `docs/GUIDE.md` → "<절 제목>" 으로 가리키는 절이 GUIDE 에 실제로 있는지."""
+        """GUIDE sections that docs and templates name by title actually exist.
+
+        이슈 템플릿 등이 `docs/GUIDE.md` → "<절 제목>" 으로 가리키는 절이 GUIDE 에 실제로 있는지."""
         heads = {ln.lstrip("#").strip() for ln in (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8").splitlines()
                  if ln.startswith("#")}
         named = [(doc, t) for doc in DOCS for t in re.findall(r'docs/GUIDE\.md`?\s*→\s*"([^"]+)"', doc.read_text(encoding="utf-8"))]
@@ -231,7 +255,9 @@ class CodePointsAtDocsTests(unittest.TestCase):
                 self.assertTrue(any(h.startswith(title) for h in heads), f"GUIDE 에 '{title}' 절이 없다")
 
     def test_issue_config_links_point_at_repo_files(self):
-        """`.github/ISSUE_TEMPLATE/config.yml` 의 `blob/main/<경로>` 안내 링크가 저장소에 있는 파일인지."""
+        """blob/main/<path> links in the issue template config point at files in the repository.
+
+        `.github/ISSUE_TEMPLATE/config.yml` 의 `blob/main/<경로>` 안내 링크가 저장소에 있는 파일인지."""
         text = (REPO / ".github" / "ISSUE_TEMPLATE" / "config.yml").read_text(encoding="utf-8")
         paths = re.findall(r"/blob/main/(\S+)", text)
         self.assertTrue(paths)
@@ -240,7 +266,9 @@ class CodePointsAtDocsTests(unittest.TestCase):
                 self.assertTrue((REPO / rel).is_file(), f"config.yml → {rel} 없음")
 
     def test_messages_do_not_point_at_dated_research_notes(self):
-        """날짜 붙은 연구 노트(docs/research-*.html)는 공개용 안내가 아니다 — 코드 문구가 가리키지 않는다."""
+        """Code messages do not point at dated research notes (docs/research-*.html).
+
+        날짜 붙은 연구 노트(docs/research-*.html)는 공개용 안내가 아니다 — 코드 문구가 가리키지 않는다."""
         for p in (REPO / "bonewright").rglob("*.py"):
             with self.subTest(file=str(p.relative_to(REPO))):
                 self.assertNotRegex(p.read_text(encoding="utf-8"), r"docs/research-\d+")
@@ -280,7 +308,9 @@ class FirstRunTests(unittest.TestCase):
                         self.assertIsNone(check_command(parser, cmd))
 
     def test_settings_line_matches_between_languages(self):
-        """두 README 의 설정 한 줄: 같은 예시 JSON 이 읽히고, 그 키가 실제 기본 설정에 있고, GUIDE Settings 로 링크한다
+        """The settings line in both READMEs parses the same, uses real keys and links to GUIDE Settings.
+
+        두 README 의 설정 한 줄: 같은 예시 JSON 이 읽히고, 그 키가 실제 기본 설정에 있고, GUIDE Settings 로 링크한다
         (README 에 config.json 이 안 나오면 영어 사용자가 매번 `--lang` 을 붙여야 하는 줄 안다)."""
         import json
         import tempfile
@@ -303,7 +333,9 @@ class FirstRunTests(unittest.TestCase):
                 self.assertEqual(config.unknown_keys(Path(d)), [], f"README 예시에 모르는 키: {ex}")
 
     def test_install_extras_exist(self):
-        """README 의 `pip install ".[headless]"` 같은 추가 묶음이 pyproject 에 있는지."""
+        """Install extras named in the README (e.g. .[headless]) exist in pyproject.
+
+        README 의 `pip install ".[headless]"` 같은 추가 묶음이 pyproject 에 있는지."""
         import tomllib
         extras = set(tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"].get("optional-dependencies", {}))
         for doc in (self.EN[0], self.KO[0]):
@@ -312,7 +344,9 @@ class FirstRunTests(unittest.TestCase):
                     self.assertIn(extra, extras)
 
     def test_readme_bone_counts_match_sample_output(self):
-        """README 의 '본 410(변형 73)'(mannequiny)과 sample-output 의 캡슐 인형 숫자는 같은 사람 메타리그에서 나온다.
+        """README bone counts and the sample-output capsule doll come from the same human metarig.
+
+        README 의 '본 410(변형 73)'(mannequiny)과 sample-output 의 캡슐 인형 숫자는 같은 사람 메타리그에서 나온다.
         리그 구성이 바뀌면 둘 다 바뀌어야 한다 — 한쪽만 고치면 여기서 걸린다."""
         sample = (REPO / "examples" / "sample-output" / "capsule_doll.md").read_text(encoding="utf-8")
         m = re.search(r"rig bones (\d+) \(deform (\d+)\)", sample)
@@ -428,7 +462,9 @@ class CodeOfConductTests(unittest.TestCase):
             self.assertNotIn("[INSERT CONTACT METHOD]", coc.read_text(encoding="utf-8"))
 
     def test_draft_keeps_the_attribution(self):
-        """Contributor Covenant 는 CC BY 4.0 — 끝의 Attribution 절이 출처 표기다."""
+        """The Code of Conduct draft keeps the CC BY 4.0 Attribution section.
+
+        Contributor Covenant 는 CC BY 4.0 — 끝의 Attribution 절이 출처 표기다."""
         for doc in (REPO / "docs" / "drafts" / "CODE_OF_CONDUCT.md", REPO / "CODE_OF_CONDUCT.md"):
             if doc.exists():
                 with self.subTest(doc=str(doc.relative_to(REPO))):
