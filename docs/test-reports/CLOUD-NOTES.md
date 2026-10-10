@@ -1,11 +1,37 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/10 6회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/10 7회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 177개, 건너뜀 0
-bw doctor; d=$(mktemp -d) && BW_HOME=$d bw usage >/dev/null   # Blender·bpy 줄마다 "둘 중 하나"/"필요 없음" / 장부 없음 안내 한 줄
-d=$(mktemp -d) && cd $d && git clone -b claude/cloud-work https://github.com/choisam4u-creator/bonewright b && cd b && python3 -m venv .venv && source .venv/bin/activate && pip install . && bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # README 설치 절 그대로 → 끝에 "next:" 줄
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 182개, 건너뜀 0, 출력에 점·요약 말고 다른 줄이 있는지도 볼 것
+bw rig; bw bench; bw demo; python3 examples/rig_sample.py --table adventurer | head -3   # 앞 셋은 종료 2 + 다음 명령 한 줄, 넷째는 표
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge && bw demo    # run-id 없이 → "latest rig: `bw demo rig-…`"
 ```
+
+## 2026-10-10 (7회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 백로그 남은 2개(샘님 결정 대기 1개 제외): `examples/rig_sample.py` 의 Blender 없음 안내가 자리표시 `--table x.glb` 를 주던 것 →
+  그대로 붙여 도는 `python3 examples/rig_sample.py --table adventurer` / run-id 없는 `bw demo`·`bw export` 의 argparse
+  "required: run_id" → `BLOCKED:` + 가장 최근 리그(`02_rigged.blend` 있는 것)의 명령과 `bw status`, 없으면 `bw rig <메시>`·찾은 곳.
+- 남은 [ ] 가 1개라 새 항목 5개 추가(빈 BW_HOME·Blender 없음에서 하위 명령을 인자 없이·틀린 값으로 쳐 봄), 그중 3개:
+  메시 없는 `bw rig` → README 첫 명령 한 줄 / 자산 없는 `bw bench` → `fetch_bench_assets.py --only samples && bw bench bench-assets/samples`
+  / 단위 시험이 진짜 stderr 에 id 빈 "next: `bw demo `" 줄을 흘리던 것.
+- 오류 메시지가 다음 할 일을 말하는지: 이번에 고친 5곳 모두 안내한 명령을 시험이 실제로 넣어 본다(예제는 subprocess 로 실행,
+  `bw rig`·`bw bench` 는 cli 파서에 그대로, 받기 스크립트는 `--help` 의 선택지·기본 폴더와 대조).
+- 설치~첫 결과 단계 수는 6회차와 같음(clone·venv·pip·Blender·`bw rig`). 대신 그 사이에서 인자를 빠뜨렸을 때 막히는 곳이 줄었다.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 182개 중 15개 건너뜀, 나머지 통과. 매 커밋 전, 결과 줄을 보고 커밋.
+- 새 시험 6개는 모두 옛 코드(해당 파일만 되돌림)에서 실패하는 것을 확인.
+- 블렌더 시험 15개는 이 컨테이너에 Blender·bpy 가 없어 건너뜀(이번 변경은 Blender 전 단계라 영향 없을 것으로 봄) → Mac 명령 위.
+- CI: blender 잡은 pending 아님 — 이번 푸시 직후 queued/in_progress 로 바로 잡혔다. 결과는 PR #10 체크.
+
+**완료 수·추가 수**: 완료 5(기존 2 + 새 3) · 추가 5 · 남은 [ ] 3(그중 1개 `spikes/` 라이선스는 샘님 결정 대기, 나머지
+`bw demo --size 0`·`--frames -1` 검사 없음, `bw usage --days 0` 받음).
+
+**샘님 결정 필요** (6회차와 같음, 새 것 없음)
+- `--from-skeleton`·`--from-shape` "0 tokens" 문구, 웹 병합 커밋의 개인 메일, `spikes/` 라이선스, README clone 주소(비공개 저장소).
 
 ## 2026-10-10 (6회차)
 
