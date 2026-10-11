@@ -114,6 +114,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- Run ids (`--run-id`, `--rig`, and the run id of `bw export`/`demo`/`status`/`doctor --for-issue`) accepted `../x`
+  and `a/b`, so a run could be written outside `runs/` and `bw doctor --for-issue ../..` read files outside it. They
+  now take letters, digits and `. _ -` only.
 - A typo in `BW_BACKEND` (`Mock`, `moc`) silently ran the paid `codex` path; any value other than `mock` or `codex`
   now stops before any model call or Blender step, naming the nearest value.
 - A malformed `--pin` (`--pin foo`, `--pin hand.L=1,2`) exited 1 with a bare line, unlike other input errors; it is

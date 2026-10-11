@@ -277,6 +277,18 @@ def parse_pin(text: str) -> tuple[str, dict[str, list[float]]]:
     return name.strip(), v
 
 
+def run_id_arg(text: str) -> str:
+    """argparse type for run ids: 글자·숫자·`_` 로 시작, 그 뒤 글자·숫자·`._-` 만, `..` 없음.
+    10/11 11회차: `--run-id ../escape` 가 runs/ 밖에 폴더를 만들 수 있었고, `bw doctor --for-issue ../..` 는 runs/ 밖을 읽었다."""
+    import re
+    if text == "":   # `--for-issue` 를 값 없이 쓰면 argparse 가 const "" 도 이 type 에 넣는다
+        return text
+    if not re.fullmatch(r"\w[\w.-]*", text) or ".." in text:
+        raise argparse.ArgumentTypeError(T(f"실행 id 는 글자·숫자·. _ - 만, 폴더 구분자(/ \\)·'..'·공백 없이(받은 값 {text!r}) → 예: hero-v2",
+                                           f"a run id takes letters, digits and . _ - only, no path separators (/ \\), '..' or spaces (got {text!r}) → e.g. hero-v2"))
+    return text
+
+
 def positive_int(flag: str, example: int):
     """argparse type: 1 이상 정수만. 0·음수는 리그·렌더까지 간 뒤에야 실패하거나(demo) 빈 결과로 끝나서(usage) 여기서 막는다."""
     def parse(text: str) -> int:
@@ -300,7 +312,7 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh", help=T("리깅할 메시(.glb·.gltf·.fbx·.obj·.blend)", "mesh to rig (.glb, .gltf, .fbx, .obj, .blend)")); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid). 네 발 짐승은 quadruped", "rig type (default humanoid); quadruped for four-legged animals"))
     _hint_on_choice(r, "--preset", preset_hint)
-    r.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
+    r.add_argument("--run-id", type=run_id_arg, help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
                    help=T("모델 입력 토큰 상한(기본 600,000 — runs/config.json 의 budget.max_input_tokens). 넘으면 멈춘다",
                           "cap on model input tokens (default 600,000 — budget.max_input_tokens in runs/config.json); the run stops when it is reached"))
     r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=FACING, default="auto", help=facing_help()); r.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
@@ -319,8 +331,8 @@ def build_parser() -> argparse.ArgumentParser:
     _hint_on_missing(r, "mesh", T(f"→ 처음이면 저장소 폴더에서, 저장소에 든 캐릭터로(모델 호출 없음): {FIRST_RIG}  (README \"첫 실행\")",
                                   f"→ new here? from the repository folder, on the character it ships (no model calls): {FIRST_RIG}  (README \"First run\")"))
     m = sub.add_parser("motion", help=T("텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다", "make motion from text (kimodo.cpp) or a BVH and bring it into Blender"))
-    m.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); m.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
-    m.add_argument("--rig", help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
+    m.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); m.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", type=run_id_arg, help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    m.add_argument("--rig", type=run_id_arg, help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
     m.add_argument("--preset", choices=["humanoid", "quadruped"], default=None, help=T("리그의 프리셋. 생략하면 리그 실행 기록(rig_stats.json)에서 읽는다", "the rig's preset. Read from the rig run (rig_stats.json) when omitted"))
     _hint_on_choice(m, "--preset", preset_hint)
     m.add_argument("--bvh-up", choices=["auto", "y", "z"], default="auto", help=T("BVH 의 위 축. auto=머리와 발 위치로 판단(기본). 표준은 y, Blender 가 내보낸 BVH 는 z", "BVH up axis. auto=decide from head and feet (default). Standard BVH is y, Blender-exported BVH is z"))
@@ -331,14 +343,14 @@ def build_parser() -> argparse.ArgumentParser:
                           'BVH bone → rig bone map {"LeftArm": "upper_arm.L"}. Rigs without standard names (a shape rig\'s Limb3_2 etc.) need one written by hand'))
     m.add_argument("--export", nargs="?", const="auto", help=T("리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb", "export the retargeted result as GLB (deform bones only, animation baked). Default path runs/<id>/animated.glb"))
     ex = sub.add_parser("export", help=T("리그 결과를 변형 본만 든 GLB 로 내보내기(게임 엔진용), 토큰 0", "export a rig as a deform-only GLB for game engines (0 tokens)"))
-    ex.add_argument("run_id", nargs="?", help=T("내보낼 리그의 실행 id(`bw status` 로 목록, 생략하면 최근 리그를 알려 준다)", "run id of the rig to export (list with `bw status`; omit it to be told the latest rig)")); ex.add_argument("--out", help=T("출력 경로(기본 runs/<id>/rigged.glb)", "output path (default runs/<id>/rigged.glb)")); ex.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    ex.add_argument("run_id", nargs="?", type=run_id_arg, help=T("내보낼 리그의 실행 id(`bw status` 로 목록, 생략하면 최근 리그를 알려 준다)", "run id of the rig to export (list with `bw status`; omit it to be told the latest rig)")); ex.add_argument("--out", help=T("출력 경로(기본 runs/<id>/rigged.glb)", "output path (default runs/<id>/rigged.glb)")); ex.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     d = sub.add_parser("demo", help=T("리그 결과를 IK 로 움직인 데모 영상(mp4/gif) 만들기, 토큰 0", "render a demo video (mp4/gif) of the rig moving through its IK controls (0 tokens)"))
-    d.add_argument("run_id", nargs="?", help=T("영상으로 볼 리그의 실행 id(생략하면 최근 리그를 알려 준다)", "run id of the rig to film (omit it to be told the latest rig)")); d.add_argument("--size", type=positive_int("--size", 640), default=640, help=T("영상 한 변 픽셀(기본 640)", "video size in pixels per side (default 640)")); d.add_argument("--frames", type=positive_int("--frames", 96), default=96, help=T("프레임 수(기본 96, 24fps 로 4초)", "number of frames (default 96, 4 s at 24 fps)")); d.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    d.add_argument("run_id", nargs="?", type=run_id_arg, help=T("영상으로 볼 리그의 실행 id(생략하면 최근 리그를 알려 준다)", "run id of the rig to film (omit it to be told the latest rig)")); d.add_argument("--size", type=positive_int("--size", 640), default=640, help=T("영상 한 변 픽셀(기본 640)", "video size in pixels per side (default 640)")); d.add_argument("--frames", type=positive_int("--frames", 96), default=96, help=T("프레임 수(기본 96, 24fps 로 4초)", "number of frames (default 96, 4 s at 24 fps)")); d.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     bm = sub.add_parser("bench", help=T("원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)", "measure joint error in cm against characters that carry their own skeleton (0 tokens)"))
     bm.add_argument("meshes", nargs="+", help=T("GLB/FBX 파일 또는 폴더", "GLB/FBX files or folders"))
     _hint_on_missing(bm, "meshes", T("→ 벤치 자산은 저장소에 없다. 받은 뒤 폴더째로(샘플 4개): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples",
                                      "→ benchmark assets are not in the repository. Fetch them, then pass a folder (4 samples): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples"))
-    bm.add_argument("--run-id", help=T("결과 폴더 이름 runs/<id>(기본 bench-날짜-시각)", "name of the results folder runs/<id> (default bench-<date>-<time>)")); bm.add_argument("--facing", choices=FACING, default="auto", help=facing_help())
+    bm.add_argument("--run-id", type=run_id_arg, help=T("결과 폴더 이름 runs/<id>(기본 bench-날짜-시각)", "name of the results folder runs/<id> (default bench-<date>-<time>)")); bm.add_argument("--facing", choices=FACING, default="auto", help=facing_help())
     _hint_on_choice(bm, "--facing", facing_help)
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid)", "rig type (default humanoid)"))
     _hint_on_choice(bm, "--preset", preset_hint)
@@ -347,10 +359,10 @@ def build_parser() -> argparse.ArgumentParser:
     bm.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     bm.add_argument("--skin", action="store_true", help=T("스키닝 일치도도 잰다(원본 가중치와 대조, 토큰 0)", "also measure skinning agreement with the original weights (0 tokens)"))
     bm.add_argument("--weights", choices=["auto", "proxy"], default=None, help=T("스키닝 방법 강제(A/B 비교용)", "force a skinning method (for A/B comparison)"))
-    st = sub.add_parser("status", help=T("실행 기록 목록 또는 한 실행의 단계·상태", "list runs, or one run's step and status")); st.add_argument("run_id", nargs="?", help=T("한 실행만 자세히(생략하면 목록)", "show one run in detail (omit for the list)"))
+    st = sub.add_parser("status", help=T("실행 기록 목록 또는 한 실행의 단계·상태", "list runs, or one run's step and status")); st.add_argument("run_id", nargs="?", type=run_id_arg, help=T("한 실행만 자세히(생략하면 목록)", "show one run in detail (omit for the list)"))
     u = sub.add_parser("usage", help=T("모델 호출 사용량 장부 요약", "summarise the model-usage ledger")); u.add_argument("--days", type=positive_int("--days", 30), default=7, help=T("며칠 치를 셀지(기본 7)", "how many days back to count (default 7)"))
     dr = sub.add_parser("doctor", help=T("Blender·bpy·codex·kimodo.cpp 가 준비됐는지 확인", "check that Blender or bpy, codex and kimodo.cpp are reachable"))
-    dr.add_argument("--for-issue", nargs="?", const="", metavar="RUN_ID",
+    dr.add_argument("--for-issue", nargs="?", const="", type=run_id_arg, metavar="RUN_ID",
                     help=T("버그 신고에 붙일 덩어리를 찍는다: 버전·OS·이 점검 결과·실행 하나(생략하면 가장 최근)의 state.json·마지막 로그 꼬리. 개인 경로는 ~ 로 바꾼다",
                            "print a block to paste into a bug report: versions, OS, this check, and one run's state.json and log tail (the latest run if omitted). Home paths become ~"))
     sub.add_parser("plugin-path", help=T("Codex 플러그인 폴더 경로 출력", "print the Codex plugin folder"))

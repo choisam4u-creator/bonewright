@@ -380,6 +380,26 @@ class UnquotedPathTests(unittest.TestCase):
         self.assertNotIn("quote", err.getvalue())
 
 
+class RunIdTests(unittest.TestCase):
+    def test_run_ids_cannot_leave_runs_folder(self):
+        """Every run-id argument refuses path separators and '..' (exit 2, with an example); normal ids still parse.
+
+        10/11 11회차: `--run-id ../escape` 가 runs/ 밖에 폴더를 만들 수 있었고 `bw doctor --for-issue ../..` 는 runs/ 밖을 읽었다."""
+        bad_cmds = [["rig", "m.glb", "--run-id", "{}"], ["motion", "--bvh", "w.bvh", "--run-id", "{}"], ["motion", "--bvh", "w.bvh", "--rig", "{}"],
+                    ["bench", "a.glb", "--run-id", "{}"], ["export", "{}"], ["demo", "{}"], ["status", "{}"], ["doctor", "--for-issue", "{}"]]
+        for cmd in bad_cmds:
+            for rid in ("../escape", "a/b", "a\\b", "..", "has space"):
+                err = io.StringIO()
+                with self.subTest(cmd=cmd[0], rid=rid), patch.dict(os.environ, {"BW_LANG": "en"}), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.build_parser().parse_args([c.format(rid) for c in cmd])
+                    self.assertEqual(2, cm.exception.code)
+                    self.assertIn("→ e.g. hero-v2", err.getvalue())
+        for rid in ("rig-20261010-101500", "hero-v2_1.0", "sc_wolf_skeleton", "캐릭터1"):
+            self.assertEqual(rid, cli.build_parser().parse_args(["export", rid]).run_id)
+        self.assertEqual("", cli.build_parser().parse_args(["doctor", "--for-issue"]).for_issue)
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 
