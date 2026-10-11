@@ -243,7 +243,7 @@
 
 ## 2026-10-11 12회차 추가 (공개 준비 기준 — 실측)
 
-- [ ] 저장소 밖 폴더에서 치면 첫 실행 안내(`bw status`·id 없는 `bw export`/`bw demo`·메시 없는 `bw rig`)의 `bw rig tests/assets/quaternius_adventurer.glb …` 가 그대로 안 돈다(상대 경로) → `sample_bvh` 처럼 지금 폴더에 없으면 저장소의 절대 경로(따옴표), 설치본만 있어 파일이 없으면 지금 문구, 시험 — 근거: 10/11 12회차 실측(임시 폴더에서 `bw export` 의 명령을 그대로 치면 "메시가 없다")
+- [x] (10/11 12회차: `cli.first_rig()` — 지금 폴더에 없으면 저장소의 절대 경로, 그때는 "저장소 폴더에서" 를 뺀다, `EmptyHomeFirstCommandTests.test_first_command_runs_outside_the_repository` — 옛 코드에서 실패) 저장소 밖 폴더에서 치면 첫 실행 안내(`bw status`·id 없는 `bw export`/`bw demo`·메시 없는 `bw rig`)의 `bw rig tests/assets/quaternius_adventurer.glb …` 가 그대로 안 돈다(상대 경로) → `sample_bvh` 처럼 지금 폴더에 없으면 저장소의 절대 경로(따옴표), 설치본만 있어 파일이 없으면 지금 문구, 시험 — 근거: 10/11 12회차 실측(임시 폴더에서 `bw export` 의 명령을 그대로 치면 "메시가 없다")
 - [ ] `examples/rig_sample.py` 의 Blender 없음 안내가 `python3 examples/rig_sample.py --table adventurer` 로 저장소 폴더에서만 돈다 → 지금 폴더에 없으면 스크립트의 실제 경로로, 시험 — 근거: 10/11 12회차 실측(`/tmp` 에서 `python3 <저장소>/examples/rig_sample.py`)
 - [ ] `bw motion --text walk --bvh wave.bvh` 가 둘 다 받아 말없이 `--text` 로 가고 kimodo 없음으로 멈춘다 — 어느 출처가 도는지 안 보인다 → argparse 상호 배타(종료 2) + 둘 중 하나 고르는 한 줄, 시험 — 근거: 10/11 12회차 실측
 - [ ] 영어 오류 문구 문법: `--export only apply when retargeting onto a rig`(옵션 하나일 때 "applies") → 단수·복수, 시험 — 근거: 10/11 12회차 실측(`bw motion --bvh x --export`)

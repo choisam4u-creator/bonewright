@@ -79,6 +79,32 @@ class EmptyHomeFirstCommandTests(unittest.TestCase):
                     self.assertTrue(rig.call_args.kwargs["from_skeleton"]); self.assertTrue(rig.call_args.kwargs["no_judge"])
 
 
+    def test_first_command_runs_outside_the_repository(self):
+        """Typed from another folder, the first-run hint names the shipped character by its absolute path.
+
+        10/11 12회차 실측: 임시 폴더에서 `bw export` 가 준 `bw rig tests/assets/…` 를 그대로 치면 '메시가 없다'."""
+        import re
+        cwd = os.getcwd()
+        for lang in ("en", "ko"):
+            for argv in (["bw", "status"], ["bw", "export"], ["bw", "rig"]):
+                with self.subTest(lang=lang, argv=argv), tempfile.TemporaryDirectory() as d:
+                    err = io.StringIO()
+                    try:
+                        os.chdir(d)
+                        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(d)), \
+                                patch.object(sys, "argv", argv), patch("sys.stderr", err), patch("sys.stdout", io.StringIO()):
+                            try:
+                                cli.main()
+                            except SystemExit:
+                                pass
+                    finally:
+                        os.chdir(cwd)
+                    cmd = re.search(r"(bw rig (\S+\.glb) --from-skeleton --no-judge)", err.getvalue())
+                    self.assertIsNotNone(cmd, err.getvalue())
+                    self.assertTrue(Path(cmd[2]).is_absolute() and Path(cmd[2]).is_file(), cmd[2])
+                    self.assertNotIn("repository folder", err.getvalue()); self.assertNotIn("저장소 폴더에서", err.getvalue())
+
+
 class PluginPathTests(unittest.TestCase):
     def test_plugin_path_points_at_real_plugin(self):
         out = io.StringIO()

@@ -118,6 +118,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- The first-run hint (`bw status` with no runs, `bw export` / `bw demo` without an id, `bw rig` without a mesh) gave
+  `bw rig tests/assets/…`, which only works from the repository folder; typed elsewhere it now names the shipped
+  character by its full path.
 - `bw status` kept showing a run as `running` after its process had died (killed, crashed); on macOS and Linux it
   now checks the recorded pid and shows `stopped (process gone)` with where to see why.
 - Ctrl-C during a command printed a Python traceback and left the run `running` in `bw status`; it now prints one
