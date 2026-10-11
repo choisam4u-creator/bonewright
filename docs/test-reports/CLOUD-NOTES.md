@@ -12,7 +12,7 @@ bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # 시
 **한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
 - `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 이미 들어 있어 병합 없음.
 - 기존 1개: `--pin` 형식 오류를 argparse 입력 오류로(종료 1 → 2), `→` 예에 사용자 본 이름.
-- 새 항목 15개 추가(실측 근거, 세 묶음), 그중 13개 + 실측 중 발견 1개 처리:
+- 새 항목 15개 추가(실측 근거, 세 묶음), 그중 14개(남은 1개는 CI — 샘님) + 실측 중 발견 1개 처리. 완료 합계 16:
   - **돈·안전**: `BW_BACKEND` 오타(`Mock`·`moc`)가 말없이 유료 codex 로 돌던 것 → 설정을 읽을 때 BLOCKED. 실행 id 8곳에서 `/ \ ..` 거절(runs/ 밖 쓰기·`--for-issue ../..` 읽기).
   - **설정 검사**: `runs/config.json` 값의 형(나중 TypeError 이던 것)·허용 값(명령줄 선택지와 같게), 형 이름 두 언어, GUIDE Settings 문단.
     이 검사로 `bw doctor`·`--for-issue` 가 통째로 멈추게 된 것을 실측으로 잡아 `[settings]` 한 줄 + 기본값으로 계속(깨진 JSON 은 전부터 그랬다).
