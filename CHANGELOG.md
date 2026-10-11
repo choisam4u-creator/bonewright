@@ -79,6 +79,8 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- A wrong `--preset` (`bw rig x.glb --preset dog`, also `bw bench` and `bw motion`) now adds which value to use:
+  `humanoid` for people, `quadruped` for four-legged animals, `--from-shape` for other body plans.
 - A path with spaces typed without quotes (`bw rig my char.glb`) used to get only argparse's "unrecognized
   arguments: char.glb". When the words join into a file that exists, the error now ends with the same command with
   the path quoted, ready to paste.

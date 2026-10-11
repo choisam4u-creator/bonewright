@@ -240,6 +240,13 @@ def facing_help() -> str:
              "use it when the auto rig comes out facing backwards")
 
 
+def preset_hint() -> str:
+    """틀린 --preset(dog·cat·animal…)에 붙일 한 줄. 선택지 나열만으로는 네 발 짐승이 quadruped 인지 몰랐다(10/11 10회차)."""
+    return T("사람·인간형은 humanoid, 네 발 짐승(개·고양이·늑대)은 quadruped. 다리가 그 밖인 메시(곤충·괴물)는 "
+             "`bw rig <메시> --from-shape`", "humanoid for people and human-like characters, quadruped for four-legged animals "
+             "(dog, cat, wolf). Other body plans (insects, monsters): `bw rig <mesh> --from-shape`")
+
+
 def _hint_on_choice(p: argparse.ArgumentParser, flag: str, hint) -> None:
     """argparse 의 'argument <flag>: invalid choice' 끝에 값 고르는 법 한 줄(종료 2 그대로). hint 는 부를 때 만든다(언어)."""
     orig = p.error
@@ -270,6 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
     _hint_on_unquoted(p)
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh", help=T("리깅할 메시(.glb·.gltf·.fbx·.obj·.blend)", "mesh to rig (.glb, .gltf, .fbx, .obj, .blend)")); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid). 네 발 짐승은 quadruped", "rig type (default humanoid); quadruped for four-legged animals"))
+    _hint_on_choice(r, "--preset", preset_hint)
     r.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
                    help=T("모델 입력 토큰 상한(기본 600,000 — runs/config.json 의 budget.max_input_tokens). 넘으면 멈춘다",
                           "cap on model input tokens (default 600,000 — budget.max_input_tokens in runs/config.json); the run stops when it is reached"))
@@ -292,6 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); m.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     m.add_argument("--rig", help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
     m.add_argument("--preset", choices=["humanoid", "quadruped"], default=None, help=T("리그의 프리셋. 생략하면 리그 실행 기록(rig_stats.json)에서 읽는다", "the rig's preset. Read from the rig run (rig_stats.json) when omitted"))
+    _hint_on_choice(m, "--preset", preset_hint)
     m.add_argument("--bvh-up", choices=["auto", "y", "z"], default="auto", help=T("BVH 의 위 축. auto=머리와 발 위치로 판단(기본). 표준은 y, Blender 가 내보낸 BVH 는 z", "BVH up axis. auto=decide from head and feet (default). Standard BVH is y, Blender-exported BVH is z"))
     m.add_argument("--legs", choices=["auto", "fk", "ik"], default="auto", help=T("다리 전달: auto(소스에 발끝 관절이 있는 다리만 IK) | fk(회전만) | ik(발 IK 로 BVH 발끝을 좇음, 비율 차이 흡수)", "legs: auto (IK only for legs whose source has toe joints) | fk (rotation only) | ik (foot IK follows the BVH feet, absorbs proportion differences)"))
     m.add_argument("--no-roll", action="store_true", help=T("리타겟에서 비틀림(롤)을 옮기지 않는다(방향만, A/B 비교용)", "do not transfer twist (roll), direction only (for A/B comparison)"))
@@ -310,6 +319,7 @@ def build_parser() -> argparse.ArgumentParser:
     bm.add_argument("--run-id", help=T("결과 폴더 이름 runs/<id>(기본 bench-날짜-시각)", "name of the results folder runs/<id> (default bench-<date>-<time>)")); bm.add_argument("--facing", choices=FACING, default="auto", help=facing_help())
     _hint_on_choice(bm, "--facing", facing_help)
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid)", "rig type (default humanoid)"))
+    _hint_on_choice(bm, "--preset", preset_hint)
     bm.add_argument("--rest-pose", choices=["keep", "t"], default=None, help=T("리깅할 때 쉬는 자세를 T 로 굳힌다(포즈 정규화 측정용)", "bake a T rest pose while rigging (to measure pose normalisation)"))
     bm.add_argument("--gt-mesh", help=T("정답 뼈대를 이 파일에서 가져온다(포즈 변형본을 원본 T 포즈와 맞댈 때)", "take the reference skeleton from this file (to compare a posed variant with its original T-pose)"))
     bm.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))

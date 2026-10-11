@@ -303,6 +303,25 @@ class FacingHelpTests(unittest.TestCase):
         self.assertEqual("pos-y", cli.build_parser().parse_args(["rig", "m.glb", "--facing", "pos-y"]).facing)   # 맞는 값은 그대로
 
 
+class PresetChoiceTests(unittest.TestCase):
+    """A wrong `--preset` (dog) says which value four-legged animals take (it only listed the choices).
+
+    10/11 10회차 실측: `bw rig x.glb --preset dog` → "invalid choice: 'dog'" 뿐."""
+
+    def test_bad_preset_names_quadruped(self):
+        import os
+        for lang, want in (("en", "four-legged"), ("ko", "네 발")):
+            for argv in (["rig", "m.glb"], ["bench", "m.glb"], ["motion", "--bvh", "m.bvh"]):
+                err = io.StringIO()
+                with self.subTest(lang=lang, cmd=argv[0]), patch.dict(os.environ, {"BW_LANG": lang}), \
+                        patch.object(sys, "argv", ["bw", *argv, "--preset", "dog"]), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.main()
+                    self.assertEqual(2, cm.exception.code)
+                    last = err.getvalue().strip().splitlines()[-1]
+                    self.assertIn(want, last); self.assertIn("quadruped", last)
+
+
 class UnquotedPathTests(unittest.TestCase):
     """A path with spaces given without quotes gets the quoted command back (argparse only said "unrecognized arguments").
 
