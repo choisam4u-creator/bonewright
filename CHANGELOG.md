@@ -114,6 +114,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A typo in `BW_BACKEND` (`Mock`, `moc`) silently ran the paid `codex` path; any value other than `mock` or `codex`
+  now stops before any model call or Blender step, naming the nearest value.
 - A malformed `--pin` (`--pin foo`, `--pin hand.L=1,2`) exited 1 with a bare line, unlike other input errors; it is
   now an argument error (exit 2) whose `→` line is a pasteable example using your own bone name.
 - Without ffmpeg, `bw demo` suggested `brew install ffmpeg` (Korean) or just "install ffmpeg" (English); it now names

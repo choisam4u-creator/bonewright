@@ -656,6 +656,27 @@ class FfmpegHintTests(unittest.TestCase):
         self.assertNotIn("(brew install ffmpeg)", src)
 
 
+class BackendTypoTests(unittest.TestCase):
+    def test_unknown_backend_stops_before_paid_calls(self):
+        """A BW_BACKEND typo (`Mock`, `moc`) stops with the nearest value instead of silently calling the paid model.
+
+        10/11 11회차: `codex.run_step` 이 `== "mock"` 으로만 비교해 오타가 codex 로 돌았다."""
+        from bonewright import config
+        with tempfile.TemporaryDirectory() as d:
+            for value in ("Mock", "moc", " mock"):
+                with self.subTest(value=value), patch.dict(os.environ, {"BW_BACKEND": value, "BW_LANG": "en"}), \
+                        patch.object(pipeline, "run_script", side_effect=AssertionError("Blender 를 부르면 안 된다")):
+                    with self.assertRaises(pipeline.Blocked) as cm:
+                        pipeline.rig(Path(d), str(Path(__file__).parent / "assets" / "quaternius_adventurer.glb"), quiet=True)
+                    self.assertIn("`BW_BACKEND=mock`", str(cm.exception))
+                    self.assertFalse((Path(d) / "runs").exists())
+            for value in ("mock", "codex"):
+                with patch.dict(os.environ, {"BW_BACKEND": value}):
+                    self.assertIsNone(config.backend_problem())
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertIsNone(config.backend_problem())   # 없으면 codex(기본)
+
+
 class BenchInputTests(unittest.TestCase):
     """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
 

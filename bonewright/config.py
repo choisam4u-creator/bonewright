@@ -77,7 +77,26 @@ def unknown_keys_line(root: Path) -> str | None:
              f"⚠ {len(bad)} unknown key(s) in the settings file, ignored (defaults used): {', '.join(bad)} ({p})\n  → fix the name; the keys are listed under \"Settings (`runs/config.json`)\" in docs/GUIDE.md")
 
 
+BACKENDS = ("codex", "mock")
+
+
+def backend_problem() -> str | None:
+    """BW_BACKEND 가 codex·mock 이 아니면 그 문구(아니면 None). 10/11 11회차: `Mock`·`moc` 같은 오타가 말없이
+    codex(유료 모델 호출)로 돌았다 — 토큰 0 을 기대한 사용자가 돈을 쓴다."""
+    from .i18n import T
+    v = os.environ.get("BW_BACKEND")
+    if v is None or v in BACKENDS:
+        return None
+    near = difflib.get_close_matches(v.strip().lower(), BACKENDS, n=1, cutoff=0.5)
+    fix = f"BW_BACKEND={near[0]}" if near else "BW_BACKEND=mock"
+    return T(f"BW_BACKEND={v!r} 는 모르는 값이다(codex 또는 mock). 그대로 두면 유료 모델 호출로 돌 수 있어 멈춘다\n  → `{fix}` 로 고치거나, 모델 호출이면 BW_BACKEND 를 지운다",
+             f"BW_BACKEND={v!r} is not a known value (codex or mock); stopping rather than risk paid model calls\n  → set `{fix}`, or unset BW_BACKEND for model calls")
+
+
 def load(root: Path, lang: str | None = None) -> dict:
+    if (msg := backend_problem()):
+        from .pipeline import Blocked   # pipeline 이 이 모듈을 import 하므로 여기서
+        raise Blocked(msg)
     cfg = DEFAULTS
     p = root / "runs" / "config.json"
     if p.exists():

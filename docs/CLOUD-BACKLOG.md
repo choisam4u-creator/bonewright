@@ -215,7 +215,7 @@
 
 ## 2026-10-11 11회차 추가 (공개 준비 기준 — 실측)
 
-- [ ] `BW_BACKEND` 오타(`Mock`·`moc`·`mocks`)가 말없이 `codex`(유료 모델 호출)로 돈다 — 토큰 0 을 기대한 사용자가 돈을 쓴다 → `mock`·`codex` 말고는 모델을 부르기 전에 `BLOCKED:` + 가까운 값, `bw doctor` 에도 한 줄, 시험 — 근거: 10/11 11회차 `codex.run_step` 읽기(`os.environ.get("BW_BACKEND", "codex")` 를 `== "mock"` 으로만 비교)
+- [x] (10/11 11회차: `config.backend_problem` 를 `load` 에서 — 모든 명령이 Blender·모델 전에 멈춤, GUIDE 한 문장, `test_errors.BackendTypoTests` — 옛 코드에서 실패) `BW_BACKEND` 오타(`Mock`·`moc`·`mocks`)가 말없이 `codex`(유료 모델 호출)로 돈다 — 토큰 0 을 기대한 사용자가 돈을 쓴다 → `mock`·`codex` 말고는 모델을 부르기 전에 `BLOCKED:` + 가까운 값, `bw doctor` 에도 한 줄, 시험 — 근거: 10/11 11회차 `codex.run_step` 읽기(`os.environ.get("BW_BACKEND", "codex")` 를 `== "mock"` 으로만 비교)
 - [ ] `--run-id ../escape`·`a/b` 가 그대로 `runs/<id>` 경로가 된다 — `runs/` 밖에 폴더를 만들고(Blender 가 있으면), `bw doctor --for-issue ../..` 는 `runs/` 밖을 읽어 이슈 덩어리에 싣는다(종료 1) → 실행 id 는 글자·숫자·`._-` 만, `..` 금지, 모든 명령(rig·motion·bench·export·demo·status·doctor)에서 argparse type 으로, 시험 — 근거: 10/11 11회차 실측
 - [ ] `runs/config.json` 값의 형(型) 검사가 없다: `{"budget": {"max_input_tokens": "lots"}}`·`{"rig": "t"}` 는 첫 모델 호출·rig 단계에서 TypeError(예상 못 한 오류)로 떨어진다 → 읽을 때 기본값과 형을 대조해 키·기대 형·기본값을 대는 `BLOCKED:`, 시험 — 근거: 10/11 11회차 실측·`Run.call` 읽기
 - [ ] `runs/config.json` 의 허용 값 검사가 없다: `{"lang": "fr"}`·`{"rig": {"rest_pose": 5}}` 가 받아들여진다(명령줄의 `--lang fr` 은 argparse 가 막는다) → 명령줄과 같은 선택지로 확인, 시험 — 근거: 10/11 11회차 실측

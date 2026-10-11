@@ -118,7 +118,9 @@ bw rig character.glb          # rig it; add --from-skeleton if the file already 
 
 Developed on macOS with Blender 5.2 LTS and Codex CLI 0.155; Linux is covered by CI, Windows only by the Blender-free tests.
 Everything except the `fit` and `judge` steps costs zero model tokens; `BW_BACKEND=mock` runs the whole pipeline
-deterministically with no model calls at all, which is what the tests and the benchmark use.
+deterministically with no model calls at all, which is what the tests and the benchmark use. Only `mock` and
+`codex` (the default when unset) are accepted: any other value, a typo such as `Mock` included, stops before any model
+call instead of quietly falling back to the paid path.
 
 ## Which flag do I want?
 
