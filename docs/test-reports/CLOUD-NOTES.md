@@ -24,7 +24,8 @@ bw rig x.glb --facing up; bw rig x.glb --preset dog; echo '<html>' > /tmp/x.bvh 
 - `python3 -m unittest`(3.11, 블렌더 없음): 219개 중 16개 건너뜀, 나머지 통과. 커밋마다 OK 일 때만 커밋.
 - bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **219개 모두 통과, 건너뜀 0**(148초).
 - 새 시험은 모두 옛 코드(bonewright/ 만 되돌림)에서 실패 확인. `scripts/check_license_boundary.py` OK. 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
-- CI: 푸시마다 unit(3.11·3.13)·unit-windows 성공. blender 잡은 기록 시점에 실행 중(in_progress, 몇 분 걸리는 bpy 설치·시험) — pending 으로 멈춘 것은 아니다.
+- CI: 코드 커밋 5개(마지막 b7c061c 까지)는 푸시마다 unit(3.11·3.13)·unit-windows·blender 모두 성공 — blender 잡은 pending 으로 멈추지 않았다.
+- CI 막힘: 그 뒤 기록 전용 커밋(81880b8·5005720)의 잡 4개는 러너를 받지 못하고(runner_id 0, 로그 404) 1~2초 만에 failure/cancelled — 코드 실패가 아니라 Actions 쪽(비공개 저장소 사용 시간·결제 한도로 추정, 결제는 손대지 않음). 샘님이 Settings → Billing 의 Actions 사용량을 보고 다시 돌리면 된다.
 
 **완료 수·추가 수**: 완료 5(기존 1 + 새 4) · 추가 5 · 남은 [ ] 2(`spikes/` 라이선스 — 샘님 결정 대기, `--pin` 형식 오류 꼴·종료 코드 — 다음 회차).
 
