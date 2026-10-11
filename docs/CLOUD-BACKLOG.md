@@ -234,7 +234,7 @@
 
 ## 2026-10-11 11회차 셋째 묶음 (공개 준비 기준 — 실측)
 
-- [ ] Ctrl-C(KeyboardInterrupt) 처리가 없다(`grep KeyboardInterrupt` 0건) — `bw rig` 를 끊으면 트레이스백이 찍히고 `state.json` 은 "running" 으로 남는다 → 한 줄("멈춤 — 같은 명령으로 다시")·종료 130·state 를 "interrupted" 로, 시험 — 근거: 10/11 11회차 코드 읽기
+- [x] (10/11 11회차: `cli.main` 이 KeyboardInterrupt 를 받아 `Run.current.interrupted()`·한 줄·130, `test_cli.InterruptTests` — 옛 코드에서 실패) Ctrl-C(KeyboardInterrupt) 처리가 없다(`grep KeyboardInterrupt` 0건) — `bw rig` 를 끊으면 트레이스백이 찍히고 `state.json` 은 "running" 으로 남는다 → 한 줄("멈춤 — 같은 명령으로 다시")·종료 130·state 를 "interrupted" 로, 시험 — 근거: 10/11 11회차 코드 읽기
 - [ ] `bw status` 가 프로세스가 이미 죽은 실행을 계속 "running" 으로 보인다(`state.json` 에 pid 가 있는데 보지 않는다) → pid 가 없으면 "멈춤(프로세스 없음)"·`→ why` 줄, 시험 — 근거: 10/11 11회차 실측(`{"status":"running","pid":999999}` → "old: weights running")
 - [ ] `bw export r1 --out`(값 없이)에 예가 없다 — 11회차 `_hint_on_missing_value` 는 기본값이 None 인 `--out` 을 못 다룬다 → `--out hero.glb`(또는 폴더) 예, `--text`·`--bvh`·`--map`·`--targets`·`--gt-mesh` 도 같은 식, 시험 — 근거: 10/11 11회차 실측
 - [ ] GUIDE 에 실행 id 규칙(글자·숫자·`. _ -`, 11회차부터 `/`·`..` 거절)과 기본 id(`rig-날짜-시각`)가 없다 → "Install and run" 의 `bw status` 문단에 한 줄, 시험(문서의 규칙과 `cli.run_id_arg` 대조) — 근거: 10/11 11회차 `run_id_arg` 추가, GUIDE 에 규칙 0건

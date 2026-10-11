@@ -200,8 +200,18 @@ class Run:
         self.logs = self.dir / "logs"
         self.dir.mkdir(parents=True, exist_ok=True)
         self.usage: list[dict] = []
+        self.step: str | None = None
+        Run.current = self   # Ctrl-C 를 받은 cli 가 어느 실행·단계였는지 적을 수 있게(10/11 11회차)
+
+    current: "Run | None" = None
+
+    def interrupted(self) -> None:
+        """Ctrl-C: 'running' 으로 남으면 `bw status` 가 계속 도는 중이라 한다."""
+        if self.step:
+            self.state(self.step, "interrupted")
 
     def state(self, step: str, status: str, **extra) -> None:
+        self.step = step
         atomic_write(self.dir / self.state_file, json.dumps({"step": step, "status": status, "at": time.time(), "pid": os.getpid(),
                                                           "input_tokens": self.tokens()["input"], **extra}, ensure_ascii=False, indent=2))
 

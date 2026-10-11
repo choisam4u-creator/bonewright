@@ -426,6 +426,14 @@ def main() -> int:
         return code
     except BrokenPipeError:
         return _closed_stdout()
+    except KeyboardInterrupt:   # Ctrl-C 는 사용자가 멈춘 것 — 트레이스백 대신 한 줄, state 는 'interrupted'(10/11 11회차)
+        run = pipeline.Run.current
+        if run is not None:
+            with contextlib.suppress(OSError):
+                run.interrupted()
+        where = T(f" ({run.run_id}, 단계 {run.step})", f" ({run.run_id}, step {run.step})") if run is not None and run.step else ""
+        print(T(f"\n멈춤{where} — 같은 명령을 다시 돌리면 처음부터 한다", f"\nstopped{where} — run the same command again to start over"), file=sys.stderr)
+        return 130
 
 
 def home_problem() -> tuple[str, str] | None:

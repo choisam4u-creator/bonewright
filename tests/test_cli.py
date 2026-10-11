@@ -443,6 +443,26 @@ class MissingValueTests(unittest.TestCase):
                     cli.build_parser().parse_args(argv[:-1] + want.split())   # 안내한 값은 그대로 받아들여진다
 
 
+class InterruptTests(unittest.TestCase):
+    def test_ctrl_c_is_one_line_and_marks_the_run(self):
+        """Ctrl-C during `bw rig` prints one line (no traceback), exits 130 and marks the run `interrupted`, not `running`."""
+        import json, os
+        with tempfile.TemporaryDirectory() as t:
+            def fake_rig(root, *a, **k):
+                from bonewright.config import DEFAULTS
+                r = cli.pipeline.Run(Path(t), "r1", DEFAULTS, quiet=True)
+                r.state("weights", "running")
+                raise KeyboardInterrupt
+            err = io.StringIO()
+            with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(cli, "ROOT", Path(t)), \
+                    patch.object(sys, "argv", ["bw", "rig", "m.glb"]), patch.object(cli.pipeline, "rig", fake_rig), \
+                    patch.object(cli.pipeline.Run, "current", None), patch("sys.stderr", err):
+                self.assertEqual(130, cli.main())
+            state = json.loads((Path(t) / "runs" / "r1" / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(("weights", "interrupted"), (state["step"], state["status"]))
+        self.assertIn("stopped (r1, step weights)", err.getvalue()); self.assertNotIn("Traceback", err.getvalue())
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 
