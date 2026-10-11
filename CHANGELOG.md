@@ -118,6 +118,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `examples/rig_sample.py` without Blender suggested `python3 examples/rig_sample.py --table adventurer`, which fails
+  outside the repository folder; run from elsewhere it now gives the script's full path.
 - The first-run hint (`bw status` with no runs, `bw export` / `bw demo` without an id, `bw rig` without a mesh) gave
   `bw rig tests/assets/…`, which only works from the repository folder; typed elsewhere it now names the shipped
   character by its full path.

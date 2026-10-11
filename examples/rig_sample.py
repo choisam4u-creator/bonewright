@@ -147,12 +147,14 @@ def motion_and_report(name: str) -> Path:
 def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     from bonewright import blender, pipeline
     if not (blender.find_blender({}) or blender.has_bpy_module()):
+        here = Path(__file__).resolve()   # 저장소 폴더 밖에서 돌렸으면 이 파일의 실제 경로로(10/11 12회차)
+        me = "examples/rig_sample.py" if Path("examples/rig_sample.py").resolve() == here else (f'"{here}"' if " " in str(here) else str(here))
         raise SystemExit(T("Blender 가 없다 — Blender 5.2 LTS 를 설치하거나 `pip install bpy==5.2.2`(파이썬 3.13), "
                            "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. Blender 없이 본 표만 보려면: "
-                           "python3 examples/rig_sample.py --table adventurer",
+                           f"python3 {me} --table adventurer",
                            "Blender not found — install Blender 5.2 LTS or `pip install bpy==5.2.2` (Python 3.13), "
                            "or put the executable's path in BW_BLENDER. For the bone table alone, without Blender: "
-                           "python3 examples/rig_sample.py --table adventurer"))
+                           f"python3 {me} --table adventurer"))
     os.environ["BW_BACKEND"] = "mock"
     os.environ.setdefault("BW_NO_RENDER", "1")
     OUT.mkdir(parents=True, exist_ok=True)

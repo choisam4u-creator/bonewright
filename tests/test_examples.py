@@ -93,6 +93,24 @@ class ExampleMessageTests(unittest.TestCase):
             self.assertEqual(0, r.returncode, r.stderr)
             self.assertIn("UpperArm.L", r.stdout)
 
+    def test_no_blender_hint_runs_from_another_folder(self):
+        """Run from outside the repository, the no-Blender hint names the script by its real path, and that runs.
+
+        10/11 12회차 실측: `/tmp` 에서 돌리면 안내의 `python3 examples/rig_sample.py …` 가 '파일이 없다'."""
+        import subprocess
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d:
+            try:
+                os.chdir(d)
+                msg = self._no_blender_message("en")
+            finally:
+                os.chdir(cwd)
+            cmd = re.search(r"python3 (\S+rig_sample\.py) --table adventurer$", msg)
+            self.assertIsNotNone(cmd, msg)
+            self.assertTrue(Path(cmd[1]).is_absolute(), cmd[1])
+            r = subprocess.run([sys.executable, cmd[1], "--table", "adventurer"], cwd=d, capture_output=True, text=True, timeout=60)
+            self.assertEqual(0, r.returncode, r.stderr); self.assertIn("UpperArm.L", r.stdout)
+
     def test_missing_file_follows_screen_language(self):
         from unittest import mock
         with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(sys, "argv", ["rig_sample.py", "no/such.glb"]):
