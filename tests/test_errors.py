@@ -506,6 +506,22 @@ class ReportPathTests(unittest.TestCase):
             self.assertEqual("~" + os.sep + os.path.join("models", "hero.glb"), pipeline._shown(mesh, run))
             self.assertEqual(str(Path(d) / "alicex.glb"), pipeline._shown(Path(d) / "alicex.glb", run))   # 이름이 겹칠 뿐인 형제 경로는 그대로
 
+    def test_command_path_is_pasteable(self):
+        """Paths put inside a suggested `bw rig … --targets …` are relative to the project folder, or quoted with spaces.
+
+        10/11 9회차: 거절 안내·report.md 의 재실행 명령이 메시 경로를 알면서 `bw rig <mesh>` 자리표시를 줬다."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            self.assertEqual("models/hero.glb", pipeline._arg(root / "models" / "hero.glb", root))
+            self.assertEqual('"my models/hero.glb"', pipeline._arg(root / "my models" / "hero.glb", root))
+            with patch.object(sys, "argv", ["bw", "rig", "models/hero.glb", "--targets", "runs/r1/targets.json"]), \
+                    patch.object(cli.pipeline, "rig", return_value="runs/r1/report.md") as rig, \
+                    patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+                self.assertEqual(0, cli.main())
+            self.assertEqual("runs/r1/targets.json", rig.call_args.kwargs["targets_file"])
+        src = Path(pipeline.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("bw rig <mesh> --targets", src)   # 값이 있는 곳에 자리표시를 다시 넣지 않는다
+
     def test_symlinked_home_is_hidden_too(self):
         """report.md hides the home even when it is a symlink and the mesh path was resolved.
 

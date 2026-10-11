@@ -142,6 +142,12 @@ def _shown(path: str | Path, base: Path) -> str:
         return s
 
 
+def _arg(path: str | Path, base: Path) -> str:
+    """명령에 넣을 경로: `_shown` 과 같고(홈은 `~`), 공백이 있으면 따옴표로 감싼다 — 안내 명령을 그대로 붙여 넣어 돌게."""
+    s = _shown(path, base)
+    return f'"{s}"' if any(c.isspace() for c in s) else s
+
+
 def _log(quiet: bool, msg: str) -> None:
     if not quiet:
         print(f"[bw {time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
@@ -358,9 +364,9 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                 pass   # 추정이 실패해도 메타리그 기본값은 남긴다
             atomic_write(r.dir / "targets_draft.json", json.dumps(draft, ensure_ascii=False, indent=2))
             hint += T(f"\n  손으로 고칠 출발점을 남겼다: {r.dir / 'targets_draft.json'} (메타리그를 이 메시 크기로 맞춘 것)"
-                      f"\n  관절을 옮긴 뒤 `bw rig <mesh> --targets {r.dir / 'targets_draft.json'}` 로 돌리면 토큰 0 이다",
+                      f"\n  관절을 옮긴 뒤 `bw rig {_arg(mesh, root)} --targets {_arg(r.dir / 'targets_draft.json', root)}` 로 돌리면 토큰 0 이다",
                       f"\n  a starting point to edit by hand: {r.dir / 'targets_draft.json'} (the metarig scaled to this mesh)"
-                      f"\n  move the joints, then `bw rig <mesh> --targets {r.dir / 'targets_draft.json'}` costs 0 tokens")
+                      f"\n  move the joints, then `bw rig {_arg(mesh, root)} --targets {_arg(r.dir / 'targets_draft.json', root)}` costs 0 tokens")
         except Exception as e:   # 초안은 부가 기능이다 — 실패해도 거절 이유는 그대로 알린다
             hint += T(f"\n  (목표표 초안을 만들지 못했다: {e})", f"\n  (could not write the targets draft: {e})")
         raise Blocked(T(f"이 메시는 {preset} 프리셋에 맞지 않는다(토큰 0 으로 중단):", f"this mesh does not fit the {preset} preset (stopped, 0 tokens):") +
@@ -504,7 +510,7 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  f" · ⚠ bones crossing gaps between parts {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}") if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
-              f"- targets: `runs/{run_id}/targets.json` " + T(f"(손으로 고쳐 `bw rig <mesh> --targets runs/{run_id}/targets.json` 로 토큰 0 재실행)", f"(edit by hand and rerun with `bw rig <mesh> --targets runs/{run_id}/targets.json`, 0 tokens)")
+              f"- targets: `runs/{run_id}/targets.json` " + T(f"(손으로 고쳐 `bw rig {_arg(mesh, root)} --targets runs/{run_id}/targets.json` 로 토큰 0 재실행)", f"(edit by hand and rerun with `bw rig {_arg(mesh, root)} --targets runs/{run_id}/targets.json`, 0 tokens)")
               + (T(f" · 고정 {sorted(pins)}", f" · pinned {sorted(pins)}") if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
