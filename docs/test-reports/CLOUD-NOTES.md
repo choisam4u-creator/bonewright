@@ -1,11 +1,36 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/11 10회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/11 11회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 219개, 건너뜀 0
-cp tests/assets/quaternius_adventurer.glb "/tmp/my char.glb" && bw rig /tmp/my char.glb --from-skeleton --no-judge   # 끝 줄에 따옴표 친 명령
-bw rig x.glb --facing up; bw rig x.glb --preset dog; echo '<html>' > /tmp/x.bvh && bw motion --bvh /tmp/x.bvh   # 고르는 법 · quadruped · BVH 가 아니다
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 234개, 건너뜀 0
+BW_BACKEND=Mock bw rig tests/assets/quaternius_adventurer.glb; bw rig x.glb --run-id ../x; bw rig x.glb --pin hand.L=1,2   # 셋 다 종료 2 + → 한 줄(유료 호출·runs 밖 쓰기 없음)
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # 시작 줄 "0 model calls", 도중 Ctrl-C → "stopped (…, step …)" 종료 130, bw status 에 interrupted
 ```
+
+## 2026-10-11 (11회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 이미 들어 있어 병합 없음.
+- 기존 1개: `--pin` 형식 오류를 argparse 입력 오류로(종료 1 → 2), `→` 예에 사용자 본 이름.
+- 새 항목 15개 추가(실측 근거, 세 묶음), 그중 13개 + 실측 중 발견 1개 처리:
+  - **돈·안전**: `BW_BACKEND` 오타(`Mock`·`moc`)가 말없이 유료 codex 로 돌던 것 → 설정을 읽을 때 BLOCKED. 실행 id 8곳에서 `/ \ ..` 거절(runs/ 밖 쓰기·`--for-issue ../..` 읽기).
+  - **설정 검사**: `runs/config.json` 값의 형(나중 TypeError 이던 것)·허용 값(명령줄 선택지와 같게), 형 이름 두 언어, GUIDE Settings 문단.
+    이 검사로 `bw doctor`·`--for-issue` 가 통째로 멈추게 된 것을 실측으로 잡아 `[settings]` 한 줄 + 기본값으로 계속(깨진 JSON 은 전부터 그랬다).
+  - **입력**: `--targets` 파일 모양, 값 없이 끝난 옵션에 선택지·예(`--facing`·`--size`·`--out`·`--bvh` …), `BW_HOME` 이 파일·없는 폴더.
+  - **보이기**: `bw doctor` 에 모델 호출 여부 한 줄, `bw rig` 시작 줄에 모델 호출 수, Ctrl-C 한 줄·종료 130·state interrupted,
+    `bw status` 가 죽은 프로세스의 running 을 "멈춤(프로세스 없음)" 으로(POSIX 만 — Windows 의 os.kill 은 프로세스를 끝낸다), GUIDE 에 실행 id 규칙.
+- 시험 수 219 → 234(블렌더 16 그대로).
+
+**막힌 것 / 샘님 결정**
+- **CI**: 10/11 02:49 이후 모든 run 이 러너 없이 1~3초 만에 실패한다(잡 로그 404, 단계 0개 — 코드와 무관). 비공개 저장소 Actions 사용량·지출 한도로 보인다.
+  결제는 손대지 않았다. Settings → Billing and plans → Actions 를 봐 주시면 된다. 그동안 근거는 아래 로컬 시험(bpy 포함).
+- `spikes/` 라이선스(10/9 3회차부터) — 그대로.
+- 설정 문구의 "`--from-skeleton` 0 tokens" 결정 대기와 어긋나지 않게, 새 doctor·시작 줄 문구는 "--from-skeleton·--targets 에 --no-judge 를 함께" 라고 적었다.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 234개 중 16개 건너뜀, 나머지 통과. 커밋마다 OK 일 때만 커밋.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **234개 모두 통과, 건너뜀 0**(145초).
+- 새 시험은 고치기 전 코드(해당 파일만 되돌림)에서 실패하는 것을 확인.
 
 ## 2026-10-11 (10회차)
 
