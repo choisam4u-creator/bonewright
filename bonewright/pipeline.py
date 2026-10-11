@@ -64,6 +64,29 @@ def need_mesh_bytes(p: Path) -> None:
                             "renamed to .glb. Export it again as glTF Binary (.glb), e.g. from Blender"))
 
 
+def metarig_names(preset: str) -> list[str]:
+    """Rigify 메타리그의 본 이름 전부(Blender 없이). 목록은 bonewright/metarig_names.json — Blender 시험이 실제 메타리그와 대조한다."""
+    return json.loads((Path(__file__).parent / "metarig_names.json").read_text(encoding="utf-8")).get(preset, [])
+
+
+def need_pin_names(pins: dict, preset: str) -> None:
+    """--pin 의 본 이름을 Blender 전에 메타리그와 대조한다. 10/10 8회차 실측: 없는 이름은 Blender 까지 가서 말없이 무시됐다."""
+    import difflib
+    names = metarig_names(preset)
+    bad = [n for n in pins if n not in names]
+    if not names or not bad:
+        return
+    lines = []
+    for n in bad:   # 대소문자만 다른 이름(hand.l → hand.L)을 맨 앞에
+        near = [m for m in names if m.lower() == n.lower()]
+        near += [m for m in difflib.get_close_matches(n, names, n=3, cutoff=0.5) if m not in near]
+        lines.append(f"  - {n}" + (T(f" → 가까운 이름: {', '.join(near[:3])}", f" → closest: {', '.join(near[:3])}") if near else ""))
+    listed = "\n".join(lines)
+    ex = "spine.004" if preset == "quadruped" else "hand.L"
+    raise Blocked(T(f"--pin 의 본 이름이 {preset} 메타리그에 없다:\n{listed}\n  → 메타리그 이름을 쓴다(대소문자·.L/.R 까지 같게). 예: --pin {ex}=0.6,0,1.3",
+                    f"--pin bone not in the {preset} metarig:\n{listed}\n  → use a metarig bone name (case and .L/.R must match). e.g. --pin {ex}=0.6,0,1.3"))
+
+
 def need_rig(root: Path, run_id: str) -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다."""
     blend = root / "runs" / run_id / "02_rigged.blend"
@@ -237,6 +260,14 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         except ValueError as e:
             raise Blocked(T(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라",
                             f"--targets file is not JSON: {targets_file} ({e})\n  → check for a broken comma or bracket from editing"))
+    if pins and not from_shape:   # 모양 리그는 메타리그를 쓰지 않는다(본 이름이 실행마다 다르다)
+        try:
+            need_pin_names(pins, preset)
+        except Blocked as e:
+            if not from_skeleton:
+                raise
+            # --from-skeleton 은 메타리그에 못 맞추면 원본 본 이름 그대로의 일반 리그로 간다 — 그 이름일 수 있어 막지 않고 알린다
+            _log(quiet, "  ⚠ " + str(e).splitlines()[0] + T(" (일반 리그로 가면 원본 본 이름으로 쓰인다)", " (used as a source bone name if this becomes a generic rig)"))
     need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
     r = Run(root, run_id, cfg, quiet)
     _log(quiet, f"rig {run_id} · {preset} · {mesh}")

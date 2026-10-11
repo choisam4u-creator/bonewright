@@ -14,4 +14,5 @@ bones = {b.name: {"head": [round(c * s, 3) for c in b.head_local] , "tail": [rou
          for b in meta.data.bones if b.name.split(".")[0] in keep and "face" not in b.name}
 for v in bones.values():
     v["head"][2] += A.get("ground_z", 0); v["tail"][2] += A.get("ground_z", 0)
-done({"bones": bones, "scale": round(s, 4), "all_bones": len(meta.data.bones)}, A["result"])
+done({"bones": bones, "scale": round(s, 4), "all_bones": len(meta.data.bones),
+      "names": sorted(b.name for b in meta.data.bones)}, A["result"])   # bonewright/metarig_names.json 대조용(--pin 이름 검사)

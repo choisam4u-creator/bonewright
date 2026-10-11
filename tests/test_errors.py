@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from bonewright import cli, pipeline
+from tests._marks import requires_blender
 
 
 class InputErrorTests(unittest.TestCase):
@@ -411,6 +412,45 @@ class MissingToolTests(unittest.TestCase):
                 codex.run_step("fit", "prompt", {}, {}, {"model": "m"}, {}, self.root / "logs")
         for route in ("--from-skeleton --no-judge", "--from-shape --no-judge", "BW_BACKEND=mock"):
             self.assertIn(route, str(cm.exception))
+
+class PinNameTests(unittest.TestCase):
+    """`--pin` with a bone name the metarig does not have stops before Blender with the closest names.
+
+    10/10 8회차 실측: `--pin nosuchbone=0,0,1` 이 Blender 단계까지 갔고, fit_generate 는 없는 이름을 말없이 건너뛴다."""
+    MESH = MissingToolTests.MESH; setUp = MissingToolTests.setUp; run_bw = MissingToolTests.run_bw
+
+    def test_typo_names_the_closest_bone(self):
+        """A lower-case side (`hand.l`) is named with `hand.L`, before the Blender check, and no run folder is made."""
+        code, err = self.run_bw("rig", str(self.MESH), "--no-judge", "--run-id", "p1", "--pin", "hand.l=0.6,0,1.3")
+        self.assertEqual(2, code)
+        self.assertIn("--pin bone not in the humanoid metarig", err)
+        self.assertIn("closest: hand.L", err)
+        self.assertNotIn("Blender not found", err)
+        self.assertFalse((self.root / "runs" / "p1").exists())
+
+    def test_quadruped_uses_the_wolf_names(self):
+        """The wolf metarig has front_thigh.L but no upper_arm.L — the check follows --preset."""
+        code, err = self.run_bw("rig", str(self.MESH), "--preset", "quadruped", "--no-judge", "--pin", "upper_arm.L=0,0,1")
+        self.assertEqual(2, code); self.assertIn("quadruped metarig", err)
+        code, err = self.run_bw("rig", str(self.MESH), "--preset", "quadruped", "--no-judge", "--pin", "front_thigh.L=0,0,1")
+        self.assertIn("Blender not found", err); self.assertNotIn("--pin bone", err)
+
+    def test_known_name_and_from_skeleton_go_on(self):
+        """A real name passes; under --from-skeleton an unknown name only warns (it may be a source bone of a generic rig)."""
+        code, err = self.run_bw("rig", str(self.MESH), "--no-judge", "--pin", "spine.004=0,0,1.42")
+        self.assertIn("Blender not found", err)
+        code, err = self.run_bw("rig", str(self.MESH), "--no-judge", "--from-skeleton", "--pin", "Hips=0,0,1")
+        self.assertIn("Blender not found", err)
+        self.assertIn("--pin bone not in the humanoid metarig", err)
+
+    @requires_blender
+    def test_names_match_blender(self):
+        """bonewright/metarig_names.json is the same as the Rigify metarigs in this Blender."""
+        from bonewright import blender, pipeline
+        for preset in ("humanoid", "quadruped"):
+            got = blender.run_script("metarig_dump", {"preset": preset, "height": 1.8, "ground_z": 0.0}, {}, self.root / "logs")
+            self.assertEqual(got["names"], pipeline.metarig_names(preset), preset)
+
 
 class ReportPathTests(unittest.TestCase):
     """report.md 는 이슈에 그대로 붙인다(템플릿 'A rig came out wrong'). 실행 폴더 안 파일은 상대 경로로,
