@@ -1,11 +1,38 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/11 11회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/11 12회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 234개, 건너뜀 0
-BW_BACKEND=Mock bw rig tests/assets/quaternius_adventurer.glb; bw rig x.glb --run-id ../x; bw rig x.glb --pin hand.L=1,2   # 셋 다 종료 2 + → 한 줄(유료 호출·runs 밖 쓰기 없음)
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # 시작 줄 "0 model calls", 도중 Ctrl-C → "stopped (…, step …)" 종료 130, bw status 에 interrupted
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 239개, 건너뜀 0
+(cd /tmp && BW_HOME=$(mktemp -d) bw status)   # 끝 줄의 `bw rig <저장소 절대 경로>/tests/assets/… --from-skeleton --no-judge` 를 /tmp 에서 그대로 쳐서 리그가 나오는지
+bw motion --text walk --bvh examples/wave.bvh; bw motion --bvh examples/wave.bvh --export   # 종료 2 + 고르는 법 · "--export: used only when …"
 ```
+
+## 2026-10-11 (12회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- **같은 브랜치에 다른 세션(11회차, session_01Sbdo…)이 동시에 돌고 있었다.** 시작 때 고른 백로그 4개(`--targets` 모양·doctor 모델 호출 줄·rig 시작 줄·형 이름 두 언어)를
+  그쪽이 30초 간격으로 먼저 푸시해, 내가 만든 `--targets` 커밋(중복)은 버리고 그쪽이 6분 조용해질 때까지 기다렸다.
+- 그 뒤 남은 [ ] 가 2개(`spikes/` 라이선스·CI — 둘 다 샘님)라 빈 BW_HOME·저장소 밖 폴더에서 명령을 쳐 보고 **새 항목 5개** 추가, 처리:
+  - 첫 실행 안내(`bw status`·id 없는 `bw export`/`bw demo`·메시 없는 `bw rig`)의 `bw rig tests/assets/…` 가 저장소 밖에서는 "메시가 없다" → 지금 폴더에 없으면 저장소 캐릭터의 절대 경로.
+  - `examples/rig_sample.py` 의 Blender 없음 안내 `--table` 명령도 같은 문제 → 스크립트의 실제 경로(그 폴더에서 돌려 보는 시험).
+  - `bw motion --text … --bvh …` 가 말없이 `--text` 로 가 kimodo 없음으로 멈춤 → 상호 배타(종료 2) + 고르는 법(샘플 BVH).
+  - 영어 문구 "`--export only apply`" → "`--export: used only when retargeting onto a rig`"(옵션 수와 상관없는 꼴).
+  - bpy 안내가 지금 파이썬이 3.13 이 아니어도 `pip install bpy==5.2.2` → 이 항목은 다른 세션이 1분 먼저 푸시(81f6ea2), 내 같은 커밋은 버림.
+- 사용자 체감: 고친 넷 모두 "안내를 그대로 치면 도는가" 를 시험이 실제로 쳐 본다(저장소 밖 폴더 포함). 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 239개 중 16개 건너뜀, 나머지 통과.
+- bpy 5.2.2 venv(Python 3.13, 스크래치패드에 새로 만듦) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **239개 모두 통과, 건너뜀 0**(156초).
+- 새 시험은 모두 고치기 전 코드에서 실패 확인. 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
+- 실수 한 번: 49ca516(applies/apply)은 T() 자리표시 짝·docstring 영어 시험 2개를 깬 채 푸시됐다(`| tail -1` 의 종료 코드를 봄). 바로 다음 48609ad 에서 고침 — 그 뒤로는 unittest 종료 코드로만 커밋.
+- CI: blender 잡은 pending 이 아니라 10/11 02:49 이후 모든 잡처럼 러너 없이 1~2초 만에 실패(단계 0개) — 코드 무관, 비공개 저장소 Actions 사용량·지출 한도 추정(11회차 백로그 [ ], 샘님 Settings → Billing).
+
+**완료 수·추가 수**: 완료 4(내 커밋, + 같은 회차 묶음의 다섯째는 다른 세션) · 추가 5 · 남은 [ ] 2(`spikes/` 라이선스·CI 러너 — 둘 다 샘님).
+
+**막힌 것 / 다음**
+- 같은 시각에 두 세션이 `claude/cloud-work` 를 함께 쓰면 같은 항목을 겹쳐 한다. 예약이 겹치지 않게(한 회차 끝난 뒤 다음) 샘님이 일정을 봐 주시면 좋다.
+- 작업 지시는 `claude/cloud-work`, 세션 기본 브랜치는 `claude/cloud-work-hz5hjr` — PR #10 은 `claude/cloud-work`.
 
 ## 2026-10-11 (11회차)
 
