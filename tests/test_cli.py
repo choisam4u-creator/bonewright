@@ -31,6 +31,33 @@ class PinInputTests(unittest.TestCase):
                          {"hand.L": {"head": [0.0, 0.0, 1.0], "tail": [1.0, 0.0, 1.0]}})
 
 
+class EmptyHomeFirstCommandTests(unittest.TestCase):
+    """With no runs yet, `bw status` and `bw demo`/`bw export` without an id give the README's first command as pasted.
+
+    10/11 9회차 실측: 빈 BW_HOME 의 `bw status` 는 "start with `bw rig <mesh>`" 자리표시였고,
+    7회차에 고친 인자 없는 `bw rig` 의 안내(저장소 캐릭터로 그대로 도는 명령)와 달랐다."""
+
+    def test_first_command_runs_as_pasted(self):
+        import re
+        repo = Path(__file__).resolve().parents[1]
+        readme = (repo / "README.md").read_text(encoding="utf-8")
+        for lang in ("en", "ko"):
+            for argv in (["bw", "status"], ["bw", "demo"], ["bw", "export"]):
+                with self.subTest(lang=lang, argv=argv), tempfile.TemporaryDirectory() as d:
+                    err = io.StringIO()
+                    with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(d)), \
+                            patch.object(sys, "argv", argv), patch("sys.stderr", err), patch("sys.stdout", io.StringIO()):
+                        cli.main()
+                    cmd = re.search(r"`(bw rig (\S+\.glb)[^`]*)`", err.getvalue())
+                    self.assertIsNotNone(cmd, err.getvalue())
+                    self.assertIn(cmd[1], readme)
+                    self.assertTrue((repo / cmd[2]).is_file(), cmd[2])
+                    with patch.object(sys, "argv", cmd[1].split()), patch.object(cli.pipeline, "rig", return_value="runs/r/report.md") as rig, \
+                            patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+                        self.assertEqual(0, cli.main())
+                    self.assertTrue(rig.call_args.kwargs["from_skeleton"]); self.assertTrue(rig.call_args.kwargs["no_judge"])
+
+
 class PluginPathTests(unittest.TestCase):
     def test_plugin_path_points_at_real_plugin(self):
         out = io.StringIO()

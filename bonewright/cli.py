@@ -168,6 +168,9 @@ def report_unexpected(e: Exception, since: float, run_id: str | None) -> None:
             " template and paste this output and what `bw doctor --for-issue` prints"), file=sys.stderr)
 
 
+FIRST_RIG = "bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge"   # README "First run" 첫 줄 — 저장소 폴더에서 그대로 돈다
+
+
 def _hint_on_missing(p: argparse.ArgumentParser, arg: str, hint: str) -> None:
     """argparse 의 '…required: <arg>' 한 줄 끝에 다음 할 일을 붙인다(종료 2·사용법 줄은 그대로)."""
     orig = p.error
@@ -241,8 +244,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--pin", action="append", metavar=T("본=x,y,z[/x,y,z]", "BONE=x,y,z[/x,y,z]"),
                    help=T("관절을 직접 고정한다. 예: --pin spine.004=0,0,1.42 (머리만), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (머리/꼬리). 여러 번 쓸 수 있다", "pin a joint by hand. e.g. --pin spine.004=0,0,1.42 (head only), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (head/tail). Repeatable"))
     r.add_argument("--targets", metavar="targets.json", help=T("이전 실행의 targets.json 을 그대로 쓴다(모델 호출 0회, 토큰 0)", "reuse a previous run's targets.json (0 model calls, 0 tokens)"))
-    _hint_on_missing(r, "mesh", T("→ 처음이면 저장소 폴더에서, 저장소에 든 캐릭터로(모델 호출 없음): bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge  (README \"첫 실행\")",
-                                  "→ new here? from the repository folder, on the character it ships (no model calls): bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge  (README \"First run\")"))
+    _hint_on_missing(r, "mesh", T(f"→ 처음이면 저장소 폴더에서, 저장소에 든 캐릭터로(모델 호출 없음): {FIRST_RIG}  (README \"첫 실행\")",
+                                  f"→ new here? from the repository folder, on the character it ships (no model calls): {FIRST_RIG}  (README \"First run\")"))
     m = sub.add_parser("motion", help=T("텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다", "make motion from text (kimodo.cpp) or a BVH and bring it into Blender"))
     m.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); m.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     m.add_argument("--rig", help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
@@ -337,8 +340,10 @@ def _main() -> int:
                 print("BLOCKED:", T(f"실행 기록이 없다: {runs / a.run_id}\n  → `bw status` 로 목록을 보거나 BW_HOME(지금 {ROOT})을 확인하라",
                                    f"no such run: {runs / a.run_id}\n  → list runs with `bw status`, or check BW_HOME (now {ROOT})"), file=sys.stderr); return 2
             if not ids:   # 빈 출력은 설치가 깨졌는지 BW_HOME 이 다른지 구분이 안 된다
-                print(T(f"아직 실행이 없다(찾은 곳: {runs})\n  → `bw rig <메시>` 로 시작하거나, 다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
-                        f"no runs yet (looked in {runs})\n  → start with `bw rig <mesh>`, or if you ran bonewright from another folder, set BW_HOME to it"),
+                print(T(f"아직 실행이 없다(찾은 곳: {runs})\n  → 저장소 폴더에서 저장소의 캐릭터로 시작(모델 호출 없음): `{FIRST_RIG}`, 내 메시는 `bw rig <메시>`. "
+                        "다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
+                        f"no runs yet (looked in {runs})\n  → start from the repository folder on the character it ships (no model calls): `{FIRST_RIG}`; "
+                        "your own mesh: `bw rig <mesh>`. If you ran bonewright from another folder, set BW_HOME to it"),
                       file=sys.stderr)
             for rid in ids:   # 읽히지 않는 실행 하나(동기화 충돌 사본·옛 버전)가 목록 전체를 막지 않게 그 줄만 알린다
                 try:
@@ -361,9 +366,9 @@ def _main() -> int:
                 print("BLOCKED:", T(f"run-id 가 필요하다 — 가장 최근 리그: `bw {a.cmd} {rid}`\n  → 다른 실행은 `bw status` 로 목록을 본다",
                                    f"needs a run-id — latest rig: `bw {a.cmd} {rid}`\n  → list other runs with `bw status`"), file=sys.stderr)
             else:
-                print("BLOCKED:", T(f"run-id 가 필요한데 리깅을 마친 실행이 없다(찾은 곳: {runs})\n  → 먼저 `bw rig <메시>`, 끝에 나오는 `next:` 줄에 id 가 있다. "
+                print("BLOCKED:", T(f"run-id 가 필요한데 리깅을 마친 실행이 없다(찾은 곳: {runs})\n  → 먼저 `{FIRST_RIG}`(또는 내 메시로 `bw rig <메시>`), 끝에 나오는 `next:` 줄에 id 가 있다. "
                                    "다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
-                                   f"needs a run-id, and no finished rig was found (looked in {runs})\n  → run `bw rig <mesh>` first; its `next:` line carries the id. "
+                                   f"needs a run-id, and no finished rig was found (looked in {runs})\n  → run `{FIRST_RIG}` (or `bw rig <mesh>` on yours) first; its `next:` line carries the id. "
                                    "If you ran bonewright from another folder, set BW_HOME to it"), file=sys.stderr)
             return 2
         def parse_pins(items: list[str] | None) -> dict[str, dict[str, list[float]]]:
