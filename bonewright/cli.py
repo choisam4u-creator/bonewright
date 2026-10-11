@@ -65,6 +65,12 @@ def doctor(warn_unknown: bool = True) -> int:
         print("  ", T("로그인:", "login:"), (login.stdout or login.stderr).strip()[:60])
     gen, text_model = pipeline.kimodo_paths((ROOT / cfg["kimodo"]["root"]).resolve(), cfg["kimodo"])
     print(opt, "kimodo.cpp:", (T("빌드됨", "built") if text_model else T("빌드됨, 텍스트 인코더 없음 — docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "built, no text encoder — see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md")) if gen else T("없음 — 텍스트→동작(`bw motion --text`)에만 필요, 빌드는 docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "not built — needed only for text→motion (`bw motion --text`); to build, see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md"))
+    backend = os.environ.get("BW_BACKEND") or "codex"   # 유료 길인지 토큰 0 길인지(10/11 11회차: doctor 가 말하지 않았다)
+    if backend == "mock":
+        print(T("모델 호출: 없음 — BW_BACKEND=mock(토큰 0)", "model calls: none — BW_BACKEND=mock (0 tokens)"))
+    elif backend == "codex":
+        print(T("모델 호출: codex(기본) — 기본 `bw rig` 는 2회(≈$1). 토큰 0 은 BW_BACKEND=mock, 또는 --from-skeleton·--targets 에 --no-judge 를 함께",
+                "model calls: codex (default) — a default `bw rig` makes 2 (≈$1). For 0 tokens: BW_BACKEND=mock, or --from-skeleton / --targets together with --no-judge"))
     print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
     if warn_unknown and (warn := unknown_keys_line(ROOT)):
         print(warn)

@@ -11,6 +11,8 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- `bw doctor` says whether model calls are on (codex, the default: 2 calls per `bw rig`, about $1) or off
+  (`BW_BACKEND=mock`), and how to get 0 tokens.
 - The guide's "Install and run" now shows `bw status` (it was mentioned by error messages but documented nowhere):
   what a line means, where a failed run's reason is, and that export/demo keep their own state.
 - A finished `bw rig` ends with a `next:` line on stderr naming `bw demo`, `bw export` and `bw motion --rig` with its

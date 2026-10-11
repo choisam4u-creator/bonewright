@@ -680,6 +680,17 @@ class DoctorTests(unittest.TestCase):
                 code, text = self.run_doctor(None, True, None, lang="en")
             self.assertEqual(1, code); self.assertIn("BW_BACKEND='moc'", text)
 
+    def test_says_which_model_path_is_active(self):
+        """doctor says whether model calls are on (codex, the default, paid) or off (BW_BACKEND=mock)."""
+        import os
+        env = {k: v for k, v in os.environ.items() if k != "BW_BACKEND"}
+        with patch.dict("os.environ", env, clear=True):
+            _, text = self.run_doctor(None, True, None, lang="en")
+        self.assertIn("model calls: codex (default)", text); self.assertIn("--no-judge", text)
+        with patch.dict("os.environ", {"BW_BACKEND": "mock"}):
+            _, text = self.run_doctor(None, True, None, lang="en")
+        self.assertIn("model calls: none — BW_BACKEND=mock", text)
+
     def test_no_blender_and_no_bpy_fails(self):
         code, text = self.run_doctor(None, False, "/usr/bin/codex")
         self.assertEqual(code, 1)
