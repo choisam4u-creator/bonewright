@@ -138,6 +138,18 @@ class InputErrorTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertEqual(set(act.choices), set(a for a in allowed if a))
 
+    def test_targets_file_of_the_wrong_shape(self):
+        """A --targets JSON of the wrong shape (a list, a bone without head/tail, two-number coordinates) stops before Blender."""
+        mesh = self.root / "a.glb"; mesh.write_bytes(b"glTF")
+        for body, want in (("[1, 2]", "객체가 아니다"), ('{"foo": 1}', "foo: head·tail 이 없다"),
+                           ('{"spine": {"head": [0, 0]}}', "spine.head: 숫자 x,y,z 세 개"), ("{}", "본이 하나도 없다")):
+            tf = self.root / "t.json"; tf.write_text(body, encoding="utf-8")
+            with self.subTest(body=body):
+                msg = self.blocked(pipeline.rig, self.root, str(mesh), targets_file=str(tf), quiet=True)
+                self.assertIn(want, msg); self.assertIn("runs/<id>/targets.json", msg)
+        self.assertEqual([], pipeline.targets_problems({"spine": {"head": [0, 0, 1], "tail": [0, 0, 1.2]}, "hand.L": {"tail": [1, 0, 1]}}))
+        self.assertFalse((self.root / "runs").exists())
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 

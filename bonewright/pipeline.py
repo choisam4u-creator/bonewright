@@ -47,6 +47,27 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
     return p
 
 
+def targets_problems(data) -> list[str]:
+    """--targets 내용의 모양 문제(최대 5개). Blender 의 fit_generate 가 받는 꼴: {"본": {"head": [x,y,z], "tail": [x,y,z]}},
+    head·tail 은 하나만 있어도 된다. 10/11 11회차: 목록·숫자 둘짜리 좌표가 Blender 단계까지 갔다."""
+    import math
+    if not isinstance(data, dict):
+        return [T(f"맨 위가 {{...}} 객체가 아니다({type(data).__name__})", f"the top level is not a {{...}} object ({type(data).__name__})")]
+    if not data:
+        return [T("본이 하나도 없다", "no bones in it")]
+    out = []
+    for name, v in data.items():
+        if not isinstance(v, dict) or not ({"head", "tail"} & set(v)):
+            out.append(T(f"{name}: head·tail 이 없다", f"{name}: no head or tail"))
+            continue
+        for part in ("head", "tail"):
+            c = v.get(part)
+            if c is not None and not (isinstance(c, list) and len(c) == 3 and all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) for x in c)):
+                out.append(T(f"{name}.{part}: 숫자 x,y,z 세 개여야 한다({json.dumps(c, ensure_ascii=False)})",
+                             f"{name}.{part}: must be three numbers x,y,z ({json.dumps(c, ensure_ascii=False)})"))
+    return out[:5]
+
+
 def need_mesh_bytes(p: Path) -> None:
     """Blender 를 띄우기 전에 빈 파일·GLB 머리가 틀린 파일을 막는다. 10/10 8회차: 0바이트 .glb 가 Blender 를 띄운 뒤에야
     실패했고, Blender 가 없는 곳에선 'Blender not found' 가 진짜 원인을 가렸다."""
@@ -302,6 +323,12 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
         except ValueError as e:
             raise Blocked(T(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라",
                             f"--targets file is not JSON: {targets_file} ({e})\n  → check for a broken comma or bracket from editing"))
+    if targets_loaded is not None and (bad := targets_problems(targets_loaded)):
+        listing = "\n  ".join(bad)
+        raise Blocked(T(f"--targets 파일 모양이 틀렸다: {targets_file}\n  {listing}\n  → 꼴은 {{\"본\": {{\"head\": [x, y, z], \"tail\": [x, y, z]}}}}(head·tail 하나만 있어도 된다). "
+                        "이전 실행이 남긴 것을 고쳐 쓴다: `--targets runs/<id>/targets.json`",
+                        f"--targets file has the wrong shape: {targets_file}\n  {listing}\n  → it is {{\"bone\": {{\"head\": [x, y, z], \"tail\": [x, y, z]}}}} (head or tail alone is fine). "
+                        "Start from one an earlier run left: `--targets runs/<id>/targets.json`"))
     if pins and not from_shape:   # 모양 리그는 메타리그를 쓰지 않는다(본 이름이 실행마다 다르다)
         try:
             need_pin_names(pins, preset)

@@ -114,6 +114,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A `--targets` file of the wrong shape (a list, a bone without head/tail, two-number coordinates) went as far as
+  Blender; it is now checked first, naming each bad entry and the expected `{"bone": {"head": [x, y, z], ...}}` form.
 - `bw doctor` and `bw doctor --for-issue` stopped with `BLOCKED:` on a broken or wrong-typed `runs/config.json` (or
   a `BW_BACKEND` typo), so the issue report could not be made; they now show it as one `[settings]` line, check
   everything else with the defaults, and exit 1.
