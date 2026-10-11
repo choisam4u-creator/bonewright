@@ -481,7 +481,9 @@ side agreement 0.997 → 0.998, Quaternius Adventurer unchanged.
 
 Every setting has a built-in default; `runs/config.json` in the project folder (`BW_HOME` if set, else the nearest
 folder upward that holds `runs/`) overrides only the keys it names, section by section. A file that is not valid JSON stops with `BLOCKED:` naming the line and
-column. The keys you are most likely to change:
+column; so does a value of the wrong type (a string where a number goes) or one the matching flag would refuse
+(`"lang": "fr"`, `"rest_pose": "T"`), each listed with what is expected. An unknown key (usually a typo) only warns.
+`bw doctor` reports any of these as one `[settings]` line and checks everything else. The keys you are most likely to change:
 
 | Key | Default | What it does |
 |---|---|---|

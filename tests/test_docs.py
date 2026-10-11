@@ -465,6 +465,17 @@ class StaleVersionClaimTests(unittest.TestCase):
                     self.assertGreater((int(m.group(1)), int(m.group(2))), now)
 
 
+class SettingsChecksDocTests(unittest.TestCase):
+    def test_guide_examples_of_refused_values_are_refused(self):
+        """The refused settings values the guide quotes (`"lang": "fr"`, `"rest_pose": "T"`) really are refused by the checks."""
+        from bonewright import config
+        text = (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8")
+        self.assertIn('`"lang": "fr"`', text); self.assertIn('`"rest_pose": "T"`', text)
+        self.assertTrue(config.choice_problems({"lang": "fr"}))
+        self.assertTrue(config.choice_problems({"rig": {"rest_pose": "T"}}))
+        self.assertTrue(config.type_problems({"budget": {"max_input_tokens": "lots"}}))
+
+
 class DefaultClaimTests(unittest.TestCase):
     """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.
     10/7: 0.2.0 CHANGELOG·ROADMAP 이 옛 광선 판정 때의 "기본 끔"을 적은 채 나갔다(실제는 켬)."""
