@@ -230,3 +230,12 @@
 - [x] (10/11 11회차: 시작 줄 끝에 "최대 N회(fit·judge)"/"0" — 금액은 모델·크기마다 달라 빼고 GUIDE·doctor 에 맡김, `test_errors.RigStartLineTests` — 옛 코드에서 실패) `bw rig` 시작 줄도 모델 호출 여부를 말하지 않는다 — 비용은 끝난 뒤 `report.md` 의 tokens 줄에서야 보인다 → 시작 줄에 "모델 호출 2회 예정(fit·judge, ≈$1)" 또는 "토큰 0(mock·--from-skeleton·--targets)", 시험 — 근거: 10/11 11회차 `pipeline.rig` 읽기(첫 `_log` 는 분석 단계)
 - [x] (10/11 11회차: `config._type_name` 을 `T()` 로, 기존 시험에 두 언어 단언 — 옛 코드에서 실패) 설정 형 오류 문구의 형 이름(`number`·`string`·`true/false`)이 한국어 화면에서도 영어다 → `T()` 로 두 언어(숫자·문자열·true/false), 시험 — 근거: 10/11 11회차 실측(`BW_LANG=ko` 에서 "number (600000) ← string")
 - [x] (10/11 11회차: 모든 하위 명령에 `_hint_on_missing_value` — 선택지·기본값 예·--pin/--run-id/--rig 예, `test_cli.MissingValueTests` — 옛 코드에서 실패) `--facing`·`--preset`·`--pin` 을 값 없이 끝에 치면 argparse 의 "expected one argument" 만 나온다(선택지·예 없음) → 선택지가 있는 인자는 선택지를, `--pin` 은 예를 붙인 한 줄(종료 2), 시험 — 근거: 10/11 11회차 실측(`bw rig a.glb --facing`)
+
+
+## 2026-10-11 11회차 셋째 묶음 (공개 준비 기준 — 실측)
+
+- [ ] Ctrl-C(KeyboardInterrupt) 처리가 없다(`grep KeyboardInterrupt` 0건) — `bw rig` 를 끊으면 트레이스백이 찍히고 `state.json` 은 "running" 으로 남는다 → 한 줄("멈춤 — 같은 명령으로 다시")·종료 130·state 를 "interrupted" 로, 시험 — 근거: 10/11 11회차 코드 읽기
+- [ ] `bw status` 가 프로세스가 이미 죽은 실행을 계속 "running" 으로 보인다(`state.json` 에 pid 가 있는데 보지 않는다) → pid 가 없으면 "멈춤(프로세스 없음)"·`→ why` 줄, 시험 — 근거: 10/11 11회차 실측(`{"status":"running","pid":999999}` → "old: weights running")
+- [ ] `bw export r1 --out`(값 없이)에 예가 없다 — 11회차 `_hint_on_missing_value` 는 기본값이 None 인 `--out` 을 못 다룬다 → `--out hero.glb`(또는 폴더) 예, `--text`·`--bvh`·`--map`·`--targets`·`--gt-mesh` 도 같은 식, 시험 — 근거: 10/11 11회차 실측
+- [ ] GUIDE 에 실행 id 규칙(글자·숫자·`. _ -`, 11회차부터 `/`·`..` 거절)과 기본 id(`rig-날짜-시각`)가 없다 → "Install and run" 의 `bw status` 문단에 한 줄, 시험(문서의 규칙과 `cli.run_id_arg` 대조) — 근거: 10/11 11회차 `run_id_arg` 추가, GUIDE 에 규칙 0건
+- [ ] CI 가 10/11 02:49 이후 러너 없이 1~2초 만에 실패한다(잡 단계 0개, 코드 무관 — 비공개 저장소 Actions 사용량 추정) → 클라우드에서 고칠 수 없다. 샘님이 Settings → Billing 의 Actions 사용량을 확인할 때까지 클라우드 회차는 로컬 시험(bpy 포함)을 근거로 쓰고 회차 기록에 그렇게 적는다 — 근거: 10/11 11회차 run 38106418754 잡 4개 모두 started=completed(1초)
