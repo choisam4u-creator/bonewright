@@ -79,6 +79,9 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- `--facing` (`bw rig`, `bw bench`) now says how to choose: look at the imported mesh from Blender's front view
+  (numpad 1) — face visible means `neg-y`, back of the head means `pos-y`. A wrong value such as `--facing up` gets
+  the same line under argparse's list of choices, which used to be all it printed.
 - Two settings that nothing ever read are gone from the defaults: `blender.prefer_module` (bonewright always tries
   the Blender app first and the `bpy` wheel second) and `default_model` (the models are set per role under
   `models`). If your `runs/config.json` still has them, `bw doctor` names them as unknown keys; delete them.

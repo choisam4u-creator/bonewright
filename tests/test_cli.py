@@ -279,6 +279,30 @@ class SkeletonSourceTests(unittest.TestCase):
         self.assertTrue(cli.build_parser().parse_args(["rig", "m.glb", "--from-shape"]).from_shape)   # 하나만은 그대로 된다
 
 
+class FacingHelpTests(unittest.TestCase):
+    """`--facing` says how to choose neg-y / pos-y (help and the invalid-choice error only listed the values).
+
+    10/11 9회차 실측: `bw rig x.glb --facing up` → 선택지 나열만, 도움말은 "-Y 로 맞춤" 뿐."""
+
+    def test_help_and_bad_value_say_how_to_pick(self):
+        import os
+        for lang, want in (("en", "numpad 1"), ("ko", "숫자패드 1")):
+            for cmd in ("rig", "bench"):
+                err = io.StringIO()
+                with self.subTest(lang=lang, cmd=cmd), patch.dict(os.environ, {"BW_LANG": lang}), \
+                        patch.object(sys, "argv", ["bw", cmd, "m.glb", "--facing", "up"]), \
+                        patch.object(cli.pipeline, "rig", side_effect=AssertionError("rig 를 부르면 안 된다")), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.main()
+                    self.assertEqual(2, cm.exception.code)
+                    self.assertIn("invalid choice", err.getvalue())
+                    self.assertIn(want, err.getvalue()); self.assertIn("neg-y", err.getvalue().splitlines()[-1])
+                    sp = cli.build_parser()._subparsers._group_actions[0].choices[cmd]
+                    facing = next(a for a in sp._actions if "--facing" in a.option_strings)
+                    self.assertIn(want, facing.help); self.assertIn("pos-y", facing.help)
+        self.assertEqual("pos-y", cli.build_parser().parse_args(["rig", "m.glb", "--facing", "pos-y"]).facing)   # 맞는 값은 그대로
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 

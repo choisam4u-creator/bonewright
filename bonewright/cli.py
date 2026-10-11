@@ -208,6 +208,26 @@ def _hint_on_conflict(p: argparse.ArgumentParser, hint: str) -> None:
     p.error = error
 
 
+FACING = ["auto", "neg-y", "pos-y"]
+
+
+def facing_help() -> str:
+    """--facing 값 고르는 법. '-Y 로 맞춤' 만으로는 neg-y·pos-y 중 무엇을 줄지 몰랐다(10/11 9회차 실측)."""
+    return T("캐릭터가 보는 방향(기본 auto: 발끝 방향으로 판단, 사족은 머리). Blender 에 가져와 앞 보기(숫자패드 1)에서 "
+             "얼굴이 보이면 neg-y, 뒤통수가 보이면 pos-y — auto 로 만든 리그가 등을 앞으로 하고 있을 때 준다",
+             "which way the character faces (default auto: judged from the toes, from the head for quadrupeds). Import it into "
+             "Blender and look from the front (numpad 1): face visible → neg-y, back of the head visible → pos-y — "
+             "use it when the auto rig comes out facing backwards")
+
+
+def _hint_on_choice(p: argparse.ArgumentParser, flag: str, hint) -> None:
+    """argparse 의 'argument <flag>: invalid choice' 끝에 값 고르는 법 한 줄(종료 2 그대로). hint 는 부를 때 만든다(언어)."""
+    orig = p.error
+    def error(message: str):
+        orig(message + "\n→ " + hint() if f"argument {flag}: invalid choice" in message else message)
+    p.error = error
+
+
 def positive_int(flag: str, example: int):
     """argparse type: 1 이상 정수만. 0·음수는 리그·렌더까지 간 뒤에야 실패하거나(demo) 빈 결과로 끝나서(usage) 여기서 막는다."""
     def parse(text: str) -> int:
@@ -232,7 +252,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
                    help=T("모델 입력 토큰 상한(기본 600,000 — runs/config.json 의 budget.max_input_tokens). 넘으면 멈춘다",
                           "cap on model input tokens (default 600,000 — budget.max_input_tokens in runs/config.json); the run stops when it is reached"))
-    r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help=T("캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤", "which way the character faces. auto=decide from the feet and turn it to -Y")); r.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=FACING, default="auto", help=facing_help()); r.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    _hint_on_choice(r, "--facing", facing_help)
     r.add_argument("--force", action="store_true", help=T("거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)", "ignore the rejection gate and rig anyway (non-human or oddly sized meshes too)"))
     _hint_on_conflict(r, T("→ 하나만 준다: --from-skeleton 은 파일에 든 원본 뼈대를 쓰고, --from-shape 은 뼈대가 없을 때 메시 모양에서 만든다",
                            "→ pick one: --from-skeleton uses the skeleton already in the file, --from-shape builds one from the mesh when there is none"))
@@ -265,7 +286,8 @@ def build_parser() -> argparse.ArgumentParser:
     bm.add_argument("meshes", nargs="+", help=T("GLB/FBX 파일 또는 폴더", "GLB/FBX files or folders"))
     _hint_on_missing(bm, "meshes", T("→ 벤치 자산은 저장소에 없다. 받은 뒤 폴더째로(샘플 4개): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples",
                                      "→ benchmark assets are not in the repository. Fetch them, then pass a folder (4 samples): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples"))
-    bm.add_argument("--run-id", help=T("결과 폴더 이름 runs/<id>(기본 bench-날짜-시각)", "name of the results folder runs/<id> (default bench-<date>-<time>)")); bm.add_argument("--facing", choices=["auto", "neg-y", "pos-y"], default="auto", help=T("캐릭터가 보는 방향. auto=발 방향으로 판단해 -Y 로 맞춤", "which way the character faces. auto=decide from the feet and turn it to -Y"))
+    bm.add_argument("--run-id", help=T("결과 폴더 이름 runs/<id>(기본 bench-날짜-시각)", "name of the results folder runs/<id> (default bench-<date>-<time>)")); bm.add_argument("--facing", choices=FACING, default="auto", help=facing_help())
+    _hint_on_choice(bm, "--facing", facing_help)
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid)", "rig type (default humanoid)"))
     bm.add_argument("--rest-pose", choices=["keep", "t"], default=None, help=T("리깅할 때 쉬는 자세를 T 로 굳힌다(포즈 정규화 측정용)", "bake a T rest pose while rigging (to measure pose normalisation)"))
     bm.add_argument("--gt-mesh", help=T("정답 뼈대를 이 파일에서 가져온다(포즈 변형본을 원본 T 포즈와 맞댈 때)", "take the reference skeleton from this file (to compare a posed variant with its original T-pose)"))
