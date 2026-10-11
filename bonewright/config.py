@@ -94,7 +94,11 @@ def backend_problem() -> str | None:
 
 
 def _type_name(v) -> str:
-    return {bool: "true/false", int: "number", float: "number", str: "string", list: "list", dict: "{...}"}.get(type(v), type(v).__name__)
+    """설정 형 오류 문구의 형 이름(화면 언어를 따른다 — 10/11 11회차: 한국어 화면에서도 number·string 이었다)."""
+    from .i18n import T
+    names = {bool: T("참/거짓(true·false)", "true/false"), int: T("숫자", "number"), float: T("숫자", "number"),
+             str: T("문자열", "string"), list: T("목록", "list"), dict: "{...}"}
+    return names.get(type(v), type(v).__name__)
 
 
 def type_problems(user: dict, known: dict = DEFAULTS, prefix: str = "") -> list[str]:

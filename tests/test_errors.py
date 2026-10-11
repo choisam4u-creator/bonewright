@@ -115,8 +115,11 @@ class InputErrorTests(unittest.TestCase):
         (self.root / "runs" / "config.json").write_text('{"budget": {"max_input_tokens": "lots"}, "rig": "t", "lang": "en"}', encoding="utf-8")
         msg = self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True)
         self.assertIn("형이 틀렸다", msg)
-        self.assertIn('budget.max_input_tokens: number (600000) ← string "lots"', msg)
-        self.assertIn('rig: {...} ← string "t"', msg)
+        self.assertIn('budget.max_input_tokens: 숫자 (600000) ← 문자열 "lots"', msg)   # 한국어 화면이면 형 이름도 한국어
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            self.assertIn('budget.max_input_tokens: number (600000) ← string "lots"',
+                          self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True))
+        self.assertIn('rig: {...} ← 문자열 "t"', msg)
         self.assertNotIn("lang", msg.split("\n")[1])   # 맞는 값은 짚지 않는다
         (self.root / "runs" / "config.json").write_text('{"budget": {"max_input_tokens": 1000}, "rig": {"face": true}}', encoding="utf-8")
         from bonewright import config
