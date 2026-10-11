@@ -230,6 +230,43 @@ class MissingRunIdTests(unittest.TestCase):
         self.assertIsNone(re.search(r"[가-힣]", err), err)
 
 
+class WrongRunIdTests(unittest.TestCase):
+    """A run-id that is not on disk, while other rigs are, names the closest rig as a command to paste.
+
+    10/11 9회차 실측: `bw export nosuch` 가 "Rig first with `bw rig <mesh> --run-id nosuch`" 라 했다 — 리그가 이미 있으면
+    id 오타일 가능성이 크다."""
+
+    run_bw = MissingRunIdTests.run_bw
+
+    def setUp(self):
+        MissingRunIdTests.setUp(self)
+        for i, rid in enumerate(("hero", "rig-20261011-010203")):
+            (self.root / "runs" / rid).mkdir(parents=True)
+            blend = self.root / "runs" / rid / "02_rigged.blend"; blend.write_bytes(b"")
+            os.utime(blend, (1000 + i, 1000 + i))
+
+    def test_typo_names_the_closest_rig(self):
+        """`bw export hreo` → `bw export hero`; `bw motion --rig hro` → `--rig hero`; the command parses as pasted."""
+        cases = (("export", ["export", "hreo"], "`bw export hero`"), ("demo", ["demo", "hreo"], "`bw demo hero`"),
+                 ("motion", ["motion", "--bvh", str(Path(__file__).resolve().parents[1] / "examples" / "wave.bvh"), "--rig", "hro"], "`--rig hero`"))
+        for name, argv, want in cases:
+            for lang in ("en", "ko"):
+                with self.subTest(cmd=name, lang=lang):
+                    code, err = self.run_bw(lang, *argv)
+                    self.assertEqual(2, code); self.assertIn(want, err); self.assertIn("`bw status`", err)
+                    self.assertNotIn("bw rig <", err)
+                    self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err)), err)
+        with patch.object(sys, "argv", ["bw", "export", "hero"]), patch.object(cli.pipeline, "export_rig", return_value="x.glb") as ex, \
+                patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+            self.assertEqual(0, cli.main())
+        self.assertEqual("hero", ex.call_args.args[1])
+
+    def test_no_close_name_falls_back_to_latest(self):
+        """Nothing close: the newest rig is offered, not `bw rig <mesh>`."""
+        code, err = self.run_bw("en", "demo", "zzzzzz")
+        self.assertEqual(2, code); self.assertIn("`bw demo rig-20261011-010203`", err)
+
+
 class UnexpectedErrorTests(unittest.TestCase):
     """포괄 except: 한 줄 메시지 대신 오류 종류·로그 위치·BW_DEBUG 안내가 나와야 한다."""
 

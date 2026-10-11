@@ -96,11 +96,21 @@ def sample_bvh() -> str:
     return str(p) if p.is_file() else T("<파일.bvh>", "<file.bvh>")
 
 
-def need_rig(root: Path, run_id: str) -> Path:
-    """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다."""
+def need_rig(root: Path, run_id: str, use: str = "") -> Path:
+    """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
+    use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""
     blend = root / "runs" / run_id / "02_rigged.blend"
     if not blend.exists():
         state = root / "runs" / run_id / "state.json"
+        runs = root / "runs"
+        rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+        if not state.exists() and rigged:
+            import difflib
+            near = difflib.get_close_matches(run_id, [p.name for p in rigged], n=3, cutoff=0.5) \
+                or [max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name]
+            shown = " · ".join(f"`{use.format(n)}`" if use else n for n in near)
+            raise Blocked(T(f"그런 리그가 없다: {run_id}\n  → 가까운 리그: {shown} (전체 목록 `bw status`)",
+                            f"no rig named {run_id}\n  → closest rig: {shown} (all runs: `bw status`)"))
         why = (T(f"이 실행은 리깅을 마치지 못했다(`bw status {run_id}`)", f"this run did not finish rigging (`bw status {run_id}`)") if state.exists()
                else T("그런 실행 id 가 없다(`bw status` 로 목록 확인)", "there is no run with that id (list them with `bw status`)"))
         raise Blocked(T(f"리깅 결과가 없다: {blend}\n  → {why}. 먼저 `bw rig <메시> --run-id {run_id}` 로 리깅하라",
@@ -537,7 +547,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         if unused:
             raise Blocked(T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다\n  → `--rig <리그 run-id>` 를 함께 주거나(목록은 `bw status`) 그 옵션을 빼라",
                             f"{' · '.join(unused)} only apply when retargeting onto a rig\n  → add `--rig <rig run-id>` (list runs with `bw status`), or drop the option"))
-    rig_blend = need_rig(root, rig_run) if rig_run else None
+    rig_blend = need_rig(root, rig_run, "--rig {}") if rig_run else None
     user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
@@ -637,7 +647,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
 def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = False) -> Path:
     """리깅 결과 → 변형 본만 든 GLB(토큰 0). 다시 읽어 본 위치를 대조한다."""
     cfg = load(root)
-    blend = need_rig(root, run_id)
+    blend = need_rig(root, run_id, "bw export {}")
     dst = None
     if out:   # Blender 를 띄우기 전에(10/10 8회차: 폴더·.fbx 가 Blender 단계에서야 실패했다)
         dst = Path(out).expanduser()
@@ -671,7 +681,7 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     """리그 결과 데모 영상(토큰 0): runs/<id>/02_rigged.blend → demo.mp4(+ ffmpeg 가 있으면 demo.gif)."""
     import shutil
     cfg = load(root)
-    blend = need_rig(root, run_id)
+    blend = need_rig(root, run_id, "bw demo {}")
     if os.environ.get("BW_NO_RENDER") == "1":   # Blender 확인보다 먼저: 없으면 "Blender not found" 가 진짜 이유를 가렸다
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
         raise Blocked(T("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다\n  → 화면이 있는 환경에서 `BW_NO_RENDER` 를 지우고 다시 실행하라",
