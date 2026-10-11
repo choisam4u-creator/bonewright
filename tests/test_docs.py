@@ -475,6 +475,17 @@ class SettingsChecksDocTests(unittest.TestCase):
         self.assertTrue(config.choice_problems({"rig": {"rest_pose": "T"}}))
         self.assertTrue(config.type_problems({"budget": {"max_input_tokens": "lots"}}))
 
+    def test_guide_run_id_rule_matches_the_parser(self):
+        """The run-id rule in the guide is what `--run-id` accepts and refuses."""
+        import argparse
+        text = (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8")
+        self.assertIn("`--run-id` takes letters, digits and `. _ -` only", text)
+        for ok in ("rig-20261010-101500", "hero_v2.1"):
+            self.assertEqual(ok, cli.run_id_arg(ok))
+        for bad in ("a/b", "a\\b", "..", "x y"):
+            with self.subTest(bad=bad), self.assertRaises(argparse.ArgumentTypeError):
+                cli.run_id_arg(bad)
+
 
 class DefaultClaimTests(unittest.TestCase):
     """문서의 "`rig.cross_trim` … on/off by default" 주장이 `config.DEFAULTS` 와 같은지.

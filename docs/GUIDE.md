@@ -431,7 +431,9 @@ bw status                # every run under runs/: step, status, input tokens
 bw status <run-id>       # one run
 ```
 
-Each run lives in `runs/<run-id>/` (`report.md`, `targets.json`, the `.blend` files, `logs/`). `bw status` lists them
+Each run lives in `runs/<run-id>/` (`report.md`, `targets.json`, the `.blend` files, `logs/`). The id defaults to
+`rig-<date>-<time>`; `--run-id` takes letters, digits and `. _ -` only (no `/`, `\` or `..`, so a run never lands
+outside `runs/`). `bw status` lists them
 one per line — `rig-20261010-101500: final ok · input tokens 81,234`. A run that failed or was stopped by the budget
 or a usage limit ends with `→ why: bw doctor --for-issue <run-id>`, which shows its state and the end of its log.
 `bw export` and `bw demo` record their own `export_state.json` / `demo_state.json`, so a failed export never turns a
