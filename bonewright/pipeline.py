@@ -613,7 +613,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         unused = [f for f, on in (("--export", export), ("--map", bone_map), (f"--legs {legs}", legs != "auto"), ("--no-roll", not roll)) if on]
         if unused:
             raise Blocked(T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다\n  → `--rig <리그 run-id>` 를 함께 주거나(목록은 `bw status`) 그 옵션을 빼라",
-                            f"{' · '.join(unused)} only apply when retargeting onto a rig\n  → add `--rig <rig run-id>` (list runs with `bw status`), or drop the option"))
+                            f"{' · '.join(unused)} only {'applies' if len(unused) == 1 else 'apply'} when retargeting onto a rig\n  → add `--rig <rig run-id>` (list runs with `bw status`), or drop the option"))
     rig_blend = need_rig(root, rig_run, "--rig {}") if rig_run else None
     user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")

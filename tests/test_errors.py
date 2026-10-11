@@ -692,6 +692,15 @@ class MotionRigOnlyFlagTests(unittest.TestCase):
                 self.assertFalse((root / "runs" / "m1").exists())
 
 
+    def test_english_verb_agrees_with_the_flag_count(self):
+        """One flag "only applies", two flags "only apply" (10/11 12회차 실측: `--export only apply`)."""
+        for kw, want in (({"export": "auto"}, "--export only applies when"), ({"export": "auto", "roll": False}, "--export · --no-roll only apply when")):
+            with self.subTest(kw=kw), tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
+                root = Path(d); bvh = root / "walk.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
+                with self.assertRaises(pipeline.Blocked) as cm:
+                    pipeline.motion(root, bvh=str(bvh), run_id="m1", quiet=True, **kw)
+                self.assertIn(want, str(cm.exception))
+
 class FfmpegHintTests(unittest.TestCase):
     def test_install_command_matches_the_os(self):
         """The no-ffmpeg line names an install command for the OS it runs on (not brew everywhere)."""
