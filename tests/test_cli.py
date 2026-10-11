@@ -531,6 +531,26 @@ class StatusLineTests(unittest.TestCase):
         self.assertEqual("doctor", ns.cmd)
 
 
+class StaleRunTests(unittest.TestCase):
+    def test_running_with_a_dead_process_is_shown_as_stopped(self):
+        """A run left `running` by a process that no longer exists is shown as stopped, with where to look."""
+        import os
+        with tempfile.TemporaryDirectory() as t:
+            runs = Path(t) / "runs"
+            for rid, pid in (("dead", 4_000_000), ("live", os.getpid())):
+                (runs / rid).mkdir(parents=True)
+                (runs / rid / "state.json").write_text(f'{{"step": "weights", "status": "running", "pid": {pid}}}', encoding="utf-8")
+            out = io.StringIO()
+            with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(cli, "ROOT", Path(t)), \
+                    patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                cli.main()
+        lines = out.getvalue().splitlines()
+        if os.name == "nt":   # Windows 는 pid 를 보지 않는다(os.kill 이 프로세스를 끝낸다)
+            self.assertIn("dead: weights running", lines[0]); return
+        self.assertEqual("dead: weights stopped (process gone) · input tokens 0  → why: `bw doctor --for-issue dead`", lines[0])
+        self.assertEqual("live: weights running · input tokens 0", lines[1])
+
+
 class StatusGuideTests(unittest.TestCase):
     def test_guide_example_line_is_what_bw_status_prints(self):
         """The `bw status` example line in docs/GUIDE.md is exactly what the command prints for that state."""

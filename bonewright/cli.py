@@ -436,6 +436,20 @@ def main() -> int:
         return 130
 
 
+def pid_alive(pid) -> bool:
+    """state.json 의 pid 가 아직 살아 있는가. 모르면 True(살아 있다고 둔다). Windows 의 os.kill(pid, 0) 은 그 프로세스를
+    끝내 버리므로 보지 않는다."""
+    if not isinstance(pid, int) or pid <= 0 or os.name == "nt":
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:   # 권한 없음 등: 살아 있다
+        return True
+    return True
+
+
 def home_problem() -> tuple[str, str] | None:
     """BW_HOME 이 파일이거나 없는 폴더면 ("file"|"missing", 문구). 10/11 11회차: 파일이어도 `bw status` 는
     "아직 실행 없음(찾은 곳: <파일>/runs)" 으로 종료 0, `bw doctor` 는 그 경로를 작업 폴더로 그대로 찍었다."""
@@ -499,10 +513,13 @@ def _main() -> int:
             for rid in ids:   # 읽히지 않는 실행 하나(동기화 충돌 사본·옛 버전)가 목록 전체를 막지 않게 그 줄만 알린다
                 try:
                     s = json.loads((runs / rid / "state.json").read_text(encoding="utf-8"))
-                    line = f"{rid}: {s['step']} {s['status']} · "   # 먼저 키를 읽는다: 목록·키 없는 state 는 아래 except 로
+                    status = s["status"]
+                    if status == "running" and not pid_alive(s.get("pid")):   # 죽은 프로세스를 계속 '도는 중' 이라 했다(10/11 11회차)
+                        status = T("멈춤(프로세스 없음)", "stopped (process gone)")
+                    line = f"{rid}: {s['step']} {status} · "   # 먼저 키를 읽는다: 목록·키 없는 state 는 아래 except 로
                     tokens = f"{s.get('input_tokens', 0):,}"
                     line += T(f"입력 토큰 {tokens}", f"input tokens {tokens}")
-                    if s["status"] in ("failed", "budget_stop", "usage_limit"):   # 왜 멈췄는지 볼 곳(로그 꼬리·state)
+                    if s["status"] in ("failed", "budget_stop", "usage_limit", "interrupted") or status != s["status"]:   # 왜 멈췄는지 볼 곳(로그 꼬리·state)
                         line += T(f"  → 이유: `bw doctor --for-issue {rid}`", f"  → why: `bw doctor --for-issue {rid}`")
                 except (ValueError, KeyError, TypeError, OSError) as e:
                     line = T(f"{rid}: state.json 을 읽지 못함({type(e).__name__}: {e}) — 이 실행만 건너뜀. 필요 없으면 {runs / rid} 를 지워도 된다",

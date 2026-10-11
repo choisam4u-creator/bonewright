@@ -118,6 +118,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw status` kept showing a run as `running` after its process had died (killed, crashed); on macOS and Linux it
+  now checks the recorded pid and shows `stopped (process gone)` with where to see why.
 - Ctrl-C during a command printed a Python traceback and left the run `running` in `bw status`; it now prints one
   line naming the run and step, exits 130 and marks the run `interrupted`.
 - An option typed without its value (`bw rig a.glb --facing`) got only argparse's "expected one argument"; it now
