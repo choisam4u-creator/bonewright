@@ -114,6 +114,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw doctor` and `bw doctor --for-issue` stopped with `BLOCKED:` on a broken or wrong-typed `runs/config.json` (or
+  a `BW_BACKEND` typo), so the issue report could not be made; they now show it as one `[settings]` line, check
+  everything else with the defaults, and exit 1.
 - `BW_HOME` set to a file made `bw status` report "no runs yet" (exit 0) and `bw doctor` print the file as the work
   folder; every command now stops with that, and `bw status` / `bw doctor` say when `BW_HOME` does not exist yet.
 - `runs/config.json` accepted values the command line refuses (`"lang": "fr"`, `"rest_pose": "T"`); they now stop with

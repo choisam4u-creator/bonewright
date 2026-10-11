@@ -39,7 +39,11 @@ def doctor(warn_unknown: bool = True) -> int:
     # Blender 앱과 bpy 모듈은 둘 중 하나만 있으면 된다 — 줄마다 그렇게 적고, 하나가 있으면 다른 쪽은 [필요 없음].
     # (10/10 5회차 실측: 둘 다 [required] 로 찍혀 둘 다 깔아야 하는 줄 알았다. 마지막 줄에서야 "either one")
     either, opt, unneeded = T("[필수: 둘 중 하나]", "[required: one of]"), T("[선택]", "[optional]"), T("[필요 없음]", "[not needed]")
-    cfg = load(ROOT)
+    try:
+        cfg, settings_problem = load(ROOT), None
+    except pipeline.Blocked as e:   # 점검 도구가 설정 하나 때문에 통째로 멈추면 안 된다 — 그 문제를 한 줄로 알리고 기본값으로 계속
+        from .config import DEFAULTS
+        cfg, settings_problem = DEFAULTS, str(e)
     bl = find_blender(cfg["blender"])
     bpy_ok = False if bl else has_bpy_module()
     ok = bool(bl) or bpy_ok
@@ -64,8 +68,10 @@ def doctor(warn_unknown: bool = True) -> int:
     print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
     if warn_unknown and (warn := unknown_keys_line(ROOT)):
         print(warn)
+    if settings_problem:
+        print(T("[설정] 이대로면 다른 명령은 멈춘다:", "[settings] other commands will stop on this:"), settings_problem)
     print(T("준비됨" if ok else "준비 안 됨: Blender 앱이나 bpy 모듈 중 하나를 설치하라", "ready" if ok else "not ready: install Blender or the bpy module (either one)"))
-    return 0 if ok else 1
+    return 0 if ok and not settings_problem else 1
 
 
 def scrub(text: str) -> str:

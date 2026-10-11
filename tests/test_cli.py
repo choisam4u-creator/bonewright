@@ -664,6 +664,22 @@ class DoctorTests(unittest.TestCase):
         self.assertIn("[선택] codex CLI: 없음", text)
         self.assertIn("준비됨", text)
 
+    def test_bad_settings_are_reported_not_fatal(self):
+        """A settings problem (wrong type, BW_BACKEND typo) is one `[settings]` line; doctor still checks the rest and exits 1.
+
+        10/11 11회차: 설정 검사를 넣자 `bw doctor`·`--for-issue` 가 그 설정 때문에 통째로 BLOCKED 로 끝나 신고 덩어리를 못 만들었다."""
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "runs").mkdir(); (Path(t) / "runs" / "config.json").write_text('{"rig": {"cross_trim": "yes"}}', encoding="utf-8")
+            with patch.object(cli, "ROOT", Path(t)):
+                code, text = self.run_doctor(None, True, None, lang="en")
+            self.assertEqual(1, code)
+            self.assertIn("[settings] other commands will stop on this", text); self.assertIn("rig.cross_trim", text)
+            self.assertIn("bpy module: found", text)   # 나머지 점검은 그대로
+            with patch.object(cli, "ROOT", Path(t)), patch.dict("os.environ", {"BW_BACKEND": "moc"}):
+                (Path(t) / "runs" / "config.json").unlink()
+                code, text = self.run_doctor(None, True, None, lang="en")
+            self.assertEqual(1, code); self.assertIn("BW_BACKEND='moc'", text)
+
     def test_no_blender_and_no_bpy_fails(self):
         code, text = self.run_doctor(None, False, "/usr/bin/codex")
         self.assertEqual(code, 1)
