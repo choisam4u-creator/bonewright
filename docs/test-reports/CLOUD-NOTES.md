@@ -1,11 +1,39 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/10 8회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/11 9회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 203개, 건너뜀 0
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id mac8 && bw export mac8 --out /tmp && ls /tmp/mac8.glb && bw status   # --out 폴더 → <id>.glb, status 줄 "input tokens"
-bw demo mac8 --size 320 --frames 24; bw status mac8   # 영상(ffmpeg 없으면 OS 별 설치 명령 한 줄), 리그 상태는 그대로 final ok
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 213개, 건너뜀 0
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id mac9 && bw motion --bvh examples/wave.bvh --rig mac9   # next: 줄의 BVH 명령 그대로, 18본
+bw rig tests/assets/quaternius_adventurer.glb --pin hand.l=0.6,0,1.3; bw export mac0; bw demo mac9   # BLOCKED: closest hand.L · closest rig `bw export mac9` · 영상
 ```
+
+## 2026-10-11 (9회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 이미 들어 있어 병합 없음.
+- 기존 1개: `bw rig --pin <없는 본>` 을 Blender 전에 — 이름표 `bonewright/metarig_names.json` 을 이 컨테이너의 bpy 5.2.2 에서
+  뽑아 실었고(사람 159·늑대 190본), Blender 시험이 `metarig_dump.py` 결과와 대조한다. 대소문자만 다르면 그 이름을 맨 앞에.
+  `--from-skeleton` 은 일반 리그(원본 본 이름)로 갈 수 있어 막지 않고 경고, `--from-shape` 는 건너뜀.
+- 남은 [ ] 가 결정 대기 1개뿐이라 새 항목 5개 추가(실측 근거), 그중 4개:
+  - **첫 결과 다음 단계**: 저장소에 BVH 가 하나도 없어 `next:` 줄의 `bw motion --bvh <file.bvh>` 에서 막혔다 →
+    `examples/wave.bvh`(예제 생성기 출력 그대로, 시험이 같음을 확인) + 안내 세 곳이 이 파일을 준다. README 캐릭터에 18본 리타겟(bpy 확인).
+  - 빈 BW_HOME 의 `bw status`·리그 없는 id 생략 `bw demo`/`bw export` → README 첫 명령 그대로(`cli.FIRST_RIG` 하나로).
+  - 틀린 run-id(`bw export`·`bw demo`·`bw motion --rig`) → 가까운 리그를 그대로 붙여 넣을 명령으로(없으면 가장 최근 리그).
+  - 거절 안내·report.md 의 재실행 명령 `bw rig <mesh> --targets …` → 실제 메시 경로(프로젝트 기준 상대·홈 `~`·공백 따옴표).
+- 오류 메시지가 다음 할 일을 말하는지: 고친 곳 모두 안내한 명령을 시험이 cli 에 그대로 넣어 본다.
+- 설치~첫 결과 단계 수는 그대로(clone·venv·pip·Blender·`bw rig`), 첫 결과 **다음**(리타겟)이 자리표시 없이 한 줄로 이어진다.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 213개 중 16개 건너뜀, 나머지 통과. 커밋마다 OK 일 때만 커밋.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **213개 모두 통과, 건너뜀 0**(131초).
+- 새 시험은 모두 옛 코드(bonewright/ 만 되돌림)에서 실패 확인. 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
+- CI: 이번 회차 푸시 5번 모두 unit(3.11·3.13)·unit-windows·blender 성공. blender 잡은 pending 으로 멈추지 않았다.
+
+**완료 수·추가 수**: 완료 5(기존 1 + 새 4) · 추가 5 · 남은 [ ] 2(`spikes/` 라이선스 — 샘님 결정 대기, `--facing` 값 설명 — 다음 회차).
+
+**막힌 것 / 다음**
+- `spikes/` 라이선스: 그대로 샘님 결정 대기.
+- 작업 지시는 `claude/cloud-work` 이고 세션 기본 브랜치는 `claude/cloud-work-ow4vsy` 였다 — 지시대로 `claude/cloud-work` 에 푸시(PR #10).
 
 ## 2026-10-10 (8회차)
 
