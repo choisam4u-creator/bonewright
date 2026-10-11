@@ -60,6 +60,21 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("GLB 가 아니다", self.blocked(pipeline.rig, self.root, str(fake), quiet=True))
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_empty_or_fake_bvh_stops_before_blender(self):
+        """An empty .bvh or one that does not start with HIERARCHY is refused before the run folder and Blender.
+
+        10/11 10회차: 이름만 .bvh 인 웹 페이지가 확장자만 보고 Blender 가져오기까지 갔다. BOM·빈 줄 뒤의 HIERARCHY 는 그대로 된다."""
+        empty, fake, bom = self.root / "empty.bvh", self.root / "fake.bvh", self.root / "bom.bvh"
+        empty.write_bytes(b""); fake.write_text("<!DOCTYPE html><html>not a motion</html>")
+        bom.write_bytes(b"\xef\xbb\xbf\nHIERARCHY\nROOT Hips\n")
+        self.assertIn("비었다(0바이트)", self.blocked(pipeline.motion, self.root, bvh=str(empty), rig_run="r1", quiet=True))
+        msg = self.blocked(pipeline.motion, self.root, bvh=str(fake), rig_run="r1", quiet=True)
+        self.assertIn("BVH 가 아니다", msg); self.assertIn("<!DOCTYPE", msg); self.assertIn("wave.bvh", msg)
+        pipeline.need_bvh_bytes(bom); pipeline.need_bvh_bytes(Path(pipeline.__file__).resolve().parents[1] / "examples" / "wave.bvh")
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            self.assertIn("not a BVH", self.blocked(pipeline.motion, self.root, bvh=str(fake), quiet=True))
+        self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
+
     def test_export_out_is_checked_before_blender(self):
         """`bw export --out` must be a .glb or a folder, checked before Blender starts.
 

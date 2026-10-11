@@ -64,6 +64,23 @@ def need_mesh_bytes(p: Path) -> None:
                             "renamed to .glb. Export it again as glTF Binary (.glb), e.g. from Blender"))
 
 
+def need_bvh_bytes(p: Path) -> None:
+    """이름만 .bvh 인 파일(내려받기 실패한 HTML·빈 파일)을 실행 폴더·Blender 전에 막는다. BVH 는 'HIERARCHY' 로 시작한다.
+    10/11 10회차: 확장자만 보고 Blender 가져오기까지 갔고, Blender 가 없는 곳에선 'Blender not found' 가 원인을 가렸다."""
+    size = p.stat().st_size
+    if size == 0:
+        raise Blocked(T(f"BVH 파일이 비었다(0바이트): {p}\n  → 내려받기·내보내기가 끝까지 됐는지 보고 다시 받아라. 저장소의 샘플: `--bvh {sample_bvh()}`",
+                        f"the BVH file is empty (0 bytes): {p}\n  → check that the download or export finished, and get it again. The repository's sample: `--bvh {sample_bvh()}`"))
+    with open(p, "rb") as f:
+        head = f.read(256).decode("latin-1").lstrip("\ufeff\xef\xbb\xbf \t\r\n")
+    if not head.upper().startswith("HIERARCHY"):
+        first = head.splitlines()[0][:40] if head.strip() else ""
+        raise Blocked(T(f"BVH 가 아니다(첫 줄이 'HIERARCHY' 가 아님: {first!r}, {size:,}바이트): {p}\n  → 이름만 .bvh 인 다른 파일(웹 페이지 등)일 수 있다. "
+                        f"원본에서 BVH 로 다시 내보내거나 받아라. 저장소의 샘플: `--bvh {sample_bvh()}`",
+                        f"not a BVH (the first line is not 'HIERARCHY': {first!r}, {size:,} bytes): {p}\n  → it may be another file (a web page, say) "
+                        f"saved as .bvh. Export or download it again as BVH. The repository's sample: `--bvh {sample_bvh()}`"))
+
+
 def metarig_names(preset: str) -> list[str]:
     """Rigify 메타리그의 본 이름 전부(Blender 없이). 목록은 bonewright/metarig_names.json — Blender 시험이 실제 메타리그와 대조한다."""
     return json.loads((Path(__file__).parent / "metarig_names.json").read_text(encoding="utf-8")).get(preset, [])
@@ -546,8 +563,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                         f"no motion source\n  → `bw motion --bvh {bv} --rig <rig run-id>` (rig ids: `bw status`) or `bw motion --text \"a person walks\"`"))
     if bvh and not text:
         bv = sample_bvh()
-        need_file(bvh, "BVH", T(f"경로를 확인하라. 저장소의 샘플: `--bvh {bv}`, 그 밖엔 Mixamo·CMU 등에서 받거나 `--text` 로 만든다",
-                                f"check the path. The repository's sample: `--bvh {bv}`; otherwise get one from Mixamo, CMU etc., or make one with `--text`"), (".bvh",))
+        need_bvh_bytes(need_file(bvh, "BVH", T(f"경로를 확인하라. 저장소의 샘플: `--bvh {bv}`, 그 밖엔 Mixamo·CMU 등에서 받거나 `--text` 로 만든다",
+                                f"check the path. The repository's sample: `--bvh {bv}`; otherwise get one from Mixamo, CMU etc., or make one with `--text`"), (".bvh",)))
     if not rig_run:   # 리타겟 옵션은 `if rig_run:` 안에서만 쓰인다 — 말없이 버리면 기다린 끝에 GLB 가 없다
         unused = [f for f, on in (("--export", export), ("--map", bone_map), (f"--legs {legs}", legs != "auto"), ("--no-roll", not roll)) if on]
         if unused:

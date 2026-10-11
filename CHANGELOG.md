@@ -79,6 +79,9 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- `bw motion --bvh` refuses an empty file, or one that does not start with `HIERARCHY` (a web page saved as
+  `.bvh`), before creating a run folder or starting Blender, and points at `examples/wave.bvh`. It used to fail
+  inside Blender's BVH import, or behind "Blender not found".
 - A wrong `--preset` (`bw rig x.glb --preset dog`, also `bw bench` and `bw motion`) now adds which value to use:
   `humanoid` for people, `quadruped` for four-legged animals, `--from-shape` for other body plans.
 - A path with spaces typed without quotes (`bw rig my char.glb`) used to get only argparse's "unrecognized
