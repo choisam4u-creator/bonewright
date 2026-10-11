@@ -673,6 +673,29 @@ class BenchInputTests(unittest.TestCase):
                 self.assertIn(want, str(cm.exception)); self.assertIn("fetch_bench_assets.py", str(cm.exception))
             self.assertFalse((root / "runs").exists())
 
+    def test_missing_path_says_file_or_folder_and_next_step(self):
+        """A missing bench path says "file or folder" and gives the fetch command, or a folder already fetched.
+
+        10/11 10회차 실측: `bw bench nofolder` → "mesh file not found" — bench 는 폴더도 받는다."""
+        with tempfile.TemporaryDirectory() as d:
+            root, cwd = Path(d), os.getcwd()
+            os.chdir(d)
+            try:
+                for have, want in ((False, "fetch_bench_assets.py --only samples && bw bench bench-assets/samples"),
+                                   (True, "`bw bench " + str(Path("bench-assets") / "samples") + "`")):
+                    if have:
+                        (root / "bench-assets" / "samples").mkdir(parents=True)
+                    with self.subTest(fetched=have), self.assertRaises(pipeline.Blocked) as cm:
+                        self.bench(root, ["nofolder"], fake={})
+                    self.assertIn("file or folder not found: nofolder", str(cm.exception)); self.assertIn(want, str(cm.exception))
+                with patch.dict(os.environ, {"BW_LANG": "ko"}), self.assertRaises(pipeline.Blocked) as cm:
+                    from bonewright import bench
+                    bench.run(root, ["nofolder"], run_id="b1", quiet=True)
+                self.assertIn("파일이나 폴더가 없다", str(cm.exception))
+            finally:
+                os.chdir(cwd)
+            self.assertFalse((root / "runs").exists())
+
     def test_missing_gt_mesh_is_named(self):
         """A missing `--gt-mesh` file is named as --gt-mesh, not as "mesh"."""
         from bonewright import bench

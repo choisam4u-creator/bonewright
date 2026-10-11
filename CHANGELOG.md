@@ -79,6 +79,9 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- A `bw bench` path that does not exist now says "file or folder" (bench takes folders) and ends with the next
+  command: an asset folder already fetched into `bench-assets/`, or the fetch command followed by
+  `bw bench bench-assets/samples`.
 - `bw motion --bvh` refuses an empty file, or one that does not start with `HIERARCHY` (a web page saved as
   `.bvh`), before creating a run folder or starting Blender, and points at `examples/wave.bvh`. It used to fail
   inside Blender's BVH import, or behind "Blender not found".

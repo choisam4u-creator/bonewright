@@ -208,6 +208,14 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         raise Blocked(T(f"잴 메시가 없다(폴더 안에 .glb·.gltf·.fbx 가 없다)\n  → 원본 뼈대가 든 GLB/FBX 파일이나 그것이 든 폴더를 줘라. {fetch}",
                         f"no meshes to measure (no .glb · .gltf · .fbx in the folder)\n  → pass GLB/FBX files that carry their own skeleton, or a folder of them. {fetch}"))
     for m in meshes:
+        if not Path(m).expanduser().exists():   # bench 는 폴더도 받는다 — "mesh file not found" 는 반만 맞았다(10/11 10회차)
+            got = Path("bench-assets")
+            subs = sorted(str(d) for d in got.iterdir() if d.is_dir()) if got.is_dir() else []
+            nxt = (T(f"받아 둔 자산 폴더: `bw bench {subs[0]}`", f"Assets already fetched here: `bw bench {subs[0]}`") if subs else
+                   T("자산을 받은 뒤 폴더째로(샘플 4개): `python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples`",
+                     "Fetch the assets, then pass the folder (4 samples): `python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples`"))
+            raise pipeline.Blocked(T(f"메시 파일이나 폴더가 없다: {m}\n  → 경로를 확인하라(공백이 있으면 따옴표). {nxt}",
+                                     f"mesh file or folder not found: {m}\n  → check the path (quote it if it has spaces). {nxt}"))
         pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx"))
     if gt_mesh:   # 어느 인자인지 이름을 댄다(10/10 8회차: "mesh file not found" 로만 나왔다)
         pipeline.need_file(gt_mesh, "--gt-mesh", T("정답 뼈대를 가져올 원본(T 포즈) 파일 경로를 확인하라", "check the path of the original (T-pose) file to take the reference skeleton from"),
