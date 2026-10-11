@@ -211,3 +211,12 @@
 - [x] (10/11 10회차: `pipeline.need_bvh_bytes` — 0바이트·첫 줄(BOM·빈 줄 건너뜀)이 HIERARCHY 아님을 `need_rig` 보다 먼저, 샘플 BVH 안내, `test_errors.InputErrorTests.test_empty_or_fake_bvh_stops_before_blender` — 옛 코드에서 실패) `bw motion --bvh bad.bvh --rig <id>`: 이름만 .bvh 인 파일(내려받기 실패한 HTML·빈 파일)이 Blender BVH 가져오기까지 가서야 실패한다 → 빈 파일·첫 줄이 `HIERARCHY` 가 아닌 파일을 실행 폴더·Blender 전에 BLOCKED(`need_mesh_bytes` 의 .glb 머리 확인과 같은 방식), 두 언어 시험 — 근거: 10/11 10회차 `pipeline.motion` 읽기(확장자만 보고 `detect_bvh_up`·Blender 로 넘어감), Blender 없는 곳에선 "Blender not found" 가 원인을 가린다
 - [x] (10/11 10회차: `bench.run` 이 없는 경로를 `need_file` 전에 따로 — `bench-assets/` 안 폴더가 있으면 그 명령, 없으면 받는 명령, `test_errors.BenchInputTests.test_missing_path_says_file_or_folder_and_next_step` 두 언어 — 옛 코드에서 실패) `bw bench nofolder`: "mesh file not found" — bench 는 폴더도 받는데(`bw bench bench-assets/samples` 가 README 안내) 파일만 말한다 → "메시 파일이나 폴더가 없다"·`bench-assets/` 가 없으면 받는 명령, 있으면 그 안 폴더 예, 두 언어 시험 — 근거: 10/11 10회차 실측(`bw bench nofolder`)
 - [x] (10/11 11회차: `cli.parse_pin` 을 argparse type 으로 — 종료 2, `→` 예에 사용자 본 이름, 예를 parser 에 다시 넣는 두 언어 시험 — 옛 코드에서 실패) `bw rig x.glb --pin foo`: 형식 오류가 종료 1·`BLOCKED:`/`→` 없는 한 줄이라 다른 입력 오류(종료 2, 고칠 명령)와 다르다 → 다른 입력 오류와 같은 꼴(무엇이 틀렸나 + `→` 그대로 붙여 넣을 예), 종료 코드를 다른 입력 오류와 맞춤, 두 언어 시험 — 근거: 10/11 10회차 실측(`--pin foo` → 종료 1, `--pin hand.L=1,2` → 종료 1, `--size 0` 은 종료 2)
+
+
+## 2026-10-11 11회차 추가 (공개 준비 기준 — 실측)
+
+- [ ] `BW_BACKEND` 오타(`Mock`·`moc`·`mocks`)가 말없이 `codex`(유료 모델 호출)로 돈다 — 토큰 0 을 기대한 사용자가 돈을 쓴다 → `mock`·`codex` 말고는 모델을 부르기 전에 `BLOCKED:` + 가까운 값, `bw doctor` 에도 한 줄, 시험 — 근거: 10/11 11회차 `codex.run_step` 읽기(`os.environ.get("BW_BACKEND", "codex")` 를 `== "mock"` 으로만 비교)
+- [ ] `--run-id ../escape`·`a/b` 가 그대로 `runs/<id>` 경로가 된다 — `runs/` 밖에 폴더를 만들고(Blender 가 있으면), `bw doctor --for-issue ../..` 는 `runs/` 밖을 읽어 이슈 덩어리에 싣는다(종료 1) → 실행 id 는 글자·숫자·`._-` 만, `..` 금지, 모든 명령(rig·motion·bench·export·demo·status·doctor)에서 argparse type 으로, 시험 — 근거: 10/11 11회차 실측
+- [ ] `runs/config.json` 값의 형(型) 검사가 없다: `{"budget": {"max_input_tokens": "lots"}}`·`{"rig": "t"}` 는 첫 모델 호출·rig 단계에서 TypeError(예상 못 한 오류)로 떨어진다 → 읽을 때 기본값과 형을 대조해 키·기대 형·기본값을 대는 `BLOCKED:`, 시험 — 근거: 10/11 11회차 실측·`Run.call` 읽기
+- [ ] `runs/config.json` 의 허용 값 검사가 없다: `{"lang": "fr"}`·`{"rig": {"rest_pose": 5}}` 가 받아들여진다(명령줄의 `--lang fr` 은 argparse 가 막는다) → 명령줄과 같은 선택지로 확인, 시험 — 근거: 10/11 11회차 실측
+- [ ] `BW_HOME` 이 파일(또는 없는 폴더)이면 `bw status` 는 "아직 실행 없음(찾은 곳: <파일>/runs)", `bw doctor` 는 작업 폴더를 그대로 찍는다 → 둘 다 "BW_HOME 이 폴더가 아니다/없다" 와 고칠 값, 시험 — 근거: 10/11 11회차 실측(`BW_HOME=<파일> bw status` 종료 0)
