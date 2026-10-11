@@ -118,6 +118,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- The "install the bpy wheel" hint (`bw doctor`, "Blender not found") said `pip install bpy==5.2.2` on every Python,
+  where pip finds no wheel outside 3.13; on other versions it now gives the `python3.13 -m venv .venv` route.
 - English message grammar: `bw motion --bvh … --export` without `--rig` said "--export only apply"; it now reads
   "--export: used only when retargeting onto a rig" for one flag or several.
 - `bw motion --text … --bvh …` took both and silently used the text (then stopped on a missing kimodo.cpp); the two

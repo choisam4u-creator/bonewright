@@ -55,7 +55,7 @@ def doctor(warn_unknown: bool = True) -> int:
         print("  ", v[0] if v else "?")
         print(unneeded, T("bpy 모듈: 확인 안 함 — Blender 앱을 쓴다", "bpy module: not checked — the Blender app is used"))
     else:
-        print(either, T("bpy 모듈:", "bpy module:"), T("있음", "found") if bpy_ok else T("없음 (pip install bpy==5.2.2, Python 3.13)", "not found (pip install bpy==5.2.2, Python 3.13)"))
+        print(either, T("bpy 모듈:", "bpy module:"), T("있음", "found") if bpy_ok else T("없음 — ", "not found — ") + blender.bpy_install())
     codex = shutil.which("codex")
     print(opt, "codex CLI:", codex or T("없음 — 모델 판정(기본 `bw rig`)에만 필요. 토큰 0 경로(--from-skeleton·--from-shape·--targets·BW_BACKEND=mock)는 없이 된다 → https://developers.openai.com/codex",
                                        "not found — needed only for the model judge (default `bw rig`). The 0-token routes (--from-skeleton, --from-shape, --targets, BW_BACKEND=mock) work without it → https://developers.openai.com/codex"))

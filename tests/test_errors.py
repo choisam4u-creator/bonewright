@@ -755,6 +755,22 @@ class RigStartLineTests(unittest.TestCase):
         self.assertIn("0 model calls", self.start_line("mock"))
 
 
+class BpyHintTests(unittest.TestCase):
+    def test_bpy_hint_fits_the_running_python(self):
+        """The bpy install hint is `pip install bpy==5.2.2` on Python 3.13 and a 3.13 venv command on any other version.
+
+        bpy 5.2.2 는 cp313 휠뿐 — 3.11 에서 그대로 치면 "No matching distribution" 이었다(10/11 12회차)."""
+        from bonewright import blender
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            self.assertIn("`pip install bpy==5.2.2`", blender.bpy_install((3, 13)))
+            other = blender.bpy_install((3, 11))
+            self.assertIn("Python 3.13 only, this is 3.11", other); self.assertIn("`python3.13 -m venv .venv`", other)
+            self.assertNotIn("`pip install bpy==5.2.2`", other)
+            self.assertIn(blender.bpy_install(), blender.missing_message({}))
+        with patch.dict(os.environ, {"BW_LANG": "ko"}):
+            self.assertIn("지금 3.11", blender.bpy_install((3, 11)))
+
+
 class BenchInputTests(unittest.TestCase):
     """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
 

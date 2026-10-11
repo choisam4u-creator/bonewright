@@ -34,12 +34,24 @@ def missing_message(cfg: dict) -> str:
                  f"BW_BLENDER (or blender.app in runs/config.json) points at a file that does not exist: {app}\n"
                  "  → set it to the full path of the Blender executable (macOS: /Applications/Blender.app/Contents/MacOS/Blender)\n"
                  "  → then check with `bw doctor`")
+    bpy = bpy_install()
     return T("Blender 를 찾을 수 없다\n"
-             f"  → Blender 5.2 LTS 를 설치하거나({DOWNLOAD}) `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 에 실행 파일 경로를 지정하라\n"
+             f"  → Blender 5.2 LTS 를 설치하거나({DOWNLOAD}) {bpy} 또는 BW_BLENDER 에 실행 파일 경로를 지정하라\n"
              "  → 설치한 뒤 `bw doctor` 로 확인하고 같은 명령을 다시 실행",
              "Blender not found\n"
-             f"  → install Blender 5.2 LTS ({DOWNLOAD}), or `pip install bpy==5.2.2` (Python 3.13), or set BW_BLENDER to its path\n"
+             f"  → install Blender 5.2 LTS ({DOWNLOAD}), or {bpy}, or set BW_BLENDER to its path\n"
              "  → then check with `bw doctor` and run the same command again")
+
+
+def bpy_install(version: tuple[int, int] | None = None) -> str:
+    """bpy 휠을 까는 안내. bpy 5.2.2 는 cp313 휠뿐이라 다른 파이썬에서 `pip install bpy==5.2.2` 를 그대로 치면
+    "No matching distribution" 이다(10/11 12회차) — 지금 버전이 다르면 3.13 venv 를 만드는 명령을 준다."""
+    version = version or sys.version_info[:2]
+    if tuple(version) == (3, 13):
+        return T("`pip install bpy==5.2.2`(지금 Python 3.13 — 맞다)", "`pip install bpy==5.2.2` (this is Python 3.13, which it needs)")
+    now = f"{version[0]}.{version[1]}"
+    return T(f"bpy 휠(Python 3.13 전용, 지금 {now}): `python3.13 -m venv .venv` 로 만든 환경에서 `pip install . bpy==5.2.2`",
+             f"the bpy wheel (Python 3.13 only, this is {now}): `python3.13 -m venv .venv`, then inside it `pip install . bpy==5.2.2`")
 
 
 def find_blender(cfg: dict) -> list[str] | None:
