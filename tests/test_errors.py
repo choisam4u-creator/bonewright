@@ -693,8 +693,10 @@ class MotionRigOnlyFlagTests(unittest.TestCase):
 
 
     def test_english_verb_agrees_with_the_flag_count(self):
-        """One flag "only applies", two flags "only apply" (10/11 12회차 실측: `--export only apply`)."""
-        for kw, want in (({"export": "auto"}, "--export only applies when"), ({"export": "auto", "roll": False}, "--export · --no-roll only apply when")):
+        """The English line reads right for one flag or several ("--export: used only when", not "--export only apply").
+
+        10/11 12회차 실측: `--export only apply`."""
+        for kw, want in (({"export": "auto"}, "--export: used only when"), ({"export": "auto", "roll": False}, "--export · --no-roll: used only when")):
             with self.subTest(kw=kw), tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
                 root = Path(d); bvh = root / "walk.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
                 with self.assertRaises(pipeline.Blocked) as cm:
