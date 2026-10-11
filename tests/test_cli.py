@@ -22,6 +22,27 @@ class PinInputTests(unittest.TestCase):
                     cli.main()
                 rig.assert_not_called()
 
+    def test_bad_pin_is_an_input_error_with_a_pasteable_example(self):
+        """A malformed --pin exits 2 like other input errors and gives a `→` example with the user's own bone name.
+
+        10/11 10회차 실측: `--pin foo`·`--pin hand.L=1,2` 가 종료 1 에 `→` 없는 한 줄이었다(`--size 0` 은 종료 2)."""
+        import re
+        for lang, word in (("en", "e.g."), ("ko", "예")):
+            for pin, bone in (("hand.L=1,2", "hand.L"), ("=0,0,1", "spine.004"), ("foo", "foo")):
+                err = io.StringIO()
+                with self.subTest(lang=lang, pin=pin), patch.dict(os.environ, {"BW_LANG": lang}), \
+                        patch.object(sys, "argv", ["bw", "rig", "mesh.glb", "--pin", pin]), \
+                        patch.object(cli.pipeline, "rig", side_effect=AssertionError("rig 를 부르면 안 된다")), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.main()
+                    self.assertEqual(2, cm.exception.code)
+                    m = re.search(rf"→ {word} (--pin \S+)", err.getvalue())
+                    self.assertIsNotNone(m, err.getvalue())
+                    self.assertTrue(m.group(1).startswith(f"--pin {bone}="))
+                    # 예로 준 값은 그대로 받아들여진다
+                    ns = cli.build_parser().parse_args(["rig", "mesh.glb", *m.group(1).split()])
+                    self.assertIn(bone, dict(ns.pin))
+
     def test_accepts_finite_head_and_tail(self):
         with patch.object(sys, "argv", ["bw", "rig", "mesh.glb", "--pin", "hand.L=0,0,1/1,0,1"]), \
                 patch.object(cli.pipeline, "rig", return_value="runs/r/report.md") as rig, \

@@ -362,10 +362,13 @@ class EnglishErrorTests(unittest.TestCase):
         with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", "nope"]), patch("sys.stderr", err):
             self.assertEqual(cli.main(), 2)
         self.assertIn("no such run", err.getvalue())
-        with patch.object(sys, "argv", ["bw", "rig", "m.glb", "--pin", "hand.L=a,b,c"]), patch.object(cli.pipeline, "rig") as rig:
+        err = io.StringIO()
+        with patch.object(sys, "argv", ["bw", "rig", "m.glb", "--pin", "hand.L=a,b,c"]), patch.object(cli.pipeline, "rig") as rig, \
+                patch("sys.stderr", err):
             with self.assertRaises(SystemExit) as cm:
                 cli.main()
-        self.assertIn("coordinate error", str(cm.exception.code))
+        self.assertEqual(2, cm.exception.code)   # 다른 입력 오류와 같은 종료 코드(10/11 11회차)
+        self.assertIn("coordinates are three numbers", err.getvalue()); self.assertNotRegex(err.getvalue(), "[가-힣]")
         rig.assert_not_called()
 
     def test_missing_blender_and_codex_in_english(self):

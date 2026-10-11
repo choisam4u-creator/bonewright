@@ -114,6 +114,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A malformed `--pin` (`--pin foo`, `--pin hand.L=1,2`) exited 1 with a bare line, unlike other input errors; it is
+  now an argument error (exit 2) whose `→` line is a pasteable example using your own bone name.
 - Without ffmpeg, `bw demo` suggested `brew install ffmpeg` (Korean) or just "install ffmpeg" (English); it now names
   the command for the OS it runs on (brew, winget or apt).
 - `bw bench --gt-mesh nope.glb` said "mesh file not found"; it now names `--gt-mesh`.

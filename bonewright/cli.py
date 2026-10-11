@@ -255,6 +255,28 @@ def _hint_on_choice(p: argparse.ArgumentParser, flag: str, hint) -> None:
     p.error = error
 
 
+def parse_pin(text: str) -> tuple[str, dict[str, list[float]]]:
+    """argparse type for --pin 본=x,y,z[/x,y,z] → ("본", {"head": [...], "tail": [...]}).
+    틀리면 다른 입력 오류(`--size 0`)처럼 종료 2 + `→` 그대로 붙여 넣을 예. 예에는 사용자가 쓴 본 이름을 넣는다(10/11 11회차:
+    종료 1 에 `→` 없는 한 줄이었다)."""
+    name, _, rest = text.partition("=")
+    bone = name.strip() or "spine.004"
+    example = "→ " + T("예", "e.g.") + f" --pin {bone}=0,0,1.42  " + T("또는 머리/꼬리", "or head/tail") + f" --pin {bone}=0.6,0,1.3/0.7,0,1.3"
+    parts = rest.split("/")
+    if not name.strip() or "=" not in text or len(parts) > 2:
+        raise argparse.ArgumentTypeError(T(f"본=x,y,z 꼴이어야 한다(받은 값 {text!r}) {example}", f"must look like BONE=x,y,z (got {text!r}) {example}"))
+    try:
+        v = {"head": [float(x) for x in parts[0].split(",")]}
+        if len(parts) > 1:
+            v["tail"] = [float(x) for x in parts[1].split(",")]
+    except ValueError:
+        v = {"head": []}
+    if len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3 or not all(math.isfinite(x) for c in v.values() for x in c):
+        raise argparse.ArgumentTypeError(T(f"좌표는 숫자 x,y,z 세 개를 쉼표로, 공백 없이(받은 값 {text!r}) {example}",
+                                           f"coordinates are three numbers x,y,z, comma-separated, no spaces (got {text!r}) {example}"))
+    return name.strip(), v
+
+
 def positive_int(flag: str, example: int):
     """argparse type: 1 이상 정수만. 0·음수는 리그·렌더까지 간 뒤에야 실패하거나(demo) 빈 결과로 끝나서(usage) 여기서 막는다."""
     def parse(text: str) -> int:
@@ -291,7 +313,7 @@ def build_parser() -> argparse.ArgumentParser:
     source.add_argument("--from-skeleton", action="store_true", help=T("파일에 든 원본 뼈대의 관절을 그대로 써서 Rigify 리그를 만든다(토큰 0). 실루엣으로 관절을 못 찾는 로봇·양식화 캐릭터에 쓴다", "build the Rigify rig on the joints of the skeleton already in the file (0 tokens). For robots and stylised characters whose silhouette hides the joints"))
     r.add_argument("--rest-pose", choices=["keep", "t"], default=None, help=T("쉬는 자세: keep=메시 자세 그대로(기본), t=팔을 수평으로 굳혀 T 포즈로", "rest pose: keep=the mesh's own pose (default), t=bake arms horizontal into a T-pose"))
     r.add_argument("--weights", choices=["auto", "proxy"], default=None, help=T("스키닝: auto=Bone Heat(비면 복셀 대리), proxy=항상 복셀 대리", "skinning: auto=Bone Heat (voxel proxy if it leaves gaps), proxy=always the voxel proxy"))
-    r.add_argument("--pin", action="append", metavar=T("본=x,y,z[/x,y,z]", "BONE=x,y,z[/x,y,z]"),
+    r.add_argument("--pin", action="append", type=parse_pin, metavar=T("본=x,y,z[/x,y,z]", "BONE=x,y,z[/x,y,z]"),
                    help=T("관절을 직접 고정한다. 예: --pin spine.004=0,0,1.42 (머리만), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (머리/꼬리). 여러 번 쓸 수 있다", "pin a joint by hand. e.g. --pin spine.004=0,0,1.42 (head only), --pin hand.L=0.6,0,1.3/0.7,0,1.3 (head/tail). Repeatable"))
     r.add_argument("--targets", metavar="targets.json", help=T("이전 실행의 targets.json 을 그대로 쓴다(모델 호출 0회, 토큰 0)", "reuse a previous run's targets.json (0 model calls, 0 tokens)"))
     _hint_on_missing(r, "mesh", T(f"→ 처음이면 저장소 폴더에서, 저장소에 든 캐릭터로(모델 호출 없음): {FIRST_RIG}  (README \"첫 실행\")",
@@ -424,31 +446,8 @@ def _main() -> int:
                                    f"needs a run-id, and no finished rig was found (looked in {runs})\n  → run `{FIRST_RIG}` (or `bw rig <mesh>` on yours) first; its `next:` line carries the id. "
                                    "If you ran bonewright from another folder, set BW_HOME to it"), file=sys.stderr)
             return 2
-        def parse_pins(items: list[str] | None) -> dict[str, dict[str, list[float]]]:
-            """--pin 본=x,y,z[/x,y,z] → {"본": {"head": [...], "tail": [...]}}"""
-            out: dict[str, dict[str, list[float]]] = {}
-            for it in items or []:
-                if "=" not in it:
-                    raise SystemExit(T(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)", f"--pin format error: {it} (e.g. spine.004=0,0,1.42)"))
-                name, rest = it.split("=", 1); parts = rest.split("/")
-                name = name.strip()
-                if not name or len(parts) > 2:
-                    raise SystemExit(T(f"--pin 형식 오류: {it} (예: spine.004=0,0,1.42)", f"--pin format error: {it} (e.g. spine.004=0,0,1.42)"))
-                try:
-                    v = {"head": [float(x) for x in parts[0].split(",")]}
-                    if len(parts) > 1: v["tail"] = [float(x) for x in parts[1].split(",")]
-                except ValueError:
-                    raise SystemExit(T(f"--pin 좌표 오류: {it} (숫자 3개를 쉼표로, 공백 없이. 예: spine.004=0,0,1.42)",
-                                       f"--pin coordinate error: {it} (three numbers, comma-separated, no spaces. e.g. spine.004=0,0,1.42)"))
-                if (len(v["head"]) != 3 or len(v.get("tail", [0, 0, 0])) != 3
-                        or not all(math.isfinite(x) for coords in v.values() for x in coords)):
-                    raise SystemExit(T(f"--pin 좌표는 x,y,z 세 개다: {it} (예: hand.L=0.6,0,1.3 또는 머리/꼬리 hand.L=0.6,0,1.3/0.7,0,1.3)",
-                                     f"--pin takes x,y,z: {it} (e.g. hand.L=0.6,0,1.3, or head/tail hand.L=0.6,0,1.3/0.7,0,1.3)"))
-                out[name] = v
-            return out
-
         if a.cmd == "rig":
-            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=parse_pins(a.pin), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose, weights=a.weights, from_skeleton=a.from_skeleton, from_shape=a.from_shape)
+            out = pipeline.rig(ROOT, a.mesh, a.preset, run_id=a.run_id, lang=a.lang, quiet=a.quiet, budget=a.budget, no_judge=a.no_judge, facing=a.facing, pins=dict(a.pin or []), targets_file=a.targets, force=a.force, rest_pose=a.rest_pose, weights=a.weights, from_skeleton=a.from_skeleton, from_shape=a.from_shape)
         elif a.cmd == "bench":
             files = []
             for m in a.meshes:
