@@ -221,3 +221,12 @@
 - [x] (10/11 11회차: `config.CHOICES`·`choice_problems`, 명령줄 choices 와 같은지까지 보는 `test_errors.test_settings_value_not_allowed` — 옛 코드에서 실패) `runs/config.json` 의 허용 값 검사가 없다: `{"lang": "fr"}`·`{"rig": {"rest_pose": 5}}` 가 받아들여진다(명령줄의 `--lang fr` 은 argparse 가 막는다) → 명령줄과 같은 선택지로 확인, 시험 — 근거: 10/11 11회차 실측
 - [x] (10/11 11회차: `cli.home_problem` — 파일이면 모든 명령 BLOCKED, 없으면 status·doctor 에 ⚠ 한 줄(rig 는 처음에 만든다), `test_cli.HomeFolderTests` — 옛 코드에서 실패) `BW_HOME` 이 파일(또는 없는 폴더)이면 `bw status` 는 "아직 실행 없음(찾은 곳: <파일>/runs)", `bw doctor` 는 작업 폴더를 그대로 찍는다 → 둘 다 "BW_HOME 이 폴더가 아니다/없다" 와 고칠 값, 시험 — 근거: 10/11 11회차 실측(`BW_HOME=<파일> bw status` 종료 0)
 - [x] (10/11 11회차, 실측 중 발견·바로 처리: `doctor` 가 `load` 의 Blocked 를 받아 `[설정]` 한 줄 + 기본값으로 계속, 종료 1, `DoctorTests.test_bad_settings_are_reported_not_fatal`) `bw doctor`·`--for-issue` 가 깨진·형이 틀린 설정이나 `BW_BACKEND` 오타 하나로 통째로 BLOCKED — 신고 덩어리를 만들 도구가 신고할 원인 때문에 멈춘다 — 근거: 10/11 11회차 실측(이번 회차의 설정 검사로 넓어졌다, 깨진 JSON 은 전부터)
+
+
+## 2026-10-11 11회차 둘째 묶음 (공개 준비 기준 — 실측)
+
+- [ ] `bw rig --targets` 파일의 모양 검사가 없다: `[1,2]`·`{"foo": 1}`·`{"spine": {"head": [0,0]}}` 가 모두 Blender 단계까지 간다 → 실행 폴더·Blender 전에 객체·본마다 head(·tail) x,y,z 세 숫자인지 보고, 틀린 본 이름과 `runs/<id>/targets.json` 예, 시험 — 근거: 10/11 11회차 실측(세 파일 모두 "Blender not found" 까지)
+- [ ] `bw doctor` 가 지금 어느 길(`BW_BACKEND` — mock: 토큰 0, codex: 유료 모델 호출)로 도는지 말하지 않는다 → 한 줄(`[설정] 모델 호출: codex(기본) — 토큰 0 은 BW_BACKEND=mock`), 시험 — 근거: 10/11 11회차 실측(doctor 출력에 backend 줄 없음)
+- [ ] `bw rig` 시작 줄도 모델 호출 여부를 말하지 않는다 — 비용은 끝난 뒤 `report.md` 의 tokens 줄에서야 보인다 → 시작 줄에 "모델 호출 2회 예정(fit·judge, ≈$1)" 또는 "토큰 0(mock·--from-skeleton·--targets)", 시험 — 근거: 10/11 11회차 `pipeline.rig` 읽기(첫 `_log` 는 분석 단계)
+- [ ] 설정 형 오류 문구의 형 이름(`number`·`string`·`true/false`)이 한국어 화면에서도 영어다 → `T()` 로 두 언어(숫자·문자열·true/false), 시험 — 근거: 10/11 11회차 실측(`BW_LANG=ko` 에서 "number (600000) ← string")
+- [ ] `--facing`·`--preset`·`--pin` 을 값 없이 끝에 치면 argparse 의 "expected one argument" 만 나온다(선택지·예 없음) → 선택지가 있는 인자는 선택지를, `--pin` 은 예를 붙인 한 줄(종료 2), 시험 — 근거: 10/11 11회차 실측(`bw rig a.glb --facing`)
