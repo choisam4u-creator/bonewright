@@ -93,6 +93,28 @@ def backend_problem() -> str | None:
              f"BW_BACKEND={v!r} is not a known value (codex or mock); stopping rather than risk paid model calls\n  → set `{fix}`, or unset BW_BACKEND for model calls")
 
 
+def _type_name(v) -> str:
+    return {bool: "true/false", int: "number", float: "number", str: "string", list: "list", dict: "{...}"}.get(type(v), type(v).__name__)
+
+
+def type_problems(user: dict, known: dict = DEFAULTS, prefix: str = "") -> list[str]:
+    """기본값과 형(型)이 다른 키: "budget.max_input_tokens: number expected (default 600000), got string". 모르는 키는 건너뛴다
+    (unknown_keys 가 따로 알린다). 10/11 11회차: "lots"·"t" 같은 값이 첫 모델 호출·rig 단계에서 TypeError 로 떨어졌다."""
+    out = []
+    for k, v in user.items():
+        if k not in known:
+            continue
+        d = known[k]
+        if isinstance(d, dict):
+            out += type_problems(v, d, f"{prefix}{k}.") if isinstance(v, dict) else [f"{prefix}{k}: {{...}} ← {_type_name(v)} {json.dumps(v, ensure_ascii=False)}"]
+            continue
+        number = isinstance(d, (int, float)) and not isinstance(d, bool)
+        ok = (isinstance(v, (int, float)) and not isinstance(v, bool)) if number else isinstance(v, type(d))
+        if not ok:
+            out.append(f"{prefix}{k}: {_type_name(d)} ({json.dumps(d, ensure_ascii=False)}) ← {_type_name(v)} {json.dumps(v, ensure_ascii=False)}")
+    return out
+
+
 def load(root: Path, lang: str | None = None) -> dict:
     if (msg := backend_problem()):
         from .pipeline import Blocked   # pipeline 이 이 모듈을 import 하므로 여기서
@@ -100,7 +122,14 @@ def load(root: Path, lang: str | None = None) -> dict:
     cfg = DEFAULTS
     p = root / "runs" / "config.json"
     if p.exists():
-        cfg = _merge(cfg, _read_user_config(p))
+        user = _read_user_config(p)
+        if (bad := type_problems(user)):
+            from .i18n import T
+            from .pipeline import Blocked
+            listing = "\n  ".join(bad)
+            raise Blocked(T(f"설정 파일 값의 형이 틀렸다: {p}\n  {listing}\n  → 화살표 왼쪽(기본값과 같은 형)으로 고치거나 그 키를 지운다. 키 표: docs/GUIDE.md 의 \"Settings (`runs/config.json`)\"",
+                            f"wrong type in the settings file: {p}\n  {listing}\n  → use the type on the left of the arrow (the default's), or delete the key. Keys: \"Settings (`runs/config.json`)\" in docs/GUIDE.md"))
+        cfg = _merge(cfg, user)
     if lang:
         cfg = _merge(cfg, {"lang": lang})
     if cfg.get("lang") not in ("ko", "en"):   # --lang > runs/config.json > BW_LANG·로캘

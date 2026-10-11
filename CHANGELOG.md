@@ -114,6 +114,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A `runs/config.json` value of the wrong type (`"max_input_tokens": "lots"`, `"rig": "t"`) surfaced later as an
+  unexpected TypeError; the file is now checked against the defaults when it is read, and the error lists each key with
+  the expected type, its default and what was found.
 - Run ids (`--run-id`, `--rig`, and the run id of `bw export`/`demo`/`status`/`doctor --for-issue`) accepted `../x`
   and `a/b`, so a run could be written outside `runs/` and `bw doctor --for-issue ../..` read files outside it. They
   now take letters, digits and `. _ -` only.

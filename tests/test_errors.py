@@ -107,6 +107,21 @@ class InputErrorTests(unittest.TestCase):
         msg = self.blocked(pipeline.rig, self.root, str(mesh), targets_file=str(mesh), quiet=True)
         self.assertIn("바이너리", msg); self.assertNotIn("쉼표", msg); self.assertIn("runs/<id>/targets.json", msg)
 
+    def test_settings_value_of_wrong_type(self):
+        """A settings value of the wrong type (a string budget, a string where an object goes) stops before Blender, naming key and type.
+
+        10/11 11회차: `{"budget": {"max_input_tokens": "lots"}}` 는 첫 모델 호출에서, `{"rig": "t"}` 는 rig 단계에서 TypeError 였다."""
+        (self.root / "runs").mkdir()
+        (self.root / "runs" / "config.json").write_text('{"budget": {"max_input_tokens": "lots"}, "rig": "t", "lang": "en"}', encoding="utf-8")
+        msg = self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True)
+        self.assertIn("형이 틀렸다", msg)
+        self.assertIn('budget.max_input_tokens: number (600000) ← string "lots"', msg)
+        self.assertIn('rig: {...} ← string "t"', msg)
+        self.assertNotIn("lang", msg.split("\n")[1])   # 맞는 값은 짚지 않는다
+        (self.root / "runs" / "config.json").write_text('{"budget": {"max_input_tokens": 1000}, "rig": {"face": true}}', encoding="utf-8")
+        from bonewright import config
+        self.assertEqual([], config.type_problems({"budget": {"max_input_tokens": 1000, "price_input_per_m": 3}, "rig": {"face": True}}))
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 
