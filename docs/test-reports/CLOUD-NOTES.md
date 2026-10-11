@@ -4,7 +4,7 @@
 ```bash
 git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 219개, 건너뜀 0
 cp tests/assets/quaternius_adventurer.glb "/tmp/my char.glb" && bw rig /tmp/my char.glb --from-skeleton --no-judge   # 끝 줄에 따옴표 친 명령
-bw rig tests/assets/quaternius_adventurer.glb --facing up; bw rig x.glb --preset dog; bw motion --bvh README.md   # 고르는 법 · quadruped · (.md → 형식 안내)
+bw rig x.glb --facing up; bw rig x.glb --preset dog; echo '<html>' > /tmp/x.bvh && bw motion --bvh /tmp/x.bvh   # 고르는 법 · quadruped · BVH 가 아니다
 ```
 
 ## 2026-10-11 (10회차)
