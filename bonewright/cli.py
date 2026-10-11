@@ -393,6 +393,22 @@ def main() -> int:
         return _closed_stdout()
 
 
+def home_problem() -> tuple[str, str] | None:
+    """BW_HOME 이 파일이거나 없는 폴더면 ("file"|"missing", 문구). 10/11 11회차: 파일이어도 `bw status` 는
+    "아직 실행 없음(찾은 곳: <파일>/runs)" 으로 종료 0, `bw doctor` 는 그 경로를 작업 폴더로 그대로 찍었다."""
+    env = os.environ.get("BW_HOME")
+    if not env:
+        return None
+    home = Path(env).expanduser()
+    if home.is_file():
+        return "file", T(f"BW_HOME 이 폴더가 아니라 파일이다: {home}\n  → 작업 폴더(runs/ 가 있거나 생길 곳)로 고치거나 BW_HOME 을 지운다(지금 폴더를 쓴다)",
+                         f"BW_HOME is a file, not a folder: {home}\n  → point it at a work folder (where runs/ is or will be), or unset it to use the current folder")
+    if not home.exists():
+        return "missing", T(f"⚠ BW_HOME 폴더가 없다: {home} — 첫 `bw rig` 가 만든다. 다른 곳에서 돌렸다면 BW_HOME 을 그 폴더로",
+                            f"⚠ BW_HOME does not exist: {home} — the first `bw rig` creates it. If you ran bonewright elsewhere, point BW_HOME there")
+    return None
+
+
 def _main() -> int:
     parser = build_parser()
     if len(sys.argv) <= 1:   # 인자 없는 `bw`: argparse 는 "required: cmd" 한 줄로 끝난다. 설치 직후 가장 먼저 치는 것이라 명령 목록과 첫 걸음을
@@ -402,6 +418,11 @@ def _main() -> int:
               file=sys.stderr)
         return 2
     a = parser.parse_args()
+    if a.cmd != "plugin-path" and (msg := home_problem()):
+        if msg[0] == "file":   # 무엇을 하든 그 아래에 runs/ 를 만들 수 없다
+            print("BLOCKED:", msg[1], file=sys.stderr); return 2
+        if a.cmd in ("status", "doctor"):   # rig 등은 처음 돌 때 만든다. 목록·점검만 "없다" 를 알린다
+            print(msg[1], file=sys.stderr)
     started = time.time() - 1  # 파일 시각 해상도 여유
     try:
         if a.cmd == "doctor":

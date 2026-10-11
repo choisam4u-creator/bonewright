@@ -400,6 +400,31 @@ class RunIdTests(unittest.TestCase):
         self.assertEqual("", cli.build_parser().parse_args(["doctor", "--for-issue"]).for_issue)
 
 
+class HomeFolderTests(unittest.TestCase):
+    def run_cli(self, home, *argv):
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": "en", "BW_HOME": str(home)}), patch.object(cli, "ROOT", Path(home)), \
+                patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err), patch("sys.stdout", io.StringIO()), \
+                patch.object(cli.pipeline, "rig", side_effect=AssertionError("rig 를 부르면 안 된다")):
+            code = cli.main()
+        return code, err.getvalue()
+
+    def test_bw_home_that_is_a_file_or_missing(self):
+        """BW_HOME pointing at a file stops every command (exit 2); a missing BW_HOME is named by `bw status`.
+
+        10/11 11회차: 파일이어도 `bw status` 가 "no runs yet (looked in <file>/runs)" 로 종료 0 이었다."""
+        with tempfile.TemporaryDirectory() as t:
+            f = Path(t) / "afile"; f.write_text("x")
+            for argv in (["status"], ["rig", "m.glb"]):
+                with self.subTest(argv=argv):
+                    code, err = self.run_cli(f, *argv)
+                    self.assertEqual(2, code); self.assertIn("BW_HOME is a file, not a folder", err)
+            code, err = self.run_cli(Path(t) / "nope", "status")
+            self.assertEqual(0, code); self.assertIn("BW_HOME does not exist", err)
+            code, err = self.run_cli(Path(t), "status")
+            self.assertNotIn("BW_HOME", err.split("no runs yet")[0])   # 있는 폴더면 조용하다
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 
