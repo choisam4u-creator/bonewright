@@ -118,6 +118,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- An option typed without its value (`bw rig a.glb --facing`) got only argparse's "expected one argument"; it now
+  lists the choices (`--facing auto | neg-y | pos-y`) or a pasteable example (`--size 640`, `--pin spine.004=0,0,1.42`).
 - A `--targets` file of the wrong shape (a list, a bone without head/tail, two-number coordinates) went as far as
   Blender; it is now checked first, naming each bad entry and the expected `{"bone": {"head": [x, y, z], ...}}` form.
 - `bw doctor` and `bw doctor --for-issue` stopped with `BLOCKED:` on a broken or wrong-typed `runs/config.json` (or

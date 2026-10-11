@@ -315,6 +315,27 @@ def positive_int(flag: str, example: int):
     return parse
 
 
+def _hint_on_missing_value(p: argparse.ArgumentParser) -> None:
+    """argparse 의 "argument --facing: expected one argument" 끝에 고를 값(선택지) 또는 그대로 칠 예(종료 2 그대로).
+    10/11 11회차: `bw rig a.glb --facing` 처럼 값을 빠뜨리면 선택지도 예도 없는 한 줄이었다."""
+    import re
+    orig = p.error
+    def error(message: str):
+        m = re.search(r"argument (--[\w-]+): expected one argument", message)
+        act = next((a for a in p._actions if m and m.group(1) in a.option_strings), None)
+        if act is not None:
+            flag = m.group(1)
+            if act.choices:
+                message += "\n" + T("→ 고를 값: ", "→ choose one: ") + " | ".join(f"{flag} {c}" for c in act.choices)
+            elif flag in ("--pin", "--run-id", "--rig"):
+                example = {"--pin": "spine.004=0,0,1.42", "--run-id": "hero-v2", "--rig": "<rig run-id>  (`bw status`)"}[flag]
+                message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {example}"
+            elif act.default not in (None, False, True):
+                message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {act.default}"
+        orig(message)
+    p.error = error
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
@@ -378,6 +399,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help=T("버그 신고에 붙일 덩어리를 찍는다: 버전·OS·이 점검 결과·실행 하나(생략하면 가장 최근)의 state.json·마지막 로그 꼬리. 개인 경로는 ~ 로 바꾼다",
                            "print a block to paste into a bug report: versions, OS, this check, and one run's state.json and log tail (the latest run if omitted). Home paths become ~"))
     sub.add_parser("plugin-path", help=T("Codex 플러그인 폴더 경로 출력", "print the Codex plugin folder"))
+    for sp in sub.choices.values():   # 값 없이 끝난 옵션(`--facing`)에 고를 값·예를 붙인다
+        _hint_on_missing_value(sp)
     return p
 
 

@@ -425,6 +425,24 @@ class HomeFolderTests(unittest.TestCase):
             self.assertNotIn("BW_HOME", err.split("no runs yet")[0])   # 있는 폴더면 조용하다
 
 
+class MissingValueTests(unittest.TestCase):
+    def test_option_without_value_gets_choices_or_an_example(self):
+        """An option typed without its value lists its choices or a pasteable example (exit 2), and that example parses."""
+        import os, re
+        cases = ((["rig", "a.glb", "--facing"], "--facing pos-y"), (["rig", "a.glb", "--preset"], "--preset quadruped"),
+                 (["rig", "a.glb", "--pin"], "--pin spine.004=0,0,1.42"), (["demo", "r1", "--size"], "--size 640"),
+                 (["usage", "--days"], "--days 7"), (["rig", "a.glb", "--run-id"], "--run-id hero-v2"))
+        for lang in ("en", "ko"):
+            for argv, want in cases:
+                err = io.StringIO()
+                with self.subTest(lang=lang, argv=argv), patch.dict(os.environ, {"BW_LANG": lang}), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.build_parser().parse_args(argv)
+                    self.assertEqual(2, cm.exception.code)
+                    self.assertIn(want, err.getvalue())
+                    cli.build_parser().parse_args(argv[:-1] + want.split())   # 안내한 값은 그대로 받아들여진다
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 
