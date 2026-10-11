@@ -431,7 +431,9 @@ class MissingValueTests(unittest.TestCase):
         import os, re
         cases = ((["rig", "a.glb", "--facing"], "--facing pos-y"), (["rig", "a.glb", "--preset"], "--preset quadruped"),
                  (["rig", "a.glb", "--pin"], "--pin spine.004=0,0,1.42"), (["demo", "r1", "--size"], "--size 640"),
-                 (["usage", "--days"], "--days 7"), (["rig", "a.glb", "--run-id"], "--run-id hero-v2"))
+                 (["usage", "--days"], "--days 7"), (["rig", "a.glb", "--run-id"], "--run-id hero-v2"),
+                 (["export", "r1", "--out"], "--out hero.glb"), (["motion", "--bvh"], "--bvh examples/wave.bvh"),
+                 (["rig", "a.glb", "--targets"], "--targets runs/<id>/targets.json"), (["bench", "a.glb", "--gt-mesh"], "--gt-mesh original_tpose.glb"))
         for lang in ("en", "ko"):
             for argv, want in cases:
                 err = io.StringIO()

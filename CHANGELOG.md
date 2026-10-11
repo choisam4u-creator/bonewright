@@ -123,7 +123,8 @@ See `docs/RELEASING.md` for the release steps.
 - Ctrl-C during a command printed a Python traceback and left the run `running` in `bw status`; it now prints one
   line naming the run and step, exits 130 and marks the run `interrupted`.
 - An option typed without its value (`bw rig a.glb --facing`) got only argparse's "expected one argument"; it now
-  lists the choices (`--facing auto | neg-y | pos-y`) or a pasteable example (`--size 640`, `--pin spine.004=0,0,1.42`).
+  lists the choices (`--facing auto | neg-y | pos-y`) or a pasteable example (`--size 640`, `--pin spine.004=0,0,1.42`,
+  `--out hero.glb`, `--bvh examples/wave.bvh`).
 - A `--targets` file of the wrong shape (a list, a bone without head/tail, two-number coordinates) went as far as
   Blender; it is now checked first, naming each bad entry and the expected `{"bone": {"head": [x, y, z], ...}}` form.
 - `bw doctor` and `bw doctor --for-issue` stopped with `BLOCKED:` on a broken or wrong-typed `runs/config.json` (or

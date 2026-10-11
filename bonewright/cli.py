@@ -315,6 +315,12 @@ def positive_int(flag: str, example: int):
     return parse
 
 
+# 기본값이 없는 인자를 값 없이 쳤을 때 붙일 예. 그대로 붙여 넣으면 도는 값(저장소 안 파일)을 고른다
+EXAMPLES = {"--pin": "spine.004=0,0,1.42", "--run-id": "hero-v2", "--rig": "<rig run-id>  (`bw status`)",
+            "--out": "hero.glb", "--bvh": "examples/wave.bvh", "--text": '"a person walks"', "--map": "bones.json",
+            "--targets": "runs/<id>/targets.json", "--gt-mesh": "original_tpose.glb"}
+
+
 def _hint_on_missing_value(p: argparse.ArgumentParser) -> None:
     """argparse 의 "argument --facing: expected one argument" 끝에 고를 값(선택지) 또는 그대로 칠 예(종료 2 그대로).
     10/11 11회차: `bw rig a.glb --facing` 처럼 값을 빠뜨리면 선택지도 예도 없는 한 줄이었다."""
@@ -327,8 +333,8 @@ def _hint_on_missing_value(p: argparse.ArgumentParser) -> None:
             flag = m.group(1)
             if act.choices:
                 message += "\n" + T("→ 고를 값: ", "→ choose one: ") + " | ".join(f"{flag} {c}" for c in act.choices)
-            elif flag in ("--pin", "--run-id", "--rig"):
-                example = {"--pin": "spine.004=0,0,1.42", "--run-id": "hero-v2", "--rig": "<rig run-id>  (`bw status`)"}[flag]
+            elif flag in EXAMPLES:
+                example = EXAMPLES[flag]
                 message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {example}"
             elif act.default not in (None, False, True):
                 message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {act.default}"
