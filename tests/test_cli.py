@@ -303,6 +303,43 @@ class FacingHelpTests(unittest.TestCase):
         self.assertEqual("pos-y", cli.build_parser().parse_args(["rig", "m.glb", "--facing", "pos-y"]).facing)   # 맞는 값은 그대로
 
 
+class UnquotedPathTests(unittest.TestCase):
+    """A path with spaces given without quotes gets the quoted command back (argparse only said "unrecognized arguments").
+
+    10/11 10회차 실측: `bw rig my char.glb` → 종료 2·사용법·"unrecognized arguments: char.glb" 뿐."""
+
+    def test_quoted_command_is_suggested_and_parses(self):
+        import os
+        import shlex
+        for lang, want in (("en", "quote a path"), ("ko", "따옴표로 감싼다")):
+            for argv, field, value in ((["rig", "my", "char.glb", "--no-judge"], "mesh", "my char.glb"),
+                                       (["motion", "--bvh", "my", "wave.bvh", "--rig", "r1"], "bvh", "my wave.bvh")):
+                with self.subTest(lang=lang, cmd=argv[0]), tempfile.TemporaryDirectory() as t:
+                    (Path(t) / value).write_bytes(b"x")
+                    err, cwd = io.StringIO(), os.getcwd()
+                    os.chdir(t)
+                    try:
+                        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err):
+                            with self.assertRaises(SystemExit) as cm:
+                                cli.main()
+                    finally:
+                        os.chdir(cwd)
+                    self.assertEqual(2, cm.exception.code)
+                    last = err.getvalue().strip().splitlines()[-1]
+                    self.assertIn(want, last)
+                    cmd = shlex.split(last.split(": ", 1)[1])
+                    self.assertEqual("bw", cmd[0])
+                    self.assertEqual(value, getattr(cli.build_parser().parse_args(cmd[1:]), field))   # 그대로 붙여 넣으면 된다
+
+    def test_no_hint_when_nothing_joins_into_a_file(self):
+        import os
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(sys, "argv", ["bw", "rig", "nothing", "here"]), patch("sys.stderr", err):
+            with self.assertRaises(SystemExit):
+                cli.main()
+        self.assertNotIn("quote", err.getvalue())
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 

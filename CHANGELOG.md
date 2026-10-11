@@ -79,6 +79,9 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- A path with spaces typed without quotes (`bw rig my char.glb`) used to get only argparse's "unrecognized
+  arguments: char.glb". When the words join into a file that exists, the error now ends with the same command with
+  the path quoted, ready to paste.
 - `--facing` (`bw rig`, `bw bench`) now says how to choose: look at the imported mesh from Blender's front view
   (numpad 1) — face visible means `neg-y`, back of the head means `pos-y`. A wrong value such as `--facing up` gets
   the same line under argparse's list of choices, which used to be all it printed.

@@ -200,6 +200,26 @@ def _hint_on_bad_command(p: argparse.ArgumentParser, sub) -> None:
     p.error = error
 
 
+def _hint_on_unquoted(p: argparse.ArgumentParser) -> None:
+    """공백 든 경로를 따옴표 없이 줬을 때(`bw rig my char.glb`): argparse 는 "unrecognized arguments: char.glb" 만 말한다.
+    이어 붙이면 있는 파일이 되는 인자들을 찾아 따옴표 친 명령을 그대로 준다(10/11 10회차 실측, macOS 파일 이름에 흔하다)."""
+    orig = p.error
+    def error(message: str):
+        if "unrecognized arguments:" in message:
+            args = sys.argv[1:]
+            for i in range(len(args)):
+                if args[i].startswith("-") or Path(args[i]).expanduser().exists():
+                    continue
+                for j in range(len(args), i + 1, -1):
+                    joined = " ".join(args[i:j])
+                    if Path(joined).expanduser().is_file():
+                        cmd = " ".join(["bw", *args[:i], f'"{joined}"', *args[j:]])
+                        message += "\n" + T(f"→ 공백 든 경로는 따옴표로 감싼다: {cmd}", f"→ quote a path that has spaces: {cmd}")
+                        return orig(message)
+        orig(message)
+    p.error = error
+
+
 def _hint_on_conflict(p: argparse.ArgumentParser, hint: str) -> None:
     """argparse 의 '…not allowed with argument …' 끝에 무엇을 고를지 한 줄(종료 2 그대로)."""
     orig = p.error
@@ -247,6 +267,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
     _hint_on_bad_command(p, sub)
+    _hint_on_unquoted(p)
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh", help=T("리깅할 메시(.glb·.gltf·.fbx·.obj·.blend)", "mesh to rig (.glb, .gltf, .fbx, .obj, .blend)")); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid). 네 발 짐승은 quadruped", "rig type (default humanoid); quadruped for four-legged animals"))
     r.add_argument("--run-id", help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
