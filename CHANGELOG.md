@@ -114,6 +114,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `runs/config.json` accepted values the command line refuses (`"lang": "fr"`, `"rest_pose": "T"`); they now stop with
+  the allowed values (the same choices as `--lang`, `--rest-pose`, `--weights`).
 - A `runs/config.json` value of the wrong type (`"max_input_tokens": "lots"`, `"rig": "t"`) surfaced later as an
   unexpected TypeError; the file is now checked against the defaults when it is read, and the error lists each key with
   the expected type, its default and what was found.

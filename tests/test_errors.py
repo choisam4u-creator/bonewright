@@ -122,6 +122,22 @@ class InputErrorTests(unittest.TestCase):
         from bonewright import config
         self.assertEqual([], config.type_problems({"budget": {"max_input_tokens": 1000, "price_input_per_m": 3}, "rig": {"face": True}}))
 
+    def test_settings_value_not_allowed(self):
+        """Settings values outside the command-line choices (`"lang": "fr"`, `"rest_pose": "T"`) stop with the allowed values."""
+        (self.root / "runs").mkdir()
+        (self.root / "runs" / "config.json").write_text('{"lang": "fr", "rig": {"rest_pose": "T", "weights": "auto"}}', encoding="utf-8")
+        msg = self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True)
+        self.assertIn("쓸 수 없는 값", msg)
+        self.assertIn('lang: "fr" → "" | "ko" | "en"', msg)
+        self.assertIn('rig.rest_pose: "T" → "keep" | "t" ("t"?)', msg)
+        self.assertNotIn("rig.weights", msg)
+        from bonewright import cli, config
+        for key, allowed in config.CHOICES.items():   # 명령줄 선택지와 같은지
+            flag = "--" + key.split(".")[-1].replace("_", "-")
+            act = [a for a in cli.build_parser()._subparsers._group_actions[0].choices["rig"]._actions if flag in a.option_strings][0]
+            with self.subTest(key=key):
+                self.assertEqual(set(act.choices), set(a for a in allowed if a))
+
     def test_broken_settings_file(self):
         """A trailing comma in runs/config.json is reported as BLOCKED with line and column.
 

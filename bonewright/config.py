@@ -115,6 +115,23 @@ def type_problems(user: dict, known: dict = DEFAULTS, prefix: str = "") -> list[
     return out
 
 
+# 명령줄과 같은 선택지(cli 의 choices). 10/11 11회차: `--lang fr` 은 argparse 가 막는데 설정의 "lang": "fr" 은 받아들였다
+CHOICES = {"lang": ("", "ko", "en"), "rig.rest_pose": ("keep", "t"), "rig.weights": ("auto", "proxy")}
+
+
+def choice_problems(user: dict) -> list[str]:
+    out = []
+    for key, allowed in CHOICES.items():
+        node = user
+        for part in key.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if node is not None and node not in allowed:
+            near = difflib.get_close_matches(str(node).lower(), [a for a in allowed if a], n=1, cutoff=0.5)
+            shown = " | ".join(json.dumps(a) for a in allowed)
+            out.append(f"{key}: {json.dumps(node, ensure_ascii=False)} → {shown}" + (f" ({json.dumps(near[0])}?)" if near else ""))
+    return out
+
+
 def load(root: Path, lang: str | None = None) -> dict:
     if (msg := backend_problem()):
         from .pipeline import Blocked   # pipeline 이 이 모듈을 import 하므로 여기서
@@ -129,6 +146,12 @@ def load(root: Path, lang: str | None = None) -> dict:
             listing = "\n  ".join(bad)
             raise Blocked(T(f"설정 파일 값의 형이 틀렸다: {p}\n  {listing}\n  → 화살표 왼쪽(기본값과 같은 형)으로 고치거나 그 키를 지운다. 키 표: docs/GUIDE.md 의 \"Settings (`runs/config.json`)\"",
                             f"wrong type in the settings file: {p}\n  {listing}\n  → use the type on the left of the arrow (the default's), or delete the key. Keys: \"Settings (`runs/config.json`)\" in docs/GUIDE.md"))
+        if (bad := choice_problems(user)):
+            from .i18n import T
+            from .pipeline import Blocked
+            listing = "\n  ".join(bad)
+            raise Blocked(T(f"설정 파일에 쓸 수 없는 값: {p}\n  {listing}\n  → 화살표 오른쪽 값 중 하나로 고치거나 그 키를 지운다(명령줄 선택지와 같다)",
+                            f"value not allowed in the settings file: {p}\n  {listing}\n  → use one of the values right of the arrow, or delete the key (same choices as on the command line)"))
         cfg = _merge(cfg, user)
     if lang:
         cfg = _merge(cfg, {"lang": lang})
