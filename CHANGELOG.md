@@ -11,6 +11,8 @@ benchmark number moves.
 See `docs/RELEASING.md` for the release steps.
 
 ### Added
+- The first line of `bw rig` says how many model calls it may make (`up to 2 model call(s) (fit·judge)`, or
+  `0 model calls`), instead of the cost showing up only in `report.md` afterwards.
 - `bw doctor` says whether model calls are on (codex, the default: 2 calls per `bw rig`, about $1) or off
   (`BW_BACKEND=mock`), and how to get 0 tokens.
 - The guide's "Install and run" now shows `bw status` (it was mentioned by error messages but documented nowhere):

@@ -339,7 +339,14 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             _log(quiet, "  ⚠ " + str(e).splitlines()[0] + T(" (일반 리그로 가면 원본 본 이름으로 쓰인다)", " (used as a source bone name if this becomes a generic rig)"))
     need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
     r = Run(root, run_id, cfg, quiet)
-    _log(quiet, f"rig {run_id} · {preset} · {mesh}")
+    # 비용은 끝난 뒤 report.md 의 tokens 줄에서야 보였다(10/11 11회차) — 시작 줄에 모델 호출이 몇 번까지인지
+    planned = [n for n, on in (("fit", not (from_skeleton or targets_file or from_shape)), ("judge", not no_judge)) if on]
+    if os.environ.get("BW_BACKEND") == "mock" or not planned:
+        calls = T("모델 호출 0(토큰 0)", "0 model calls (0 tokens)")
+    else:
+        names = "·".join(planned)
+        calls = T(f"모델 호출 최대 {len(planned)}회({names}) — 토큰 0 은 BW_BACKEND=mock", f"up to {len(planned)} model call(s) ({names}) — for 0 tokens: BW_BACKEND=mock")
+    _log(quiet, f"rig {run_id} · {preset} · {mesh} · {calls}")
     # 1 분석
     r.state("analyze", "running")
     a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})

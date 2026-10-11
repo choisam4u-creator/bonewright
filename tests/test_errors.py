@@ -720,6 +720,27 @@ class BackendTypoTests(unittest.TestCase):
                 self.assertIsNone(config.backend_problem())   # 없으면 codex(기본)
 
 
+class RigStartLineTests(unittest.TestCase):
+    def start_line(self, backend, **kw):
+        from bonewright import blender
+        seen = []
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en", "BW_BACKEND": backend}), \
+                patch.object(pipeline, "need_blender", lambda cfg: None), \
+                patch.object(pipeline, "run_script", side_effect=blender.BlenderError("stop here")), \
+                patch.object(pipeline, "_log", lambda quiet, msg: seen.append(msg)):
+            mesh = Path(d) / "a.glb"; mesh.write_bytes(b"glTF")
+            with self.assertRaises(blender.BlenderError):
+                pipeline.rig(Path(d), str(mesh), quiet=True, **kw)
+        return next(m for m in seen if m.startswith("rig "))
+
+    def test_start_line_says_how_many_model_calls(self):
+        """The first `bw rig` line says how many model calls it may make (cost used to show only in report.md at the end)."""
+        self.assertIn("up to 2 model call(s) (fit·judge)", self.start_line("codex"))
+        self.assertIn("up to 1 model call(s) (fit)", self.start_line("codex", no_judge=True))
+        self.assertIn("0 model calls", self.start_line("codex", from_skeleton=True, no_judge=True))
+        self.assertIn("0 model calls", self.start_line("mock"))
+
+
 class BenchInputTests(unittest.TestCase):
     """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
 
