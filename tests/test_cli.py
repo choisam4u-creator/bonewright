@@ -326,6 +326,22 @@ class SkeletonSourceTests(unittest.TestCase):
         self.assertTrue(cli.build_parser().parse_args(["rig", "m.glb", "--from-shape"]).from_shape)   # 하나만은 그대로 된다
 
 
+    def test_motion_text_and_bvh_are_exclusive(self):
+        """`bw motion --text … --bvh …` stops at the parser (exit 2) and says which to pick; motion is not called.
+
+        10/11 12회차 실측: 둘 다 받아 말없이 --text 로 가서 'kimodo.cpp 가 없다' 로 멈췄다."""
+        import os
+        for lang, want in (("en", "pick one"), ("ko", "하나만 준다")):
+            err = io.StringIO()
+            with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), \
+                    patch.object(sys, "argv", ["bw", "motion", "--text", "walk", "--bvh", "examples/wave.bvh"]), \
+                    patch.object(cli.pipeline, "motion", side_effect=AssertionError("motion 을 부르면 안 된다")), patch("sys.stderr", err):
+                with self.assertRaises(SystemExit) as cm:
+                    cli.main()
+                self.assertEqual(2, cm.exception.code)
+                self.assertIn(want, err.getvalue()); self.assertIn("--bvh examples/wave.bvh", err.getvalue())
+        self.assertEqual("examples/wave.bvh", cli.build_parser().parse_args(["motion", "--bvh", "examples/wave.bvh"]).bvh)
+
 class FacingHelpTests(unittest.TestCase):
     """`--facing` says how to choose neg-y / pos-y (help and the invalid-choice error only listed the values).
 

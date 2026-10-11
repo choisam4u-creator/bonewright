@@ -389,7 +389,10 @@ def build_parser() -> argparse.ArgumentParser:
     _hint_on_missing(r, "mesh", T(f"→ 처음이면 {where}저장소에 든 캐릭터로(모델 호출 없음): {first}  (README \"첫 실행\")",
                                   f"→ new here? {where}on the character it ships (no model calls): {first}  (README \"First run\")"))
     m = sub.add_parser("motion", help=T("텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다", "make motion from text (kimodo.cpp) or a BVH and bring it into Blender"))
-    m.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); m.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", type=run_id_arg, help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    msrc = m.add_mutually_exclusive_group()   # 동작 출처는 하나만(10/11 12회차: 둘 다 주면 말없이 --text 로 가 kimodo 없음으로 멈췄다)
+    msrc.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); msrc.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", type=run_id_arg, help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    _hint_on_conflict(m, T(f"→ 하나만 준다: 이미 있는 동작 파일이면 --bvh(예: --bvh {pipeline.sample_bvh()}), 글로 새로 만들려면 --text(kimodo.cpp 필요)",
+                           f"→ pick one: --bvh for a motion file you have (e.g. --bvh {pipeline.sample_bvh()}), --text to make one from words (needs kimodo.cpp)"))
     m.add_argument("--rig", type=run_id_arg, help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
     m.add_argument("--preset", choices=["humanoid", "quadruped"], default=None, help=T("리그의 프리셋. 생략하면 리그 실행 기록(rig_stats.json)에서 읽는다", "the rig's preset. Read from the rig run (rig_stats.json) when omitted"))
     _hint_on_choice(m, "--preset", preset_hint)

@@ -118,6 +118,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw motion --text … --bvh …` took both and silently used the text (then stopped on a missing kimodo.cpp); the two
+  are now exclusive (exit 2) with one line on which to pick.
 - `examples/rig_sample.py` without Blender suggested `python3 examples/rig_sample.py --table adventurer`, which fails
   outside the repository folder; run from elsewhere it now gives the script's full path.
 - The first-run hint (`bw status` with no runs, `bw export` / `bw demo` without an id, `bw rig` without a mesh) gave
