@@ -24,6 +24,8 @@ See what a result looks like first in [sample-output/capsule_doll.md](sample-out
 (`bw motion --bvh`) is in [sample-output/capsule_doll_motion.md](sample-output/capsule_doll_motion.md) (`--motion`,
 18 of 19 BVH joints mapped — `Spine` is the mid spine and is not mapped on its own; see
 [Motion retargeting](../docs/GUIDE.md#motion-retargeting)). `tests/test_examples.py` compares all three with a fresh run.
+The same wave is committed as [`wave.bvh`](wave.bvh), so a rig of your own can take it as is:
+`bw motion --bvh examples/wave.bvh --rig <run-id>` (`bw rig` prints this on its `next:` line with the id filled in).
 
 ## Heavy assets
 

@@ -20,6 +20,8 @@ python3 examples/rig_sample.py --motion        # 캡슐 인형 리깅 뒤 절차
 Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). 동작 리타겟(`bw motion --bvh`)은
 [sample-output/capsule_doll_motion.md](sample-output/capsule_doll_motion.md)(`--motion`, BVH 관절 19개 중 18개를 옮김 —
 `Spine` 은 척추 중간이라 따로 옮기지 않는다 — [Motion retargeting](../docs/GUIDE.md#motion-retargeting) 의 관절 표). `tests/test_examples.py` 가 세 예시와 지금 결과를 대조한다.
+같은 손 흔들기를 [`wave.bvh`](wave.bvh) 로 실어 두었다 — 내 리그에도 그대로 넣을 수 있다:
+`bw motion --bvh examples/wave.bvh --rig <run-id>`(`bw rig` 끝의 `next:` 줄이 id 를 채워 보여 준다).
 
 ## 무거운 자산
 

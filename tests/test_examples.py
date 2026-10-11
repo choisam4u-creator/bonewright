@@ -132,6 +132,50 @@ class ExampleMessageTests(unittest.TestCase):
         self.assertIn("절차적 캡슐 인형", out["ko"])
 
 
+class SampleBvhTests(unittest.TestCase):
+    """`examples/wave.bvh` is what `rig_sample.wave_bvh` writes, and every hint that names a BVH names it as pasted.
+
+    10/11 9회차: `bw rig` 의 `next:` 줄과 `bw motion` 의 안내가 `<file.bvh>`·`walk.bvh` 처럼 없는 파일을 줬다 —
+    저장소에 BVH 가 하나도 없어서 리타겟을 처음 해 보는 사람이 막혔다(README 캐릭터에 18본 리타겟, bpy 5.2.2 로 확인)."""
+
+    def test_committed_bvh_is_reproducible(self):
+        """The committed file is byte-for-byte what the generator writes now."""
+        with tempfile.TemporaryDirectory() as d:
+            fresh = rig_sample.wave_bvh(Path(d) / "w.bvh").read_bytes()
+        self.assertEqual(fresh, (ROOT / "examples" / "wave.bvh").read_bytes(),
+                         "python3 -c \"import sys; sys.path.insert(0, 'examples'); import rig_sample, pathlib; rig_sample.wave_bvh(pathlib.Path('examples/wave.bvh'))\"")
+
+    def test_hints_name_the_sample_and_parse(self):
+        """`bw motion` with no source, a missing --bvh and the `next:` line after `bw rig` all give `--bvh examples/wave.bvh`."""
+        import io
+        from unittest.mock import patch
+        from bonewright import cli
+        msgs = []
+        for lang in ("en", "ko"):
+            with patch.dict(os.environ, {"BW_LANG": lang}):
+                for argv in (["bw", "motion"], ["bw", "motion", "--bvh", "nope.bvh"]):
+                    err = io.StringIO()
+                    with patch.object(sys, "argv", argv), patch("sys.stderr", err), patch("sys.stdout", io.StringIO()):
+                        self.assertEqual(2, cli.main())
+                    msgs.append(err.getvalue())
+                err = io.StringIO()
+                with patch.object(sys, "argv", ["bw", "rig", "m.glb"]), patch.object(cli.pipeline, "rig", return_value="runs/r1/report.md"), \
+                        patch("sys.stderr", err), patch("sys.stdout", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                msgs.append(err.getvalue())
+        for m in msgs:
+            with self.subTest(msg=m.splitlines()[0]):
+                bv = re.search(r"--bvh ([^\s`]+)", m)
+                self.assertIsNotNone(bv, m)
+                self.assertTrue(Path(bv[1]).is_file() or (ROOT / bv[1]).is_file(), bv[1])
+                full = re.search(r"`(bw motion --bvh [^`]+)`", m)
+                cmd = (full[1] if full else f"bw motion --bvh {bv[1]} --rig r1").replace("<rig run-id>", "r1").replace("<리그 run-id>", "r1")
+                with patch.object(sys, "argv", cmd.split()), patch.object(cli.pipeline, "motion", return_value="runs/m/report.md") as mo, \
+                        patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                self.assertEqual("r1", mo.call_args.kwargs["rig_run"])
+
+
 class SampleOutputTests(unittest.TestCase):
     def test_sample_table_is_what_bone_table_prints(self):
         """The checked-in sample table is exactly what the bone table code prints.

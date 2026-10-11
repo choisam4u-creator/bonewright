@@ -411,9 +411,9 @@ def _main() -> int:
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
     print(T("보고서:", "report:"), out)
     if a.cmd == "rig":   # README 다음 줄이 `bw demo <run-id>` 라 id 를 경로에서 오려 내지 않게(stdout 은 보고서 경로 한 줄 그대로)
-        rid = Path(out).parent.name
-        print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh <파일.bvh> --rig {rid}`",
-                f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh <file.bvh> --rig {rid}`"), file=sys.stderr)
+        rid = Path(out).parent.name; bv = pipeline.sample_bvh()   # 저장소의 손 흔들기 BVH — 그대로 붙여 넣어 돈다
+        print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh {bv} --rig {rid}`",
+                f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh {bv} --rig {rid}`"), file=sys.stderr)
     return 0
 
 

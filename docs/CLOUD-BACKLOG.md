@@ -193,3 +193,12 @@
 - [x] (10/10 8회차: `UnicodeDecodeError` 따로, `test_errors.test_binary_targets_file_is_named_as_such` — 옛 코드에서 실패) `bw rig a.glb --targets a.glb`(메시를 잘못 줌): "--targets file is not JSON ('utf-8' codec can't decode …) → 편집 중 쉼표·괄호가 깨졌는지" — 바이너리 파일에 쉼표 안내는 틀렸다 → 디코드 실패면 "JSON 이 아니라 바이너리 파일, 메시를 준 것 아닌가? `--targets runs/<id>/targets.json`", 시험 — 근거: 10/10 8회차 실측
 - [x] (10/10 8회차: `bench.run` 이 --gt-mesh 를 따로 확인, `BenchInputTests.test_missing_gt_mesh_is_named` — 옛 코드에서 실패) `bw bench a.glb --gt-mesh nope.glb` 가 "mesh file not found: nope.glb" 라 한다 — 어느 인자인지 안 보인다 → "--gt-mesh 파일이 없다", 시험 — 근거: 10/10 8회차 실측
 - [x] (10/10 8회차: `pipeline.ffmpeg_install`, `test_errors.FfmpegHintTests`) `bw demo` 의 ffmpeg 없음 안내가 한국어판은 `brew install ffmpeg`(macOS 전용), 영어판은 "install ffmpeg" 뿐이다 → OS 별 한 줄(macOS brew·Linux apt·Windows winget), 시험 — 근거: 10/10 8회차 `pipeline.demo` 읽기
+
+
+## 2026-10-11 9회차 추가 (공개 준비 기준 — 사용자 체감: 첫 결과 다음 단계가 그대로 도는지, 빈 BW_HOME·Blender 없음 실측)
+
+- [x] (10/11 9회차: `rig_sample.wave_bvh` 출력을 `examples/wave.bvh`(12KB, 절차 생성이라 MIT)로 싣고 `pipeline.sample_bvh` 가 안내 세 곳에 넣는다, `test_examples.SampleBvhTests` 2개 — 옛 코드에서 실패, bpy 5.2.2 로 README 캐릭터에 18본 리타겟 확인) `bw rig` 끝 `next:` 줄의 `bw motion --bvh <file.bvh> --rig <id>`·`bw motion` 출처 없음의 `walk.bvh`·없는 `--bvh` 안내가 모두 저장소에 없는 파일을 준다 — 저장소에 BVH 가 하나도 없어 첫 리타겟에서 막힌다 → 그대로 붙여 넣어 도는 샘플 BVH 와 안내, 시험 — 근거: 10/11 9회차 실측(`git ls-files '*.bvh'` 0개)
+- [ ] 빈 BW_HOME 에서 `bw status`: "start with `bw rig <mesh>`" 자리표시 → 인자 없는 `bw rig` 와 같은 그대로 도는 첫 명령(`bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge`), 시험 — 근거: 10/11 9회차 실측. 7회차에 `bw rig` 인자 없음만 고쳐 두 안내가 다르다
+- [ ] `bw export nosuch`·`bw demo nosuch`(틀린 run-id): "Rig first with `bw rig <mesh> --run-id nosuch`" — 이미 리그가 있으면 오타일 가능성이 크다 → 가까운 실행 id(`difflib`)와 가장 최근 리그 명령을 먼저, 시험 — 근거: 10/11 9회차 실측(`pipeline.need_rig`)
+- [ ] `bw rig` 가 거절할 때 남기는 "`bw rig <mesh> --targets …/targets_draft.json`"(`pipeline.py` 거절·보고서 두 곳): 메시 경로를 알고 있는데 자리표시로 준다 → 실제 메시 경로를 넣어 그대로 도는 명령, 시험 — 근거: 10/11 9회차 `grep -n "<mesh>" bonewright/*.py`(24곳 중 값이 이미 있는 곳)
+- [ ] `--facing` 도움말·`invalid choice` 오류가 `neg-y`·`pos-y` 가 무엇인지 말하지 않는다("-Y 로 맞춤" 만) → 각 값이 "Blender 앞 보기(숫자패드 1)에서 얼굴이 보이면 neg-y" 처럼 고르는 법 한 줄, 틀린 값엔 그 줄을 붙인 오류, 두 언어 시험 — 근거: 10/11 9회차 실측(`bw rig x.glb --facing up` → 선택지 나열만)

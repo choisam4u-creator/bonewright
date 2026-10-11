@@ -87,6 +87,15 @@ def need_pin_names(pins: dict, preset: str) -> None:
                     f"--pin bone not in the {preset} metarig:\n{listed}\n  → use a metarig bone name (case and .L/.R must match). e.g. --pin {ex}=0.6,0,1.3"))
 
 
+def sample_bvh() -> str:
+    """안내에 넣을 샘플 BVH 경로(examples/wave.bvh — rig_sample.wave_bvh 가 만든 손 흔들기 24프레임, 저장소에 실려 있다).
+    저장소 폴더에서 치면 상대 경로, 다른 곳이면 저장소의 절대 경로, 패키지만 설치돼 없으면 자리표시."""
+    if Path("examples/wave.bvh").is_file():
+        return "examples/wave.bvh"
+    p = Path(__file__).resolve().parents[1] / "examples" / "wave.bvh"
+    return str(p) if p.is_file() else T("<파일.bvh>", "<file.bvh>")
+
+
 def need_rig(root: Path, run_id: str) -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다."""
     blend = root / "runs" / run_id / "02_rigged.blend"
@@ -516,10 +525,13 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     cfg = load(root)
     # 입력 확인은 실행 폴더·Blender 전에: 잘못된 --rig·--bvh 로 기존 실행 기록을 덮지 않는다
     if not text and not bvh:
-        raise Blocked(T("동작 출처가 없다\n  → `bw motion --bvh walk.bvh --rig <리그 run-id>` 또는 `bw motion --text \"a person walks\"`",
-                        "no motion source\n  → `bw motion --bvh walk.bvh --rig <rig run-id>` or `bw motion --text \"a person walks\"`"))
+        bv = sample_bvh()   # 그대로 붙여 넣어 도는 BVH(저장소의 손 흔들기)
+        raise Blocked(T(f"동작 출처가 없다\n  → `bw motion --bvh {bv} --rig <리그 run-id>`(리그 id 는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
+                        f"no motion source\n  → `bw motion --bvh {bv} --rig <rig run-id>` (rig ids: `bw status`) or `bw motion --text \"a person walks\"`"))
     if bvh and not text:
-        need_file(bvh, "BVH", T("경로를 확인하라. BVH 는 Mixamo·CMU 등에서 받거나 `--text` 로 만든다", "check the path. Get a BVH from Mixamo, CMU etc., or make one with `--text`"), (".bvh",))
+        bv = sample_bvh()
+        need_file(bvh, "BVH", T(f"경로를 확인하라. 저장소의 샘플: `--bvh {bv}`, 그 밖엔 Mixamo·CMU 등에서 받거나 `--text` 로 만든다",
+                                f"check the path. The repository's sample: `--bvh {bv}`; otherwise get one from Mixamo, CMU etc., or make one with `--text`"), (".bvh",))
     if not rig_run:   # 리타겟 옵션은 `if rig_run:` 안에서만 쓰인다 — 말없이 버리면 기다린 끝에 GLB 가 없다
         unused = [f for f, on in (("--export", export), ("--map", bone_map), (f"--legs {legs}", legs != "auto"), ("--no-roll", not roll)) if on]
         if unused:
