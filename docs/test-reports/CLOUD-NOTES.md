@@ -1,11 +1,36 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/11 9회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/11 10회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 213개, 건너뜀 0
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id mac9 && bw motion --bvh examples/wave.bvh --rig mac9   # next: 줄의 BVH 명령 그대로, 18본
-bw rig tests/assets/quaternius_adventurer.glb --pin hand.l=0.6,0,1.3; bw export mac0; bw demo mac9   # BLOCKED: closest hand.L · closest rig `bw export mac9` · 영상
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 219개, 건너뜀 0
+cp tests/assets/quaternius_adventurer.glb "/tmp/my char.glb" && bw rig /tmp/my char.glb --from-skeleton --no-judge   # 끝 줄에 따옴표 친 명령
+bw rig tests/assets/quaternius_adventurer.glb --facing up; bw rig x.glb --preset dog; bw motion --bvh README.md   # 고르는 법 · quadruped · (.md → 형식 안내)
 ```
+
+## 2026-10-11 (10회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main 은 이미 들어 있어 병합 없음.
+- 기존 1개: `--facing` 도움말·틀린 값 오류에 고르는 법 — Blender 앞 보기(숫자패드 1)에서 얼굴이면 `neg-y`, 뒤통수면 `pos-y`(rig·bench).
+- 남은 [ ] 가 결정 대기 1개뿐이라 빈 BW_HOME·Blender 없음에서 명령을 직접 쳐 보고 새 항목 5개 추가, 그중 4개:
+  - 따옴표 없는 공백 든 경로 `bw rig my char.glb` → "unrecognized arguments" 끝에 따옴표 친 명령(이어 붙여 있는 파일일 때만, `--bvh` 도).
+  - 틀린 `--preset`(dog) → "네 발 짐승은 quadruped, 그 밖은 `--from-shape`"(rig·bench·motion).
+  - `bw motion --bvh` 에 빈 파일·HIERARCHY 로 시작 안 하는 파일 → 실행 폴더·Blender 전에 BLOCKED + 샘플 BVH.
+  - `bw bench <없는 경로>` → "파일이나 폴더가 없다" + 받아 둔 `bench-assets/` 폴더 명령 또는 받는 명령.
+- 오류 메시지가 다음 할 일을 말하는지: 고친 다섯 곳 모두 `→` 뒤에 그대로 칠 명령이나 고를 값. 따옴표 제안은 시험이 parser 에 다시 넣어 본다.
+- 설치~첫 결과 단계 수는 그대로(clone·venv·pip·Blender·`bw rig`). 예제는 이번에 손대지 않았고 bpy 시험(test_examples)으로 그대로 도는 것 확인.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 219개 중 16개 건너뜀, 나머지 통과. 커밋마다 OK 일 때만 커밋.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **219개 모두 통과, 건너뜀 0**(148초).
+- 새 시험은 모두 옛 코드(bonewright/ 만 되돌림)에서 실패 확인. `scripts/check_license_boundary.py` OK. 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
+- CI: 푸시마다 unit(3.11·3.13)·unit-windows 성공. blender 잡은 기록 시점에 실행 중(in_progress, 몇 분 걸리는 bpy 설치·시험) — pending 으로 멈춘 것은 아니다.
+
+**완료 수·추가 수**: 완료 5(기존 1 + 새 4) · 추가 5 · 남은 [ ] 2(`spikes/` 라이선스 — 샘님 결정 대기, `--pin` 형식 오류 꼴·종료 코드 — 다음 회차).
+
+**막힌 것 / 다음**
+- `spikes/` 라이선스: 그대로 샘님 결정 대기.
+- 작업 지시는 `claude/cloud-work`, 세션 기본 브랜치는 `claude/cloud-work-0jt8k0` — 같은 커밋을 둘 다에 푸시, PR #10 은 `claude/cloud-work`.
 
 ## 2026-10-11 (9회차)
 
