@@ -860,14 +860,16 @@ class LicenseBoundaryTests(unittest.TestCase):
             (root / "bonewright" / "bpy_scripts").mkdir(parents=True)
             (root / "bonewright" / "core.py").write_text("import bpy\nfrom mathutils import Vector\n", encoding="utf-8")
             (root / "bonewright" / "bpy_scripts" / "ok.py").write_text("import bpy\n", encoding="utf-8")   # GPL 쪽은 된다
+            (root / "spikes").mkdir(); (root / "spikes" / "try.py").write_text("import bpy\n", encoding="utf-8")   # 본체 밖도 MIT 다(10/11: spikes/ 를 못 잡았다)
             bad, checked = lb.problems(root)
-        self.assertEqual(1, checked)
-        self.assertEqual(3, len(bad), bad)   # bpy · mathutils · 라이선스 파일 없음
-        self.assertIn("bonewright/core.py:1: the MIT core imports 'bpy'", bad[0])
+        self.assertEqual(2, checked)
+        self.assertEqual(4, len(bad), bad)   # core 의 bpy · mathutils · spikes 의 bpy · 라이선스 파일 없음
+        self.assertIn("bonewright/core.py:1: MIT-licensed code imports 'bpy'", bad[0])
+        self.assertTrue(any(b.startswith("spikes/try.py:1:") for b in bad), bad)
         for b in bad:
             self.assertIn("→", b)
             self.assertIsNone(re.search(r"[가-힣]", b), b)
-        self.assertIn("LICENSE", bad[2])
+        self.assertIn("LICENSE", bad[-1])
         ok, _ = lb.problems(root_repo)
         self.assertEqual([], ok)
 

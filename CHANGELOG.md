@@ -83,6 +83,10 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- Removed the three experiment scripts in `spikes/` (`rigify_headless.py`, `render_rig2.py`, `bvh_check.py`). They
+  imported `bpy` (GPL territory) in a folder the licence lists as MIT, and nothing used them; `walk_wave.bvh` and the
+  other kept outputs stay. `scripts/check_license_boundary.py` now checks every `.py` outside
+  `bonewright/bpy_scripts/`, not only `bonewright/`.
 - A `bw bench` path that does not exist now says "file or folder" (bench takes folders) and ends with the next
   command: an asset folder already fetched into `bench-assets/`, or the fetch command followed by
   `bw bench bench-assets/samples`.

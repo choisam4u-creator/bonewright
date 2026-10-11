@@ -18,8 +18,11 @@ def problems(root: Path) -> tuple[list[str], int]:
     """(위반 줄 목록, 검사한 MIT 파일 수). 위반 줄마다 고칠 방법(→)을 붙인다."""
     core, gpl = root / "bonewright", root / "bonewright" / "bpy_scripts"
     bad, checked = [], 0
-    for p in sorted(core.rglob("*.py")):
-        if gpl in p.parents:
+    # 저장소 전체(examples·scripts·tests·spikes 포함): LICENSE 는 bpy_scripts/ 말고 전부 MIT 라 적는다.
+    # 10/11 까지는 bonewright/ 만 봐서 spikes/ 의 bpy 스크립트 3개를 못 잡았다(샘님 결정으로 삭제)
+    skip = {".git", ".venv", "venv", "build", "dist", "node_modules", "vendor", "__pycache__"}
+    for p in sorted(root.rglob("*.py")):
+        if gpl in p.parents or skip & set(p.relative_to(root).parts):
             continue
         checked += 1
         tree = ast.parse(p.read_text(encoding="utf-8"), filename=str(p))
@@ -34,7 +37,7 @@ def problems(root: Path) -> tuple[list[str], int]:
                     where = f"{p.relative_to(root).as_posix()}:{node.lineno}"
                     bad.append(T(f"{where}: MIT 영역에서 '{m}' 를 import 한다\n"
                                  f"      → Blender 를 쓰는 코드는 bonewright/bpy_scripts/(GPL)로 옮기고 blender.run_script 로 부른다",
-                                 f"{where}: the MIT core imports '{m}'\n"
+                                 f"{where}: MIT-licensed code imports '{m}'\n"
                                  f"      → move Blender code into bonewright/bpy_scripts/ (GPL) and call it with blender.run_script"))
     need = [gpl / "LICENSE", gpl / "README.md", root / "LICENSE"]
     missing = [p.relative_to(root).as_posix() for p in need if not p.exists()]
@@ -52,8 +55,8 @@ def main() -> int:
         for b in bad:
             print("  -", b, file=sys.stderr)
         return 1
-    print(T(f"라이선스 경계 OK — MIT 영역 {checked}개 파일이 bpy 를 쓰지 않는다",
-            f"licence boundary OK — {checked} files in the MIT core do not use bpy"))
+    print(T(f"라이선스 경계 OK — MIT 영역(bpy_scripts/ 밖 저장소 전체) {checked}개 파일이 bpy 를 쓰지 않는다",
+            f"licence boundary OK — {checked} files outside bpy_scripts/ (MIT) do not use bpy"))
     return 0
 
 
