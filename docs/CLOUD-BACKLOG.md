@@ -239,3 +239,12 @@
 - [x] (10/11 11회차: `cli.EXAMPLES` 표 — --out·--bvh(저장소의 examples/wave.bvh)·--text·--map·--targets·--gt-mesh, `MissingValueTests` 확장) `bw export r1 --out`(값 없이)에 예가 없다 — 11회차 `_hint_on_missing_value` 는 기본값이 None 인 `--out` 을 못 다룬다 → `--out hero.glb`(또는 폴더) 예, `--text`·`--bvh`·`--map`·`--targets`·`--gt-mesh` 도 같은 식, 시험 — 근거: 10/11 11회차 실측
 - [x] (10/11 11회차: Install and run 의 bw status 문단에 두 문장, `SettingsChecksDocTests.test_guide_run_id_rule_matches_the_parser`) GUIDE 에 실행 id 규칙(글자·숫자·`. _ -`, 11회차부터 `/`·`..` 거절)과 기본 id(`rig-날짜-시각`)가 없다 → "Install and run" 의 `bw status` 문단에 한 줄, 시험(문서의 규칙과 `cli.run_id_arg` 대조) — 근거: 10/11 11회차 `run_id_arg` 추가, GUIDE 에 규칙 0건
 - [ ] CI 가 10/11 02:49 이후 러너 없이 1~2초 만에 실패한다(잡 단계 0개, 코드 무관 — 비공개 저장소 Actions 사용량 추정) → 클라우드에서 고칠 수 없다. 샘님이 Settings → Billing 의 Actions 사용량을 확인할 때까지 클라우드 회차는 로컬 시험(bpy 포함)을 근거로 쓰고 회차 기록에 그렇게 적는다 — 근거: 10/11 11회차 run 38106418754 잡 4개 모두 started=completed(1초)
+
+
+## 2026-10-11 12회차 추가 (공개 준비 기준 — 실측)
+
+- [ ] 저장소 밖 폴더에서 치면 첫 실행 안내(`bw status`·id 없는 `bw export`/`bw demo`·메시 없는 `bw rig`)의 `bw rig tests/assets/quaternius_adventurer.glb …` 가 그대로 안 돈다(상대 경로) → `sample_bvh` 처럼 지금 폴더에 없으면 저장소의 절대 경로(따옴표), 설치본만 있어 파일이 없으면 지금 문구, 시험 — 근거: 10/11 12회차 실측(임시 폴더에서 `bw export` 의 명령을 그대로 치면 "메시가 없다")
+- [ ] `examples/rig_sample.py` 의 Blender 없음 안내가 `python3 examples/rig_sample.py --table adventurer` 로 저장소 폴더에서만 돈다 → 지금 폴더에 없으면 스크립트의 실제 경로로, 시험 — 근거: 10/11 12회차 실측(`/tmp` 에서 `python3 <저장소>/examples/rig_sample.py`)
+- [ ] `bw motion --text walk --bvh wave.bvh` 가 둘 다 받아 말없이 `--text` 로 가고 kimodo 없음으로 멈춘다 — 어느 출처가 도는지 안 보인다 → argparse 상호 배타(종료 2) + 둘 중 하나 고르는 한 줄, 시험 — 근거: 10/11 12회차 실측
+- [ ] 영어 오류 문구 문법: `--export only apply when retargeting onto a rig`(옵션 하나일 때 "applies") → 단수·복수, 시험 — 근거: 10/11 12회차 실측(`bw motion --bvh x --export`)
+- [ ] `bw doctor` 의 bpy 안내 "`pip install bpy==5.2.2`, Python 3.13" 이 지금 파이썬이 3.13 이 아니어도 그대로다 — 3.11 venv 에서 그대로 치면 pip 가 "No matching distribution" → 지금 버전이 다르면 "지금 Python 3.11 — bpy 는 3.13 venv 에서" 한 줄(blender.require 문구도), 시험 — 근거: 10/11 12회차 `cli.doctor`·`blender.require` 읽기, PyPI bpy 5.2.2 는 cp313 휠뿐
