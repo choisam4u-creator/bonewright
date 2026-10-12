@@ -50,8 +50,20 @@ def bpy_install(version: tuple[int, int] | None = None) -> str:
     if tuple(version) == (3, 13):
         return T("`pip install bpy==5.2.2`(지금 Python 3.13 — 맞다)", "`pip install bpy==5.2.2` (this is Python 3.13, which it needs)")
     now = f"{version[0]}.{version[1]}"
-    return T(f"bpy 휠(Python 3.13 전용, 지금 {now}): `python3.13 -m venv .venv` 로 만든 환경에서 `pip install . bpy==5.2.2`",
-             f"the bpy wheel (Python 3.13 only, this is {now}): `python3.13 -m venv .venv`, then inside it `pip install . bpy==5.2.2`")
+    pkg, pre = _package_dir()
+    return T(f"bpy 휠(Python 3.13 전용, 지금 {now}): {pre}`python3.13 -m venv .venv` 로 만든 환경에서 `pip install {pkg} bpy==5.2.2`",
+             f"the bpy wheel (Python 3.13 only, this is {now}): {pre}`python3.13 -m venv .venv`, then inside it `pip install {pkg} bpy==5.2.2`")
+
+
+def _package_dir() -> tuple[str, str]:
+    """`pip install <여기> bpy==5.2.2` 의 <여기>와 그 앞에 붙일 말. 저장소 폴더면 `.`, 다른 폴더면 저장소의 절대 경로
+    (공백이면 따옴표), 설치본만이면 `.` 에 '저장소 폴더에서'. 10/12 14회차: 임시 폴더에서 `pip install .` 을 그대로 치면 실패했다."""
+    repo = Path(__file__).resolve().parents[1]
+    if not (repo / "pyproject.toml").is_file():
+        return ".", T("저장소 폴더에서 ", "from the repository folder, ")
+    if Path.cwd().resolve() == repo:
+        return ".", ""
+    return (f'"{repo}"' if any(c.isspace() for c in str(repo)) else str(repo)), ""
 
 
 def find_blender(cfg: dict) -> list[str] | None:

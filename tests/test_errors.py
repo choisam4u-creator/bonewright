@@ -822,6 +822,31 @@ class BpyHintTests(unittest.TestCase):
         with patch.dict(os.environ, {"BW_LANG": "ko"}):
             self.assertIn("지금 3.11", blender.bpy_install((3, 11)))
 
+    def test_bpy_hint_package_path_works_from_any_folder(self):
+        """`pip install . bpy==5.2.2` only works in the repository folder; elsewhere the hint carries the repository's path.
+
+        10/12 14회차 실측: 임시 폴더에서 `bw rig hero.glb` 의 안내를 그대로 치면 `.` 에 pyproject 가 없어 실패했다."""
+        from bonewright import blender
+        repo = Path(__file__).resolve().parents[1]
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            self.assertIn("`pip install . bpy==5.2.2`", blender.bpy_install((3, 11)))   # 시험은 저장소 폴더에서 돈다
+            cwd = os.getcwd()
+            with tempfile.TemporaryDirectory() as d:
+                try:
+                    os.chdir(d)
+                    hint = blender.bpy_install((3, 11))
+                finally:
+                    os.chdir(cwd)
+            self.assertNotIn("install . ", hint)
+            pkg = hint.split("`pip install ", 1)[1].split(" bpy==", 1)[0].strip('"')
+            self.assertTrue((Path(pkg) / "pyproject.toml").is_file(), hint)
+            self.assertEqual(Path(pkg).resolve(), repo)
+            with patch.object(blender, "__file__", str(Path(d) / "site-packages" / "bonewright" / "blender.py")):   # 설치본만
+                self.assertIn("from the repository folder, `python3.13", blender.bpy_install((3, 11)))
+        with patch.dict(os.environ, {"BW_LANG": "ko"}), \
+                patch.object(blender, "__file__", str(Path(d) / "site-packages" / "bonewright" / "blender.py")):
+            self.assertIn("저장소 폴더에서 `python3.13", blender.bpy_install((3, 11)))
+
 
 class BenchInputTests(unittest.TestCase):
     """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
