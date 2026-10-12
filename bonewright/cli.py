@@ -564,9 +564,10 @@ def _main() -> int:
                 print("BLOCKED:", T(f"run-id 가 필요하다 — 가장 최근 리그: `bw {a.cmd} {rid}`\n  → 다른 실행은 `bw status` 로 목록을 본다",
                                    f"needs a run-id — latest rig: `bw {a.cmd} {rid}`\n  → list other runs with `bw status`"), file=sys.stderr)
             else:
-                print("BLOCKED:", T(f"run-id 가 필요한데 리깅을 마친 실행이 없다(찾은 곳: {runs})\n  → 먼저 `{first_rig()}`(또는 내 메시로 `bw rig <메시>`), 끝에 나오는 `next:` 줄에 id 가 있다. "
+                where, first = _from_repo()   # 설치본으로 저장소 밖이면 '저장소 폴더에서'(10/12 13회차 — 인자 없는 bw rig·bw status 와 같게)
+                print("BLOCKED:", T(f"run-id 가 필요한데 리깅을 마친 실행이 없다(찾은 곳: {runs})\n  → 먼저 {where}`{first}`(또는 내 메시로 `bw rig <메시>`), 끝에 나오는 `next:` 줄에 id 가 있다. "
                                    "다른 폴더에서 돌렸다면 BW_HOME 을 그 폴더로",
-                                   f"needs a run-id, and no finished rig was found (looked in {runs})\n  → run `{first_rig()}` (or `bw rig <mesh>` on yours) first; its `next:` line carries the id. "
+                                   f"needs a run-id, and no finished rig was found (looked in {runs})\n  → {where}run `{first}` (or `bw rig <mesh>` on yours) first; its `next:` line carries the id. "
                                    "If you ran bonewright from another folder, set BW_HOME to it"), file=sys.stderr)
             return 2
         if a.cmd == "rig":

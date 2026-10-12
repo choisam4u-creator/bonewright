@@ -104,6 +104,30 @@ class EmptyHomeFirstCommandTests(unittest.TestCase):
                     self.assertTrue(Path(cmd[2]).is_absolute() and Path(cmd[2]).is_file(), cmd[2])
                     self.assertNotIn("repository folder", err.getvalue()); self.assertNotIn("저장소 폴더에서", err.getvalue())
 
+    def test_installed_copy_says_from_the_repository_folder_everywhere(self):
+        """With only an installed copy (`pip install .`) and another folder, all four first-run hints say where to type it.
+
+        10/12 13회차 실측: 설치본으로 임시 폴더에서 인자 없는 `bw rig`·`bw status` 는 '저장소 폴더에서' 를 붙이는데
+        `bw export`·`bw demo` 는 같은 상대 경로 명령을 그 말 없이 줬다(그대로 치면 '메시가 없다')."""
+        cwd = os.getcwd()
+        for lang, want in (("en", "from the repository folder"), ("ko", "저장소 폴더에서")):
+            for argv in (["bw", "status"], ["bw", "export"], ["bw", "demo"], ["bw", "rig"]):
+                with self.subTest(lang=lang, argv=argv), tempfile.TemporaryDirectory() as d:
+                    err = io.StringIO()
+                    try:
+                        os.chdir(d)
+                        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(d)), \
+                                patch.object(cli, "__file__", str(Path(d) / "site-packages" / "bonewright" / "cli.py")), \
+                                patch.object(sys, "argv", argv), patch("sys.stderr", err), patch("sys.stdout", io.StringIO()):
+                            try:
+                                cli.main()
+                            except SystemExit:
+                                pass
+                    finally:
+                        os.chdir(cwd)
+                    self.assertIn(cli.FIRST_RIG, err.getvalue())
+                    self.assertIn(want, err.getvalue())
+
 
 class PluginPathTests(unittest.TestCase):
     def test_plugin_path_points_at_real_plugin(self):
