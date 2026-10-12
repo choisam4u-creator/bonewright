@@ -127,6 +127,13 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- Run from outside the repository, hints that said `pip install . bpy==5.2.2` or "see … in docs/GUIDE.md" pointed at
+  a folder that is not there; they now carry the repository's absolute path (or say "from the repository folder" when
+  only the installed package is present). `examples/rig_sample.py` uses the same Python-aware bpy hint as `bw`.
+- `bw rig` checks the first bytes of `.gltf`, `.fbx`, `.blend` and `.obj` files as it already did for `.glb`, so a
+  web page or other file saved under that name stops before Blender instead of hiding behind "Blender not found".
+- `bw motion --bvh hero.glb` says the file is a mesh and gives `bw rig hero.glb` plus the sample BVH, instead of
+  "export it as one of .bvh".
 - The "install the bpy wheel" hint (`bw doctor`, "Blender not found") said `pip install bpy==5.2.2` on every Python,
   where pip finds no wheel outside 3.13; on other versions it now gives the `python3.13 -m venv .venv` route.
 - English message grammar: `bw motion --bvh … --export` without `--rig` said "--export only apply"; it now reads
