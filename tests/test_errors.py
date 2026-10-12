@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import shlex
 import sys
 import tempfile
 import unittest
@@ -109,6 +110,27 @@ class InputErrorTests(unittest.TestCase):
                     self.assertIn("Export it again as", self.blocked(pipeline.rig, self.root, str(f), quiet=True))
                 f.write_bytes(good)
                 pipeline.need_mesh_bytes(f)
+        self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
+
+    def test_mesh_given_as_bvh_says_rig_it(self):
+        """`bw motion --bvh hero.glb` names the one format it reads and says a mesh goes to `bw rig`, as pasted.
+
+        10/12 14회차 실측: "export it as one of .bvh" 뿐 — 확장자 하나에 'one of', 메시를 잘못 준 경우의 다음 할 일이 없었다."""
+        for name in ("hero.glb", "my hero.fbx"):
+            f = self.root / name
+            f.write_bytes(b"glTF")
+            with self.subTest(name=name):
+                with patch.dict(os.environ, {"BW_LANG": "en"}):
+                    msg = self.blocked(pipeline.motion, self.root, bvh=str(f), rig_run="r1", quiet=True)
+                self.assertIn("export it as .bvh and pass that", msg); self.assertNotIn("one of", msg)
+                cmd = re.search(r"`(bw rig [^`]+)`", msg).group(1)
+                from bonewright import cli
+                self.assertEqual(str(f), cli.build_parser().parse_args(shlex.split(cmd)[1:]).mesh)
+                self.assertIn("wave.bvh", msg)
+                ko = self.blocked(pipeline.motion, self.root, bvh=str(f), rig_run="r1", quiet=True)
+                self.assertIn(".bvh 로 내보내서", ko); self.assertIn("이건 메시다", ko)
+        f = self.root / "notes.txt"; f.write_text("x")
+        self.assertNotIn("bw rig", self.blocked(pipeline.motion, self.root, bvh=str(f), rig_run="r1", quiet=True))
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
     def test_empty_or_fake_bvh_stops_before_blender(self):

@@ -44,8 +44,14 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
         also = T(f"\n  → 이 폴더에 비슷한 파일: {' · '.join(near)}", f"\n  → similar file here: {' · '.join(near)}") if near else ""
         raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}{also}", f"{what} file not found: {p}\n  → {fix}{also}"))
     if exts and p.suffix.lower() not in exts:
-        raise Blocked(T(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {' · '.join(exts)} 중 하나로 내보내서 다시 지정하라",
-                        f"cannot read {what} format: {p.suffix or '(no extension)'} ({p.name})\n  → export it as one of {' · '.join(exts)} and pass that"))
+        fmt = T(f"{exts[0]} 로", f"{exts[0]}") if len(exts) == 1 else T(f"{' · '.join(exts)} 중 하나로", f"one of {' · '.join(exts)}")
+        mesh = ""
+        if ".bvh" in exts and p.suffix.lower() in MESH_EXTS:   # 10/12 14회차: `--bvh hero.glb` — 메시를 동작 자리에 줬다
+            arg = f'"{path}"' if any(c.isspace() for c in str(path)) else str(path)
+            mesh = T(f"\n  → 이건 메시다. 리깅은 `bw rig {arg}`, 동작은 BVH 파일을 `--bvh` 에 준다. 저장소의 샘플: `--bvh {sample_bvh()}`",
+                     f"\n  → this is a mesh. Rig it with `bw rig {arg}`; `--bvh` takes a motion file. The repository's sample: `--bvh {sample_bvh()}`")
+        raise Blocked(T(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {fmt} 내보내서 다시 지정하라{mesh}",
+                        f"cannot read {what} format: {p.suffix or '(no extension)'} ({p.name})\n  → export it as {fmt} and pass that{mesh}"))
     return p
 
 
