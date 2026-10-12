@@ -1,11 +1,36 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/11 12회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/12 13회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 239개, 건너뜀 0
-(cd /tmp && BW_HOME=$(mktemp -d) bw status)   # 끝 줄의 `bw rig <저장소 절대 경로>/tests/assets/… --from-skeleton --no-judge` 를 /tmp 에서 그대로 쳐서 리그가 나오는지
-bw motion --text walk --bvh examples/wave.bvh; bw motion --bvh examples/wave.bvh --export   # 종료 2 + 고르는 법 · "--export: used only when …"
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 244개, 건너뜀 0
+python3 -m venv /tmp/bwv && /tmp/bwv/bin/pip install -q . && (cd /tmp && BW_HOME=$(mktemp -d) /tmp/bwv/bin/bw motion; /tmp/bwv/bin/bw bench)   # --bvh 가 …/_samples/wave.bvh 실제 파일, bench 는 스크립트 절대 경로
+cp tests/assets/quaternius_adventurer.glb /tmp/Hero.glb && bw rig /tmp/hero.glb   # "similar file here: /tmp/Hero.glb" (대소문자 구분 안 하는 볼륨이면 그냥 리깅된다)
 ```
+
+## 2026-10-12 (13회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음. 이번엔 같은 브랜치에 동시 세션 없음(푸시 전마다 fetch 로 확인).
+- 남은 [ ] 가 1개(CI — 샘님)라 README 대로 `pip install .`(편집 설치 아님)한 스크래치 venv 로 저장소 밖 임시 폴더에서 명령을 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - 없는 메시·`--bvh`·`--targets`: 같은 폴더의 비슷한 파일(대소문자·확장자·오타)을 준 꼴 그대로(`hero.glb` → `Hero.glb`, 공백이면 따옴표).
+  - `bw bench` 의 자산 받기 명령(인자 없음·없는 경로·빈 폴더): 저장소 밖이면 `fetch_bench_assets.py` 의 절대 경로, 설치본만이면 "저장소 폴더에서".
+  - 설치본으로 저장소 밖: `bw export`·`bw demo` 의 첫 실행 안내도 "저장소 폴더에서"(`bw rig`·`bw status` 와 같게).
+  - `bw motion`(출처 없음): 리그가 있으면 `--rig <run-id>` 대신 최근 리그 id(`export`·`demo` 와 같은 `latest_rig`).
+  - 휠에 샘플 BVH(`bonewright/_samples/wave.bvh`, 12KB)를 싣고 설치본의 안내가 그 실제 파일을 가리킴. CHANGELOG 한 항목.
+- 사용자 체감: 다섯 모두 "안내를 그대로 치면 도는가" — 시험이 안내 명령을 parser 에 다시 넣거나(motion) 임시 폴더에서 스크립트를 실제로 돌린다(bench). 설치~첫 결과 단계 수는 그대로(clone·venv·pip·Blender·`bw rig`).
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 244개 중 16개 건너뜀, 나머지 통과. 커밋마다 종료 코드 OK 일 때만 커밋. `scripts/check_license_boundary.py` OK.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **244개 모두 통과, 건너뜀 0**(148초).
+- 새 시험 5개는 모두 고치기 전 코드(bonewright/·pyproject 만 되돌림)에서 실패 확인. 휠은 스크래치 venv 에 실제로 `pip install .` 해 `_samples/wave.bvh` 가 실리는 것 확인.
+- 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
+- CI: blender 잡은 pending 이 아니라 10/11 02:49 이후처럼 잡 4개 모두 러너 없이 2초 만에 실패(run 38195059273, 헤드 8c19696) — 코드 무관, 비공개 저장소 Actions 사용량·지출 한도 추정(백로그 [ ], 샘님 Settings → Billing).
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 1(CI 러너 — 샘님).
+
+**막힌 것 / 다음**
+- 작업 지시는 `claude/cloud-work`, 이 세션의 기본 브랜치는 `claude/cloud-work-qxooqe` — PR #10 이 `claude/cloud-work` 라 지시대로 그쪽에 푸시.
+- 다음 회차 후보(아직 백로그에 안 넣음): 첫 결과 캐릭터(`tests/assets/…glb`, 1.9MB)도 휠에 실을지 — 휠 크기 결정이라 샘님 판단.
 
 ## 2026-10-11 (12회차)
 
