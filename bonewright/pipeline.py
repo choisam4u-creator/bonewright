@@ -149,11 +149,15 @@ def need_pin_names(pins: dict, preset: str) -> None:
 
 def sample_bvh() -> str:
     """안내에 넣을 샘플 BVH 경로(examples/wave.bvh — rig_sample.wave_bvh 가 만든 손 흔들기 24프레임, 저장소에 실려 있다).
-    저장소 폴더에서 치면 상대 경로, 다른 곳이면 저장소의 절대 경로, 패키지만 설치돼 없으면 자리표시."""
+    저장소 폴더에서 치면 상대 경로, 다른 곳이면 저장소의 절대 경로, 설치본(`pip install .`)이면 휠에 실린 사본
+    (pyproject force-include → bonewright/_samples/, 10/12 13회차), 그것도 없으면 자리표시."""
     if Path("examples/wave.bvh").is_file():
         return "examples/wave.bvh"
-    p = Path(__file__).resolve().parents[1] / "examples" / "wave.bvh"
-    return str(p) if p.is_file() else T("<파일.bvh>", "<file.bvh>")
+    here = Path(__file__).resolve().parent
+    for p in (here.parent / "examples" / "wave.bvh", here / "_samples" / "wave.bvh"):
+        if p.is_file():
+            return f'"{p}"' if any(c.isspace() for c in str(p)) else str(p)
+    return T("<파일.bvh>", "<file.bvh>")
 
 
 def fetch_bench() -> tuple[str, str]:

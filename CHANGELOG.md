@@ -83,6 +83,11 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- Hints now run as pasted from any folder: a missing mesh, `--bvh` or `--targets` names the similar file beside it
+  (`Hero.glb` for `hero.glb`, `Hero.gltf` or `Hero`); `bw bench` gives the fetch script by its full path outside the
+  repository; `bw motion` with no source fills in the latest rig id; with only an installed copy every first-run hint
+  says to type it from the repository folder. The wheel now carries the sample BVH (`bonewright/_samples/wave.bvh`),
+  so `bw motion` hints name a real file after `pip install .` too.
 - Removed the three experiment scripts in `spikes/` (`rigify_headless.py`, `render_rig2.py`, `bvh_check.py`). They
   imported `bpy` (GPL territory) in a folder the licence lists as MIT, and nothing used them; `walk_wave.bvh` and the
   other kept outputs stay. `scripts/check_license_boundary.py` now checks every `.py` outside

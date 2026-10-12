@@ -80,6 +80,32 @@ class PackageMetadataTests(unittest.TestCase):
         for f in files:
             self.assertTrue((ROOT / f).is_file(), f"license-files 의 {f} 가 없다")
 
+    def test_wheel_carries_the_sample_bvh_the_hints_name(self):
+        """The wheel ships examples/wave.bvh where `pipeline.sample_bvh` looks for it in an installed copy.
+
+        10/12 13회차 실측: `pip install .` 설치본으로 저장소 밖에서 `bw motion` 의 안내가 `--bvh <file.bvh>` 자리표시였다."""
+        import os
+        import shutil
+        import tempfile
+        from unittest.mock import patch
+        from bonewright import pipeline
+        wheel = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["hatch"]["build"]["targets"]["wheel"]
+        dest = wheel["force-include"].get("examples/wave.bvh")
+        self.assertEqual("bonewright/_samples/wave.bvh", dest)
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d:
+            pkg = Path(d) / "site-packages" / "bonewright"
+            (pkg / "_samples").mkdir(parents=True)
+            shutil.copy(ROOT / "examples" / "wave.bvh", Path(d) / "site-packages" / dest)
+            try:
+                os.chdir(d)
+                with patch.object(pipeline, "__file__", str(pkg / "pipeline.py")):
+                    self.assertEqual(str((pkg / "_samples" / "wave.bvh").resolve()), pipeline.sample_bvh())
+                    os.remove(pkg / "_samples" / "wave.bvh")
+                    self.assertIn("<", pipeline.sample_bvh())   # 아무 데도 없으면 자리표시
+            finally:
+                os.chdir(cwd)
+
     def test_project_urls(self):
         urls = self.project.get("urls", {})
         for key in ("Homepage", "Issues", "Changelog"):
