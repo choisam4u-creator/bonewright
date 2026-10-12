@@ -16,7 +16,7 @@ from pathlib import Path
 
 from . import __version__, bench, blender, pipeline
 from .blender import find_blender, has_bpy_module
-from .config import find_root, load, unknown_keys_line
+from .config import find_root, guide, load, unknown_keys_line
 from .i18n import T
 from .ledger import path as ledger_path, summarize
 
@@ -64,7 +64,7 @@ def doctor(warn_unknown: bool = True) -> int:
         login = subprocess.run(["codex", "login", "status"], capture_output=True, text=True)
         print("  ", T("로그인:", "login:"), (login.stdout or login.stderr).strip()[:60])
     gen, text_model = pipeline.kimodo_paths((ROOT / cfg["kimodo"]["root"]).resolve(), cfg["kimodo"])
-    print(opt, "kimodo.cpp:", (T("빌드됨", "built") if text_model else T("빌드됨, 텍스트 인코더 없음 — docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "built, no text encoder — see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md")) if gen else T("없음 — 텍스트→동작(`bw motion --text`)에만 필요, 빌드는 docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\"", "not built — needed only for text→motion (`bw motion --text`); to build, see \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md"))
+    print(opt, "kimodo.cpp:", (T("빌드됨", "built") if text_model else T(f"빌드됨, 텍스트 인코더 없음 — {guide()} 의 \"Text → motion: building kimodo.cpp\"", f"built, no text encoder — see \"Text → motion: building kimodo.cpp\" in {guide()}")) if gen else T(f"없음 — 텍스트→동작(`bw motion --text`)에만 필요, 빌드는 {guide()} 의 \"Text → motion: building kimodo.cpp\"", f"not built — needed only for text→motion (`bw motion --text`); to build, see \"Text → motion: building kimodo.cpp\" in {guide()}"))
     backend = os.environ.get("BW_BACKEND") or "codex"   # 유료 길인지 토큰 0 길인지(10/11 11회차: doctor 가 말하지 않았다)
     if backend == "mock":
         print(T("모델 호출: 없음 — BW_BACKEND=mock(토큰 0)", "model calls: none — BW_BACKEND=mock (0 tokens)"))

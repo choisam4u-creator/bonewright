@@ -870,6 +870,32 @@ class BpyHintTests(unittest.TestCase):
             self.assertIn("저장소 폴더에서 `python3.13", blender.bpy_install((3, 11)))
 
 
+class GuideRefTests(unittest.TestCase):
+    def test_guide_path_in_messages_opens_from_any_folder(self):
+        """Messages that send the reader to docs/GUIDE.md give a path that exists from wherever bw was run.
+
+        10/12 14회차 실측: 임시 폴더에서 `bw doctor` 의 kimodo 줄이 그 폴더엔 없는 `docs/GUIDE.md` 를 가리켰다."""
+        from bonewright import cli, config
+        repo = Path(__file__).resolve().parents[1]
+        self.assertEqual("docs/GUIDE.md", config.guide())   # 시험은 저장소 폴더에서 돈다
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d:
+            try:
+                os.chdir(d)
+                out = io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(cli, "ROOT", Path(d)), patch("sys.stdout", out):
+                    cli.doctor()
+            finally:
+                os.chdir(cwd)
+            line = next(ln for ln in out.getvalue().splitlines() if "kimodo.cpp:" in ln)
+            where = line.rsplit(" in ", 1)[1].strip().strip('"')
+            self.assertEqual(Path(where), repo / "docs" / "GUIDE.md", line)
+            with patch.object(config, "__file__", str(Path(d) / "site-packages" / "bonewright" / "config.py")):   # 설치본만
+                for lang, want in (("en", "docs/GUIDE.md in the repository"), ("ko", "저장소의 docs/GUIDE.md")):
+                    with patch.dict(os.environ, {"BW_LANG": lang}):
+                        self.assertEqual(want, config.guide())
+
+
 class BenchInputTests(unittest.TestCase):
     """`bw bench` stops with what to do on an empty folder, a missing file, no Blender or nothing measured.
 

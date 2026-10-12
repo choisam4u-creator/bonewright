@@ -22,6 +22,19 @@ DEFAULTS = {
 }
 
 
+
+def guide() -> str:
+    """안내에 넣을 docs/GUIDE.md 의 위치. 저장소 폴더면 상대 경로, 다른 폴더면 저장소의 절대 경로(공백이면 따옴표),
+    설치본만이면 '저장소의 docs/GUIDE.md'. 10/12 14회차: 임시 폴더에서 `bw doctor` 가 열 수 없는 상대 경로를 줬다."""
+    from .i18n import T
+    p = Path(__file__).resolve().parents[1] / "docs" / "GUIDE.md"
+    if not p.is_file():
+        return T("저장소의 docs/GUIDE.md", "docs/GUIDE.md in the repository")
+    if Path("docs/GUIDE.md").resolve() == p:
+        return "docs/GUIDE.md"
+    return f'"{p}"' if any(c.isspace() for c in str(p)) else str(p)
+
+
 def _merge(a: dict, b: dict) -> dict:
     out = dict(a)
     for k, v in b.items():
@@ -73,8 +86,8 @@ def unknown_keys_line(root: Path) -> str | None:
     if not bad:
         return None
     p = root / "runs" / "config.json"
-    return T(f"⚠ 설정 파일에 모르는 키 {len(bad)}개 — 무시하고 기본값으로 돈다: {', '.join(bad)} ({p})\n  → 이름을 고쳐라. 쓸 수 있는 키는 docs/GUIDE.md 의 \"Settings (`runs/config.json`)\"",
-             f"⚠ {len(bad)} unknown key(s) in the settings file, ignored (defaults used): {', '.join(bad)} ({p})\n  → fix the name; the keys are listed under \"Settings (`runs/config.json`)\" in docs/GUIDE.md")
+    return T(f"⚠ 설정 파일에 모르는 키 {len(bad)}개 — 무시하고 기본값으로 돈다: {', '.join(bad)} ({p})\n  → 이름을 고쳐라. 쓸 수 있는 키는 {guide()} 의 \"Settings (`runs/config.json`)\"",
+             f"⚠ {len(bad)} unknown key(s) in the settings file, ignored (defaults used): {', '.join(bad)} ({p})\n  → fix the name; the keys are listed under \"Settings (`runs/config.json`)\" in {guide()}")
 
 
 BACKENDS = ("codex", "mock")
@@ -148,8 +161,8 @@ def load(root: Path, lang: str | None = None) -> dict:
             from .i18n import T
             from .pipeline import Blocked
             listing = "\n  ".join(bad)
-            raise Blocked(T(f"설정 파일 값의 형이 틀렸다: {p}\n  {listing}\n  → 화살표 왼쪽(기본값과 같은 형)으로 고치거나 그 키를 지운다. 키 표: docs/GUIDE.md 의 \"Settings (`runs/config.json`)\"",
-                            f"wrong type in the settings file: {p}\n  {listing}\n  → use the type on the left of the arrow (the default's), or delete the key. Keys: \"Settings (`runs/config.json`)\" in docs/GUIDE.md"))
+            raise Blocked(T(f"설정 파일 값의 형이 틀렸다: {p}\n  {listing}\n  → 화살표 왼쪽(기본값과 같은 형)으로 고치거나 그 키를 지운다. 키 표: {guide()} 의 \"Settings (`runs/config.json`)\"",
+                            f"wrong type in the settings file: {p}\n  {listing}\n  → use the type on the left of the arrow (the default's), or delete the key. Keys: \"Settings (`runs/config.json`)\" in {guide()}"))
         if (bad := choice_problems(user)):
             from .i18n import T
             from .pipeline import Blocked

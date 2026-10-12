@@ -237,7 +237,7 @@ class CodePointsAtDocsTests(unittest.TestCase):
         named = set()
         for p in (REPO / "bonewright").rglob("*.py"):
             for line in p.read_text(encoding="utf-8").splitlines():
-                if "docs/GUIDE.md" in line:
+                if "docs/GUIDE.md" in line or "{guide()}" in line:   # 14회차부터 위치는 config.guide()
                     named |= set(re.findall(r'\\"([^"\\]+)\\"', line))
         self.assertTrue(named)
         for title in named:
