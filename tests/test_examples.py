@@ -73,9 +73,24 @@ class ExampleMessageTests(unittest.TestCase):
 
     def test_no_blender_follows_screen_language(self):
         en, ko = self._no_blender_message("en"), self._no_blender_message("ko")
-        self.assertIn("Blender not found", en); self.assertIn("pip install bpy==5.2.2", en)
+        self.assertIn("Blender not found", en); self.assertIn("bpy==5.2.2", en)
         self.assertIsNone(re.search(r"[가-힣]", en), en)
         self.assertIn("Blender 가 없다", ko)
+
+    def test_no_blender_bpy_hint_fits_the_running_python(self):
+        """The example's bpy hint is the same as `bw`'s: a 3.13 venv command unless this is Python 3.13.
+
+        10/12 14회차 실측: Python 3.11 에서 안내의 `pip install bpy==5.2.2` 를 그대로 치면 "No matching distribution"."""
+        from unittest import mock
+        from bonewright import blender
+        real = blender.bpy_install
+        for version, want in (((3, 11), "`python3.13 -m venv .venv`"), ((3, 13), "`pip install bpy==5.2.2`")):
+            with mock.patch.object(blender, "bpy_install", lambda v=None, version=version: real(version)):
+                for lang in ("en", "ko"):
+                    msg = self._no_blender_message(lang)
+                    with mock.patch.dict("os.environ", {"BW_LANG": lang}):
+                        self.assertIn(real(version), msg)
+                    self.assertIn(want, msg)
 
     def test_no_blender_hint_runs_as_pasted(self):
         """The no-Blender hint ends in a command that runs as pasted and prints a bone table.
