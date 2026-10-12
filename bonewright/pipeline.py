@@ -156,6 +156,19 @@ def sample_bvh() -> str:
     return str(p) if p.is_file() else T("<파일.bvh>", "<file.bvh>")
 
 
+def fetch_bench() -> tuple[str, str]:
+    """벤치 자산을 받는 명령과 그 앞에 붙일 '저장소 폴더에서'. 스크립트는 저장소에만 있다(휠에 없음) — 저장소 폴더면 상대 경로,
+    다른 폴더면 저장소의 절대 경로(받는 곳 --out 은 지금 폴더의 bench-assets/ 라 뒤 `bw bench bench-assets/…` 도 그대로 돈다),
+    설치본만 있어 못 찾으면 '저장소 폴더에서'. 10/12 13회차 실측: 임시 폴더에서 안내를 그대로 치면 'No such file'."""
+    rel = "scripts/fetch_bench_assets.py"
+    if Path(rel).is_file():
+        return "", f"python3 {rel}"
+    p = Path(__file__).resolve().parents[1] / rel
+    if not p.is_file():
+        return T("저장소 폴더에서 ", " from the repository folder"), f"python3 {rel}"
+    return "", "python3 " + (f'"{p}"' if any(c.isspace() for c in str(p)) else str(p))
+
+
 def need_rig(root: Path, run_id: str, use: str = "") -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
     use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""

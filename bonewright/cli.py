@@ -409,8 +409,9 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("run_id", nargs="?", type=run_id_arg, help=T("영상으로 볼 리그의 실행 id(생략하면 최근 리그를 알려 준다)", "run id of the rig to film (omit it to be told the latest rig)")); d.add_argument("--size", type=positive_int("--size", 640), default=640, help=T("영상 한 변 픽셀(기본 640)", "video size in pixels per side (default 640)")); d.add_argument("--frames", type=positive_int("--frames", 96), default=96, help=T("프레임 수(기본 96, 24fps 로 4초)", "number of frames (default 96, 4 s at 24 fps)")); d.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     bm = sub.add_parser("bench", help=T("원본 뼈대가 든 캐릭터로 관절 오차를 cm 단위로 잰다(토큰 0)", "measure joint error in cm against characters that carry their own skeleton (0 tokens)"))
     bm.add_argument("meshes", nargs="+", help=T("GLB/FBX 파일 또는 폴더", "GLB/FBX files or folders"))
-    _hint_on_missing(bm, "meshes", T("→ 벤치 자산은 저장소에 없다. 받은 뒤 폴더째로(샘플 4개): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples",
-                                     "→ benchmark assets are not in the repository. Fetch them, then pass a folder (4 samples): python3 scripts/fetch_bench_assets.py --only samples && bw bench bench-assets/samples"))
+    where, script = pipeline.fetch_bench()   # 저장소 밖에서는 스크립트의 절대 경로(10/12 13회차)
+    _hint_on_missing(bm, "meshes", T(f"→ 벤치 자산은 저장소에 없다. {where}받은 뒤 폴더째로(샘플 4개): {script} --only samples && bw bench bench-assets/samples",
+                                     f"→ benchmark assets are not in the repository. Fetch them{where}, then pass a folder (4 samples): {script} --only samples && bw bench bench-assets/samples"))
     bm.add_argument("--run-id", type=run_id_arg, help=T("결과 폴더 이름 runs/<id>(기본 bench-날짜-시각)", "name of the results folder runs/<id> (default bench-<date>-<time>)")); bm.add_argument("--facing", choices=FACING, default="auto", help=facing_help())
     _hint_on_choice(bm, "--facing", facing_help)
     bm.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid)", "rig type (default humanoid)"))

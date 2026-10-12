@@ -198,6 +198,40 @@ class BareCommandTests(unittest.TestCase):
                         patch("sys.stdout", io.StringIO()):
                     self.assertEqual(0, cli.main())
 
+    def test_fetch_command_runs_outside_the_repository(self):
+        """From another folder every bench hint names the fetch script by its absolute path, and that command runs there.
+
+        10/12 13회차 실측: 임시 폴더에서 `bw bench` 가 준 `python3 scripts/fetch_bench_assets.py …` 를 치면 'No such file'.
+        설치본만 있어 저장소를 못 찾으면 '저장소 폴더에서' 를 붙인다."""
+        import re
+        from bonewright import bench, pipeline
+        cwd = os.getcwd()
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}):
+                msgs = []
+                try:
+                    os.chdir(d)
+                    err = io.StringIO()
+                    with patch.object(sys, "argv", ["bw", "bench"]), patch("sys.stderr", err), self.assertRaises(SystemExit):
+                        cli.main()
+                    msgs.append(err.getvalue())
+                    for meshes in ([], ["nofolder"]):
+                        with self.assertRaises(pipeline.Blocked) as cm:
+                            bench.run(Path(d), meshes, run_id="b1", quiet=True)
+                        msgs.append(str(cm.exception))
+                    for m in msgs:
+                        script = re.search(r"python3 (\S+fetch_bench_assets\.py)", m)
+                        self.assertIsNotNone(script, m)
+                        self.assertTrue(Path(script[1]).is_absolute(), m)
+                        r = subprocess.run([sys.executable, script[1], "--help"], capture_output=True, text=True, timeout=60)
+                        self.assertEqual(0, r.returncode, r.stderr)
+                    with patch.object(pipeline, "__file__", str(Path(d) / "site-packages" / "bonewright" / "pipeline.py")):
+                        where, script = pipeline.fetch_bench()
+                    self.assertEqual("python3 scripts/fetch_bench_assets.py", script)
+                    self.assertIn(pipeline.T("저장소 폴더에서", "from the repository folder"), where)
+                finally:
+                    os.chdir(cwd)
+
 
 class PositiveNumberTests(unittest.TestCase):
     """`bw demo --size 0`·`--frames -1` 은 리그가 있으면 실행 폴더를 만들고 렌더까지 간 뒤 실패했고, `bw usage --days 0` 은
