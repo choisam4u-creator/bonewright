@@ -1,11 +1,35 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/12 13회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/12 14회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 244개, 건너뜀 0
-python3 -m venv /tmp/bwv && /tmp/bwv/bin/pip install -q . && (cd /tmp && BW_HOME=$(mktemp -d) /tmp/bwv/bin/bw motion; /tmp/bwv/bin/bw bench)   # --bvh 가 …/_samples/wave.bvh 실제 파일, bench 는 스크립트 절대 경로
-cp tests/assets/quaternius_adventurer.glb /tmp/Hero.glb && bw rig /tmp/hero.glb   # "similar file here: /tmp/Hero.glb" (대소문자 구분 안 하는 볼륨이면 그냥 리깅된다)
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 249개, 건너뜀 0
+cd /tmp && echo hi > a.fbx && bw rig a.fbx; bw motion --bvh a.fbx; bw doctor | grep -i "kimodo\|bpy"; cd -   # 'not FBX data' · 'bw rig a.fbx' · GUIDE 절대 경로
+python3.11 examples/rig_sample.py 2>&1 | tail -1   # Blender 없는 3.11 이면 'python3.13 -m venv' 안내(Blender 앱이 있으면 그대로 리깅)
 ```
+
+## 2026-10-12 (14회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음. 같은 브랜치에 동시 세션 없음(푸시 전 fetch).
+- 남은 [ ] 가 1개(CI — 샘님)라 `pip install .` 설치본으로 저장소 밖 임시 폴더에서 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - bpy 설치 안내 `pip install . bpy==5.2.2` — 저장소 밖에선 `.` 에 pyproject 가 없다 → 저장소 절대 경로(설치본만이면 "저장소 폴더에서").
+  - `examples/rig_sample.py` Blender 없음 안내도 `bw` 와 같은 `bpy_install`(3.11 이면 3.13 venv 명령).
+  - 이름만 `.gltf`·`.fbx`·`.blend`·`.obj` 인 파일을 Blender 전에 막음(첫 바이트). bpy 5.2.2 로 실제 내보낸 파일 다섯 개(압축 .blend 는 zstd — 5.2 기본값)가 통과하는 것도 확인.
+  - 안내 속 `docs/GUIDE.md` 4곳 → `config.guide()`(저장소 밖이면 절대 경로).
+  - `bw motion --bvh hero.glb` → "이건 메시다, `bw rig hero.glb`" + 샘플 BVH, 확장자 하나면 'one of' 없이. CHANGELOG 세 줄.
+- 사용자 체감: 다섯 모두 "안내를 그대로 치면 도는가"·"원인이 'Blender not found' 뒤에 숨지 않는가". 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 249개 중 16개 건너뜀, 나머지 통과(커밋마다). `scripts/check_license_boundary.py` OK.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **249개 모두 통과, 건너뜀 0**(143초).
+- 새 시험 5개는 모두 고치기 전 코드(bonewright/·examples/ 만 되돌림)에서 실패 확인. 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
+- CI: blender 잡은 pending 이 아니라 잡 전부 러너 없이 3초 만에 실패(run 38261814390, 헤드 a1f6d39) — 10/11 02:49 이후 그대로, 코드 무관(비공개 저장소 Actions 사용량 추정, 백로그 [ ] — 샘님 Settings → Billing).
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 1(CI 러너 — 샘님).
+
+**막힌 것 / 다음**
+- 작업 지시는 `claude/cloud-work`, 이 세션의 기본 브랜치는 `claude/cloud-work-meg5zz` — PR #10 이 `claude/cloud-work` 라 지시대로 그쪽에 푸시.
+- `bw bench` 의 메시도 같은 머리 확인을 할지(지금은 `bw rig` 만) — 다음 회차 후보.
 
 ## 2026-10-12 (13회차)
 
