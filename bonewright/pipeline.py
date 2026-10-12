@@ -40,11 +40,33 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
         raise Blocked(T(f"{what} 자리에 폴더를 줬다: {p}\n  → 파일 하나를 준다.{first}{also}",
                         f"{what}: this is a folder, not a file: {p}\n  → pass one file.{first}{also}"))
     if not p.is_file():
-        raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}", f"{what} file not found: {p}\n  → {fix}"))
+        near = near_files(p, exts)
+        also = T(f"\n  → 이 폴더에 비슷한 파일: {' · '.join(near)}", f"\n  → similar file here: {' · '.join(near)}") if near else ""
+        raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}{also}", f"{what} file not found: {p}\n  → {fix}{also}"))
     if exts and p.suffix.lower() not in exts:
         raise Blocked(T(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {' · '.join(exts)} 중 하나로 내보내서 다시 지정하라",
                         f"cannot read {what} format: {p.suffix or '(no extension)'} ({p.name})\n  → export it as one of {' · '.join(exts)} and pass that"))
     return p
+
+
+def near_files(p: Path, exts: tuple[str, ...] = ()) -> list[str]:
+    """없는 파일 p 와 같은 폴더의 비슷한 파일(최대 3개, 준 경로와 같은 꼴로 — 그대로 붙여 넣게): 대소문자만 다른 이름,
+    확장자만 다른 이름(exts 안), 가까운 이름(difflib). 10/12 13회차 실측: `bw rig hero.glb`(옆에 Hero.glb)가 '경로를 확인하라' 뿐."""
+    import difflib
+    folder = p.parent
+    try:
+        files = sorted(f.name for f in folder.iterdir() if f.is_file() and (not exts or f.suffix.lower() in exts))
+    except OSError:   # 폴더가 없거나 읽을 수 없다
+        return []
+    name = p.name.lower()
+    hits = [f for f in files if f.lower() == name]
+    hits += [f for f in files if Path(f).stem.lower() in (p.stem.lower(), name) and f not in hits]   # Hero.gltf → Hero.glb, Hero → Hero.glb
+    hits += [f for f in difflib.get_close_matches(p.name, files, n=3, cutoff=0.75) if f not in hits]
+    out = []
+    for f in hits[:3]:
+        s = str(p.with_name(f))
+        out.append(f'"{s}"' if any(c.isspace() for c in s) else s)
+    return out
 
 
 def targets_problems(data) -> list[str]:

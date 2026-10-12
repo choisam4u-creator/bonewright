@@ -36,6 +36,35 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("메시 파일이 없다", msg)
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_missing_file_names_the_similar_one_beside_it(self):
+        """A missing mesh, --bvh or --targets names the file beside it that differs in case, extension or a typo.
+
+        10/12 13회차 실측: 옆에 Hero.glb 를 두고 `bw rig hero.glb`·`bw rig Hero`·`bw rig Hero.gltf` → '경로를 확인하라' 뿐."""
+        d = self.root / "my dir"
+        d.mkdir()
+        (d / "Hero.glb").write_bytes(b"glTF")
+        (d / "walk.bvh").write_text("HIERARCHY\n")
+        (d / "targets.json").write_text("{}")
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.root)   # 준 꼴(상대 경로·공백 → 따옴표) 그대로 돌려주는지
+            for lang in ("ko", "en"):
+                with patch.dict(os.environ, {"BW_LANG": lang}):
+                    for typed in ("my dir/hero.glb", "my dir/Hero", "my dir/Hero.gltf", "my dir/Heroo.glb"):
+                        with self.subTest(lang=lang, typed=typed):
+                            msg = self.blocked(pipeline.rig, self.root, typed, quiet=True)
+                            self.assertIn(pipeline.T('비슷한 파일', 'similar file'), msg)
+                            self.assertIn('"my dir/Hero.glb"', msg)
+                    with self.subTest(lang=lang, flag="--bvh"):
+                        self.assertIn('"my dir/walk.bvh"', self.blocked(pipeline.motion, self.root, bvh="my dir/Walk.bvh"))
+                    with self.subTest(lang=lang, flag="--targets"):
+                        self.assertIn('"my dir/targets.json"', self.blocked(pipeline.rig, self.root, "my dir/Hero.glb", targets_file="my dir/target.json", quiet=True))
+                    with self.subTest(lang=lang, case="nothing alike"):
+                        self.assertNotIn(pipeline.T('비슷한 파일', 'similar file'), self.blocked(pipeline.rig, self.root, "my dir/zzz.glb", quiet=True))
+        finally:
+            os.chdir(cwd)
+        self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
+
     def test_folder_instead_of_mesh(self):
         """A folder passed as the mesh says so, names a mesh inside and points at `bw bench`.
 
