@@ -89,6 +89,28 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("GLB 가 아니다", self.blocked(pipeline.rig, self.root, str(fake), quiet=True))
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_fake_gltf_fbx_blend_obj_stop_before_blender(self):
+        """A .gltf/.fbx/.blend/.obj that does not start the way that format does is refused before Blender starts.
+
+        10/12 14회차 실측: `echo hi > a.fbx` 가 Blender 단계까지 가서, Blender 가 없는 곳에선 'Blender not found' 가 원인을 가렸다."""
+        html = b"<!DOCTYPE html><html>not a model</html>"
+        for name, bad, good in (("a.gltf", html, b'\xef\xbb\xbf\n  {"asset": {"version": "2.0"}}'),
+                                ("a.fbx", b"hi\n", b"; FBX 7.4.0 project file\n"),
+                                ("b.fbx", b"\x00\x01binary junk", b"Kaydara FBX Binary  \x00\x1a\x00"),
+                                ("a.blend", html, b"BLENDER-v402REND"),
+                                ("z.blend", b"PK\x03\x04zip", b"\x28\xb5\x2f\xfdzstd"),
+                                ("a.obj", b"\x4c\x01\x00\x00coff object", b"# Blender OBJ\nv 0 0 0\n")):
+            with self.subTest(name=name):
+                f = self.root / name
+                f.write_bytes(bad)
+                msg = self.blocked(pipeline.rig, self.root, str(f), quiet=True)
+                self.assertIn("파일이 아니다", msg); self.assertIn(f"{Path(name).suffix} 로 다시 내보내라", msg)
+                with patch.dict(os.environ, {"BW_LANG": "en"}):
+                    self.assertIn("Export it again as", self.blocked(pipeline.rig, self.root, str(f), quiet=True))
+                f.write_bytes(good)
+                pipeline.need_mesh_bytes(f)
+        self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
+
     def test_empty_or_fake_bvh_stops_before_blender(self):
         """An empty .bvh or one that does not start with HIERARCHY is refused before the run folder and Blender.
 

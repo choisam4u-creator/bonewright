@@ -105,6 +105,29 @@ def need_mesh_bytes(p: Path) -> None:
                             "Blender 등에서 glTF Binary(.glb)로 다시 내보내라",
                             f"not a GLB (the file does not start with 'glTF', {size:,} bytes): {p}\n  → it may be another format "
                             "renamed to .glb. Export it again as glTF Binary (.glb), e.g. from Blender"))
+    kind = MESH_HEADS.get(p.suffix.lower())
+    if kind:   # 10/12 14회차: `echo hi > a.fbx` 도 Blender 단계까지 갔다 — .glb 말고도 머리를 본다
+        with open(p, "rb") as f:
+            head = f.read(4096)
+        if not kind[1](head):
+            first = head[:40].decode("latin-1").splitlines()[0] if head.strip() else ""
+            ext = p.suffix.lower()
+            raise Blocked(T(f"{kind[0]} 파일이 아니다(시작이 맞지 않음: {first!r}, {size:,}바이트): {p}\n  → 이름만 {ext} 인 다른 파일(웹 페이지·다른 형식)일 수 있다. "
+                            f"원본에서 {ext} 로 다시 내보내라(.glb 가 가장 잘 된다)",
+                            f"not {kind[0]} data (it does not start the way that format does: {first!r}, {size:,} bytes): {p}\n  → it may be another file "
+                            f"(a web page, another format) named {ext}. Export it again as {ext} (.glb works best)"))
+
+
+def _text(head: bytes) -> bool:
+    return b"\0" not in head
+
+
+MESH_HEADS = {   # 확장자 → (이름, 첫 4KB 가 그 형식으로 보이는가). .glb 는 위에서 따로(문구가 다르다)
+    ".gltf": ("glTF (JSON)", lambda h: h.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"{")),
+    ".fbx": ("FBX", lambda h: h.startswith(b"Kaydara FBX Binary") or (_text(h) and b"FBX" in h)),
+    ".blend": ("Blender (.blend)", lambda h: h.startswith((b"BLENDER", b"\x1f\x8b", b"\x28\xb5\x2f\xfd"))),   # 압축 저장: gzip·zstd
+    ".obj": ("Wavefront OBJ", _text),
+}
 
 
 def need_bvh_bytes(p: Path) -> None:
