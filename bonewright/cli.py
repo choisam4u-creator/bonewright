@@ -558,9 +558,7 @@ def _main() -> int:
             return 0
         if a.cmd in ("export", "demo") and not a.run_id:   # argparse 의 "required: run_id" 는 어떤 id 를 넣을지 말해 주지 않는다
             runs = ROOT / "runs"
-            rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
-            if rigged:
-                rid = max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name
+            if (rid := pipeline.latest_rig(ROOT)):
                 print("BLOCKED:", T(f"run-id 가 필요하다 — 가장 최근 리그: `bw {a.cmd} {rid}`\n  → 다른 실행은 `bw status` 로 목록을 본다",
                                    f"needs a run-id — latest rig: `bw {a.cmd} {rid}`\n  → list other runs with `bw status`"), file=sys.stderr)
             else:

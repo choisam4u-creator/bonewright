@@ -312,6 +312,29 @@ class MissingRunIdTests(unittest.TestCase):
                     self.assertIn("`bw status`", err)
                     self.assertNotIn("required", err)
 
+    def test_motion_without_source_fills_in_the_latest_rig(self):
+        """`bw motion` with no source names the newest rig in a command that parses, and keeps the placeholder with no rig.
+
+        10/12 13회차: export·demo 는 최근 리그 id 를 채우는데 같은 상황의 `bw motion` 은 `--rig <rig run-id>` 자리표시였다."""
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang, rigs=0):
+                code, err = self.run_bw(lang, "motion")
+                self.assertEqual(2, code); self.assertIn("run-id>", err)
+        for i, rid in enumerate(("rig-old", "rig-new")):
+            (self.root / "runs" / rid).mkdir(parents=True)
+            blend = self.root / "runs" / rid / "02_rigged.blend"; blend.write_bytes(b"")
+            os.utime(blend, (1000 + i, 1000 + i))
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang, rigs=2):
+                code, err = self.run_bw(lang, "motion")
+                self.assertEqual(2, code); self.assertNotIn("run-id>", err)
+                cmd = re.search(r"`(bw motion --bvh [^`]+)`", err)[1]
+                self.assertTrue(cmd.endswith("--rig rig-new"), cmd)
+                with patch.object(sys, "argv", cmd.split()), patch.object(cli.pipeline, "motion", return_value="runs/m/report.md") as mo, \
+                        patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                self.assertEqual("rig-new", mo.call_args.kwargs["rig_run"])
+
     def test_no_runs_points_at_rig(self):
         """With no finished rig, the message says to run `bw rig` first and where it looked."""
         code, err = self.run_bw("en", "demo")

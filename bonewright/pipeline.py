@@ -169,6 +169,13 @@ def fetch_bench() -> tuple[str, str]:
     return "", "python3 " + (f'"{p}"' if any(c.isspace() for c in str(p)) else str(p))
 
 
+def latest_rig(root: Path) -> str | None:
+    """가장 최근에 리깅을 마친 실행 id(02_rigged.blend 시각), 없으면 None — 안내 명령의 `<run-id>` 자리를 채운다."""
+    runs = root / "runs"
+    rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+    return max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name if rigged else None
+
+
 def need_rig(root: Path, run_id: str, use: str = "") -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
     use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""
@@ -638,6 +645,9 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     # 입력 확인은 실행 폴더·Blender 전에: 잘못된 --rig·--bvh 로 기존 실행 기록을 덮지 않는다
     if not text and not bvh:
         bv = sample_bvh()   # 그대로 붙여 넣어 도는 BVH(저장소의 손 흔들기)
+        if (rid := latest_rig(root)):   # 리그가 있으면 자리표시 대신 최근 리그 — export·demo 처럼(10/12 13회차)
+            raise Blocked(T(f"동작 출처가 없다\n  → 가장 최근 리그에 샘플 동작: `bw motion --bvh {bv} --rig {rid}`(다른 리그는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
+                            f"no motion source\n  → the sample motion on the latest rig: `bw motion --bvh {bv} --rig {rid}` (other rigs: `bw status`) or `bw motion --text \"a person walks\"`"))
         raise Blocked(T(f"동작 출처가 없다\n  → `bw motion --bvh {bv} --rig <리그 run-id>`(리그 id 는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
                         f"no motion source\n  → `bw motion --bvh {bv} --rig <rig run-id>` (rig ids: `bw status`) or `bw motion --text \"a person walks\"`"))
     if bvh and not text:
