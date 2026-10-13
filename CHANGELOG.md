@@ -20,6 +20,8 @@ See `docs/RELEASING.md` for the release steps.
 - A finished `bw rig` ends with a `next:` line on stderr naming `bw demo`, `bw export` and `bw motion --rig` with its
   run-id filled in, so the README's next step no longer means cutting the id out of the report path. stdout is still
   the one report line.
+- `bw motion` ends with a `next:` line too: the `.blend` to open, and either the GLB it wrote or the same command
+  with `--export` (without `--rig`: the same command with the latest rig's id).
 - `tests/README.md` opens with an English summary (one command, what skips without Blender, the two environment
   switches, the three CI jobs); `tests/test_docs.py` keeps its skip count honest.
 - `docs/RELEASING.md`, which this changelog points to, opens with an English summary (who releases, how the version
@@ -127,6 +129,13 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- On a machine with no display, the renderer dying for want of libEGL (exit -6) was reported as an unexpected error
+  with "open an issue". It now stops with `BLOCKED:`, says the rig is already saved, and gives the same command with
+  `BW_NO_RENDER=1` in front (`bw demo`, which needs the pictures, points at `libegl1` instead).
+- `bw bench` checks that each mesh (and `--gt-mesh`) really is GLB/glTF/FBX data before Blender, as `bw rig` does.
+- An option of another subcommand (`bw status --days 7`) names that command as a line to paste
+  (`bw usage --days 7`); a misspelt one (`--nojudge`) names the nearest option. Words from other tools
+  (`bw retarget`, `bw why`, `bw version`) name the real command.
 - Run from outside the repository, hints that said `pip install . bpy==5.2.2` or "see … in docs/GUIDE.md" pointed at
   a folder that is not there; they now carry the repository's absolute path (or say "from the repository folder" when
   only the installed package is present). `examples/rig_sample.py` uses the same Python-aware bpy hint as `bw`.
