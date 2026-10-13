@@ -476,7 +476,7 @@ class NoRigAtAllTests(unittest.TestCase):
                     self.assertEqual(2, code)
                     cmd = re.search(r"`(bw rig [^`<]*--run-id nosuch)`", err).group(1)
                     self.assertIn("quaternius_adventurer.glb --from-skeleton --no-judge --run-id nosuch", cmd)
-                    a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+                    a = cli.build_parser().parse_args(split_pasted(cmd)[1:])
                     self.assertTrue(Path(a.mesh).is_file() or Path(__file__).resolve().parents[1].joinpath(a.mesh).is_file())
                     self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err)), err)
         (self.root / "runs" / "half").mkdir(parents=True); (self.root / "runs" / "half" / "state.json").write_text("{}")
@@ -873,7 +873,7 @@ class KimodoPathTests(unittest.TestCase):
                     cmd = re.search(r"`(bw motion --bvh [^`]*)`", str(cm.exception)).group(1)
                     self.assertTrue(cmd.endswith(f"{pipeline.sample_bvh()}{want}"), cmd)
                     self.assertNotIn("<", cmd)
-                    cli.build_parser().parse_args(shlex.split(cmd)[1:])
+                    cli.build_parser().parse_args(split_pasted(cmd)[1:])
 
     def test_missing_text_encoder_says_how_to_get_it(self):
         with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
