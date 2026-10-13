@@ -445,6 +445,30 @@ class WrongRunIdTests(unittest.TestCase):
         self.assertEqual(2, code); self.assertIn("`bw demo rig-20261011-010203`", err)
 
 
+class NoRigAtAllTests(unittest.TestCase):
+    """With no rig anywhere, an unknown run-id gets the shipped character's first command with that id, which parses.
+
+    10/13 16회차 실측: 임시 폴더에서 `bw export nosuch` → "Rig first with `bw rig <mesh> --run-id nosuch`" — 자리표시."""
+
+    run_bw = MissingRunIdTests.run_bw
+    setUp = MissingRunIdTests.setUp
+
+    def test_first_command_carries_the_id(self):
+        sample = str(Path(__file__).resolve().parents[1] / "examples" / "wave.bvh")
+        for argv in (["export", "nosuch"], ["demo", "nosuch"], ["motion", "--bvh", sample, "--rig", "nosuch"]):
+            for lang in ("en", "ko"):
+                with self.subTest(argv=argv, lang=lang):
+                    code, err = self.run_bw(lang, *argv)
+                    self.assertEqual(2, code)
+                    cmd = re.search(r"`(bw rig [^`<]*--run-id nosuch)`", err).group(1)
+                    self.assertIn("quaternius_adventurer.glb --from-skeleton --no-judge --run-id nosuch", cmd)
+                    a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+                    self.assertTrue(Path(a.mesh).is_file() or Path(__file__).resolve().parents[1].joinpath(a.mesh).is_file())
+                    self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err)), err)
+        (self.root / "runs" / "half").mkdir(parents=True); (self.root / "runs" / "half" / "state.json").write_text("{}")
+        self.assertIn("`bw status half`", self.run_bw("en", "export", "half")[1])   # 리깅을 못 마친 실행은 그 메시를 안다 — 지금 문구
+
+
 class HeadlessRenderTests(unittest.TestCase):
     """A renderer that dies for want of a display (libEGL) says so, keeps the finished rig, and gives the same command with BW_NO_RENDER=1.
 

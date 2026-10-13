@@ -235,6 +235,11 @@ def need_rig(root: Path, run_id: str, use: str = "") -> Path:
                             f"no rig named {run_id}\n  → closest rig: {shown} (all runs: `bw status`)"))
         why = (T(f"이 실행은 리깅을 마치지 못했다(`bw status {run_id}`)", f"this run did not finish rigging (`bw status {run_id}`)") if state.exists()
                else T("그런 실행 id 가 없다(`bw status` 로 목록 확인)", "there is no run with that id (list them with `bw status`)"))
+        if not state.exists() and not rigged:   # 10/13 16회차: 리그가 하나도 없다 — 빈 BW_HOME 의 다른 안내처럼 저장소 캐릭터로 그대로 도는 첫 명령
+            from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+            where, first = _from_repo()
+            raise Blocked(T(f"리깅 결과가 없다: {blend}\n  → {why}. 이 id 로 먼저 리깅하라 — {where}저장소 캐릭터(모델 호출 없음): `{first} --run-id {run_id}`, 내 메시: `bw rig <메시> --run-id {run_id}`",
+                            f"no rig result: {blend}\n  → {why}. Rig with this id first — {where}on the character the repository ships (no model calls): `{first} --run-id {run_id}`; your mesh: `bw rig <mesh> --run-id {run_id}`"))
         raise Blocked(T(f"리깅 결과가 없다: {blend}\n  → {why}. 먼저 `bw rig <메시> --run-id {run_id}` 로 리깅하라",
                         f"no rig result: {blend}\n  → {why}. Rig first with `bw rig <mesh> --run-id {run_id}`"))
     return blend
