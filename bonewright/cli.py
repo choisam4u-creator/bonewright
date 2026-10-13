@@ -280,6 +280,53 @@ def _hint_on_unquoted(p: argparse.ArgumentParser) -> None:
     p.error = error
 
 
+def _hint_on_unknown_option(p: argparse.ArgumentParser, sub) -> None:
+    """다른 하위 명령의 옵션(`bw status --days 7`·`bw rig a.glb --out b.glb`)이나 철자 틀린 옵션(`--nojudge`):
+    argparse 는 최상위 사용법과 "unrecognized arguments: --days" 만 말한다(10/13 15회차 실측). 그 옵션이 있는 명령을
+    그대로 칠 꼴로(값은 준 그대로), 이 명령의 옵션과 비슷하면 가까운 옵션을 붙인다(종료 2 그대로)."""
+    import difflib
+    orig = p.error
+    def error(message: str):
+        if "unrecognized arguments:" not in message:
+            return orig(message)
+        args = sys.argv[1:]
+        cmd = next((a for a in args if a in sub.choices), None)
+        here = sub.choices[cmd]._option_string_actions if cmd else {}
+        for i, tok in enumerate(args):
+            flag, eq, val = tok.partition("=")
+            if not flag.startswith("--") or flag in here or i < (args.index(cmd) if cmd else 0):
+                continue
+            owners = [n for n, sp in sub.choices.items() if n != cmd and flag in sp._option_string_actions]
+            if owners:
+                o = owners[0]; act = sub.choices[o]._option_string_actions[flag]
+                if any(a.required and not a.option_strings for a in sub.choices[o]._actions):   # 메시처럼 꼭 줄 값이 있으면 도움말로
+                    line = f"`bw {o} --help`"
+                else:
+                    words = ["bw", o]
+                    if o in ("export", "demo") and (rid := pipeline.latest_rig(ROOT)):
+                        words.append(rid)
+                    if o == "motion" and flag not in ("--bvh", "--text"):   # 동작 출처가 꼭 있어야 돈다 — 저장소의 샘플 BVH
+                        words += ["--bvh", pipeline.sample_bvh()]
+                    words.append(flag)
+                    if act.nargs != 0:
+                        nxt = val if eq else (args[i + 1] if i + 1 < len(args) and not args[i + 1].startswith("-") else "")
+                        if flag == "--rig" and not nxt:
+                            nxt = pipeline.latest_rig(ROOT) or ""
+                        if nxt or act.nargs != "?":   # --export 처럼 값을 빼도 되는 옵션은 그대로
+                            words.append(nxt or str(EXAMPLES.get(flag) or act.default or act.metavar or flag.strip("-").upper()))
+                    line = "`" + " ".join(words) + "`"
+                where = " · ".join(f"`bw {n}`" for n in owners)
+                message += "\n" + T(f"→ `{flag}` 는 {where} 의 옵션이다" + (f"(`bw {cmd}` 에는 없다)" if cmd else "") + f": {line}",
+                                     f"→ `{flag}` is an option of {where}" + (f" (not of `bw {cmd}`)" if cmd else "") + f": {line}")
+                return orig(message)
+            near = difflib.get_close_matches(flag, [o for o in here if o.startswith("--")], n=1, cutoff=0.7)
+            if near:
+                message += "\n" + T(f"→ 혹시 `{near[0]}`? 옵션 목록: `bw {cmd} --help`", f"→ did you mean `{near[0]}`? Options: `bw {cmd} --help`")
+                return orig(message)
+        orig(message)
+    p.error = error
+
+
 def _hint_on_conflict(p: argparse.ArgumentParser, hint: str) -> None:
     """argparse 의 '…not allowed with argument …' 끝에 무엇을 고를지 한 줄(종료 2 그대로)."""
     orig = p.error
@@ -396,6 +443,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
     _hint_on_bad_command(p, sub)
     _hint_on_unquoted(p)
+    _hint_on_unknown_option(p, sub)
     r = sub.add_parser("rig", help=T("메시를 Rigify 로 리깅하고 검증한다", "rig a mesh with Rigify and check it"))
     r.add_argument("mesh", help=T("리깅할 메시(.glb·.gltf·.fbx·.obj·.blend)", "mesh to rig (.glb, .gltf, .fbx, .obj, .blend)")); r.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid", help=T("리그 종류(기본 humanoid). 네 발 짐승은 quadruped", "rig type (default humanoid); quadruped for four-legged animals"))
     _hint_on_choice(r, "--preset", preset_hint)

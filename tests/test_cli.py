@@ -385,6 +385,46 @@ class AliasCommandTests(unittest.TestCase):
         self.assertIn("`bw motion --bvh ", last); self.assertIn("--rig <run-id>` (rig ids: `bw status`)", last)
 
 
+class WrongCommandOptionTests(unittest.TestCase):
+    """An option of another subcommand (`bw status --days 7`) names that command as a pasteable line; a misspelt one its nearest.
+
+    10/13 15회차 실측: 최상위 사용법과 "unrecognized arguments: --days" 뿐 — 어느 명령의 옵션인지 말하지 않았다."""
+
+    def last_line(self, argv, lang, home):
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", home), \
+                patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertEqual(2, cm.exception.code)
+        return err.getvalue().strip().splitlines()[-1]
+
+    def test_option_of_another_command_gives_a_command_that_parses(self):
+        import re
+        import shlex
+        with tempfile.TemporaryDirectory() as t:
+            home = Path(t)
+            (home / "runs" / "r7").mkdir(parents=True); (home / "runs" / "r7" / "02_rigged.blend").write_bytes(b"BLENDER")
+            for argv, want in ((["status", "--days", "7"], "bw usage --days 7"),
+                               (["rig", "hero.glb", "--out", "a.glb"], "bw export r7 --out a.glb"),
+                               (["usage", "--rig=r1"], "bw motion --bvh examples/wave.bvh --rig r1"),
+                               (["doctor", "--export"], "bw motion --bvh examples/wave.bvh --export"),
+                               (["status", "--facing", "pos-y"], "bw rig --help")):
+                with self.subTest(argv=argv):
+                    en, ko = self.last_line(argv, "en", home), self.last_line(argv, "ko", home)
+                    self.assertIn(f"is an option of", en); self.assertIn(f"`{want}`", en)
+                    self.assertIsNone(re.search(r"[가-힣]", en)); self.assertIn("의 옵션이다", ko); self.assertIn(f"`{want}`", ko)
+                    if "--help" not in want:
+                        ns = cli.build_parser().parse_args(shlex.split(want)[1:])   # 그대로 붙여 넣으면 된다
+                        self.assertEqual(shlex.split(want)[1], ns.cmd)
+
+    def test_misspelt_option_names_the_nearest_and_unknown_says_nothing_new(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.assertIn("did you mean `--no-judge`? Options: `bw rig --help`", self.last_line(["rig", "a.glb", "--nojudge"], "en", Path(t)))
+            self.assertIn("혹시 `--no-judge`?", self.last_line(["rig", "a.glb", "--nojudge"], "ko", Path(t)))
+            self.assertIn("unrecognized arguments: --zzzz", self.last_line(["rig", "a.glb", "--zzzz"], "en", Path(t)))
+
+
 class HelpDefaultTests(unittest.TestCase):
     def test_numbers_in_help_are_the_real_defaults(self):
         """A "default N" written into a help line equals the argument's real default (or config's, for --budget).
