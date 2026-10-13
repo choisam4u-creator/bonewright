@@ -238,7 +238,7 @@
 - [x] (10/11 11회차: `cli.pid_alive` — POSIX 만(Windows 의 os.kill 은 프로세스를 끝낸다), interrupted 줄에도 → why, `test_cli.StaleRunTests` — 옛 코드에서 실패) `bw status` 가 프로세스가 이미 죽은 실행을 계속 "running" 으로 보인다(`state.json` 에 pid 가 있는데 보지 않는다) → pid 가 없으면 "멈춤(프로세스 없음)"·`→ why` 줄, 시험 — 근거: 10/11 11회차 실측(`{"status":"running","pid":999999}` → "old: weights running")
 - [x] (10/11 11회차: `cli.EXAMPLES` 표 — --out·--bvh(저장소의 examples/wave.bvh)·--text·--map·--targets·--gt-mesh, `MissingValueTests` 확장) `bw export r1 --out`(값 없이)에 예가 없다 — 11회차 `_hint_on_missing_value` 는 기본값이 None 인 `--out` 을 못 다룬다 → `--out hero.glb`(또는 폴더) 예, `--text`·`--bvh`·`--map`·`--targets`·`--gt-mesh` 도 같은 식, 시험 — 근거: 10/11 11회차 실측
 - [x] (10/11 11회차: Install and run 의 bw status 문단에 두 문장, `SettingsChecksDocTests.test_guide_run_id_rule_matches_the_parser`) GUIDE 에 실행 id 규칙(글자·숫자·`. _ -`, 11회차부터 `/`·`..` 거절)과 기본 id(`rig-날짜-시각`)가 없다 → "Install and run" 의 `bw status` 문단에 한 줄, 시험(문서의 규칙과 `cli.run_id_arg` 대조) — 근거: 10/11 11회차 `run_id_arg` 추가, GUIDE 에 규칙 0건
-- [ ] CI 가 10/11 02:49 이후 러너 없이 1~2초 만에 실패한다(잡 단계 0개, 코드 무관 — 비공개 저장소 Actions 사용량 추정) → 클라우드에서 고칠 수 없다. 샘님이 Settings → Billing 의 Actions 사용량을 확인할 때까지 클라우드 회차는 로컬 시험(bpy 포함)을 근거로 쓰고 회차 기록에 그렇게 적는다 — 근거: 10/11 11회차 run 38106418754 잡 4개 모두 started=completed(1초)
+- [x] (10/13 16회차: 러너 복구 확인 — run 38413301579(헤드 86806f7)에서 blender·unit 3.11·3.13 통과, unit-windows 는 실제로 돌아 기존 시험 13개가 드러났고 d0a2ef9(동시 세션)가 시험 쪽에서 고침) CI 가 10/11 02:49 이후 러너 없이 1~2초 만에 실패한다(잡 단계 0개, 코드 무관 — 비공개 저장소 Actions 사용량 추정) → 클라우드에서 고칠 수 없다. 샘님이 Settings → Billing 의 Actions 사용량을 확인할 때까지 클라우드 회차는 로컬 시험(bpy 포함)을 근거로 쓰고 회차 기록에 그렇게 적는다 — 근거: 10/11 11회차 run 38106418754 잡 4개 모두 started=completed(1초)
 
 
 ## 2026-10-11 12회차 추가 (공개 준비 기준 — 실측)

@@ -1,11 +1,39 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/13 15회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/13 16회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 259개, 건너뜀 0
-bw status --days 7; bw retarget; bw rig tests/assets/quaternius_adventurer.glb --nojudge 2>&1 | tail -1   # 각각 'bw usage --days 7' · 'bw motion --bvh …' · '--no-judge?'
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge && bw motion --bvh examples/wave.bvh --rig "$(ls -t runs | grep ^rig | head -1)" 2>&1 | tail -1   # 끝 줄이 'next: open …retargeted.blend · …--export'
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 265개, 건너뜀 0
+bw help rig | head -1; cp tests/assets/quaternius_adventurer.glb /tmp/hero.vrm && bw rig /tmp/hero.vrm 2>&1 | tail -1   # 'usage: bw rig' · 'cp … hero.glb, then bw rig …'
+H=$(mktemp -d); BW_HOME=$H bw export nosuch 2>&1 | tail -1; BW_HOME=$H bw motion --text walk 2>&1 | tail -1   # 둘 다 그대로 붙여 넣을 bw rig …--run-id nosuch · bw motion --bvh …wave.bvh
 ```
+
+## 2026-10-13 (16회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 1개(CI — 샘님)라 저장소 밖 임시 폴더에서 명령을 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - **`bw help`·`bw help rig`**: 오류 + "help is: `bw --help` · all commands: `bw --help`"(같은 말 두 번) → 도움말을 그대로(종료 0).
+  - **내용이 .glb 인 다른 확장자(.vrm·확장자 없음)**: "다시 내보내라" → `cp hero.vrm hero.glb`, then `bw rig hero.glb …`(같은 옵션). bpy 로 복사본이 실제로 리깅되는 것 확인(진짜 VRM 파일로는 못 해 봄).
+  - **값 없는 `--bvh`·`--rig`**: 저장소 밖에선 없는 `examples/wave.bvh`, `<rig run-id>` → 샘플 절대 경로·최근 리그.
+  - **kimodo.cpp 없음**: "`--bvh file`" → `bw motion --bvh <샘플> --rig <준/최근 리그>`.
+  - **리그가 하나도 없을 때 틀린 run-id**: `bw rig <mesh> --run-id X` → 저장소 캐릭터 첫 명령 + `--run-id X`(앞), 내 메시 꼴(뒤).
+- CHANGELOG Fixed 세 항목.
+- 사용자 체감: 다섯 모두 자리표시·되돌림 없이 "안내를 그대로 치면 도는가". 설치~첫 결과 단계 수는 그대로.
+- 동시 세션: 회차 중에 다른 세션이 `claude/cloud-work` 에 d0a2ef9(Windows 시험 고침)를 푸시 → 병합(2e5a164), 내 새 시험 둘도 같은 `split_pasted` 로(688da85).
+- 실수 하나: `bw help` 커밋이 `| tail` 로 시험 수 표 실패를 못 보고 커밋됨 → 바로 다음 커밋에서 고침. 그 뒤로는 시험이 통과할 때만 커밋하는 스크립트로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 265개 중 16개 건너뜀, 나머지 통과. `scripts/check_license_boundary.py` OK.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **265개 모두 통과, 건너뜀 0**(156초, 병합 전 헤드).
+- 새 시험 6개는 모두 고치기 전 코드에서 실패 확인. 렌더는 화면 없는 리눅스라 끔 → Mac 명령 위.
+- CI: **러너 복구** — blender 잡이 pending/러너 없음이 아니라 실제로 돌아 통과(run 38413301579, 헤드 86806f7). unit-windows 는 기존 시험 13개(대소문자 안 가리는 파일 시스템·역슬래시)로 실패 → d0a2ef9 가 고침, 새 시험은 Windows 에서도 통과. 최종 헤드 결과는 PR #10 참고.
+
+**완료 수·추가 수**: 완료 6(새 5 + CI 러너 항목 — 복구 확인) · 추가 5 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 남은 [ ] 가 0 — 다음 회차는 공개 준비 기준으로 새 항목 5개부터.
+- 작업 지시는 `claude/cloud-work`, 이 세션의 기본 브랜치는 `claude/cloud-work-zqeu89` — PR #10 이 `claude/cloud-work` 라 지시대로 그쪽에 푸시. 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 16회차로 적었다.
+- 같은 브랜치에 세션이 둘 이상 돌 수 있다(이번에 겹침) — 푸시 전 fetch 로 확인 중.
 
 ## 2026-10-13 (15회차)
 
