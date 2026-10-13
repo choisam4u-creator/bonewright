@@ -15,6 +15,16 @@ from bonewright import cli, pipeline
 from tests._marks import requires_blender
 
 
+
+def split_pasted(cmd: str) -> list[str]:
+    """Split a command the way the user's shell would: POSIX rules, or cmd/PowerShell rules on Windows.
+
+    안내는 공백 있는 경로만 큰따옴표로 감싸고 역슬래시는 그대로 둔다(Windows 셸에선 그대로 돈다).
+    POSIX shlex 는 C:\\Users 의 역슬래시를 지운다 — 10/13 CI unit-windows."""
+    if os.name != "nt":
+        return shlex.split(cmd)
+    return [w[1:-1] if len(w) > 1 and w[0] == w[-1] == '"' else w for w in shlex.split(cmd, posix=False)]
+
 class InputErrorTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -67,20 +77,24 @@ class InputErrorTests(unittest.TestCase):
         (d / "Hero.glb").write_bytes(b"glTF")
         (d / "walk.bvh").write_text("HIERARCHY\n")
         (d / "targets.json").write_text("{}")
+        case_blind = (d / "hero.glb").exists()
+        near = lambda rel: f'"{Path(rel)}"'   # 안내는 그 OS 의 구분자로 적는다(Windows 는 my dir\\Hero.glb)
         cwd = os.getcwd()
         try:
             os.chdir(self.root)   # 준 꼴(상대 경로·공백 → 따옴표) 그대로 돌려주는지
             for lang in ("ko", "en"):
                 with patch.dict(os.environ, {"BW_LANG": lang}):
                     for typed in ("my dir/hero.glb", "my dir/Hero", "my dir/Hero.gltf", "my dir/Heroo.glb"):
+                        if typed == "my dir/hero.glb" and case_blind:
+                            continue   # 대소문자를 안 가리는 파일 시스템(Windows·macOS 기본)에선 hero.glb 가 Hero.glb 로 열린다
                         with self.subTest(lang=lang, typed=typed):
                             msg = self.blocked(pipeline.rig, self.root, typed, quiet=True)
                             self.assertIn(pipeline.T('비슷한 파일', 'similar file'), msg)
-                            self.assertIn('"my dir/Hero.glb"', msg)
+                            self.assertIn(near("my dir/Hero.glb"), msg)
                     with self.subTest(lang=lang, flag="--bvh"):
-                        self.assertIn('"my dir/walk.bvh"', self.blocked(pipeline.motion, self.root, bvh="my dir/Walk.bvh"))
+                        self.assertIn(near("my dir/walk.bvh"), self.blocked(pipeline.motion, self.root, bvh="my dir/Wakl.bvh" if case_blind else "my dir/Walk.bvh"))
                     with self.subTest(lang=lang, flag="--targets"):
-                        self.assertIn('"my dir/targets.json"', self.blocked(pipeline.rig, self.root, "my dir/Hero.glb", targets_file="my dir/target.json", quiet=True))
+                        self.assertIn(near("my dir/targets.json"), self.blocked(pipeline.rig, self.root, "my dir/Hero.glb", targets_file="my dir/target.json", quiet=True))
                     with self.subTest(lang=lang, case="nothing alike"):
                         self.assertNotIn(pipeline.T('비슷한 파일', 'similar file'), self.blocked(pipeline.rig, self.root, "my dir/zzz.glb", quiet=True))
         finally:
@@ -146,7 +160,7 @@ class InputErrorTests(unittest.TestCase):
                 self.assertIn("export it as .bvh and pass that", msg); self.assertNotIn("one of", msg)
                 cmd = re.search(r"`(bw rig [^`]+)`", msg).group(1)
                 from bonewright import cli
-                self.assertEqual(str(f), cli.build_parser().parse_args(shlex.split(cmd)[1:]).mesh)
+                self.assertEqual(str(f), cli.build_parser().parse_args(split_pasted(cmd)[1:]).mesh)
                 self.assertIn("wave.bvh", msg)
                 ko = self.blocked(pipeline.motion, self.root, bvh=str(f), rig_run="r1", quiet=True)
                 self.assertIn(".bvh 로 내보내서", ko); self.assertIn("이건 메시다", ko)
