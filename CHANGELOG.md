@@ -129,6 +129,14 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw help` prints the help and `bw help rig` the help of `bw rig`, as git and pip do; they were an error repeating
+  "`bw --help`" twice.
+- A `.glb` under another name (a VRM avatar `hero.vrm`, or no extension) was told to "export it as one of …"; it now
+  gets the copy command and the same command on the copy.
+- Hints that used to carry a placeholder now carry a command that runs: `--bvh` or `--rig` typed without a value
+  (the sample BVH's real path outside the repository, the latest rig), `bw motion --text` without kimodo.cpp (the
+  sample BVH on the given or latest rig), and an unknown run-id when there is no rig at all (the shipped character's
+  first command with that id).
 - On a machine with no display, the renderer dying for want of libEGL (exit -6) was reported as an unexpected error
   with "open an issue". It now stops with `BLOCKED:`, says the rig is already saved, and gives the same command with
   `BW_NO_RENDER=1` in front (`bw demo`, which needs the pictures, points at `libegl1` instead).
