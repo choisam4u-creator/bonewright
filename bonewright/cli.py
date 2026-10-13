@@ -316,8 +316,8 @@ def _hint_on_unknown_option(p: argparse.ArgumentParser, sub) -> None:
                             words.append(nxt or str(EXAMPLES.get(flag) or act.default or act.metavar or flag.strip("-").upper()))
                     line = "`" + " ".join(words) + "`"
                 where = " · ".join(f"`bw {n}`" for n in owners)
-                message += "\n" + T(f"→ `{flag}` 는 {where} 의 옵션이다" + (f"(`bw {cmd}` 에는 없다)" if cmd else "") + f": {line}",
-                                     f"→ `{flag}` is an option of {where}" + (f" (not of `bw {cmd}`)" if cmd else "") + f": {line}")
+                nots = T(f"(`bw {cmd}` 에는 없다)", f" (not of `bw {cmd}`)") if cmd else ""
+                message += "\n" + T(f"→ `{flag}` 는 {where} 의 옵션이다{nots}: {line}", f"→ `{flag}` is an option of {where}{nots}: {line}")
                 return orig(message)
             near = difflib.get_close_matches(flag, [o for o in here if o.startswith("--")], n=1, cutoff=0.7)
             if near:
