@@ -448,6 +448,11 @@ expect, it also prints the run's `logs/` folder (one Blender log per step); pref
 to get the full Python traceback for an issue report. `bw doctor --for-issue <run-id>` gathers the versions, your
 `runs/config.json` (with any unknown keys named), the run's `state.json` and the tail of its last log into one block to paste into the issue, with home paths replaced by `~`.
 
+On a machine with no display (a headless Linux server, WSL, a container), Blender's renderer cannot start (the log shows
+`Couldn't open libEGL.so.1`). The rig is already saved by then; `bw` says so and gives the same command with
+`BW_NO_RENDER=1` in front, which skips the pictures (and with them the visual judge). `bw demo` needs the pictures, so it
+needs EGL (`sudo apt install libegl1` on Debian/Ubuntu) or a machine with a display.
+
 A-pose input rigs as well as T-pose. `--rest-pose t` bakes a T-pose rest, which downstream animation usually expects.
 Measured on one asset posed at several arm angles, against its own original T-pose skeleton:
 

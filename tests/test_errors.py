@@ -424,6 +424,68 @@ class WrongRunIdTests(unittest.TestCase):
         self.assertEqual(2, code); self.assertIn("`bw demo rig-20261011-010203`", err)
 
 
+class HeadlessRenderTests(unittest.TestCase):
+    """A renderer that dies for want of a display (libEGL) says so, keeps the finished rig, and gives the same command with BW_NO_RENDER=1.
+
+    10/13 15회차 실측(bpy 5.2.2, 화면 없는 리눅스): README 첫 명령이 리깅을 마친 뒤 "render_views: Blender exit code -6"·
+    "Couldn't open libEGL.so.1" 로 끝나고, 안내는 "이슈를 열어라" 였다."""
+    TAIL = "render_views: Blender exit code -6\nCouldn't open libEGL.so.1: libEGL.so.1: cannot open shared object file"
+
+    def step(self, name, err, argv, lang="en"):
+        from bonewright import blender
+        with tempfile.TemporaryDirectory() as d:
+            from bonewright import config
+            r = pipeline.Run(Path(d), "rig-x", config.DEFAULTS, quiet=True)
+            (r.dir / "02_rigged.blend").write_bytes(b"BLENDER")
+            cwd = os.getcwd(); os.chdir(d)
+            try:
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", *argv]), \
+                        patch.object(pipeline, "run_script", side_effect=blender.BlenderError(err)):
+                    try:
+                        r.blender(name, {})
+                    except (pipeline.Blocked, blender.BlenderError) as e:
+                        state = json.loads((r.dir / "state.json").read_text())
+                        return e, state
+            finally:
+                os.chdir(cwd)
+        self.fail("no error")
+
+    def test_headless_render_is_blocked_with_the_same_command(self):
+        import shlex
+        e, state = self.step("render_views", self.TAIL, ["rig", "my hero.glb", "--from-skeleton", "--no-judge"])
+        self.assertIsInstance(e, pipeline.Blocked)
+        msg = str(e)
+        self.assertIn("could not start without a display", msg)
+        self.assertIn("the rig itself is done: runs/rig-x/02_rigged.blend", msg)
+        cmd = msg.split("`BW_NO_RENDER=1 ", 1)[1].split("`", 1)[0]
+        self.assertEqual("my hero.glb", cli.build_parser().parse_args(shlex.split(cmd)[1:]).mesh)   # 그대로 붙여 넣으면 된다
+        self.assertIn("libegl1", msg); self.assertEqual("failed", state["status"])
+        ko, _ = self.step("render_views", self.TAIL, ["rig", "a.glb"], "ko")
+        self.assertIn("화면(EGL/OpenGL) 없이", str(ko)); self.assertIn("리깅은 이미 끝났다", str(ko))
+
+    def test_demo_and_motion_wording(self):
+        demo, _ = self.step("render_demo", self.TAIL, ["demo", "rig-x"])
+        self.assertNotIn("BW_NO_RENDER", str(demo)); self.assertNotIn("rig itself is done", str(demo))   # 영상은 끌 수 없다
+        motion, _ = self.step("retarget_bvh", self.TAIL, ["motion", "--bvh", "examples/wave.bvh", "--rig", "rig-x"])
+        self.assertIn("`BW_NO_RENDER=1 bw motion --bvh examples/wave.bvh --rig rig-x`", str(motion))
+        self.assertNotIn("visual judge", str(motion))
+
+    def test_other_blender_errors_stay_unexpected(self):
+        from bonewright import blender
+        e, _ = self.step("render_views", "render_views: Blender exit code 1\nTraceback ... KeyError", ["rig", "a.glb"])
+        self.assertIsInstance(e, blender.BlenderError)
+
+    def test_cli_says_blocked_without_the_issue_line(self):
+        from bonewright import blender
+        err = io.StringIO()
+        def rig(root, *a, **k):
+            raise pipeline.Blocked(pipeline.headless_hint("render_views", Path("nowhere")))
+        with tempfile.TemporaryDirectory() as d, patch.object(cli, "ROOT", Path(d)), patch.object(cli.pipeline, "rig", side_effect=rig), \
+                patch.object(sys, "argv", ["bw", "rig", "a.glb"]), patch("sys.stderr", err), patch.dict(os.environ, {"BW_LANG": "en"}):
+            self.assertEqual(2, cli.main())
+        self.assertIn("BLOCKED: render_views: the Blender renderer", err.getvalue()); self.assertNotIn("open an issue", err.getvalue())
+
+
 class UnexpectedErrorTests(unittest.TestCase):
     """포괄 except: 한 줄 메시지 대신 오류 종류·로그 위치·BW_DEBUG 안내가 나와야 한다."""
 

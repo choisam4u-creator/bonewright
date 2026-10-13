@@ -2,6 +2,7 @@
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -328,11 +329,33 @@ class Run:
         t = time.time()
         try:
             r = run_script(name, params, self.cfg["blender"], self.logs)
-        except BlenderError:
+        except BlenderError as e:
             self.state(name, "failed")   # 'running' 으로 남으면 `bw status` 가 영원히 도는 중이라 한다
+            if HEADLESS.search(str(e)):   # 화면 없는 리눅스: 이슈 안내 대신 렌더를 끄는 같은 명령(10/13 15회차 실측)
+                raise Blocked(headless_hint(name, self.dir)) from e
             raise
         _log(self.quiet, f"  ⚙ {name} {time.time() - t:.1f}s")
         return r
+
+
+# Blender 렌더러가 화면(EGL/OpenGL) 없이 못 뜰 때 로그에 남는 말. bpy 5.2.2 리눅스 실측: "Couldn't open libEGL.so.1", 종료 -6
+HEADLESS = re.compile(r"libEGL|eglInitialize|EGL_NOT_INITIALIZED|Unable to open a display|cannot open display|"
+                      r"failed to create (?:a )?(?:GPU|OpenGL) context", re.I)
+
+
+def headless_hint(step: str, run_dir: Path) -> str:
+    """렌더 단계가 화면 없이 죽었을 때: 무엇이 죽었나 · 이미 된 것(리그 .blend) · `BW_NO_RENDER=1` 을 붙인 같은 명령 · EGL 설치."""
+    rigged = run_dir / "02_rigged.blend"
+    done = (T(f"\n  → 리깅은 이미 끝났다: {_shown(rigged, Path.cwd())}", f"\n  → the rig itself is done: {_shown(rigged, Path.cwd())}")
+            if rigged.is_file() and step == "render_views" else "")
+    again = " ".join(["BW_NO_RENDER=1", "bw", *(f'"{a}"' if any(c.isspace() for c in a) else a for a in sys.argv[1:])])
+    judge = T("(시각 판정도 꺼진다)", " (the visual judge is off too)") if step == "render_views" else ""
+    skip = ("" if step == "render_demo" else   # 데모 영상은 그림 자체라 끌 수 없다
+            T(f"\n  → 그림 없이 끝까지{judge}: `{again}`", f"\n  → finish without pictures{judge}: `{again}`"))
+    return T(f"{step}: Blender 렌더러가 화면(EGL/OpenGL) 없이 뜨지 못했다 — 화면 없는 리눅스·서버·컨테이너{done}{skip}\n"
+             "  → 그림도 필요하면 EGL 을 설치하거나(Debian/Ubuntu: `sudo apt install libegl1`) 화면이 있는 컴퓨터에서 같은 명령",
+             f"{step}: the Blender renderer could not start without a display (EGL/OpenGL) — a headless Linux, server or container{done}{skip}\n"
+             "  → to get the pictures too, install EGL (Debian/Ubuntu: `sudo apt install libegl1`) or run the same command on a machine with a display")
 
 
 def load_bone_map(path: str | Path) -> dict:
