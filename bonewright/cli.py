@@ -437,6 +437,22 @@ def _hint_on_missing_value(p: argparse.ArgumentParser) -> None:
     p.error = error
 
 
+def motion_next(rd: Path, a: argparse.Namespace) -> str:
+    """`bw motion` 끝의 다음 줄: 열어 볼 .blend · GLB(있으면 경로, 없으면 같은 명령 + `--export`) · 리그 없이 돌렸으면 `--rig`."""
+    again = " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in sys.argv[1:])])
+    blend = rd / ("retargeted.blend" if a.rig else "motion.blend")
+    parts = [T(f"열어 볼 파일 `{pipeline._arg(blend, Path.cwd())}`", f"open `{pipeline._arg(blend, Path.cwd())}`")]
+    if a.rig:
+        glb = Path(a.export) if a.export not in (None, "auto") else rd / "animated.glb"
+        parts.append(T(f"게임용 GLB `{pipeline._arg(glb, Path.cwd())}`", f"game-ready GLB `{pipeline._arg(glb, Path.cwd())}`") if a.export and glb.is_file()
+                     else T(f"게임용 GLB 로: `{again} --export`", f"as a game-ready GLB: `{again} --export`"))
+    else:
+        rid = pipeline.latest_rig(ROOT)
+        rig = f"`{again} --rig {rid}`" if rid else T("`bw status` 의 리그 id 로 같은 명령 + `--rig <id>`", "the same command + `--rig <id>` with a rig id from `bw status`")
+        parts.append(T(f"리그에 옮기기: {rig}", f"put it on a rig: {rig}"))
+    return T("다음: ", "next: ") + " · ".join(parts)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
@@ -671,6 +687,8 @@ def _main() -> int:
         rid = Path(out).parent.name; bv = pipeline.sample_bvh()   # 저장소의 손 흔들기 BVH — 그대로 붙여 넣어 돈다
         print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh {bv} --rig {rid}`",
                 f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh {bv} --rig {rid}`"), file=sys.stderr)
+    elif a.cmd == "motion":   # report: 한 줄뿐이라 결과 파일·GLB 명령을 report.md 를 열어야 알았다(10/13 15회차 실측)
+        print(motion_next(Path(out).parent, a), file=sys.stderr)
     return 0
 
 

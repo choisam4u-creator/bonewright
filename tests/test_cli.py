@@ -425,6 +425,44 @@ class WrongCommandOptionTests(unittest.TestCase):
             self.assertIn("unrecognized arguments: --zzzz", self.last_line(["rig", "a.glb", "--zzzz"], "en", Path(t)))
 
 
+class MotionNextTests(unittest.TestCase):
+    """`bw motion` ends with a next line like `bw rig`: the .blend to open and the GLB (its path, or the same command + --export).
+
+    10/13 15회차 실측: `report:` 한 줄뿐 — 결과 파일·GLB 명령을 report.md 를 열어야 알았다."""
+
+    def last_line(self, argv, home, lang="en", glb=False):
+        rd = home / "runs" / "motion-1"; rd.mkdir(parents=True, exist_ok=True)
+        if glb:
+            (rd / "animated.glb").write_bytes(b"glTF")
+        err, cwd = io.StringIO(), os.getcwd()
+        os.chdir(home)
+        try:
+            with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", home), patch.object(sys, "argv", ["bw", *argv]), \
+                    patch.object(cli.pipeline, "motion", return_value=rd / "report.md"), patch("sys.stderr", err), patch("sys.stdout", io.StringIO()):
+                self.assertEqual(0, cli.main())
+        finally:
+            os.chdir(cwd)
+        return err.getvalue().strip().splitlines()[-1]
+
+    def test_next_line_commands_parse(self):
+        import re
+        import shlex
+        with tempfile.TemporaryDirectory() as t:
+            home = Path(t)
+            line = self.last_line(["motion", "--bvh", "my wave.bvh", "--rig", "r1"], home)
+            self.assertIn("next: open `runs/motion-1/retargeted.blend`", line)
+            cmd = shlex.split(re.search(r"GLB: `([^`]*)`", line).group(1))
+            ns = cli.build_parser().parse_args(cmd[1:])
+            self.assertEqual(("my wave.bvh", "r1", "auto"), (ns.bvh, ns.rig, ns.export))   # 그대로 붙여 넣으면 된다
+            self.assertIn("game-ready GLB `runs/motion-1/animated.glb`", self.last_line(["motion", "--bvh", "w.bvh", "--rig", "r1", "--export"], home, glb=True))
+            self.assertIn("다음: 열어 볼 파일", self.last_line(["motion", "--bvh", "w.bvh", "--rig", "r1"], home, "ko"))
+            self.assertIn("the same command + `--rig <id>` with a rig id from `bw status`", self.last_line(["motion", "--bvh", "w.bvh"], home))
+            (home / "runs" / "r7").mkdir(); (home / "runs" / "r7" / "02_rigged.blend").write_bytes(b"BLENDER")
+            line = self.last_line(["motion", "--bvh", "w.bvh"], home)
+            self.assertIn("open `runs/motion-1/motion.blend`", line)
+            self.assertEqual("r7", cli.build_parser().parse_args(shlex.split(re.search(r"rig: `([^`]*)`", line).group(1))[1:]).rig)
+
+
 class HelpDefaultTests(unittest.TestCase):
     def test_numbers_in_help_are_the_real_defaults(self):
         """A "default N" written into a help line equals the argument's real default (or config's, for --budget).
