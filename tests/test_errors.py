@@ -37,6 +37,27 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("메시 파일이 없다", msg)
         self.assertFalse((self.root / "runs").exists(), "빈 실행 폴더를 남기면 안 된다")
 
+    def test_glb_under_another_extension_says_copy_it(self):
+        """A .glb under another extension (VRM) gets a copy command and the same command on the copy.
+
+        10/13 16회차 실측: `hero.vrm` 은 "export it as one of …" 뿐 — 다시 내보낼 것이 없다."""
+        glb = b"glTF" + (2).to_bytes(4, "little") + (12).to_bytes(4, "little")
+        (self.root / "my hero.vrm").write_bytes(glb)
+        (self.root / "noext").write_bytes(glb)
+        (self.root / "a.stl").write_bytes(b"solid a\n")
+        vrm = str(self.root / "my hero.vrm")
+        with patch.object(sys, "argv", ["bw", "rig", vrm, "--from-skeleton"]):
+            msg = self.blocked(pipeline.rig, self.root, vrm, quiet=True)
+            with patch.dict(os.environ, {"BW_LANG": "en"}):
+                en = self.blocked(pipeline.rig, self.root, vrm, quiet=True)
+        glbpath = f'"{self.root / "my hero.glb"}"'
+        self.assertIn("glTF Binary(.glb)", msg); cp = "copy" if os.name == "nt" else "cp"
+        self.assertIn(f'`{cp} "{vrm}" {glbpath}` 뒤 `bw rig {glbpath} --from-skeleton`', msg)
+        self.assertIn(f", then `bw rig {glbpath} --from-skeleton`", en); self.assertNotIn("export it as", en)
+        self.assertIn(str(self.root / "noext.glb"), self.blocked(pipeline.rig, self.root, str(self.root / "noext"), quiet=True))
+        self.assertIn("내보내서", self.blocked(pipeline.rig, self.root, str(self.root / "a.stl"), quiet=True))   # glTF 가 아니면 그대로
+        self.assertFalse((self.root / "runs").exists())
+
     def test_missing_file_names_the_similar_one_beside_it(self):
         """A missing mesh, --bvh or --targets names the file beside it that differs in case, extension or a typo.
 

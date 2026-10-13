@@ -45,6 +45,14 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
         also = T(f"\n  → 이 폴더에 비슷한 파일: {' · '.join(near)}", f"\n  → similar file here: {' · '.join(near)}") if near else ""
         raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}{also}", f"{what} file not found: {p}\n  → {fix}{also}"))
     if exts and p.suffix.lower() not in exts:
+        if ".glb" in exts and p.stat().st_size >= 4 and p.read_bytes()[:4] == b"glTF":   # 10/13 16회차: VRM(.vrm) 등은 내용이 .glb 그대로다
+            q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+            new = str(Path(str(path)).with_suffix(".glb"))
+            cp = f"{'copy' if os.name == 'nt' else 'cp'} {q(str(path))} {q(new)}"
+            again = " ".join(["bw", *(q(new if w == str(path) else w) for w in sys.argv[1:])]) if str(path) in sys.argv[1:] else ""
+            then = T(f" 뒤 `{again}`", f", then `{again}`") if again else ""
+            raise Blocked(T(f"{what} 확장자 {p.suffix or '(없음)'} 는 못 읽지만 내용은 glTF Binary(.glb)다: {p.name}\n  → 이름만 .glb 로 복사해 그대로 쓴다: `{cp}`{then}",
+                            f"cannot read {what} format {p.suffix or '(no extension)'}, but the file is glTF Binary (.glb) inside: {p.name}\n  → copy it to a .glb name and pass that: `{cp}`{then}"))
         fmt = T(f"{exts[0]} 로", f"{exts[0]}") if len(exts) == 1 else T(f"{' · '.join(exts)} 중 하나로", f"one of {' · '.join(exts)}")
         mesh = ""
         if ".bvh" in exts and p.suffix.lower() in MESH_EXTS:   # 10/12 14회차: `--bvh hero.glb` — 메시를 동작 자리에 줬다
