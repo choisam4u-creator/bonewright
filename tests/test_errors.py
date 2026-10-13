@@ -938,6 +938,27 @@ class BenchInputTests(unittest.TestCase):
                 self.assertIn(want, str(cm.exception)); self.assertIn("fetch_bench_assets.py", str(cm.exception))
             self.assertFalse((root / "runs").exists())
 
+    def test_fake_mesh_stops_before_blender(self):
+        """A file only named .fbx/.glb/.gltf (a web page, `echo hi > a.fbx`) is refused before Blender, for meshes and --gt-mesh.
+
+        10/13 15회차 실측: `bw bench a.fbx` 는 "Blender not found" 만 — `bw rig a.fbx` 는 14회차부터 막는데 bench 는 안 봤다."""
+        from bonewright import bench
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            good = root / "ok.glb"; good.write_bytes(GLB_HEAD)
+            for name, want, ko in (("a.fbx", "not FBX data", "FBX 파일이 아니다"), ("b.glb", "not a GLB", "GLB 가 아니다"),
+                                   ("c.gltf", "not glTF (JSON) data", "glTF (JSON) 파일이 아니다")):
+                bad = root / name; bad.write_text("<html>hi</html>")
+                for meshes, gt in (([str(bad)], None), ([str(good)], str(bad))):
+                    with self.subTest(name=name, gt=bool(gt)), self.assertRaises(pipeline.Blocked) as cm:
+                        with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(bench, "run_script", _raising(AssertionError("Blender ran"))):
+                            bench.run(root, meshes, run_id="b1", quiet=True, gt_mesh=gt)
+                    self.assertIn(want, str(cm.exception)); self.assertIn(name, str(cm.exception))
+                with patch.dict(os.environ, {"BW_LANG": "ko"}), self.assertRaises(pipeline.Blocked) as cm:
+                    bench.run(root, [str(bad)], run_id="b1", quiet=True)
+                self.assertIn(ko, str(cm.exception))
+            self.assertFalse((root / "runs").exists())
+
     def test_missing_path_says_file_or_folder_and_next_step(self):
         """A missing bench path says "file or folder" and gives the fetch command, or a folder already fetched.
 
@@ -974,17 +995,20 @@ class BenchInputTests(unittest.TestCase):
     def test_missing_blender_is_raised_once(self):
         from bonewright import blender
         with tempfile.TemporaryDirectory() as d:
-            root = Path(d); a = root / "a.glb"; a.write_text(""); b = root / "b.glb"; b.write_text("")
+            root = Path(d); a = root / "a.glb"; a.write_bytes(GLB_HEAD); b = root / "b.glb"; b.write_bytes(GLB_HEAD)
             with self.assertRaises(blender.BlenderMissing):
                 self.bench(root, [str(a), str(b)])
 
     def test_nothing_measured_is_not_success(self):
         with tempfile.TemporaryDirectory() as d:
-            root = Path(d); a = root / "a.glb"; a.write_text("")
+            root = Path(d); a = root / "a.glb"; a.write_bytes(GLB_HEAD)
             with self.assertRaises(pipeline.Blocked) as cm:
                 self.bench(root, [str(a)], fake={"joints": []})   # 원본 뼈대 없는 자산
             self.assertIn("none of 1", str(cm.exception)); self.assertIn("report.md", str(cm.exception))
             self.assertIn("no skeleton", (root / "runs" / "b1" / "report.md").read_text())
+
+
+GLB_HEAD = b"glTF" + b"\0" * 16   # 머리만 맞는 GLB — Blender 전 확인(need_mesh_bytes)을 지나 가짜 run_script 까지 간다
 
 
 def _raising(exc):

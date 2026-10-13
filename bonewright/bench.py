@@ -217,10 +217,11 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
                      f"Fetch the assets{where}, then pass the folder (4 samples): `{script} --only samples && bw bench bench-assets/samples`"))
             raise pipeline.Blocked(T(f"메시 파일이나 폴더가 없다: {m}\n  → 경로를 확인하라(공백이 있으면 따옴표). {nxt}",
                                      f"mesh file or folder not found: {m}\n  → check the path (quote it if it has spaces). {nxt}"))
-        pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx"))
+        pipeline.need_mesh_bytes(pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx")))   # 이름만 .fbx 인 파일이 "Blender not found" 뒤에 숨었다(10/13 15회차)
     if gt_mesh:   # 어느 인자인지 이름을 댄다(10/10 8회차: "mesh file not found" 로만 나왔다)
         pipeline.need_file(gt_mesh, "--gt-mesh", T("정답 뼈대를 가져올 원본(T 포즈) 파일 경로를 확인하라", "check the path of the original (T-pose) file to take the reference skeleton from"),
                            (".glb", ".gltf", ".fbx"))
+        pipeline.need_mesh_bytes(Path(gt_mesh).expanduser())
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
