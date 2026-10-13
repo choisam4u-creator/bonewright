@@ -209,6 +209,24 @@ def _hint_on_missing(p: argparse.ArgumentParser, arg: str, hint: str) -> None:
     p.error = error
 
 
+# 다른 도구·옛 안내에서 오는 말 → (그대로 칠 명령, 설명 — 부를 때 화면 언어로). difflib 로는 안 닿는다(`retarget` ↔ `rig` 0.4)
+_MOTION = ("`bw motion --bvh <file.bvh> --rig <run-id>`", lambda: T("리그에 동작을 옮기는 건", "moving motion onto a rig is"))
+_STATUS = ("`bw status`", lambda: T("실행 목록과 멈춘 이유는", "the list of runs, and why one stopped, is"))
+_DOCTOR = ("`bw doctor`", lambda: T("설치·설정 점검은", "checking the install and settings is"))
+ALIASES = {
+    **dict.fromkeys(("retarget", "animate", "anim", "animation", "mocap", "bvh"), _MOTION),
+    **dict.fromkeys(("list", "ls", "runs", "log", "logs", "why", "show", "history"), _STATUS),
+    **dict.fromkeys(("check", "info", "setup", "install", "env", "diagnose"), _DOCTOR),
+    **dict.fromkeys(("render", "preview", "video", "play"), ("`bw demo <run-id>`", lambda: T("움직이는 영상은", "a video of the rig moving is"))),
+    **dict.fromkeys(("glb", "save", "out", "output"), ("`bw export <run-id>`", lambda: T("게임용 GLB 는", "a game-ready GLB is"))),
+    **dict.fromkeys(("autorig", "auto-rig", "skin", "skeleton"), ("`<first-rig>`", lambda: T("리깅은(저장소 캐릭터, 모델 호출 없음)", "rigging is (the character the repository ships, no model calls)"))),
+    **dict.fromkeys(("benchmark", "measure", "eval"), ("`bw bench bench-assets/samples`", lambda: T("관절 오차 재기는", "measuring joint error is"))),
+    **dict.fromkeys(("tokens", "cost", "spend"), ("`bw usage`", lambda: T("모델 토큰 사용량은", "model token use is"))),
+    "version": ("`bw --version`", lambda: T("버전은", "the version is")),
+    "help": ("`bw --help`", lambda: T("도움말은", "help is")),
+}
+
+
 def _hint_on_bad_command(p: argparse.ArgumentParser, sub) -> None:
     """틀린 하위 명령(`bw resume`·`bw rigs`)에 가장 가까운 명령과 `bw --help` 를 붙인다(종료 2 그대로)."""
     import difflib
@@ -224,6 +242,18 @@ def _hint_on_bad_command(p: argparse.ArgumentParser, sub) -> None:
                                      "→ there is no `bw resume`. Run the same `bw rig` command again, or without model calls: "
                                      "`bw rig <mesh> --targets runs/<id>/targets.json` (where it stopped: `bw status <id>`)")
                 return orig(message)
+            if (alias := ALIASES.get(m.group(1).lower())):   # 철자는 멀어도 뜻이 같은 말(`bw retarget`·`bw why`) — 10/13 15회차 실측
+                cmd = alias[0].replace("<file.bvh>", pipeline.sample_bvh())   # 자리표시 대신 그대로 도는 값(샘플 BVH·최근 리그)
+                if "<first-rig>" in cmd:
+                    where, first = _from_repo()   # 설치본만이면 '저장소 폴더에서'
+                    cmd = where + cmd.replace("<first-rig>", first)
+                if "bench-assets" in cmd:
+                    where, script = pipeline.fetch_bench()
+                    cmd += T(f" (자산은 {where}`{script} --only samples` 로 먼저 받는다)", f" (fetch the assets first{where}: `{script} --only samples`)")
+                if "<run-id>" in cmd:
+                    rid = pipeline.latest_rig(ROOT)
+                    cmd = cmd.replace("<run-id>", rid) if rid else cmd + T(" (리그 id 는 `bw status`)", " (rig ids: `bw status`)")
+                return orig(message + f"\n→ {alias[1]()}: {cmd}" + T(" · 명령 목록: `bw --help`", " · all commands: `bw --help`"))
             message += "\n" + (T(f"→ 혹시 `bw {near[0]}`? 명령 목록: `bw --help`", f"→ did you mean `bw {near[0]}`? All commands: `bw --help`") if near
                                else T("→ 명령 목록: `bw --help`", "→ all commands: `bw --help`"))
         orig(message)

@@ -347,6 +347,44 @@ class BadCommandTests(unittest.TestCase):
         self.assertIn("`bw rig <mesh> --targets runs/<id>/targets.json`", en)
 
 
+class AliasCommandTests(unittest.TestCase):
+    """Words from other tools (`bw retarget`, `bw why`, `bw version`) name the real command, which parses as shown.
+
+    10/13 15회차 실측: `bw retarget`·`bw why`·`bw clean` 은 "all commands: `bw --help`" 뿐 — difflib 로는 `rig` 와 0.4 라 안 닿는다."""
+
+    def run_cli(self, word, lang, home):
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", home), \
+                patch.object(sys, "argv", ["bw", word]), patch("sys.stderr", err):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        self.assertEqual(2, cm.exception.code)
+        return err.getvalue().strip().splitlines()[-1]
+
+    def test_every_alias_points_at_a_command_that_parses(self):
+        import re
+        import shlex
+        names = set(cli.build_parser()._subparsers._group_actions[0].choices)
+        with tempfile.TemporaryDirectory() as t:
+            home = Path(t)
+            (home / "runs" / "r7").mkdir(parents=True); (home / "runs" / "r7" / "02_rigged.blend").write_bytes(b"BLENDER")
+            for word in cli.ALIASES:
+                with self.subTest(word=word):
+                    self.assertNotIn(word, names)   # 진짜 명령을 가리면 안 된다
+                    en, ko = self.run_cli(word, "en", home), self.run_cli(word, "ko", home)
+                    self.assertIsNone(re.search(r"[가-힣]", en)); self.assertIn("명령 목록", ko)
+                    self.assertNotIn("<", en)   # 최근 리그·샘플 BVH 로 채워 그대로 붙여 넣는다
+                    cmd = shlex.split(re.search(r"`(bw [^`]*)`", en).group(1))
+                    if cmd[1:] not in (["--version"], ["--help"]):
+                        cli.build_parser().parse_args(cmd[1:])
+            self.assertIn("`bw motion --bvh examples/wave.bvh --rig r7`", self.run_cli("retarget", "en", home))
+
+    def test_without_a_rig_says_where_ids_are(self):
+        with tempfile.TemporaryDirectory() as t:
+            last = self.run_cli("retarget", "en", Path(t))
+        self.assertIn("`bw motion --bvh ", last); self.assertIn("--rig <run-id>` (rig ids: `bw status`)", last)
+
+
 class HelpDefaultTests(unittest.TestCase):
     def test_numbers_in_help_are_the_real_defaults(self):
         """A "default N" written into a help line equals the argument's real default (or config's, for --budget).
