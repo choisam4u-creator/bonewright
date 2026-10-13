@@ -687,6 +687,22 @@ class MissingValueTests(unittest.TestCase):
                     cli.build_parser().parse_args(argv[:-1] + want.split())   # 안내한 값은 그대로 받아들여진다
 
 
+    def test_bvh_and_rig_examples_run_from_any_folder(self):
+        """Outside the repository the `--bvh` example is the sample's real path, and `--rig` names the latest rig.
+
+        10/13 16회차 실측: 임시 폴더에서 `bw motion --bvh` → "e.g. --bvh examples/wave.bvh"(없는 파일), `--rig` 는 자리표시."""
+        import contextlib, os
+        sample = Path(cli.__file__).resolve().parents[1] / "examples" / "wave.bvh"
+        with tempfile.TemporaryDirectory() as t, contextlib.chdir(t):
+            home = Path(t)
+            (home / "runs" / "r7").mkdir(parents=True); (home / "runs" / "r7" / "02_rigged.blend").write_bytes(b"BLENDER")
+            for argv, want in ((["motion", "--bvh"], f"--bvh {sample}"), (["motion", "--bvh", "x.bvh", "--rig"], "--rig r7")):
+                err = io.StringIO()
+                with self.subTest(argv=argv), patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(cli, "ROOT", home), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit):
+                        cli.build_parser().parse_args(argv)
+                    self.assertIn(want, err.getvalue().replace('"', ""))
+
 class InterruptTests(unittest.TestCase):
     def test_ctrl_c_is_one_line_and_marks_the_run(self):
         """Ctrl-C during `bw rig` prints one line (no traceback), exits 130 and marks the run `interrupted`, not `running`."""

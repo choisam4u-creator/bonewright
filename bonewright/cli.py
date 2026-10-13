@@ -312,7 +312,7 @@ def _hint_on_unknown_option(p: argparse.ArgumentParser, sub) -> None:
                         if flag == "--rig" and not nxt:
                             nxt = pipeline.latest_rig(ROOT) or ""
                         if nxt or act.nargs != "?":   # --export 처럼 값을 빼도 되는 옵션은 그대로
-                            words.append(nxt or str(EXAMPLES.get(flag) or act.default or act.metavar or flag.strip("-").upper()))
+                            words.append(nxt or str(example(flag) or act.default or act.metavar or flag.strip("-").upper()))
                     line = "`" + " ".join(words) + "`"
                 where = " · ".join(f"`bw {n}`" for n in owners)
                 nots = T(f"(`bw {cmd}` 에는 없다)", f" (not of `bw {cmd}`)") if cmd else ""
@@ -415,6 +415,16 @@ EXAMPLES = {"--pin": "spine.004=0,0,1.42", "--run-id": "hero-v2", "--rig": "<rig
             "--targets": "runs/<id>/targets.json", "--gt-mesh": "original_tpose.glb"}
 
 
+def example(flag: str) -> str | None:
+    """EXAMPLES 의 값, 그때그때 그대로 도는 값으로: `--bvh` 는 sample_bvh()(저장소 밖이면 절대 경로), `--rig` 는 최근 리그 id.
+    10/13 16회차 실측: 임시 폴더에서 `bw motion --bvh` → "e.g. --bvh examples/wave.bvh"(없는 파일)."""
+    if flag == "--bvh":
+        return pipeline.sample_bvh()
+    if flag == "--rig" and (rid := pipeline.latest_rig(ROOT)):
+        return rid
+    return EXAMPLES.get(flag)
+
+
 def _hint_on_missing_value(p: argparse.ArgumentParser) -> None:
     """argparse 의 "argument --facing: expected one argument" 끝에 고를 값(선택지) 또는 그대로 칠 예(종료 2 그대로).
     10/11 11회차: `bw rig a.glb --facing` 처럼 값을 빠뜨리면 선택지도 예도 없는 한 줄이었다."""
@@ -428,8 +438,7 @@ def _hint_on_missing_value(p: argparse.ArgumentParser) -> None:
             if act.choices:
                 message += "\n" + T("→ 고를 값: ", "→ choose one: ") + " | ".join(f"{flag} {c}" for c in act.choices)
             elif flag in EXAMPLES:
-                example = EXAMPLES[flag]
-                message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {example}"
+                message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {example(flag)}"
             elif act.default not in (None, False, True):
                 message += "\n" + T("→ 예: ", "→ e.g. ") + f"{flag} {act.default}"
         orig(message)
