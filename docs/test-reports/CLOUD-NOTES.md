@@ -1,11 +1,37 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/12 14회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/13 15회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 249개, 건너뜀 0
-cd /tmp && echo hi > a.fbx && bw rig a.fbx; bw motion --bvh a.fbx; bw doctor | grep -i "kimodo\|bpy"; cd -   # 'not FBX data' · 'bw rig a.fbx' · GUIDE 절대 경로
-python3.11 examples/rig_sample.py 2>&1 | tail -1   # Blender 없는 3.11 이면 'python3.13 -m venv' 안내(Blender 앱이 있으면 그대로 리깅)
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 259개, 건너뜀 0
+bw status --days 7; bw retarget; bw rig tests/assets/quaternius_adventurer.glb --nojudge 2>&1 | tail -1   # 각각 'bw usage --days 7' · 'bw motion --bvh …' · '--no-judge?'
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge && bw motion --bvh examples/wave.bvh --rig "$(ls -t runs | grep ^rig | head -1)" 2>&1 | tail -1   # 끝 줄이 'next: open …retargeted.blend · …--export'
 ```
+
+## 2026-10-13 (15회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음. 같은 브랜치에 동시 세션 없음.
+- 남은 [ ] 가 1개(CI — 샘님)라 bpy 5.2.2(Python 3.13) 설치본으로 저장소 밖 임시 폴더에서 설치~첫 결과~모션을 그대로 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - **화면 없는 리눅스**: README 첫 명령이 리깅을 다 마친 뒤 렌더에서 libEGL 로 죽고(종료 -6) "이슈를 열어라" 였다 → `BLOCKED:` + 리그는 이미 저장됨 + `BW_NO_RENDER=1 <같은 명령>` + `libegl1`. `bw demo` 는 끌 수 없다고. rig·motion·demo 셋 다 실제로 확인. GUIDE 한 문단.
+  - **`bw motion` 의 `next:` 줄**: 열어 볼 `.blend`, GLB 경로 또는 같은 명령 + `--export`, 리그 없이 돌렸으면 최근 리그로 `--rig`.
+  - **다른 명령의 옵션**: `bw status --days 7` → "`bw usage --days 7`", `bw rig … --out a.glb` → "`bw export <최근 리그> --out a.glb`", `--nojudge` → "`--no-judge`?".
+  - **동의어 명령**: `bw retarget`·`why`·`version`·`check` 등 46개 낱말 → 진짜 명령을 그대로 칠 꼴(샘플 BVH·최근 리그 id 채움).
+  - **`bw bench` 머리 확인**: 이름만 .fbx·.glb·.gltf 인 파일(메시·`--gt-mesh`)을 Blender 전에(14회차 "다음 후보").
+- 사용자 체감: 설치~첫 결과 단계 수는 그대로(화면 없는 리눅스에선 실패 → 안내 한 줄로 성공). 다섯 모두 "오류가 다음 할 일을 그대로 칠 꼴로 말하는가".
+- 실수 하나: 옵션 안내 커밋(4fbf494)이 `| tail` 때문에 실패한 시험(T() 첫 인자 문자열 덧셈) 위에 커밋됐다 → 바로 다음 커밋(a5b2c17)에서 고침.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 259개 중 16개 건너뜀, 나머지 통과(커밋마다). `scripts/check_license_boundary.py` OK.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **259개 모두 통과, 건너뜀 0**(164초).
+- 새 시험 10개(5개 시험 묶음)는 모두 고치기 전 코드에서 실패 확인. 렌더 성공 경로는 화면 없는 리눅스라 못 돌림 → Mac 명령 위(실패 경로는 이번에 실제로 돌림).
+- CI: blender 잡은 pending 이 아니라 잡 4개 전부 러너 없이 2초 만에 실패(run 38336465122, 헤드 8a8e5a6, 단계 0개) — 10/11 02:49 이후 그대로, 코드 무관(비공개 저장소 Actions 사용량 추정, 백로그 [ ] — 샘님 Settings → Billing).
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 1(CI 러너 — 샘님).
+
+**막힌 것 / 다음**
+- 작업 지시는 `claude/cloud-work`, 이 세션의 기본 브랜치는 `claude/cloud-work-v8edcw` — PR #10 이 `claude/cloud-work` 라 지시대로 그쪽에 푸시.
+- 지시문의 "3회차(커밋 24)" 는 옛 문구로 보인다(실제로는 14회차 다음) — 회차 번호는 기록을 따라 15회차로 적었다.
+- `latest_rig` 는 렌더에서 실패한 실행도 02_rigged.blend 가 있으면 "최근 리그" 로 고른다(리그 자체는 멀쩡해서 그대로 둠) — 샘님 판단 필요시 백로그로.
 
 ## 2026-10-12 (14회차)
 
