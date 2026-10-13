@@ -729,9 +729,11 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
     if text:   # kimodo 도 실행 폴더·Blender 전에 본다(설치 안내가 더 구체적이다)
         gen, text_model = kimodo_paths(kroot, k)
-        if gen is None:
-            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → {guide()} 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
-                            f"kimodo.cpp is not built: {kroot}/build/release/kmd-generate\n  → build it as in \"Text → motion: building kimodo.cpp\" in {guide()}, or use `--bvh file` instead of text"))
+        if gen is None:   # 10/13 16회차: 대신 쓸 `--bvh file` 이 자리표시였다 — 출처 없음 안내처럼 샘플 BVH·리그를 채운다
+            rid = rig_run or latest_rig(root)
+            alt = f"bw motion --bvh {sample_bvh()}" + (f" --rig {rid}" if rid else "")
+            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → {guide()} 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 BVH 로: `{alt}`",
+                            f"kimodo.cpp is not built: {kroot}/build/release/kmd-generate\n  → build it as in \"Text → motion: building kimodo.cpp\" in {guide()}, or use a BVH instead of text: `{alt}`"))
         if text_model is None:
             raise Blocked(T(f"kimodo.cpp 텍스트 인코더가 없다: {kroot / k['text_bundle']} 도, `tokenizer.gguf` 옆의 GGUF 도 없다\n"
                             "  → `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1` 로 받거나, runs/config.json 의 kimodo.text_bundle 에 경로를 적어라",

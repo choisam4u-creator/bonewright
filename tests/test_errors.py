@@ -818,6 +818,25 @@ class KimodoPathTests(unittest.TestCase):
             self.assertEqual((k / "build" / "release" / "kmd-generate", t / "Llama-3-Kimodo-Q8_0.gguf"),
                              pipeline.kimodo_paths(k, self.K))
 
+    def test_not_built_gives_a_bvh_command_that_runs(self):
+        """Without kimodo.cpp the BVH alternative is a pasteable command: the sample BVH and the given or latest rig.
+
+        10/13 16회차 실측: "or use `--bvh file` instead of text" — 자리표시. 출처 없음 안내는 샘플·최근 리그를 채운다."""
+        import shlex
+        from bonewright import cli
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for lang, rig, want in (("en", None, ""), ("ko", None, ""), ("en", "r7", " --rig r7"), ("en", "", " --rig r7")):
+                if rig is not None:
+                    (root / "runs" / "r7").mkdir(parents=True, exist_ok=True); (root / "runs" / "r7" / "02_rigged.blend").write_bytes(b"BLENDER")
+                with self.subTest(lang=lang, rig=rig), patch.dict(os.environ, {"BW_LANG": lang}):
+                    with self.assertRaises(pipeline.Blocked) as cm:
+                        pipeline.motion(root, text="a person walks", rig_run=rig or None, quiet=True)
+                    cmd = re.search(r"`(bw motion --bvh [^`]*)`", str(cm.exception)).group(1)
+                    self.assertTrue(cmd.endswith(f"{pipeline.sample_bvh()}{want}"), cmd)
+                    self.assertNotIn("<", cmd)
+                    cli.build_parser().parse_args(shlex.split(cmd)[1:])
+
     def test_missing_text_encoder_says_how_to_get_it(self):
         with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
             root = Path(d); k = root / "vendor" / "kimodo.cpp" / "build" / "release"; k.mkdir(parents=True)
