@@ -223,7 +223,6 @@ ALIASES = {
     **dict.fromkeys(("benchmark", "measure", "eval"), ("`bw bench bench-assets/samples`", lambda: T("관절 오차 재기는", "measuring joint error is"))),
     **dict.fromkeys(("tokens", "cost", "spend"), ("`bw usage`", lambda: T("모델 토큰 사용량은", "model token use is"))),
     "version": ("`bw --version`", lambda: T("버전은", "the version is")),
-    "help": ("`bw --help`", lambda: T("도움말은", "help is")),
 }
 
 
@@ -597,6 +596,8 @@ def _main() -> int:
                 "\nnew here? run `bw doctor` to check Blender and codex, then the first command under \"First run\" in the README (no model calls)"),
               file=sys.stderr)
         return 2
+    if sys.argv[1].lower() == "help":   # `bw help`·`bw help rig`(git·pip 처럼) — 10/13 16회차: 오류와 "help is: `bw --help`" 였다
+        parser.parse_args([*sys.argv[2:3], "--help"])   # 명령이 틀리면(`bw help rgi`) 틀린 명령 안내를 그대로 받는다
     a = parser.parse_args()
     if a.cmd != "plugin-path" and (msg := home_problem()):
         if msg[0] == "file":   # 무엇을 하든 그 아래에 runs/ 를 만들 수 없다

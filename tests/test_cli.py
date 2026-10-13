@@ -385,6 +385,32 @@ class AliasCommandTests(unittest.TestCase):
         self.assertIn("`bw motion --bvh ", last); self.assertIn("--rig <run-id>` (rig ids: `bw status`)", last)
 
 
+class HelpWordTests(unittest.TestCase):
+    """`bw help` prints the full help and `bw help rig` the help of `bw rig` (exit 0, as git and pip do).
+
+    10/13 16회차 실측: 둘 다 종료 2 와 "→ help is: `bw --help` · all commands: `bw --help`"(같은 말 두 번)였다."""
+
+    def run_cli(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(sys, "argv", ["bw", *argv]), \
+                patch("sys.stdout", out), patch("sys.stderr", err):
+            with self.assertRaises(SystemExit) as cm:
+                cli.main()
+        return cm.exception.code, out.getvalue(), err.getvalue()
+
+    def test_help_word_shows_the_help(self):
+        code, out, _ = self.run_cli("help")
+        self.assertEqual(0, code); self.assertIn("usage: bw ", out); self.assertIn("plugin-path", out)
+        for word in ("help", "Help"):
+            code, out, _ = self.run_cli(word, "rig")
+            self.assertEqual(0, code); self.assertIn("usage: bw rig ", out); self.assertIn("--from-skeleton", out)
+
+    def test_help_on_a_misspelt_command_names_the_near_one(self):
+        code, _, err = self.run_cli("help", "rgi")
+        self.assertEqual(2, code); self.assertIn("`bw rig`", err)
+        self.assertNotIn("help is", err)
+
+
 class WrongCommandOptionTests(unittest.TestCase):
     """An option of another subcommand (`bw status --days 7`) names that command as a pasteable line; a misspelt one its nearest.
 
