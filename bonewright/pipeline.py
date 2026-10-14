@@ -524,6 +524,24 @@ def fill_missing_targets(targets: dict, inputs: dict) -> tuple[dict, list]:
     return {**{n: base[n] for n in filled}, **targets}, filled
 
 
+def import_line(imp: dict) -> str:
+    """`[1/6] import:` 한 줄을 사람 말로 — 10/14 18회차 실측: 파이썬 dict 를 4×4 행렬까지 그대로 찍었다(전체는 analysis.json·report.md 에)."""
+    n, dropped, kept = imp.get("meshes_used", 0), imp.get("meshes_dropped") or [], imp.get("meshes_attached") or []
+    parts = [T(f"메시 {n}개", f"{n} meshes") if n != 1 else T("메시 1개", "1 mesh")]
+    if dropped:
+        parts.append(T(f"뺀 메시 {', '.join(dropped)}", f"left out {', '.join(dropped)}"))
+    if kept:
+        parts.append(T(f"소품으로 붙임 {', '.join(kept)}", f"kept as attachments {', '.join(kept)}"))
+    parts.append(T("원본 뼈대 있음", "has its own skeleton") if imp.get("had_armature") else T("원본 뼈대 없음", "no skeleton of its own"))
+    if (unit := imp.get("unit_scale", 1.0)) != 1.0:
+        parts.append(T(f"단위 ×{unit}({'mm' if unit < 0.01 else 'cm'} → m)", f"units ×{unit} ({'mm' if unit < 0.01 else 'cm'} → m)"))
+    if imp.get("rotated_90"):
+        parts.append(T("옆으로 누운 축을 90° 세움", "turned 90° (left/right was not X)"))
+    if imp.get("rotated_180"):
+        parts.append(T("앞이 -Y 가 되게 180° 돌림", "turned 180° so the front faces -Y"))
+    return "[1/6] import: " + " · ".join(parts)
+
+
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
         budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
         force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False, from_shape: bool = False) -> Path:
@@ -586,7 +604,8 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     r.state("analyze", "running")
     a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})
     atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
-    _log(quiet, f"[1/6] import: {a['stats'].get('import')}")
+    if (imp := a["stats"].get("import")):
+        _log(quiet, import_line(imp))
     # 1a 포즈 정규화(rest_pose=t): 팔이 많이 내려가 있으면 **재기 전에** 수평으로 펴서 다시 잰다.
     # 팔이 몸에 붙어 있으면 관절 찾기가 흔들린다(실측: 팔 75° 손 22.6cm, 90° 46.2cm 오차에 발목 검출 실패로 거절)
     want_rest = rest_pose or cfg["rig"].get("rest_pose", "keep")

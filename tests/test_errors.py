@@ -1151,6 +1151,23 @@ class ReplacedRigTests(unittest.TestCase):
             self.assertEqual([], warn); self.assertIn("rigged.glb", left)
 
 
+class ImportLineTests(unittest.TestCase):
+    """The `[1/6] import:` progress line is words, not the import dict with its 4×4 matrix (10/14 18회차 실측)."""
+    IMP = {"meshes_used": 5, "meshes_attached": [], "attachments": {}, "meshes_dropped": ["Icosphere"], "had_armature": 1,
+           "unit_scale": 1.0, "offset_x": -0.0, "offset_y": -0.72, "ground_shift": True, "foot_direction_hint": "+Y",
+           "facing": "auto", "rotated_180": True, "rotated_90": False, "matrix": [[-1.0, -8.742277657347586e-08, 0.0, 0.0]] * 4}
+
+    def test_import_line_reads_as_words(self):
+        with patch.dict(os.environ, {"BW_LANG": "en"}):
+            line = pipeline.import_line(self.IMP)
+            self.assertEqual("[1/6] import: 5 meshes · left out Icosphere · has its own skeleton · turned 180° so the front faces -Y", line)
+            other = pipeline.import_line({"meshes_used": 1, "meshes_attached": ["Sword"], "had_armature": 0, "unit_scale": 0.01, "rotated_90": True})
+            self.assertEqual("[1/6] import: 1 mesh · kept as attachments Sword · no skeleton of its own · units ×0.01 (cm → m) · turned 90° (left/right was not X)", other)
+        with patch.dict(os.environ, {"BW_LANG": "ko"}):
+            self.assertEqual("[1/6] import: 메시 5개 · 뺀 메시 Icosphere · 원본 뼈대 있음 · 앞이 -Y 가 되게 180° 돌림", pipeline.import_line(self.IMP))
+        self.assertNotIn("{", line); self.assertNotIn("matrix", line)
+
+
 class BpyHintTests(unittest.TestCase):
     def test_bpy_hint_fits_the_running_python(self):
         """The bpy install hint is `pip install bpy==5.2.2` on Python 3.13 and a 3.13 venv command on any other version.
