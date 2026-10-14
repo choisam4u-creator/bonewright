@@ -27,6 +27,7 @@ class Blocked(RuntimeError):
     """사용자가 고쳐서 다시 돌릴 수 있는 중단. 메시지에는 '무엇을 바꾸면 되는지'를 한 줄 넣는다."""
 
 
+README_NAMES = ("character.glb", "x.glb", "mesh.glb")   # README·GUIDE 명령 속 자리 이름 — 그대로 치면 '파일이 없다'
 MESH_EXTS = (".glb", ".gltf", ".fbx", ".obj", ".blend")   # bpy_scripts/_common.py import_mesh 가 읽는 형식
 
 
@@ -43,6 +44,11 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
     if not p.is_file():
         near = near_files(p, exts)
         also = T(f"\n  → 이 폴더에 비슷한 파일: {' · '.join(near)}", f"\n  → similar file here: {' · '.join(near)}") if near else ""
+        if not near and set(exts) & set(MESH_EXTS) and p.name in README_NAMES:   # 10/14 17회차: README 의 `bw rig character.glb` 를 그대로 쳤다
+            from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+            where, first = _from_repo()
+            also = T(f"\n  → `{p.name}`: README 의 예시 이름이다. 내 파일 경로로 바꾸거나, 먼저 {where}저장소 캐릭터로(모델 호출 없음): `{first}`",
+                     f"\n  → `{p.name}` is the example name from the README. Put your own file's path there, or first, {where}try the character the repository ships (no model calls): `{first}`")
         raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}{also}", f"{what} file not found: {p}\n  → {fix}{also}"))
     if exts and p.suffix.lower() not in exts:
         if ".glb" in exts and p.stat().st_size >= 4 and p.read_bytes()[:4] == b"glTF":   # 10/13 16회차: VRM(.vrm) 등은 내용이 .glb 그대로다

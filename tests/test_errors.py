@@ -95,6 +95,27 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("a.usdz", msg)
         self.assertFalse((self.root / "runs").exists())
 
+    def test_readme_example_name_points_at_the_shipped_character(self):
+        """The README's placeholder name (`bw rig character.glb`) says so and gives the first-run command that works.
+
+        10/14 17회차 실측: README "First run" 둘째 줄을 그대로 치면 "check the path" 뿐."""
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.root)   # 저장소 밖 폴더 — 안내의 첫 명령은 저장소 캐릭터의 절대 경로
+            for lang, want in (("ko", "README 의 예시 이름"), ("en", "example name from the README")):
+                with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}):
+                    msg = self.blocked(pipeline.rig, self.root, "character.glb", quiet=True)
+                    self.assertIn(want, msg)
+                    cmd = split_pasted(msg.splitlines()[-1].split("`")[-2])
+                    a = cli.build_parser().parse_args(cmd[1:])
+                    self.assertTrue(Path(a.mesh).is_file(), a.mesh); self.assertTrue(a.no_judge)
+            (self.root / "Character.glb").write_bytes(b"glTF")   # 비슷한 파일이 있으면 그 안내가 먼저 — 예시 이름 말은 없다
+            if not (self.root / "character.glb").exists():
+                self.assertNotIn("README", self.blocked(pipeline.rig, self.root, "character.glb", quiet=True))
+            self.assertNotIn("README", self.blocked(pipeline.rig, self.root, "nosuch.glb", quiet=True))
+        finally:
+            os.chdir(cwd)
+
     def test_missing_file_names_the_similar_one_beside_it(self):
         """A missing mesh, --bvh or --targets names the file beside it that differs in case, extension or a typo.
 
