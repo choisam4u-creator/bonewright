@@ -136,3 +136,20 @@ class WorkflowActionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModuleRunTests(unittest.TestCase):
+    def test_python_m_bonewright_is_bw(self):
+        """`python3 -m bonewright` runs the same CLI as `bw` (version, and usage named `bw`).
+
+        `bw` 가 PATH 에 없을 때의 대안이 "No module named bonewright.__main__" 이었다(10/14 17회차 실측)."""
+        import subprocess
+        import sys
+        run = lambda *a: subprocess.run([sys.executable, "-m", "bonewright", *a], cwd=ROOT, capture_output=True, text=True,
+                                        env={**__import__("os").environ, "BW_LANG": "en"})
+        v = run("--version")
+        self.assertEqual(0, v.returncode, v.stderr)
+        self.assertEqual(f"bonewright {bonewright.__version__}", v.stdout.strip())
+        bad = run("rig")
+        self.assertEqual(2, bad.returncode)
+        self.assertIn("usage: bw rig", bad.stderr)

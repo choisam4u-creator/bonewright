@@ -30,7 +30,7 @@ bw doctor                     # checks that Blender or bpy is found (either one)
 ```
 
 On Windows the second line is `py -m venv .venv` then `.venv\Scripts\activate`. In a new terminal, activate the venv
-again before `bw`.
+again before `bw`; if `bw` is still not found, `python3 -m bonewright` runs the same commands (`python3 -m bonewright doctor`).
 
 ## First run
 

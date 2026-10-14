@@ -28,7 +28,7 @@ bw doctor                     # Blender 나 bpy 중 하나가 잡히는지 확�
 ```
 
 Windows 에서는 둘째 줄이 `py -m venv .venv` 다음 `.venv\Scripts\activate` 다. 새 터미널에서는 `bw` 전에 venv 를 다시
-켠다.
+켠다. 그래도 `bw` 를 못 찾으면 `python3 -m bonewright` 가 같은 명령이다(`python3 -m bonewright doctor`).
 
 ## 첫 실행
 
