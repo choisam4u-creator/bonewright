@@ -1,11 +1,36 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/13 16회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/14 17회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 265개, 건너뜀 0
-bw help rig | head -1; cp tests/assets/quaternius_adventurer.glb /tmp/hero.vrm && bw rig /tmp/hero.vrm 2>&1 | tail -1   # 'usage: bw rig' · 'cp … hero.glb, then bw rig …'
-H=$(mktemp -d); BW_HOME=$H bw export nosuch 2>&1 | tail -1; BW_HOME=$H bw motion --text walk 2>&1 | tail -1   # 둘 다 그대로 붙여 넣을 bw rig …--run-id nosuch · bw motion --bvh …wave.bvh
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 270개, 건너뜀 0
+python3 -m bonewright --version; bw rig x.glb --preset dog 2>&1 | tail -1; bw rig character.glb 2>&1 | tail -1   # 'bonewright 0.2.0' · '… --preset quadruped' · 저장소 캐릭터 첫 명령
+cd /tmp && zip -j hero.zip "$OLDPWD/tests/assets/quaternius_adventurer.glb" && bw rig hero.zip 2>&1 | tail -1; cd -   # 안내의 풀기 명령·같은 명령을 그대로 쳐서 리깅되는지
 ```
+
+## 2026-10-14 (17회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 와 이 세션 브랜치 `claude/cloud-work-uh4n8k` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음. 같은 브랜치에 동시 세션 없음.
+- 남은 [ ] 가 0개라 `pip install .` 설치본(3.11)으로 저장소 밖 임시 폴더에서 명령을 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - **`python3 -m bonewright`**: "No module named bonewright.__main__" → `bw` 와 같은 CLI. `bw` 가 PATH 에 없을 때의 대안으로 README 두 언어 설치 절에 한 줄.
+  - **`--preset dog`·`animal`·`human`·`Quadruped`**: 설명만 → 값만 바꾼 같은 명령(rig·motion·bench, `--preset=X` 꼴도). 모르는 말은 지금 설명.
+  - **메시 자리의 `.zip`**: "다시 내보내라" → 안의 메시 이름 + `python3 -m zipfile -e hero.zip hero`(Windows `py`) + 푼 경로로 같은 명령. bpy 로 안내를 그대로 따라가 리깅 `done (ok)` 확인.
+  - **README 자리 이름 `character.glb`·`x.glb`**: "check the path" → "README 의 예시 이름" + 저장소 캐릭터 첫 명령(비슷한 파일이 있으면 그 안내만).
+  - **값 하나 자리에 낱말 여럿**(`bw rig my hero.glb` 아직 없는 파일·`--text a person walks`·`bw export r1 r2`): 최상위 사용법뿐 → 따옴표 친 같은 명령, run-id 자리는 첫 값만 둔 같은 명령. doctor·usage 처럼 자리 인자가 없는 명령엔 지어내지 않음.
+- CHANGELOG Fixed 다섯 줄.
+- 사용자 체감: 다섯 모두 "안내를 그대로 치면 도는가". 설치~첫 결과 단계 수는 그대로(`bw` 를 못 찾는 경우 막힘 → 한 줄 대안).
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 270개 중 16개 건너뜀, 나머지 통과(커밋마다 통과를 보고 커밋).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **270개 모두 통과, 건너뜀 0**(212초). 회차 시작 때 265개도 같은 조건으로 모두 통과.
+- 새 시험 5개는 모두 고치기 전 코드에서 실패 확인. 렌더는 화면 없는 리눅스라 끔 → Mac 첫 줄.
+- CI: blender 잡은 pending 이 아니라 **잡 4개 전부 1~3초(Windows 29초) 만에 단계·로그 없이 실패**(run 38500179100, 헤드 2d90f4f, 로그 404) — 10/13 14:2x 에 잠깐 돌았다가 다시 러너가 안 붙는다. 코드 무관(비공개 저장소 Actions 사용량·결제 한도 추정 → 샘님 Settings → Billing 확인).
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 남은 [ ] 가 0 — 다음 회차는 공개 준비 기준으로 새 항목 5개부터.
+- 작업 지시는 `claude/cloud-work`, 이 세션의 기본 브랜치는 `claude/cloud-work-uh4n8k` — PR #10 이 `claude/cloud-work` 라 지시대로 둘 다에 같은 커밋을 푸시. 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 17회차로 적었다.
 
 ## 2026-10-13 (16회차)
 
