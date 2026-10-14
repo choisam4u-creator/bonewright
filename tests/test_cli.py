@@ -649,7 +649,39 @@ class UnquotedPathTests(unittest.TestCase):
         with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(sys, "argv", ["bw", "rig", "nothing", "here"]), patch("sys.stderr", err):
             with self.assertRaises(SystemExit):
                 cli.main()
-        self.assertNotIn("quote", err.getvalue())
+        self.assertNotIn("quote a path", err.getvalue())   # 있는 파일이라고 단정하지 않는다(값 하나면 따옴표 — 아래 시험)
+
+    def test_extra_words_in_a_one_value_slot_get_the_fixed_command(self):
+        """Extra words in a one-value slot get the same command back: quoted if it may hold spaces, the first run-id otherwise.
+
+        10/14 17회차 실측: `bw rig my hero.glb`(아직 없는 파일)·`bw export r1 r2` → 최상위 사용법과 "unrecognized arguments" 뿐."""
+        import os
+        import shlex
+        cases = ((["rig", "my", "big", "hero.glb", "--no-judge"], "mesh", "my big hero.glb", "quote"),
+                 (["motion", "--text", "a", "person", "walks"], "text", "a person walks", "quote"),
+                 (["motion", "--bvh", "my", "wave.bvh", "--rig", "r1"], "bvh", "my wave.bvh", "quote"),
+                 (["export", "r1", "r2"], "run_id", "r1", "one run-id"),
+                 (["demo", "r1", "r2", "--size", "320"], "run_id", "r1", "one run-id"),
+                 (["motion", "--bvh", "x.bvh", "--rig", "r1", "extra"], "rig", "r1", "one run-id"))
+        for lang, words in (("en", {"quote": "quote it", "one run-id": "one run-id"}), ("ko", {"quote": "따옴표", "one run-id": "run-id 하나"})):
+            for argv, field, value, kind in cases:
+                err = io.StringIO()
+                with self.subTest(lang=lang, argv=argv), patch.dict(os.environ, {"BW_LANG": lang}), \
+                        patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.main()
+                    self.assertEqual(2, cm.exception.code)
+                    last = err.getvalue().strip().splitlines()[-1]
+                    self.assertIn(words[kind], last)
+                    cmd = shlex.split(last.rsplit(": ", 1)[1])
+                    self.assertEqual("bw", cmd[0])
+                    self.assertEqual(value, getattr(cli.build_parser().parse_args(cmd[1:]), field))   # 그대로 붙여 넣으면 된다
+        for argv in (["doctor", "a", "b"], ["usage", "x", "y"]):   # 자리 인자가 없는 명령엔 지어내지 않는다
+            err = io.StringIO()
+            with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err), \
+                    self.assertRaises(SystemExit):
+                cli.main()
+            self.assertNotIn("→", err.getvalue())
 
 
 class RunIdTests(unittest.TestCase):

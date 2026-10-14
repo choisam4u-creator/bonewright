@@ -275,8 +275,43 @@ def _hint_on_unquoted(p: argparse.ArgumentParser) -> None:
                         cmd = " ".join(["bw", *args[:i], f'"{joined}"', *args[j:]])
                         message += "\n" + T(f"→ 공백 든 경로는 따옴표로 감싼다: {cmd}", f"→ quote a path that has spaces: {cmd}")
                         return orig(message)
+            if (more := _one_value_hint(args, message)):
+                message += "\n" + more
         orig(message)
     p.error = error
+
+
+ONE_ID = ("export", "demo", "status", "--rig", "--run-id")   # 값이 run-id 하나인 자리 — 이어 붙이면 틀린 id 가 된다
+ONE_TEXT = ("rig", "--bvh", "--text", "--targets", "--map", "--out", "--export", "--gt-mesh")   # 공백이 들 수 있는 값 하나
+
+
+def _one_value_hint(args: list[str], message: str) -> str:
+    """이어 붙여도 아직 없는 파일(오타·만들 경로)이거나 run-id 자리에 값이 둘일 때(`bw rig my hero.glb`·`bw export r1 r2`):
+    값 자리 하나에 낱말이 여럿이다. 공백 든 값이면 따옴표 친 같은 명령, run-id 면 첫 값만 둔 같은 명령(10/14 17회차 실측)."""
+    extra = message.split("unrecognized arguments:", 1)[1].split()
+    u = next((w for w in extra if not w.startswith("-")), None)
+    if u is None or u not in args[1:]:
+        return ""
+    j = len(args) - 1 - args[::-1].index(u)
+    k = j
+    while k > 1 and not args[k - 1].startswith("-"):
+        k -= 1
+    end = j
+    while end + 1 < len(args) and not args[end + 1].startswith("-"):
+        end += 1
+    if k < 1 or k == j and k == end:
+        return ""
+    slot = args[k - 1] if args[k - 1].startswith("-") else args[0]   # 값을 받는 옵션, 아니면 하위 명령의 자리 인자
+    if slot not in ONE_ID + ONE_TEXT:   # doctor·usage 처럼 자리 인자가 없는 명령, 값을 안 받는 옵션
+        return ""
+    q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+    if slot in ONE_ID:
+        cmd = " ".join(["bw", *map(q, args[:k + 1]), *map(q, args[end + 1:])])
+        where = f"`bw {slot}`" if not slot.startswith("-") else f"`{slot}`"
+        ids = T("(목록은 `bw status`)", " (list: `bw status`)") if slot != "status" else ""
+        return T(f"→ {where} 는 run-id 하나를 받는다{ids}: {cmd}", f"→ {where} takes one run-id{ids}: {cmd}")
+    cmd = " ".join(["bw", *map(q, args[:k]), f'"{" ".join(args[k:end + 1])}"', *map(q, args[end + 1:])])
+    return T(f"→ 값 하나에 공백이 있으면 따옴표로 감싼다: {cmd}", f"→ if that is one value with spaces, quote it: {cmd}")
 
 
 def _hint_on_unknown_option(p: argparse.ArgumentParser, sub) -> None:
