@@ -129,6 +129,18 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- Without codex, `bw rig hero.glb` listed the 0-token routes to choose from although the analysis already knew
+  whether the file has a skeleton; it now gives the one command that runs (`bw rig hero.glb --from-skeleton --no-judge`,
+  or `--from-shape` for a bare mesh).
+- When Rigify cannot join the joints (a human skeleton given `--preset quadruped`), `bw rig` printed a 40-line
+  traceback and asked for an issue; it is now a `BLOCKED:` line naming the bone, with the same command on the preset
+  that reads more of the skeleton's joints, without `--from-skeleton`, or with `--targets` on the run's `targets.json`.
+- Re-rigging into the `--run-id` of a finished rig says it replaces that rig and removes the old rig's `rigged.glb`
+  and demo video, which used to sit beside the new rig as if they were its own.
+- The `[1/6] import:` progress line is words (meshes, what was left out, own skeleton or not, units, turns) instead of
+  the import dict with its 4×4 matrix.
+- `examples/rig_sample.py` run from outside the repository printed result paths relative to the repository; they now
+  open from the folder it ran in.
 - A mesh given as a `.zip` (how Sketchfab and itch.io hand out models) was told to "export it as one of …"; it now
   names the mesh inside and gives an unzip command that works anywhere (`python3 -m zipfile -e hero.zip hero`) and
   the same command on the unzipped file. A zip with no mesh says what it holds.
