@@ -252,6 +252,23 @@ def latest_rig(root: Path) -> str | None:
     return max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name if rigged else None
 
 
+# 끝난 리그에서 export·demo 가 만든 것. 같은 `--run-id` 로 다시 리깅하면 새 리그 옆에 옛 리그의 GLB·영상이 남아 새 것처럼 보였다(10/14 18회차 실측)
+FROM_RIG = ("rigged.glb", "export.json", "export_state.json", "demo.mp4", "demo.gif", "demo_state.json")
+
+
+def clear_replaced_rig(run_dir: Path) -> list[str] | None:
+    """run_dir 가 끝난 리그(state step final)면 옛 리그에서 나온 FROM_RIG 를 지우고 그 이름들을, 아니면 None(실패·중단 실행은 말없이 다시 쓴다)."""
+    try:
+        if json.loads((run_dir / "state.json").read_text(encoding="utf-8")).get("step") != "final":
+            return None
+    except (OSError, ValueError, AttributeError):
+        return None
+    gone = [n for n in FROM_RIG if (run_dir / n).is_file()]
+    for n in gone:
+        (run_dir / n).unlink()
+    return [n for n in gone if n.endswith((".glb", ".mp4", ".gif"))]
+
+
 def need_rig(root: Path, run_id: str, use: str = "") -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
     use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""
@@ -548,7 +565,15 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
             # --from-skeleton 은 메타리그에 못 맞추면 원본 본 이름 그대로의 일반 리그로 간다 — 그 이름일 수 있어 막지 않고 알린다
             _log(quiet, "  ⚠ " + str(e).splitlines()[0] + T(" (일반 리그로 가면 원본 본 이름으로 쓰인다)", " (used as a source bone name if this becomes a generic rig)"))
     need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    replaced = clear_replaced_rig(root / "runs" / run_id)
     r = Run(root, run_id, cfg, quiet)
+    if replaced is not None:
+        again = " · ".join(f"`bw {c} {run_id}`" for c, made in (("export", {"rigged.glb"}), ("demo", {"demo.mp4", "demo.gif"})) if made & set(replaced))
+        made = ", ".join(replaced)
+        gone = (T(f". 옛 리그가 만든 것({made})은 새 리그 것처럼 보이지 않게 지웠다 → 새로: {again}",
+                  f". What the old rig made ({made}) is removed so it does not pass for the new one → again: {again}") if replaced else "")
+        _log(quiet, T(f"  ⚠ runs/{run_id} 에 이미 끝난 리그가 있다 — 이 실행이 그것을 바꾼다(`--run-id` 를 빼면 새 폴더){gone}",
+                      f"  ⚠ runs/{run_id} already holds a finished rig — this run replaces it (leave out `--run-id` for a new folder){gone}"))
     # 비용은 끝난 뒤 report.md 의 tokens 줄에서야 보였다(10/11 11회차) — 시작 줄에 모델 호출이 몇 번까지인지
     planned = [n for n, on in (("fit", not (from_skeleton or targets_file or from_shape)), ("judge", not no_judge)) if on]
     if os.environ.get("BW_BACKEND") == "mock" or not planned:

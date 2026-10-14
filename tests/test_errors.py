@@ -1112,6 +1112,45 @@ class RigStartLineTests(unittest.TestCase):
         self.assertIn("0 model calls", self.start_line("mock"))
 
 
+class ReplacedRigTests(unittest.TestCase):
+    """`bw rig … --run-id <finished rig>` says it replaces that rig and removes the old rig's GLB / video beside the new one.
+
+    10/14 18회차 실측(bpy 5.2.2): `bw export r1` 뒤 같은 id 로 다시 rig → done (ok), 경고 없음, 옛 rigged.glb 가 새 리그 옆에 남았다."""
+    def rig_again(self, state, files, lang="en"):
+        from bonewright import blender
+        seen = []
+        with tempfile.TemporaryDirectory() as d:
+            run = Path(d) / "runs" / "r1"; run.mkdir(parents=True)
+            if state:
+                (run / "state.json").write_text(json.dumps(state), encoding="utf-8")
+            for n in files:
+                (run / n).write_bytes(b"old")
+            mesh = Path(d) / "a.glb"; mesh.write_bytes(b"glTF")
+            with patch.dict(os.environ, {"BW_LANG": lang, "BW_BACKEND": "mock"}), patch.object(pipeline, "need_blender", lambda cfg: None), \
+                    patch.object(pipeline, "run_script", side_effect=blender.BlenderError("stop here")), \
+                    patch.object(pipeline, "_log", lambda quiet, msg: seen.append(msg)):
+                with self.assertRaises(blender.BlenderError):
+                    pipeline.rig(Path(d), str(mesh), run_id="r1", quiet=True)
+            left = sorted(p.name for p in run.iterdir() if p.is_file())
+        return [m for m in seen if "runs/r1" in m], left
+
+    def test_finished_rig_is_named_and_its_outputs_removed(self):
+        warn, left = self.rig_again({"step": "final", "status": "ok"}, ["rigged.glb", "export.json", "demo.mp4", "targets.json"])
+        self.assertEqual(1, len(warn)); w = warn[0]
+        self.assertIn("already holds a finished rig — this run replaces it", w)
+        self.assertIn("(rigged.glb, demo.mp4)", w); self.assertIn("`bw export r1` · `bw demo r1`", w)
+        self.assertNotIn("rigged.glb", left); self.assertNotIn("demo.mp4", left); self.assertIn("targets.json", left)   # --targets 로 다시 쓸 수 있게
+        ko, _ = self.rig_again({"step": "final", "status": "needs_review"}, ["rigged.glb"], "ko")
+        self.assertIn("이미 끝난 리그가 있다", ko[0]); self.assertIn("`bw export r1`", ko[0]); self.assertNotIn("bw demo", ko[0])
+        bare, _ = self.rig_again({"step": "final", "status": "ok"}, [])
+        self.assertNotIn("removed", bare[0])
+
+    def test_failed_or_new_run_is_reused_silently(self):
+        for state in ({"step": "generate", "status": "failed"}, None):
+            warn, left = self.rig_again(state, ["rigged.glb"])
+            self.assertEqual([], warn); self.assertIn("rigged.glb", left)
+
+
 class BpyHintTests(unittest.TestCase):
     def test_bpy_hint_fits_the_running_python(self):
         """The bpy install hint is `pip install bpy==5.2.2` on Python 3.13 and a 3.13 venv command on any other version.
