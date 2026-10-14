@@ -30,6 +30,15 @@ SAMPLES = {"adventurer": ROOT / "tests" / "assets" / "quaternius_adventurer.glb"
 PROCEDURAL = {"humanoid": "capsule_doll", "quadruped": "capsule_dog"}   # 메시를 안 주면 절차적으로 만드는 것
 
 
+def shown(path: Path) -> str:
+    """지금 폴더에서 그대로 열리는 경로: 지금 폴더 안이면 상대, 밖이면 절대(공백이면 큰따옴표).
+    10/14 18회차 실측: 저장소 밖에서 돌리면 끝 줄이 저장소 기준 `examples/out/…` 라 열리지 않았다."""
+    try:
+        return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return f'"{path}"' if " " in str(path) else str(path)
+
+
 def glb_skin_bones(path: Path) -> list[str]:
     """GLB 의 첫 스킨 관절 이름을 순서대로 돌려준다(순수 파이썬, 블렌더 불필요)."""
     data = Path(path).read_bytes()
@@ -201,10 +210,11 @@ def main() -> int:
                            "--motion and --table do not go together — --table does not rig"))
     mesh = SAMPLES.get(a.mesh, Path(a.mesh)) if a.mesh else None
     if mesh is not None and not mesh.exists():
+        fetch = shown(ROOT / "scripts" / "fetch_bench_assets.py")
         raise SystemExit(T(f"파일이 없다: {mesh} — 경로를 확인하거나 'adventurer' 를 쓴다. "
-                           "벤치 자산은 `python3 scripts/fetch_bench_assets.py` 로 받는다",
+                           f"벤치 자산은 `python3 {fetch}` 로 받는다",
                            f"file not found: {mesh} — check the path or use 'adventurer'. "
-                           "Benchmark assets come from `python3 scripts/fetch_bench_assets.py`"))
+                           f"Benchmark assets come from `python3 {fetch}`"))
     if a.table:
         if mesh is None:
             raise SystemExit(T("--table 에는 .glb 경로가 필요하다 (예: --table adventurer)",
@@ -214,11 +224,11 @@ def main() -> int:
     name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else PROCEDURAL[a.preset])
     out = rig_and_table(mesh, name, a.preset)
     print(out.read_text(encoding="utf-8"), end="")
-    print("\n" + T("표: ", "table: ") + str(out.relative_to(ROOT)))
+    print("\n" + T("표: ", "table: ") + shown(out))
     if a.motion:
         mo = motion_and_report(name)
         print("\n" + mo.read_text(encoding="utf-8"), end="")
-        print("\n" + T("리타겟 요약: ", "retarget summary: ") + str(mo.relative_to(ROOT)))
+        print("\n" + T("리타겟 요약: ", "retarget summary: ") + shown(mo))
     return 0
 
 

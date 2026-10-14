@@ -133,6 +133,25 @@ class ExampleMessageTests(unittest.TestCase):
                 rig_sample.main()
         self.assertIn("file not found", str(cm.exception.code))
 
+    def test_printed_paths_open_from_the_folder_it_ran_in(self):
+        """The result paths and the fetch-script hint open from where the example was run, inside or outside the repository.
+
+        10/14 18회차 실측: 임시 폴더에서 돌리면 끝 줄이 `table: examples/out/capsule_doll.md`(저장소 기준)라 열리지 않았다."""
+        from unittest import mock
+        out = rig_sample.OUT / "capsule_doll.md"
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d:
+            try:
+                os.chdir(ROOT); self.assertEqual("examples/out/capsule_doll.md", rig_sample.shown(out))
+                os.chdir(d); self.assertEqual(str(out), rig_sample.shown(out).strip('"'))
+                with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(sys, "argv", ["rig_sample.py", "no/such.glb"]):
+                    with self.assertRaises(SystemExit) as cm:
+                        rig_sample.main()
+            finally:
+                os.chdir(cwd)
+        fetch = re.search(r"`python3 (.+?)`", str(cm.exception.code))[1].strip('"')
+        self.assertTrue(Path(fetch).is_absolute() and Path(fetch).is_file(), fetch)
+
     def test_motion_on_quadruped_stops_before_rigging(self):
         """`--motion --preset quadruped` is refused before rigging starts.
 
