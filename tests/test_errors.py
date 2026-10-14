@@ -779,6 +779,34 @@ class MissingToolTests(unittest.TestCase):
         for route in ("--from-skeleton --no-judge", "--from-shape --no-judge", "BW_BACKEND=mock"):
             self.assertIn(route, str(cm.exception))
 
+    def test_missing_codex_in_bw_rig_gives_the_same_command_with_no_model(self):
+        """codex not installed during `bw rig`: the command to paste, picked from what the analysis found, not a choice to make.
+
+        10/14 18회차 실측(bpy 5.2.2): 원본 뼈대가 든 파일에 "뼈대가 든 파일은 `--from-skeleton`, 아니면 `--from-shape`" 였다."""
+        from bonewright import codex, config
+        missing = codex.CodexMissing("codex executable not found. Install it with `npm i -g @openai/codex`\n  → to try it without a model …")
+        for had, step, argv, want in ((1, "fit", ["rig", "my hero.glb", "--preset", "humanoid"], "from_skeleton"),
+                                      (0, "fit", ["rig", "my hero.glb"], "from_shape"),
+                                      (1, "judge", ["rig", "my hero.glb", "--from-skeleton"], "from_skeleton")):
+            for lang in ("en", "ko"):
+                r = pipeline.Run(self.root, f"rig-{had}{step}{lang}", {**config.DEFAULTS, "lang": "en"}, quiet=True)
+                (r.dir / "analysis.json").write_text(json.dumps({"stats": {"import": {"had_armature": had}}}), encoding="utf-8")
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", *argv]), \
+                        patch.object(pipeline, "run_step", side_effect=missing):
+                    with self.assertRaises(pipeline.Blocked) as cm:
+                        r.call(step, step, {}, {})
+                msg = str(cm.exception)
+                self.assertIn("npm i -g @openai/codex", msg); self.assertNotIn("…", msg)
+                self.assertEqual(2, msg.count("\n") + 1)
+                cmd = msg.split("`bw ", 1)[1].split("`", 1)[0]
+                a = cli.build_parser().parse_args(split_pasted(cmd))   # 그대로 붙여 넣으면 된다
+                self.assertEqual("my hero.glb", a.mesh); self.assertTrue(getattr(a, want)); self.assertTrue(a.no_judge)
+                self.assertEqual(1, cmd.count("--from-skeleton") + cmd.count("--from-shape"))
+                if lang == "ko":
+                    self.assertIn("모델 없이(토큰 0)", msg)
+        with patch.object(sys, "argv", ["bw", "bench", "x"]):   # rig 가 아니면 일반 설명 그대로
+            self.assertEqual(str(missing), pipeline.Run(self.root, "b", config.DEFAULTS, quiet=True).no_codex_hint("fit", missing))
+
 class PinNameTests(unittest.TestCase):
     """`--pin` with a bone name the metarig does not have stops before Blender with the closest names.
 

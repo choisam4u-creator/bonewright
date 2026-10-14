@@ -11,7 +11,7 @@ from typing import NoReturn
 
 from . import __version__, schemas
 from .blender import BlenderError, require as need_blender, run_script
-from .codex import CodexError, UsageLimit, run_step
+from .codex import CodexError, CodexMissing, UsageLimit, run_step
 from .config import guide, load, unknown_keys_line
 from .from_skeleton import targets_from_skeleton
 from .gates import judge_gates, preflight, rig_gates
@@ -360,6 +360,9 @@ class Run:
                                            f"맞춤 판단까지 끝난 실행이면 `--targets runs/{self.run_id}/targets.json` 으로 모델 호출 없이 이어 갈 수 있다",
                                            "run the same command again after the reset (see usage with `bw usage`). "
                                            f"If the fit step already finished, `--targets runs/{self.run_id}/targets.json` continues with no model calls"))
+        except CodexMissing as e:
+            self.state(name, "failed")
+            raise Blocked(f"{name}: {self.no_codex_hint(name, e)}")
         except CodexError as e:
             self.state(name, "failed")
             raise Blocked(f"{name}: {e}")
@@ -370,6 +373,24 @@ class Run:
                                   "seconds": usage.get("seconds", 0)})
         _log(self.quiet, f"  ← {name} {usage.get('seconds')}s · in {u.get('input_tokens', 0):,} / out {u.get('output_tokens', 0):,}")
         return result
+
+    def no_codex_hint(self, name: str, e: CodexMissing) -> str:
+        """codex 가 없을 때 `bw rig` 이면 일반 설명 대신 모델 없이 그대로 도는 같은 명령. 10/14 18회차 실측: 분석으로 원본 뼈대가
+        있는 걸 이미 알면서 "뼈대가 든 파일은 `--from-skeleton`, 아니면 …" 이라 했다."""
+        if sys.argv[1:2] != ["rig"] or name not in ("fit", "judge"):
+            return str(e)
+        try:
+            had = (json.loads((self.dir / "analysis.json").read_text(encoding="utf-8"))["stats"].get("import") or {}).get("had_armature")
+        except (OSError, ValueError, KeyError):
+            had = None
+        words = [*sys.argv[1:], *(["--from-skeleton" if had else "--from-shape"] if name == "fit" else []),
+                 *([] if "--no-judge" in sys.argv else ["--no-judge"])]
+        again = " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+        why = (T("맞춤 단계는 끝났다 — 시각 판정만 끈다", "the fit is done — only the visual judge is turned off") if name == "judge" else
+               T("이 파일에는 원본 뼈대가 있다 — 관절을 그대로 받는다", "this file carries its own skeleton — its joints are taken as they are") if had else
+               T("원본 뼈대가 없다 — 메시 모양에서 뼈대를 만든다", "no skeleton in this file — the skeleton is built from the mesh shape"))
+        return str(e).split("\n", 1)[0] + T(f"\n  → 모델 없이(토큰 0) 같은 명령: `{again}` ({why})",
+                                              f"\n  → the same command with no model (0 tokens): `{again}` ({why})")
 
     def blender(self, name: str, params: dict) -> dict:
         _log(self.quiet, f"  ⚙ blender {name}")
