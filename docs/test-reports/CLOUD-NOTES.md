@@ -1,11 +1,35 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/14 17회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/14 18회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 270개, 건너뜀 0
-python3 -m bonewright --version; bw rig x.glb --preset dog 2>&1 | tail -1; bw rig character.glb 2>&1 | tail -1   # 'bonewright 0.2.0' · '… --preset quadruped' · 저장소 캐릭터 첫 명령
-cd /tmp && zip -j hero.zip "$OLDPWD/tests/assets/quaternius_adventurer.glb" && bw rig hero.zip 2>&1 | tail -1; cd -   # 안내의 풀기 명령·같은 명령을 그대로 쳐서 리깅되는지
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 277개, 건너뜀 0
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --preset quadruped 2>&1 | tail -2   # BLOCKED + `--preset humanoid` 같은 명령(트레이스백·이슈 안내 없음)
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge 2>&1 | grep "1/6\] import"; cd /tmp && python3 "$OLDPWD/examples/rig_sample.py" | tail -1; cd -   # 사람 말 import 줄 · 절대 경로 table 줄
 ```
+
+## 2026-10-14 (18회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 와 이 세션 브랜치 `claude/cloud-work-d8vbuo` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv 와 `pip install .` 설치본으로 저장소 밖 임시 폴더에서 README 첫 실행·rig·export·motion·demo·예제를 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - **codex 없는 `bw rig hero.glb`**: "뼈대가 있으면 이것, 없으면 저것" → 분석이 찾은 대로 고른 같은 명령 한 줄(`--from-skeleton --no-judge` 또는 `--from-shape --no-judge`).
+  - **Rigify 생성 실패**(사람 뼈대에 `--preset quadruped`): 트레이스백 40줄 + "이슈를 열어라" → `BLOCKED:` + Rigify 가 말한 본 + 원본 관절을 더 많이 알아보는 프리셋으로 바꾼 같은 명령(humanoid 61개 · quadruped 26개). 그 명령이 done (ok) 까지 가는 것 확인.
+  - **같은 `--run-id` 로 끝난 리그를 다시 리깅**: 말없이 덮어쓰고 옛 `rigged.glb` 가 새 리그 옆에 남음 → 바꾼다는 한 줄, 옛 GLB·데모 영상 지움, `bw export <id>` 안내. 도움말의 "같은 id 면 덮어쓴다" 는 그대로(예제·bench 가 쓴다), GUIDE 한 문장.
+  - **`[1/6] import:` 진행 줄**: 파이썬 dict·4×4 행렬 → `5 meshes · left out Icosphere · has its own skeleton · turned 180° so the front faces -Y`.
+  - **`examples/rig_sample.py` 를 저장소 밖에서**: 끝 줄 `table: examples/out/…`(열리지 않음) → 돌린 폴더에서 열리는 경로(밖이면 절대). 벤치 자산 스크립트 안내도.
+- CHANGELOG Fixed 다섯 줄. 사용자 체감: 다섯 모두 "막힌 자리에서 그대로 칠 다음 명령" 또는 "출력이 사람 말·열리는 경로". 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 277개 중 16개 건너뜀, 나머지 통과(커밋마다 통과를 보고 커밋). 새 시험 7개는 고치기 전 코드에서 실패 확인.
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **277개 모두 통과, 건너뜀 0**(154초). 다섯 고침 모두 bpy 로 실제 명령을 쳐 문구 확인. 라이선스 경계 검사 OK.
+- 렌더는 화면 없는 리눅스라 끔(BW_NO_RENDER=1) → Mac 첫 줄.
+- CI: blender 잡은 pending 이 아니라 **잡 4개 전부 2~3초 만에 단계 없이 실패**(run 38580412076, 헤드 204a956) — 17회차와 같다. 러너가 안 붙는다: 코드 무관(비공개 저장소 Actions 사용량·결제 한도 추정 → 샘님 Settings → Billing 확인).
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 남은 [ ] 가 0 — 다음 회차는 공개 준비 기준으로 새 항목 5개부터. 후보: `bw export`·`bw demo` 의 stdout 이 GLB·영상 경로인데 이름표가 `report:`, `bw export` 끝에 `next:`(GLB 를 어디에 쓰나) 없음.
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 18회차로 적었다. 지시 브랜치 `claude/cloud-work` 와 세션 기본 브랜치 둘 다에 같은 커밋을 푸시.
 
 ## 2026-10-14 (17회차)
 
