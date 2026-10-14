@@ -584,6 +584,36 @@ class PresetChoiceTests(unittest.TestCase):
                     last = err.getvalue().strip().splitlines()[-1]
                     self.assertIn(want, last); self.assertIn("quadruped", last)
 
+    def test_clear_word_gives_the_same_command_with_the_real_value(self):
+        """A clear word (dog, animal, human, Quadruped) gets the same command back with only the value replaced.
+
+        10/14 17회차 실측: `bw rig x.glb --preset dog` 에 고르는 법 설명만 있고 그대로 칠 명령이 없었다."""
+        import os
+        import shlex
+        cases = ((["rig", "my hero.glb", "--preset", "dog", "--no-judge"], "quadruped"),
+                 (["rig", "m.glb", "--preset=Quadruped"], "quadruped"),
+                 (["motion", "--bvh", "a.bvh", "--preset", "human"], "humanoid"),
+                 (["bench", "m.glb", "--preset", "animal"], "quadruped"))
+        for lang in ("en", "ko"):
+            for argv, value in cases:
+                err = io.StringIO()
+                with self.subTest(lang=lang, argv=argv), patch.dict(os.environ, {"BW_LANG": lang}), \
+                        patch.object(sys, "argv", ["bw", *argv]), patch("sys.stderr", err):
+                    with self.assertRaises(SystemExit) as cm:
+                        cli.main()
+                    self.assertEqual(2, cm.exception.code)
+                    last = err.getvalue().strip().splitlines()[-1]
+                    cmd = shlex.split(last.split(": ", 1)[1])
+                    self.assertEqual("bw", cmd[0])
+                    a = cli.build_parser().parse_args(cmd[1:])   # 그대로 붙여 넣으면 돈다
+                    self.assertEqual(value, a.preset)
+                    self.assertEqual(argv[0], a.cmd)
+        err = io.StringIO()
+        with patch.dict(os.environ, {"BW_LANG": "en"}), patch.object(sys, "argv", ["bw", "rig", "m.glb", "--preset", "robot"]), \
+                patch("sys.stderr", err), self.assertRaises(SystemExit):
+            cli.main()
+        self.assertIn("--from-shape", err.getvalue().strip().splitlines()[-1])   # 모르는 말은 고르는 법 그대로
+
 
 class UnquotedPathTests(unittest.TestCase):
     """A path with spaces given without quotes gets the quoted command back (argparse only said "unrecognized arguments").
