@@ -53,6 +53,8 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
             then = T(f" 뒤 `{again}`", f", then `{again}`") if again else ""
             raise Blocked(T(f"{what} 확장자 {p.suffix or '(없음)'} 는 못 읽지만 내용은 glTF Binary(.glb)다: {p.name}\n  → 이름만 .glb 로 복사해 그대로 쓴다: `{cp}`{then}",
                             f"cannot read {what} format {p.suffix or '(no extension)'}, but the file is glTF Binary (.glb) inside: {p.name}\n  → copy it to a .glb name and pass that: `{cp}`{then}"))
+        if set(exts) & set(MESH_EXTS) and p.suffix.lower() == ".zip":   # 10/14 17회차: Sketchfab·itch.io 등은 모델을 zip 으로 준다
+            zip_hint(path, p, what, exts)
         fmt = T(f"{exts[0]} 로", f"{exts[0]}") if len(exts) == 1 else T(f"{' · '.join(exts)} 중 하나로", f"one of {' · '.join(exts)}")
         mesh = ""
         if ".bvh" in exts and p.suffix.lower() in MESH_EXTS:   # 10/12 14회차: `--bvh hero.glb` — 메시를 동작 자리에 줬다
@@ -62,6 +64,32 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
         raise Blocked(T(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {fmt} 내보내서 다시 지정하라{mesh}",
                         f"cannot read {what} format: {p.suffix or '(no extension)'} ({p.name})\n  → export it as {fmt} and pass that{mesh}"))
     return p
+
+
+def zip_hint(path: str | Path, p: Path, what: str, exts: tuple[str, ...]) -> None:
+    """zip 을 메시 자리에 줬을 때: 안의 메시를 이름으로, 어디서나 도는 풀기 명령(`python3 -m zipfile -e`)과 푼 경로로 같은 명령.
+    "다시 내보내라" 는 틀린 말이다 — 풀면 된다. 읽을 수 없는 zip 이면 아무 말 없이 돌아가 형식 안내로."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(p) as z:
+            names = [n for n in z.namelist() if not n.endswith("/") and not n.startswith("__MACOSX/")]
+    except (zipfile.BadZipFile, OSError):
+        return
+    meshes = sorted((n for n in names if Path(n).suffix.lower() in exts), key=lambda n: (exts.index(Path(n).suffix.lower()), n))
+    q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+    if not meshes:
+        inside = " · ".join(Path(n).name for n in names[:5]) + (" …" if len(names) > 5 else "")
+        raise Blocked(T(f"{what} 자리에 zip 을 줬는데 안에 읽을 메시({' · '.join(exts)})가 없다: {p.name}\n  → 든 것: {inside or '(비었음)'}. "
+                        f"{exts[0]} 등으로 내보낸 파일을 준다",
+                        f"{what}: this is a zip with no readable mesh ({' · '.join(exts)}) inside: {p.name}\n  → it holds: {inside or '(empty)'}. "
+                        f"Pass a file exported as {exts[0]} or similar"))
+    out = str(Path(str(path)).with_suffix(""))
+    new = str(Path(out) / meshes[0])
+    unzip = f"{'py' if os.name == 'nt' else 'python3'} -m zipfile -e {q(str(path))} {q(out)}"
+    again = " ".join(["bw", *(q(new if w == str(path) else w) for w in sys.argv[1:])]) if str(path) in sys.argv[1:] else f"bw rig {q(new)}"
+    more = T(f" (메시 {len(meshes)}개 중 첫째)", f" (first of {len(meshes)} meshes)") if len(meshes) > 1 else ""
+    raise Blocked(T(f"{what} 자리에 zip 을 줬다: {p.name} — 안에 {meshes[0]}{more}\n  → 풀어서 그 파일을 준다: `{unzip}` 뒤 `{again}`",
+                    f"{what}: this is a zip: {p.name} — it holds {meshes[0]}{more}\n  → unzip it and pass that file: `{unzip}`, then `{again}`"))
 
 
 def near_files(p: Path, exts: tuple[str, ...] = ()) -> list[str]:

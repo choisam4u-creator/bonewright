@@ -68,6 +68,33 @@ class InputErrorTests(unittest.TestCase):
         self.assertIn("내보내서", self.blocked(pipeline.rig, self.root, str(self.root / "a.stl"), quiet=True))   # glTF 가 아니면 그대로
         self.assertFalse((self.root / "runs").exists())
 
+    def test_zip_says_unzip_and_names_the_mesh_inside(self):
+        """A .zip given as the mesh names the mesh inside, an unzip command that runs anywhere and the same command on it.
+
+        10/14 17회차 실측: `.glb` 하나 든 zip → "export it as one of …" 뿐 — 다시 내보낼 것이 아니라 풀면 된다."""
+        import zipfile
+        z = self.root / "my hero.zip"
+        with zipfile.ZipFile(z, "w") as f:
+            f.writestr("__MACOSX/scene/._hero.glb", b"x"); f.writestr("README.txt", "x")
+            f.writestr("scene/hero.fbx", b"x"); f.writestr("scene/hero.glb", b"glTF")
+        with zipfile.ZipFile(self.root / "empty.zip", "w") as f:
+            f.writestr("a.usdz", b"x")
+        for lang, then in (("ko", "` 뒤 `"), ("en", "`, then `")):
+            with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), \
+                    patch.object(sys, "argv", ["bw", "rig", str(z), "--from-skeleton"]):
+                msg = self.blocked(pipeline.rig, self.root, str(z), quiet=True)
+                self.assertIn("scene/hero.glb", msg.splitlines()[0])   # .glb 가 .fbx 보다 먼저, __MACOSX 는 빼고
+                unzip, again = msg.splitlines()[-1].split("`")[1], msg.splitlines()[-1].split(then)[1].rstrip("`")
+                self.assertEqual(["-m", "zipfile", "-e", str(z), str(self.root / "my hero")], split_pasted(unzip)[1:])
+                zipfile.main(split_pasted(unzip)[3:])   # 안내의 풀기 명령을 그대로 — 그 뒤 같은 명령이 가리키는 파일이 있다
+                cmd = split_pasted(again)
+                a = cli.build_parser().parse_args(cmd[1:])
+                self.assertTrue(Path(a.mesh).is_file(), a.mesh); self.assertTrue(a.from_skeleton)
+                self.assertNotIn("export", msg); self.assertNotIn("내보내서", msg)
+        msg = self.blocked(pipeline.rig, self.root, str(self.root / "empty.zip"), quiet=True)
+        self.assertIn("a.usdz", msg)
+        self.assertFalse((self.root / "runs").exists())
+
     def test_missing_file_names_the_similar_one_beside_it(self):
         """A missing mesh, --bvh or --targets names the file beside it that differs in case, extension or a typo.
 
