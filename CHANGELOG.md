@@ -129,6 +129,17 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A mesh given as a `.zip` (how Sketchfab and itch.io hand out models) was told to "export it as one of …"; it now
+  names the mesh inside and gives an unzip command that works anywhere (`python3 -m zipfile -e hero.zip hero`) and
+  the same command on the unzipped file. A zip with no mesh says what it holds.
+- Several words in a one-value slot (`bw rig my hero.glb` for a file not there yet, `bw motion --text a person walks`,
+  `bw export r1 r2`) got only the top-level usage; they now get the same command quoted, or with the one run-id.
+- `--preset dog`, `animal`, `human` or `Quadruped` now gets the same command with the real value, not only an
+  explanation of the two presets.
+- Typing the README's placeholder (`bw rig character.glb`) says it is the example name and gives the first-run
+  command on the character the repository ships.
+- `python3 -m bonewright` runs the same CLI as `bw` (it was "No module named bonewright.__main__"), for when `bw` is
+  not on PATH; the README install section says so.
 - `bw help` prints the help and `bw help rig` the help of `bw rig`, as git and pip do; they were an error repeating
   "`bw --help`" twice.
 - A `.glb` under another name (a VRM avatar `hero.vrm`, or no extension) was told to "export it as one of …"; it now
