@@ -846,6 +846,51 @@ class PinNameTests(unittest.TestCase):
             self.assertEqual(got["names"], pipeline.metarig_names(preset), preset)
 
 
+class RigifyFailureTests(unittest.TestCase):
+    """Rigify refusing the joints (fit_generate) is a BLOCKED line with a command to paste, not a traceback and "open an issue".
+
+    10/14 18회차 실측(bpy 5.2.2): 사람 뼈대 파일에 `bw rig hero.glb --from-skeleton --no-judge --preset quadruped` →
+    "fit_generate: Blender exit code 1" + Rigify 트레이스백 + 이슈 안내."""
+    TAIL = ("fit_generate: Blender exit code 1\n    raise MetarigError(\"RIGIFY ERROR: \" + message)\n"
+            "rigify.utils.errors.MetarigError: \"RIGIFY ERROR: Bone 'spine.003': Cannot connect chain - bone position is disjoint.\"\n"
+            "RuntimeError: Error: RIGIFY ERROR: Bone 'spine.003': Cannot connect chain - bone position is disjoint.\nIncorrect armature")
+
+    def hint(self, argv, from_skeleton=True, joints=None, n=26, preset="quadruped", lang="en", n_other=61):
+        from bonewright import config
+        with tempfile.TemporaryDirectory() as d:
+            r = pipeline.Run(Path(d), "rig-x", config.DEFAULTS, quiet=True)
+            cwd = os.getcwd(); os.chdir(d)
+            try:
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", ["bw", *argv]), \
+                        patch.object(pipeline, "targets_from_skeleton", return_value=({f"b{i}": {} for i in range(n_other)}, {})):
+                    why = pipeline.RIGIFY.findall(self.TAIL)[-1]
+                    return pipeline.rigify_hint(why, r, preset, from_skeleton, joints, n, {"height": 1.8})
+            finally:
+                os.chdir(cwd)
+
+    def command(self, msg):
+        return cli.build_parser().parse_args(split_pasted(msg.rsplit("`bw ", 1)[1].split("`", 1)[0]))
+
+    def test_other_preset_that_reads_more_joints_is_the_command(self):
+        for argv in (["rig", "my hero.glb", "--from-skeleton", "--no-judge", "--preset", "quadruped"],
+                     ["rig", "my hero.glb", "--from-skeleton", "--preset=quadruped"]):
+            msg = self.hint(argv, joints={"Hips": {}})
+            self.assertIn("Bone 'spine.003': Cannot connect chain", msg); self.assertNotIn('" + message', msg)
+            self.assertIn("reads better as humanoid (joints recognised: humanoid 61 · quadruped 26)", msg)
+            a = self.command(msg)
+            self.assertEqual(("my hero.glb", "humanoid", True), (a.mesh, a.preset, a.from_skeleton))
+        self.assertIn("humanoid 로 더 많이 읽힌다", self.hint(argv, joints={"Hips": {}}, lang="ko"))
+
+    def test_no_better_preset_drops_from_skeleton_or_points_at_targets(self):
+        msg = self.hint(["rig", "a.glb", "--from-skeleton", "--no-judge"], joints={"Hips": {}}, n=61, n_other=20, preset="humanoid")
+        a = self.command(msg)
+        self.assertFalse(a.from_skeleton); self.assertTrue(a.no_judge); self.assertIn("the default route", msg)
+        msg = self.hint(["rig", "a.glb", "--targets", "old.json"], from_skeleton=False, preset="humanoid")
+        a = self.command(msg)
+        self.assertEqual("runs/rig-x/targets.json", a.targets); self.assertIn("runs/rig-x/targets.json", msg)
+        self.assertIn("관절을 runs/rig-x/targets.json 에서 옮기고", self.hint(["rig", "a.glb"], from_skeleton=False, lang="ko"))
+
+
 class ReportPathTests(unittest.TestCase):
     """report.md 는 이슈에 그대로 붙인다(템플릿 'A rig came out wrong'). 실행 폴더 안 파일은 상대 경로로,
     밖의 파일은 홈 폴더를 `~` 로 적어 사용자 이름이 들어가지 않게 한다."""

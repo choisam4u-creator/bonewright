@@ -406,6 +406,40 @@ class Run:
         return r
 
 
+# Rigify 가 메타리그를 리그로 못 만들 때 Blender 로그 끝에 남는 말(bpy 5.2.2 실측: "RIGIFY ERROR: Bone 'spine.003': Cannot connect chain …")
+RIGIFY = re.compile(r"RIGIFY ERROR: (?!\")([^\n]+)")   # 트레이스백 속 소스 줄(`"RIGIFY ERROR: " + message`)은 뺀다
+
+
+def rigify_hint(why: str, r: "Run", preset: str, from_skeleton: bool, joints: dict | None, n_targets: int, landmarks: dict) -> str:
+    """Rigify 생성 실패: 무엇이 안 맞았나 + 그대로 칠 다음 명령. 원본 뼈대가 다른 프리셋으로 더 많이 읽히면 그 프리셋으로 바꾼 같은 명령,
+    아니면 원본 뼈대 경로는 그것 없이, 맞춘 관절이면 고쳐 쓸 targets.json."""
+    q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+    args = sys.argv[1:] if sys.argv[1:2] == ["rig"] else []
+    head = T(f"generate: Rigify 가 이 관절로 리그를 못 만들었다 — {why}", f"generate: Rigify could not build a rig on these joints — {why}")
+    other = "humanoid" if preset == "quadruped" else "quadruped"
+    n_other = len(targets_from_skeleton(joints, other, landmarks["height"], landmarks.get("ground_z", 0.0))[0]) if (from_skeleton and joints) else 0
+    if args and n_other > n_targets:
+        cmd, i = list(args), next((i for i, w in enumerate(args) if w == "--preset" or w.startswith("--preset=")), None)
+        if i is None:
+            cmd.append(f"--preset={other}")
+        elif cmd[i] == "--preset" and i + 1 < len(cmd):
+            cmd[i + 1] = other
+        else:
+            cmd[i] = f"--preset={other}"
+        line = " ".join(["bw", *map(q, cmd)])
+        return head + T(f"\n  → 이 뼈대는 {other} 로 더 많이 읽힌다(알아본 관절 {other} {n_other}개 · {preset} {n_targets}개): `{line}`",
+                        f"\n  → this skeleton reads better as {other} (joints recognised: {other} {n_other} · {preset} {n_targets}): `{line}`")
+    if args and from_skeleton:
+        line = " ".join(["bw", *map(q, (w for w in args if w != "--from-skeleton"))])
+        return head + T(f"\n  → 원본 뼈대 대신 메시에서 관절을 찾는 기본 경로로: `{line}`",
+                        f"\n  → take the joints from the mesh instead of the file's skeleton (the default route): `{line}`")
+    targets = _shown(r.dir / "targets.json", Path.cwd())
+    again = [w for w in args if w != "--targets" and w != (args[args.index("--targets") + 1] if "--targets" in args[:-1] else None)]
+    line = " ".join(["bw", *map(q, again), "--targets", q(targets)]) if args else f"--targets {q(targets)}"
+    return head + T(f"\n  → 위에 적힌 본의 관절을 {targets} 에서 옮기고 모델 호출 없이 다시: `{line}`",
+                    f"\n  → move the joints of the bone named above in {targets}, then again with no model calls: `{line}`")
+
+
 # Blender 렌더러가 화면(EGL/OpenGL) 없이 못 뜰 때 로그에 남는 말. bpy 5.2.2 리눅스 실측: "Couldn't open libEGL.so.1", 종료 -6
 HEADLESS = re.compile(r"libEGL|eglInitialize|EGL_NOT_INITIALIZED|Unable to open a display|cannot open display|"
                       r"failed to create (?:a )?(?:GPU|OpenGL) context", re.I)
@@ -678,19 +712,25 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     atomic_write(r.dir / "targets.json", json.dumps(fit["targets"], ensure_ascii=False, indent=2))   # 손으로 고쳐 --targets 로 재사용
     # 3 생성·스키닝·통계
     r.state("generate", "running")
-    g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": gen_preset,
-                                   "source_joints": source_joints,
-                                   # 원본이 좌우 대칭인 뼈대면 우리 결과도 대칭이어야 한다(보정이 만든 어긋남은 되돌린다)
-                                   "source_symmetric": bool(from_skeleton and source_symmetry <= a["landmarks"]["height"] * 0.005),
-                                   "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
-                                   # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
-                                   "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
-                                   "weight_method": weights or cfg["rig"].get("weights", "auto"),
-                                   "cross_trim": cfg["rig"].get("cross_trim", True),
-                                   "from_skeleton": bool(from_skeleton),
-                                   # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
-                                   # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
-                                   "propagate_helpers": from_skeleton and gen_preset == "humanoid"})
+    try:
+        g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": gen_preset,
+                                       "source_joints": source_joints,
+                                       # 원본이 좌우 대칭인 뼈대면 우리 결과도 대칭이어야 한다(보정이 만든 어긋남은 되돌린다)
+                                       "source_symmetric": bool(from_skeleton and source_symmetry <= a["landmarks"]["height"] * 0.005),
+                                       "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
+                                       # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
+                                       "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
+                                       "weight_method": weights or cfg["rig"].get("weights", "auto"),
+                                       "cross_trim": cfg["rig"].get("cross_trim", True),
+                                       "from_skeleton": bool(from_skeleton),
+                                       # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
+                                       # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
+                                       "propagate_helpers": from_skeleton and gen_preset == "humanoid"})
+    except BlenderError as e:
+        if (m := RIGIFY.findall(str(e))):   # 10/14 18회차 실측: 사람 뼈대에 --preset quadruped → Rigify 트레이스백과 "이슈를 열어라"
+            raise Blocked(rigify_hint(m[-1], r, preset, from_skeleton, source_joints if gen_preset != "generic" else None,
+                                      len(fit["targets"]), a["landmarks"])) from e
+        raise
     g["preset"] = preset   # bw motion 이 리그의 프리셋을 스스로 알도록 남긴다
     if norm:
         g["stats"]["normalize_pose"] = norm
