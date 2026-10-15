@@ -137,6 +137,11 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw motion` with no source and no rig yet showed `--rig <rig run-id>` with no id to put there. It now gives the
+  sample command without `--rig` (imports the motion only) and the first rig command, whose `next:` line carries the
+  motion command.
+- `bw motion --bvh … --export` (or `--map`, `--legs`, `--no-roll`) without `--rig` said "add `--rig <rig run-id>`"
+  even with rigs on disk. It now gives the same command with `--rig <latest rig>` (or the first rig command).
 - `BW_NO_RENDER=1 bw demo r1` said only "unset `BW_NO_RENDER` and run again". It now gives that command to paste
   (`env -u BW_NO_RENDER bw demo r1`, on Windows `Remove-Item Env:BW_NO_RENDER; bw demo r1`), says the rig itself is
   done, and points at `bw export r1`, which needs no display.

@@ -440,13 +440,21 @@ class MissingRunIdTests(unittest.TestCase):
                     self.assertNotIn("required", err)
 
     def test_motion_without_source_fills_in_the_latest_rig(self):
-        """`bw motion` with no source names the newest rig in a command that parses, and keeps the placeholder with no rig.
+        """`bw motion` with no source names the newest rig in a command that parses; with no rig, commands without a placeholder.
 
-        10/12 13회차: export·demo 는 최근 리그 id 를 채우는데 같은 상황의 `bw motion` 은 `--rig <rig run-id>` 자리표시였다."""
+        10/12 13회차: export·demo 는 최근 리그 id 를 채우는데 같은 상황의 `bw motion` 은 `--rig <rig run-id>` 자리표시였다.
+        10/15 20회차: 리그가 없을 때도 자리표시였다 → `--rig` 없이 도는 샘플 명령 + 저장소 캐릭터 첫 리깅 명령."""
         for lang in ("en", "ko"):
             with self.subTest(lang=lang, rigs=0):
                 code, err = self.run_bw(lang, "motion")
-                self.assertEqual(2, code); self.assertIn("run-id>", err)
+                self.assertEqual(2, code); self.assertNotIn("run-id>", err); self.assertNotIn("<", err)
+                cmds = re.findall(r"`(bw (?:motion|rig) [^`]+)`", err)
+                self.assertEqual(["motion", "rig"], [c.split()[1] for c in cmds], err)
+                for c in cmds:
+                    a = cli.build_parser().parse_args(split_pasted(c)[1:])
+                    self.assertTrue(Path(a.bvh if a.cmd == "motion" else a.mesh).is_file(), c)   # 저장소 밖이면 절대 경로
+                    if a.cmd == "motion":
+                        self.assertIsNone(a.rig)
         for i, rid in enumerate(("rig-old", "rig-new")):
             (self.root / "runs" / rid).mkdir(parents=True)
             blend = self.root / "runs" / rid / "02_rigged.blend"; blend.write_bytes(b"")
@@ -461,6 +469,28 @@ class MissingRunIdTests(unittest.TestCase):
                         patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
                     self.assertEqual(0, cli.main())
                 self.assertEqual("rig-new", mo.call_args.kwargs["rig_run"])
+
+    def test_retarget_option_without_rig_gives_the_command_with_the_latest_rig(self):
+        """`bw motion --bvh … --export` without `--rig` gives the same command with the latest rig; with no rig, the first rig command.
+
+        10/15 20회차 실측: 리그가 있어도 "`--rig <rig run-id>` 를 함께 주거나" 자리표시였다. 두 언어·parser 대조."""
+        bvh = str(Path(__file__).resolve().parents[1] / "examples" / "wave.bvh")
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang, rigs=0):
+                code, err = self.run_bw(lang, "motion", "--bvh", bvh, "--export")
+                self.assertEqual(2, code); self.assertNotIn("run-id>", err)
+                first = re.search(r"`(bw rig [^`]+)`", err)[1]
+                self.assertTrue(Path(cli.build_parser().parse_args(split_pasted(first)[1:]).mesh).is_file(), first)
+        (self.root / "runs" / "r1").mkdir(parents=True); (self.root / "runs" / "r1" / "02_rigged.blend").write_bytes(b"")
+        for lang in ("en", "ko"):
+            for extra in (["--export"], ["--legs", "ik", "--no-roll"]):
+                with self.subTest(lang=lang, extra=extra):
+                    code, err = self.run_bw(lang, "motion", "--bvh", bvh, *extra)
+                    self.assertEqual(2, code); self.assertNotIn("run-id>", err)
+                    cmd = re.search(r"`(bw motion [^`]+)`", err)[1]
+                    a = cli.build_parser().parse_args(split_pasted(cmd)[1:])
+                    self.assertEqual(("r1", bvh), (a.rig, a.bvh))
+                    self.assertEqual(["--bvh", bvh, *extra, "--rig", "r1"], split_pasted(cmd)[2:])
 
     def test_no_runs_points_at_rig(self):
         """With no finished rig, the message says to run `bw rig` first and where it looked."""

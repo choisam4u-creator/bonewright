@@ -244,7 +244,7 @@ class SampleBvhTests(unittest.TestCase):
                 with patch.object(sys, "argv", cmd.split()), patch.object(cli.pipeline, "motion", return_value="runs/m/report.md") as mo, \
                         patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
                     self.assertEqual(0, cli.main())
-                self.assertEqual("r1", mo.call_args.kwargs["rig_run"])
+                self.assertEqual("r1" if "--rig" in cmd else None, mo.call_args.kwargs["rig_run"])   # 리그 없으면 `--rig` 없이(10/15 20회차)
 
 
 class SampleOutputTests(unittest.TestCase):

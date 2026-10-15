@@ -280,6 +280,11 @@ def run_kind(rd: Path) -> str | None:
     return next((k for k in ("rig", "motion", "bench") if rd.name.startswith(k + "-")), None)
 
 
+def this_command() -> str:
+    """지금 친 명령 그대로(공백 있는 값은 따옴표) — 뒤에 옵션을 붙이거나 앞에 환경 변수를 둘 안내용."""
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in sys.argv[1:])])
+
+
 def swap_arg(old: str, new: str) -> str:
     """지금 친 명령에서 값 old 를 new 로 바꾼 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
     words = [new if w == old else f"--rig={new}" if w == f"--rig={old}" else w for w in sys.argv[1:]]
@@ -883,17 +888,28 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         if (rid := latest_rig(root)):   # 리그가 있으면 자리표시 대신 최근 리그 — export·demo 처럼(10/12 13회차)
             raise Blocked(T(f"동작 출처가 없다\n  → 가장 최근 리그에 샘플 동작: `bw motion --bvh {bv} --rig {rid}`(다른 리그는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
                             f"no motion source\n  → the sample motion on the latest rig: `bw motion --bvh {bv} --rig {rid}` (other rigs: `bw status`) or `bw motion --text \"a person walks\"`"))
-        raise Blocked(T(f"동작 출처가 없다\n  → `bw motion --bvh {bv} --rig <리그 run-id>`(리그 id 는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
-                        f"no motion source\n  → `bw motion --bvh {bv} --rig <rig run-id>` (rig ids: `bw status`) or `bw motion --text \"a person walks\"`"))
+        # 10/15 20회차: 리그가 없는데 `--rig <rig run-id>` 자리표시 — 채울 id 가 없다. `--rig` 없이 도는 꼴과 첫 리깅 명령
+        from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+        where, first = _from_repo()
+        raise Blocked(T(f"동작 출처가 없다\n  → 샘플 동작을 Blender 로 가져오기만(리그 없음): `bw motion --bvh {bv}`\n"
+                        f"  → 캐릭터에 입히려면 먼저 리깅 — {where}`{first}`, 그 `next:` 줄에 id 를 채운 `bw motion` 명령이 나온다",
+                        f"no motion source\n  → the sample motion, imported into Blender only (no rig yet): `bw motion --bvh {bv}`\n"
+                        f"  → to put it on a character, rig first — {where}`{first}`; its `next:` line gives the `bw motion` command with the id filled in"))
     if bvh and not text:
         bv = sample_bvh()
         need_bvh_bytes(need_file(bvh, "BVH", T(f"경로를 확인하라. 저장소의 샘플: `--bvh {bv}`, 그 밖엔 Mixamo·CMU 등에서 받거나 `--text` 로 만든다",
                                 f"check the path. The repository's sample: `--bvh {bv}`; otherwise get one from Mixamo, CMU etc., or make one with `--text`"), (".bvh",)))
     if not rig_run:   # 리타겟 옵션은 `if rig_run:` 안에서만 쓰인다 — 말없이 버리면 기다린 끝에 GLB 가 없다
         unused = [f for f, on in (("--export", export), ("--map", bone_map), (f"--legs {legs}", legs != "auto"), ("--no-roll", not roll)) if on]
-        if unused:
-            raise Blocked(T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다\n  → `--rig <리그 run-id>` 를 함께 주거나(목록은 `bw status`) 그 옵션을 빼라",
-                            f"{' · '.join(unused)}: used only when retargeting onto a rig\n  → add `--rig <rig run-id>` (list runs with `bw status`), or drop the option"))
+        if unused:   # 10/15 20회차: 리그가 있어도 `--rig <rig run-id>` 자리표시였다 → 지금 친 명령에 최근 리그를 붙인 꼴
+            what = T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다", f"{' · '.join(unused)}: used only when retargeting onto a rig")
+            if (rid := latest_rig(root)):
+                raise Blocked(T(f"{what}\n  → 최근 리그에: `{this_command()} --rig {rid}` (리그 목록 `bw status`), 아니면 그 옵션을 빼라",
+                                f"{what}\n  → onto the latest rig: `{this_command()} --rig {rid}` (rigs: `bw status`), or drop the option"))
+            from .cli import _from_repo
+            where, first = _from_repo()
+            raise Blocked(T(f"{what}, 그리고 리깅을 마친 실행이 없다\n  → 먼저 {where}`{first}`, 그 `next:` 줄의 id 를 `--rig <id>` 로 붙여 같은 명령 — 아니면 그 옵션을 빼라",
+                            f"{what}, and no rig has been made yet\n  → {where}run `{first}` first, then this command with `--rig <id>` from its `next:` line — or drop the option"))
     rig_blend = need_rig(root, rig_run, "--rig {}") if rig_run else None
     user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
@@ -1029,10 +1045,9 @@ def ffmpeg_install(system: str | None = None) -> str:
 def unset_env_command(name: str, system: str | None = None) -> str:
     """환경 변수 name 만 뺀 채 지금 친 명령을 다시 — 셸마다 꼴이 달라 OS 로 고른다(Windows 는 PowerShell)."""
     import platform
-    words = " ".join(["bw", *(f'"{a}"' if any(c.isspace() for c in a) else a for a in sys.argv[1:])])
     if (system or platform.system()) == "Windows":
-        return f"Remove-Item Env:{name}; {words}"
-    return f"env -u {name} {words}"
+        return f"Remove-Item Env:{name}; {this_command()}"
+    return f"env -u {name} {this_command()}"
 
 
 def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: int = 96) -> Path:
