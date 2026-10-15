@@ -557,6 +557,23 @@ def rig_result_next(cmd: str, rid: str, out: Path) -> str:
     return T("다음: ", "next: ") + " · ".join(parts)
 
 
+def status_detail(rd: Path, kind: str | None) -> list[str]:
+    """`bw status <id>` 의 목록 줄 아래: 보고서·만든 파일·(리그면) 다음 명령. 10/15 19회차: 목록 줄과 똑같았다."""
+    cwd, rid = Path.cwd(), rd.name
+    lines = []
+    if (rd / "report.md").is_file():
+        lines.append(T(f"  보고서: {pipeline._arg(rd / 'report.md', cwd)}", f"  report: {pipeline._arg(rd / 'report.md', cwd)}"))
+    names = {"rig": ("02_rigged.blend", "rigged.glb", "demo.mp4", "demo.gif"), "motion": ("motion.blend", "retargeted.blend", "animated.glb"),
+             "bench": ("bench.csv",)}.get(kind or "", ())
+    if made := [pipeline._arg(rd / n, cwd) for n in names if (rd / n).is_file()]:
+        lines.append(T("  만든 파일: ", "  files: ") + " · ".join(made))
+    if (rd / "02_rigged.blend").is_file():   # 끝난 리그: `bw rig` 의 next: 와 같은 명령, 이미 만든 것은 빼고
+        todo = [c for c, f in ((f"bw demo {rid}", "demo.mp4"), (f"bw export {rid}", "rigged.glb")) if not (rd / f).is_file()]
+        todo.append(f"bw motion --bvh {pipeline.sample_bvh()} --rig {rid}")
+        lines.append(T("다음: ", "next: ") + " · ".join(f"`{c}`" for c in todo))
+    return lines
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
@@ -756,6 +773,8 @@ def _main() -> int:
                     line = T(f"{rid}: state.json 을 읽지 못함({type(e).__name__}: {e}) — 이 실행만 건너뜀. 필요 없으면 {runs / rid} 를 지워도 된다",
                              f"{rid}: state.json unreadable ({type(e).__name__}: {e}) — skipped this run only. If you don't need it, {runs / rid} can be deleted")
                 print(line)
+                if a.run_id:
+                    print("\n".join(status_detail(runs / rid, pipeline.run_kind(runs / rid))))
             return 0
         if a.cmd in ("export", "demo") and not a.run_id:   # argparse 의 "required: run_id" 는 어떤 id 를 넣을지 말해 주지 않는다
             runs = ROOT / "runs"

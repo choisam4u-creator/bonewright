@@ -428,7 +428,7 @@ bw demo <run-id>         # mp4/gif of the rig moving through IK controls (0 toke
 bw export <run-id>       # game-ready GLB: deform bones only (73, not 410) + skin, re-imported and checked (0 tokens)
 bw bench a.glb b.glb     # compare against the original skeletons (0 tokens)
 bw status                # every run under runs/: step, status, input tokens
-bw status <run-id>       # one run
+bw status <run-id>       # one run: its report, the files it made, and (for a rig) the commands not yet run
 ```
 
 Each run lives in `runs/<run-id>/` (`report.md`, `targets.json`, the `.blend` files, `logs/`). The id defaults to

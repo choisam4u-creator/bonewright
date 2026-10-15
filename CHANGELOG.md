@@ -87,6 +87,8 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- `bw status <run-id>` shows more than the list line: the report path, the files the run made (`rigged.glb`,
+  `demo.mp4`, `animated.glb` …) and, for a finished rig, the `bw demo` / `bw export` / `bw motion` commands not run yet.
 - Each `bw status` line names the kind of run — `hero: rig · final ok · …`, `walk: motion · …` — so the id to give
   `bw export`, `bw demo` or `--rig` no longer has to be guessed from its name.
 - The stdout line of `bw export` and `bw demo` is labelled with what the path is — `GLB:`, `video:` (or `frames:`

@@ -919,6 +919,37 @@ class StatusKindTests(unittest.TestCase):
                                  [ln.split(" · input")[0].split(" · 입력")[0] for ln in lines])
 
 
+class StatusDetailTests(unittest.TestCase):
+    def test_one_run_shows_report_files_and_next(self):
+        """`bw status <id>` adds the report, the files the run made and, for a finished rig, the commands not yet run (they parse).
+
+        10/15 19회차 실측: `bw status r1` 이 목록의 한 줄과 똑같았다 — 도움말은 "한 실행의 단계·상태"."""
+        import os, re, shlex
+        with tempfile.TemporaryDirectory() as t:
+            rd = Path(t) / "runs" / "r1"; rd.mkdir(parents=True)
+            (rd / "state.json").write_text('{"step": "final", "status": "ok"}', encoding="utf-8")
+            for f in ("report.md", "02_rigged.blend", "rigged.glb"):
+                (rd / f).write_bytes(b"x")
+            for lang in ("en", "ko"):
+                out, cwd = io.StringIO(), os.getcwd()
+                os.chdir(t)
+                try:
+                    with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                            patch.object(sys, "argv", ["bw", "status", "r1"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                        self.assertEqual(0, cli.main())
+                finally:
+                    os.chdir(cwd)
+                text = out.getvalue()
+                self.assertIn("runs/r1/report.md", text)
+                self.assertIn("runs/r1/rigged.glb", text)
+                cmds = re.findall(r"`(bw [^`]*)`", text)
+                self.assertEqual("bw demo r1", cmds[0])
+                self.assertNotIn("bw export r1", cmds)   # GLB 는 이미 있다
+                for c in cmds:
+                    cli.build_parser().parse_args(shlex.split(c)[1:])
+                self.assertEqual(lang == "ko", "보고서" in text)
+
+
 class StaleRunTests(unittest.TestCase):
     def test_running_with_a_dead_process_is_shown_as_stopped(self):
         """A run left `running` by a process that no longer exists is shown as stopped, with where to look."""
