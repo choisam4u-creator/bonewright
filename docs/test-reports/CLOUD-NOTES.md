@@ -1,11 +1,35 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/15 19회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/15 20회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 282개, 건너뜀 0
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id r1 && bw demo r1 && bw export r1   # demo 는 `video:`, export 는 `GLB:` + 각각 `next:` 줄 (Mac 은 렌더가 실제로 돈다)
-bw status && bw status r1   # 줄마다 `rig ·`/`motion ·`, r1 아래 report·files·아직 안 친 next
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 285개, 건너뜀 0
+BW_NO_RENDER=1 bw demo r1; env -u BW_NO_RENDER bw demo r1   # 앞은 BLOCKED + 붙여 넣을 명령·`bw export r1`, 뒤(안내 명령 그대로)는 Mac 에서 실제 영상
+bw motion --bvh examples/wave.bvh --export; bw status r2     # 앞은 `--rig <최근 리그>` 붙인 같은 명령, 뒤는 `bw status r1`
 ```
+
+## 2026-10-15 (20회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 와 이 세션 브랜치 `claude/cloud-work-cpva99` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv(편집 설치)로 저장소 밖 임시 폴더에서 rig → demo(BW_NO_RENDER) → motion → status 와 틀린 입력을 쳐 보고 **새 항목 4개** 추가, 4개 모두 처리:
+  - **`BW_NO_RENDER=1 bw demo r1`**: "BW_NO_RENDER 를 지우고 다시" → 그 값만 뺀 같은 명령(`env -u BW_NO_RENDER bw demo r1`, Windows `Remove-Item Env:BW_NO_RENDER; …`) + 화면 없이 되는 `bw export r1`. 19회차 "다음 후보".
+  - **리그가 없을 때 `bw motion`(출처 없음)**: `--rig <rig run-id>` 자리표시 → `--rig` 없이 도는 샘플 명령 + 첫 리깅 명령. 그 샘플 명령이 빈 BW_HOME 에서 끝까지 돎.
+  - **`--rig` 없는 `--export`·`--map`·`--legs`·`--no-roll`**: 리그가 있어도 자리표시 → 지금 명령 + `--rig <최근 리그>`(없으면 첫 리깅 명령). 안내 명령이 animated.glb 까지 돎.
+  - **`bw status <오타 id>`**: "목록을 보라" → 가까운 실행(없으면 최근 실행)을 `bw status <id>` 로.
+- CHANGELOG Fixed 4줄, tests/README·CONTRIBUTING 시험 수. 사용자 체감: 넷 모두 "막힌 자리에서 그대로 칠 다음 명령". 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 285개 중 16개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **285개 모두 통과, 건너뜀 0**(196초). 라이선스 경계 검사 OK.
+- 새·바뀐 시험은 고치기 전 코드로 되돌려 모두 실패 확인. 네 안내 문구는 bpy 설치본 `bw` 로 실제로 찍어 봄.
+- 못 돌린 것: `env -u BW_NO_RENDER bw demo r1` 의 실제 렌더(화면 없는 리눅스) → Mac 둘째 줄. Windows `Remove-Item` 꼴은 문자열 시험만.
+- CI: blender 잡은 pending/queued 로 보이다가 **잡 4개 모두 2~3초 만에 단계 없이 끝남**(run 38749718252 등) — 17~19회차와 같고 코드와 무관, 러너가 안 붙는 것(비공개 저장소의 Actions 사용량·결제 한도로 추정, 샘님이 Settings → Billing 에서 확인).
+
+**완료 수·추가 수**: 완료 4 · 추가 4 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 남은 [ ] 가 0 — 다음 회차는 다시 실측으로 새 항목부터. 후보: 리그 없이 돌린 `bw motion` 의 `next:` 가 리그가 하나도 없을 때도 `--rig <id>` 자리표시(첫 리깅 명령으로), `bw bench <빈 폴더>` 의 자산 받기 안내 뒤에 `&& bw bench bench-assets/samples` 가 없다, `--map` 이 JSON 아닐 때 "e.g." 뿐.
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 20회차로 적었다.
 
 ## 2026-10-15 (19회차)
 
