@@ -748,6 +748,14 @@ def _main() -> int:
             runs = ROOT / "runs"
             ids = [a.run_id] if a.run_id else sorted(p.name for p in runs.iterdir() if (p / "state.json").exists()) if runs.is_dir() else []
             if a.run_id and not (runs / a.run_id / "state.json").exists():
+                known = [p for p in runs.iterdir() if (p / "state.json").exists()] if runs.is_dir() else []
+                if known:   # 10/15 20회차: 오타 id 에 "목록을 보라" 뿐 — export·--rig 처럼(9회차) 가까운 실행을 그대로 칠 꼴로
+                    import difflib
+                    near = difflib.get_close_matches(a.run_id, [p.name for p in known], n=3, cutoff=0.5) \
+                        or [max(known, key=lambda p: (p / "state.json").stat().st_mtime).name]
+                    shown = " · ".join(f"`bw status {n}`" for n in near)
+                    print("BLOCKED:", T(f"그런 실행이 없다: {a.run_id}\n  → 가까운 실행: {shown} (전체 목록 `bw status`)",
+                                       f"no such run: {a.run_id}\n  → closest run: {shown} (all runs: `bw status`)"), file=sys.stderr); return 2
                 print("BLOCKED:", T(f"실행 기록이 없다: {runs / a.run_id}\n  → `bw status` 로 목록을 보거나 BW_HOME(지금 {ROOT})을 확인하라",
                                    f"no such run: {runs / a.run_id}\n  → list runs with `bw status`, or check BW_HOME (now {ROOT})"), file=sys.stderr); return 2
             if not ids:   # 빈 출력은 설치가 깨졌는지 BW_HOME 이 다른지 구분이 안 된다

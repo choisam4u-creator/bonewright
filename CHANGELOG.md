@@ -137,6 +137,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw status r2` (a mistyped id) said only "list runs with `bw status`". Like a mistyped id in `bw export` or
+  `--rig`, it now names the closest run as `bw status <id>` (the latest run when nothing is close).
 - `bw motion` with no source and no rig yet showed `--rig <rig run-id>` with no id to put there. It now gives the
   sample command without `--rig` (imports the motion only) and the first rig command, whose `next:` line carries the
   motion command.

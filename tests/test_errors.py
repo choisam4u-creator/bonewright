@@ -404,6 +404,24 @@ class InputErrorTests(unittest.TestCase):
             self.assertEqual(cli.main(), 2)
         self.assertIn("→", err.getvalue())
 
+    def test_status_typo_names_the_closest_run(self):
+        """`bw status` with a mistyped id gives `bw status <closest id>`, or the latest run when nothing is close.
+
+        10/15 20회차 실측: r1 이 있는 곳에서 `bw status r2` 가 "목록을 보라" 뿐이었다(export·--rig 오타는 9회차부터 가까운 리그를 준다)."""
+        for i, rid in enumerate(("rig-a", "motion-b")):
+            d = self.root / "runs" / rid; d.mkdir(parents=True)
+            (d / "state.json").write_text('{"step": "final", "status": "ok"}', encoding="utf-8"); os.utime(d / "state.json", (1000 + i, 1000 + i))
+        for lang in ("en", "ko"):
+            for typo, want in (("rig-aa", "rig-a"), ("zzz", "motion-b")):
+                with self.subTest(lang=lang, typo=typo):
+                    err = io.StringIO()
+                    with patch.object(cli, "ROOT", self.root), patch.object(sys, "argv", ["bw", "status", typo]), \
+                            patch("sys.stderr", err), patch.dict(os.environ, {"BW_LANG": lang}):
+                        self.assertEqual(cli.main(), 2)
+                    cmd = re.findall(r"`(bw status [^`]+)`", err.getvalue())
+                    self.assertTrue(cmd, err.getvalue())
+                    self.assertEqual(want, cli.build_parser().parse_args(cmd[0].split()[1:]).run_id)
+
 
 class MissingRunIdTests(unittest.TestCase):
     """`bw demo` / `bw export` with no run-id name the latest rig as a command to paste, or say how to get one.
