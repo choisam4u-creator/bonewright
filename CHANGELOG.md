@@ -137,6 +137,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `BW_NO_RENDER=1 bw demo r1` said only "unset `BW_NO_RENDER` and run again". It now gives that command to paste
+  (`env -u BW_NO_RENDER bw demo r1`, on Windows `Remove-Item Env:BW_NO_RENDER; bw demo r1`), says the rig itself is
+  done, and points at `bw export r1`, which needs no display.
 - `examples/rig_sample.py --preset quadruped --motion` said only that `--motion` needs the humanoid preset. It now
   gives the same command without `--motion` (the dog rig alone) and, for the procedural doll or `adventurer`, without
   `--preset` (the human doll with the hand wave).

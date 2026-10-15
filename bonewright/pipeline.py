@@ -1026,6 +1026,15 @@ def ffmpeg_install(system: str | None = None) -> str:
     return {"Darwin": "`brew install ffmpeg`", "Windows": "`winget install ffmpeg`"}.get(system, "`sudo apt install ffmpeg`")
 
 
+def unset_env_command(name: str, system: str | None = None) -> str:
+    """환경 변수 name 만 뺀 채 지금 친 명령을 다시 — 셸마다 꼴이 달라 OS 로 고른다(Windows 는 PowerShell)."""
+    import platform
+    words = " ".join(["bw", *(f'"{a}"' if any(c.isspace() for c in a) else a for a in sys.argv[1:])])
+    if (system or platform.system()) == "Windows":
+        return f"Remove-Item Env:{name}; {words}"
+    return f"env -u {name} {words}"
+
+
 def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: int = 96) -> Path:
     """리그 결과 데모 영상(토큰 0): runs/<id>/02_rigged.blend → demo.mp4(+ ffmpeg 가 있으면 demo.gif)."""
     import shutil
@@ -1033,8 +1042,12 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
     blend = need_rig(root, run_id, "bw demo {}")
     if os.environ.get("BW_NO_RENDER") == "1":   # Blender 확인보다 먼저: 없으면 "Blender not found" 가 진짜 이유를 가렸다
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
-        raise Blocked(T("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다\n  → 화면이 있는 환경에서 `BW_NO_RENDER` 를 지우고 다시 실행하라",
-                        "BW_NO_RENDER=1, so no demo video is made\n  → unset `BW_NO_RENDER` and run again on a machine with a display"))
+        # 10/15 20회차: "BW_NO_RENDER 를 지우고 다시" 뿐 — 그대로 칠 명령과, 화면 없이도 되는 다음 일(GLB)을 준다
+        again = unset_env_command("BW_NO_RENDER")
+        raise Blocked(T(f"BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다(리그는 끝나 있다)\n  → 화면이 있는 컴퓨터에서 그 값만 빼고: `{again}`\n"
+                        f"  → 화면 없이도 되는 것 — 게임 엔진용 GLB: `bw export {run_id}`",
+                        f"BW_NO_RENDER=1, so no demo video is made (the rig itself is done)\n  → on a machine with a display, without that variable: `{again}`\n"
+                        f"  → works without a display — the GLB for game engines: `bw export {run_id}`"))
     need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
     r = Run(root, run_id, cfg, quiet, state_file="demo_state.json")
     a = json.loads((r.dir / "analysis.json").read_text(encoding="utf-8"))

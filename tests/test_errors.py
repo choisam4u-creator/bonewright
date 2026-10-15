@@ -796,6 +796,28 @@ class MissingToolTests(unittest.TestCase):
         self.assertIn("BW_NO_RENDER=1, so no demo video is made", err); self.assertNotIn("Blender not found", err)
         self.assertFalse((run / "demo_state.json").exists())
 
+    def test_demo_with_no_render_gives_the_command_without_it(self):
+        """`BW_NO_RENDER=1 bw demo` gives the same command without the variable (per OS shell) and `bw export <id>`.
+
+        10/15 20회차 실측: "BW_NO_RENDER 를 지우고 다시" 뿐이라 붙여 넣을 명령이 없었다. 두 언어·parser 대조."""
+        run = self.root / "runs" / "r1"; run.mkdir(parents=True); (run / "02_rigged.blend").write_bytes(b"x")
+        os.environ["BW_NO_RENDER"] = "1"
+        for lang in ("en", "ko"):
+            os.environ["BW_LANG"] = lang
+            code, err = self.run_bw("demo", "r1")
+            self.assertEqual(2, code)
+            cmds = re.findall(r"`([^`]+)`", err)
+            again = [c for c in cmds if "bw demo r1" in c]
+            self.assertEqual(1, len(again), err)
+            self.assertIn("BW_NO_RENDER", again[0]); self.assertNotIn("BW_NO_RENDER=1", again[0])
+            words = split_pasted(again[0].split("; ")[-1] if os.name == "nt" else again[0])
+            self.assertEqual(["demo", "r1"], words[words.index("bw") + 1:])
+            self.assertEqual("r1", cli.build_parser().parse_args(words[words.index("bw") + 1:]).run_id)
+            self.assertIn("bw export r1", cmds, err)
+        with patch.object(sys, "argv", ["bw", "demo", "r1"]):
+            self.assertEqual("Remove-Item Env:X; bw demo r1", pipeline.unset_env_command("X", "Windows"))
+            self.assertEqual("env -u X bw demo r1", pipeline.unset_env_command("X", "Darwin"))
+
     def test_bw_blender_pointing_nowhere_is_named(self):
         """BW_BLENDER set to a missing file: the message names that path instead of "set BW_BLENDER"."""
         os.environ["BW_BLENDER"] = str(self.root / "no" / "blender")
