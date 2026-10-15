@@ -435,7 +435,7 @@ Each run lives in `runs/<run-id>/` (`report.md`, `targets.json`, the `.blend` fi
 `rig-<date>-<time>`; `--run-id` takes letters, digits and `. _ -` only (no `/`, `\` or `..`, so a run never lands
 outside `runs/`). Giving the id of a finished rig replaces it, and the old rig's `rigged.glb` and demo video are
 removed so they never sit beside the new rig. `bw status` lists them
-one per line — `rig-20261010-101500: final ok · input tokens 81,234`. A run that failed or was stopped by the budget
+one per line with its kind (rig, motion or bench) — `rig-20261010-101500: rig · final ok · input tokens 81,234`. A run that failed or was stopped by the budget
 or a usage limit ends with `→ why: bw doctor --for-issue <run-id>`, which shows its state and the end of its log.
 `bw export` and `bw demo` record their own `export_state.json` / `demo_state.json`, so a failed export never turns a
 finished rig into a failed one.

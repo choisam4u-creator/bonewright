@@ -892,9 +892,31 @@ class StatusLineTests(unittest.TestCase):
                 self.assertEqual(0, cli.main())
         lines = out.getvalue().splitlines()
         self.assertEqual("bad1: analyze failed · input tokens 0  → why: `bw doctor --for-issue bad1`", lines[0])
-        self.assertEqual("ok1: final ok · input tokens 1,234", lines[1])
+        self.assertEqual("ok1: final ok · input tokens 1,234", lines[1])   # 종류를 모르는 실행(만든 파일·기본 id 머리 없음)은 지금처럼
         ns = cli.build_parser().parse_args(["doctor", "--for-issue", "bad1"])
         self.assertEqual("doctor", ns.cmd)
+
+
+class StatusKindTests(unittest.TestCase):
+    def test_each_line_says_rig_motion_or_bench(self):
+        """`bw status` lines name the kind of run, so the id for `bw export`/`bw demo`/`--rig` needs no guessing from its name.
+
+        10/15 19회차 실측: `motion-…: final ok`, `r1: final ok` — `--run-id` 로 이름을 바꾸면 무엇이 리그인지 모른다."""
+        import os
+        with tempfile.TemporaryDirectory() as t:
+            runs = Path(t) / "runs"
+            for rid, made in (("hero", "02_rigged.blend"), ("walk", "retarget.json"), ("rig-20261015-010101", None), ("odd", None)):
+                (runs / rid).mkdir(parents=True); (runs / rid / "state.json").write_text('{"step": "final", "status": "ok"}', encoding="utf-8")
+                if made:
+                    (runs / rid / made).write_bytes(b"x")
+            for lang in ("en", "ko"):
+                out = io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                lines = out.getvalue().splitlines()
+                self.assertEqual(["hero: rig · final ok", "odd: final ok", "rig-20261015-010101: rig · final ok", "walk: motion · final ok"],
+                                 [ln.split(" · input")[0].split(" · 입력")[0] for ln in lines])
 
 
 class StaleRunTests(unittest.TestCase):
@@ -922,7 +944,7 @@ class StatusGuideTests(unittest.TestCase):
         """The `bw status` example line in docs/GUIDE.md is exactly what the command prints for that state."""
         import os, re
         guide = (Path(__file__).resolve().parents[1] / "docs" / "GUIDE.md").read_text(encoding="utf-8")
-        m = re.search(r"`((rig-\d{8}-\d{6}): (\w+) (\w+) · input tokens ([\d,]+))`", guide)
+        m = re.search(r"`((rig-\d{8}-\d{6}): rig · (\w+) (\w+) · input tokens ([\d,]+))`", guide)
         self.assertIsNotNone(m, "GUIDE 에 bw status 예시 줄이 없다")
         line, rid, step, status, tokens = m.groups()
         with tempfile.TemporaryDirectory() as t:

@@ -746,7 +746,8 @@ def _main() -> int:
                     status = s["status"]
                     if status == "running" and not pid_alive(s.get("pid")):   # 죽은 프로세스를 계속 '도는 중' 이라 했다(10/11 11회차)
                         status = T("멈춤(프로세스 없음)", "stopped (process gone)")
-                    line = f"{rid}: {s['step']} {status} · "   # 먼저 키를 읽는다: 목록·키 없는 state 는 아래 except 로
+                    kind = pipeline.run_kind(runs / rid)   # export·demo·--rig 에 넣을 id 가 어느 것인지(10/15 19회차: 이름으로 짐작해야 했다)
+                    line = f"{rid}: {kind + ' · ' if kind else ''}{s['step']} {status} · "   # 먼저 키를 읽는다: 목록·키 없는 state 는 아래 except 로
                     tokens = f"{s.get('input_tokens', 0):,}"
                     line += T(f"입력 토큰 {tokens}", f"input tokens {tokens}")
                     if s["status"] in ("failed", "budget_stop", "usage_limit", "interrupted") or status != s["status"]:   # 왜 멈췄는지 볼 곳(로그 꼬리·state)

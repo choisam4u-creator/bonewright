@@ -87,6 +87,8 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- Each `bw status` line names the kind of run — `hero: rig · final ok · …`, `walk: motion · …` — so the id to give
+  `bw export`, `bw demo` or `--rig` no longer has to be guessed from its name.
 - The stdout line of `bw export` and `bw demo` is labelled with what the path is — `GLB:`, `video:` (or `frames:`
   without ffmpeg) — instead of `report:`. It is still one line with the path.
 - Hints now run as pasted from any folder: a missing mesh, `--bvh` or `--targets` names the similar file beside it
