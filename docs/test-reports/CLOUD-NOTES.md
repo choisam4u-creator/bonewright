@@ -1,11 +1,37 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/14 18회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/15 19회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 277개, 건너뜀 0
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --preset quadruped 2>&1 | tail -2   # BLOCKED + `--preset humanoid` 같은 명령(트레이스백·이슈 안내 없음)
-bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge 2>&1 | grep "1/6\] import"; cd /tmp && python3 "$OLDPWD/examples/rig_sample.py" | tail -1; cd -   # 사람 말 import 줄 · 절대 경로 table 줄
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 282개, 건너뜀 0
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge --run-id r1 && bw demo r1 && bw export r1   # demo 는 `video:`, export 는 `GLB:` + 각각 `next:` 줄 (Mac 은 렌더가 실제로 돈다)
+bw status && bw status r1   # 줄마다 `rig ·`/`motion ·`, r1 아래 report·files·아직 안 친 next
 ```
+
+## 2026-10-15 (19회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 와 이 세션 브랜치 `claude/cloud-work-lfnlci` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv 에 `pip install -e .` 로 저장소 밖 임시 폴더에서 rig → export → demo → motion → status → 예제를 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - **`bw export`·`bw demo` 끝**: stdout 이 GLB·영상 경로인데 `report:` → `GLB:`·`video:`(ffmpeg 없으면 `frames:`), 끝에 run-id 를 채운 `next:`(영상·GLB·동작 입힌 GLB, 이미 있으면 경로). 18회차 "다음 후보".
+  - **리그 자리에 동작 실행 id**(`bw export motion-…`·`--rig motion-…`): "리깅을 마치지 못했다 → 그 id 로 리깅"(따르면 동작 실행을 덮어씀) → "`bw motion` 실행이다" + 최근 리그로 바꾼 같은 명령.
+  - **`bw status` 목록**: 줄마다 `rig ·`/`motion ·`/`bench ·`.
+  - **`bw status <id>`**: 목록 한 줄과 같던 출력에 report·만든 파일·아직 안 친 다음 명령.
+  - **`examples/rig_sample.py --preset quadruped --motion`**: 설명뿐 → `--motion` 뺀 꼴·(사람 메시면) `--preset` 뺀 꼴. 두 안내 명령 모두 bpy 로 끝까지 돎.
+- CHANGELOG Changed 3줄·Fixed 2줄, GUIDE `bw status` 두 곳, tests/README·CONTRIBUTING 시험 수.
+- 사용자 체감: 다섯 모두 "결과·막힌 자리에서 그대로 칠 다음 명령". 설치~첫 결과 단계 수는 그대로(README 첫 실행 4줄이 이제 각 줄 끝에서 다음 줄을 알려 준다).
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 282개 중 16개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **282개 모두 통과, 건너뜀 0**(141초).
+- 새 시험 5개는 옛 `bonewright/`·예제로 되돌려 모두 실패 확인. 라이선스 경계 검사는 `bonewright/` 에 bpy import 를 더하지 않아 그대로.
+- 못 돌린 것: 렌더(`bw demo` 실제 영상) — 화면 없는 리눅스라 BW_NO_RENDER=1 → Mac 둘째 줄.
+- CI: blender 잡은 pending 이 아니라 **잡 4개 모두 2~3초 만에 단계 없이 끝남**(run 38670081109 등, 잡 로그 404 = 러너가 안 붙음). 17·18회차와 같고 코드와 무관 — 비공개 저장소의 Actions 사용량·결제 한도로 추정, 샘님이 Settings → Billing 에서 확인.
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 남은 [ ] 가 0 — 다음 회차는 다시 실측으로 새 항목부터. 후보: `bw demo` 를 BW_NO_RENDER=1 에서 막을 때 그대로 칠 명령(`env -u BW_NO_RENDER bw demo <id>`·Windows), 예제가 저장소 밖에서 돌려도 결과를 저장소의 `examples/out/` 에 쓰는 것(돌린 폴더가 아님).
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 19회차로 적었다.
 
 ## 2026-10-14 (18회차)
 
