@@ -529,6 +529,34 @@ def motion_next(rd: Path, a: argparse.Namespace) -> str:
     return T("다음: ", "next: ") + " · ".join(parts)
 
 
+def result_label(cmd: str, out: Path) -> str:
+    """stdout 한 줄의 이름표: 그 줄이 무엇의 경로인가(10/15 19회차: export 의 GLB·demo 의 영상도 `report:` 였다)."""
+    if cmd == "export":
+        return "GLB:"
+    if cmd == "demo":
+        return T("영상:", "video:") if Path(out).suffix == ".mp4" else T("프레임 폴더:", "frames:")
+    return T("보고서:", "report:")
+
+
+def rig_result_next(cmd: str, rid: str, out: Path) -> str:
+    """`bw export`·`bw demo` 끝의 다음 줄 — `bw rig` 처럼 그대로 칠 명령(10/15 19회차: 결과 경로 한 줄뿐이었다)."""
+    cwd, rd = Path.cwd(), ROOT / "runs" / rid
+    glb = rd / "rigged.glb"
+    parts = []
+    if cmd == "export":
+        video = rd / "demo.mp4"
+        parts.append(T(f"영상 `{pipeline._arg(video, cwd)}`", f"video `{pipeline._arg(video, cwd)}`") if video.is_file()
+                     else T(f"`bw demo {rid}`(움직이는 영상)", f"`bw demo {rid}` (video of it moving)"))
+    else:
+        if (gif := Path(out).with_suffix(".gif")).is_file() and Path(out).suffix == ".mp4":
+            parts.append(T(f"GIF `{pipeline._arg(gif, cwd)}`", f"GIF `{pipeline._arg(gif, cwd)}`"))
+        parts.append(T(f"게임용 GLB `{pipeline._arg(glb, cwd)}`", f"game-ready GLB `{pipeline._arg(glb, cwd)}`") if glb.is_file()
+                     else T(f"`bw export {rid}`(게임용 GLB)", f"`bw export {rid}` (game-ready GLB)"))
+    bv = pipeline.sample_bvh()
+    parts.append(T(f"동작을 입힌 GLB: `bw motion --bvh {bv} --rig {rid} --export`", f"with motion, as a GLB: `bw motion --bvh {bv} --rig {rid} --export`"))
+    return T("다음: ", "next: ") + " · ".join(parts)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bw", description=f"bonewright {__version__}: Python drives, Codex judges, gates verify.")
     p.add_argument("--version", action="version", version=f"bonewright {__version__}")
@@ -760,13 +788,15 @@ def _main() -> int:
         raise                # main() 이 조용히 끝낸다 — '예상 못 한 오류' 가 아니다
     except Exception as e:  # Blender 오류 등
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
-    print(T("보고서:", "report:"), out)
+    print(result_label(a.cmd, out), out)
     if a.cmd == "rig":   # README 다음 줄이 `bw demo <run-id>` 라 id 를 경로에서 오려 내지 않게(stdout 은 보고서 경로 한 줄 그대로)
         rid = Path(out).parent.name; bv = pipeline.sample_bvh()   # 저장소의 손 흔들기 BVH — 그대로 붙여 넣어 돈다
         print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh {bv} --rig {rid}`",
                 f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh {bv} --rig {rid}`"), file=sys.stderr)
     elif a.cmd == "motion":   # report: 한 줄뿐이라 결과 파일·GLB 명령을 report.md 를 열어야 알았다(10/13 15회차 실측)
         print(motion_next(Path(out).parent, a), file=sys.stderr)
+    elif a.cmd in ("export", "demo"):
+        print(rig_result_next(a.cmd, a.run_id, out), file=sys.stderr)
     return 0
 
 

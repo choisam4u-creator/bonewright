@@ -20,6 +20,8 @@ See `docs/RELEASING.md` for the release steps.
 - A finished `bw rig` ends with a `next:` line on stderr naming `bw demo`, `bw export` and `bw motion --rig` with its
   run-id filled in, so the README's next step no longer means cutting the id out of the report path. stdout is still
   the one report line.
+- `bw export` and `bw demo` end with a `next:` line too, run-id filled in: the video or `bw demo`, the GLB or
+  `bw export`, and `bw motion --bvh <sample> --rig <id> --export` for an animated GLB.
 - `bw motion` ends with a `next:` line too: the `.blend` to open, and either the GLB it wrote or the same command
   with `--export` (without `--rig`: the same command with the latest rig's id).
 - `tests/README.md` opens with an English summary (one command, what skips without Blender, the two environment
@@ -85,6 +87,8 @@ See `docs/RELEASING.md` for the release steps.
   quickstart: same commands in both languages, real flags and extras, bone counts matching `examples/sample-output/`.
 
 ### Changed
+- The stdout line of `bw export` and `bw demo` is labelled with what the path is — `GLB:`, `video:` (or `frames:`
+  without ffmpeg) — instead of `report:`. It is still one line with the path.
 - Hints now run as pasted from any folder: a missing mesh, `--bvh` or `--targets` names the similar file beside it
   (`Hero.glb` for `hero.glb`, `Hero.gltf` or `Hero`); `bw bench` gives the fetch script by its full path outside the
   repository; `bw motion` with no source fills in the latest rig id; with only an installed copy every first-run hint

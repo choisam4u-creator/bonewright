@@ -489,6 +489,50 @@ class MotionNextTests(unittest.TestCase):
             self.assertEqual("r7", cli.build_parser().parse_args(shlex.split(re.search(r"rig: `([^`]*)`", line).group(1))[1:]).rig)
 
 
+class RigResultNextTests(unittest.TestCase):
+    """`bw export`·`bw demo`: the stdout line names what the path is (GLB, video, frames), and a next line follows like `bw rig`.
+
+    10/15 19회차 실측: 둘 다 `report: <경로>` 한 줄뿐 — GLB·영상이 '보고서' 로 불렸고 다음에 칠 명령이 없었다."""
+
+    def run_cmd(self, argv, home, out, lang="en"):
+        err, std, cwd = io.StringIO(), io.StringIO(), os.getcwd()
+        os.chdir(home)
+        try:
+            with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", home), patch.object(sys, "argv", ["bw", *argv]), \
+                    patch.object(cli.pipeline, argv[0] if argv[0] == "demo" else "export_rig", return_value=out), patch("sys.stderr", err), patch("sys.stdout", std):
+                self.assertEqual(0, cli.main())
+        finally:
+            os.chdir(cwd)
+        return std.getvalue().strip(), err.getvalue().strip().splitlines()[-1]
+
+    def test_label_and_next_commands_parse(self):
+        import re
+        import shlex
+        with tempfile.TemporaryDirectory() as t:
+            home = Path(t); rd = home / "runs" / "r1"; rd.mkdir(parents=True)
+            std, nxt = self.run_cmd(["export", "r1"], home, rd / "rigged.glb")
+            self.assertTrue(std.startswith("GLB: "), std)
+            self.assertNotIn("report", std)
+            cmds = re.findall(r"`(bw [^`]*)`", nxt)
+            self.assertEqual("bw demo r1", cmds[0])
+            ns = cli.build_parser().parse_args(shlex.split(cmds[1])[1:])   # 그대로 붙여 넣으면 된다(샘플 BVH 는 저장소 밖이면 절대 경로)
+            self.assertEqual(("r1", "auto"), (ns.rig, ns.export))
+            self.assertTrue(Path(ns.bvh).is_absolute() and Path(ns.bvh).is_file(), ns.bvh)
+            std, nxt = self.run_cmd(["demo", "r1"], home, rd / "demo.mp4")
+            self.assertTrue(std.startswith("video: "), std)
+            self.assertIn("`bw export r1` (game-ready GLB)", nxt)
+            (rd / "rigged.glb").write_bytes(b"glTF"); (rd / "demo.gif").write_bytes(b"GIF8")
+            std, nxt = self.run_cmd(["demo", "r1"], home, rd / "demo.mp4")
+            self.assertIn("GIF `runs/r1/demo.gif`", nxt)
+            self.assertIn("game-ready GLB `runs/r1/rigged.glb`", nxt)   # 이미 있으면 다시 만들라 하지 않는다
+            std, _ = self.run_cmd(["demo", "r1"], home, rd / "demo_frames")
+            self.assertTrue(std.startswith("frames: "), std)
+            (rd / "demo.mp4").write_bytes(b"\0")
+            std, nxt = self.run_cmd(["export", "r1"], home, rd / "rigged.glb", "ko")
+            self.assertTrue(std.startswith("GLB: "), std)
+            self.assertIn("다음: 영상 `runs/r1/demo.mp4`", nxt)
+
+
 class HelpDefaultTests(unittest.TestCase):
     def test_numbers_in_help_are_the_real_defaults(self):
         """A "default N" written into a help line equals the argument's real default (or config's, for --budget).
