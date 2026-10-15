@@ -133,6 +133,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A `bw motion` or `bw bench` run's id given where a rig goes (`bw export motion-…`, `--rig motion-…`) was called
+  a rig that "did not finish rigging", with advice to rig under that id — which would overwrite the motion run. It
+  now says what the run is and gives the same command with the latest rig (or the first rig command if there is none).
 - Without codex, `bw rig hero.glb` listed the 0-token routes to choose from although the analysis already knew
   whether the file has a skeleton; it now gives the one command that runs (`bw rig hero.glb --from-skeleton --no-judge`,
   or `--from-shape` for a bare mesh).

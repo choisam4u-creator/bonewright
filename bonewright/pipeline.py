@@ -269,6 +269,23 @@ def clear_replaced_rig(run_dir: Path) -> list[str] | None:
     return [n for n in gone if n.endswith((".glb", ".mp4", ".gif"))]
 
 
+def run_kind(rd: Path) -> str | None:
+    """실행 폴더의 종류(rig·motion·bench) — 만든 파일로 보고, 아직 없으면 기본 id 의 머리로. 모르면 None."""
+    if (rd / "bench.json").is_file():
+        return "bench"
+    if any((rd / f).is_file() for f in ("02_rigged.blend", "analysis.json", "fit.json")):
+        return "rig"
+    if any((rd / f).is_file() for f in ("motion.blend", "retarget.json")):
+        return "motion"
+    return next((k for k in ("rig", "motion", "bench") if rd.name.startswith(k + "-")), None)
+
+
+def swap_arg(old: str, new: str) -> str:
+    """지금 친 명령에서 값 old 를 new 로 바꾼 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
+    words = [new if w == old else f"--rig={new}" if w == f"--rig={old}" else w for w in sys.argv[1:]]
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+
+
 def need_rig(root: Path, run_id: str, use: str = "") -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
     use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""
@@ -277,6 +294,16 @@ def need_rig(root: Path, run_id: str, use: str = "") -> Path:
         state = root / "runs" / run_id / "state.json"
         runs = root / "runs"
         rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+        if (runs / run_id).is_dir() and (kind := run_kind(runs / run_id)) in ("motion", "bench"):   # 10/15 19회차: 동작 실행에 "리깅을 마치지 못했다 → 이 id 로 리깅" — 따르면 그 실행을 덮어쓴다
+            what = T(f"`{run_id}` 은 리그가 아니라 `bw {kind}` 실행이다", f"`{run_id}` is a `bw {kind}` run, not a rig")
+            if rigged:
+                rid = max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name
+                raise Blocked(T(f"{what}\n  → 최근 리그로: `{swap_arg(run_id, rid)}` (리그 목록 `bw status`)",
+                                f"{what}\n  → with the latest rig: `{swap_arg(run_id, rid)}` (rigs: `bw status`)"))
+            from .cli import _from_repo
+            where, first = _from_repo()
+            raise Blocked(T(f"{what}, 그리고 리깅을 마친 실행이 없다\n  → 먼저 {where}`{first}`, 그 `next:` 줄의 id 로 같은 명령",
+                            f"{what}, and no rig has been made yet\n  → {where}run `{first}` first, then this command with the id on its `next:` line"))
         if not state.exists() and rigged:
             import difflib
             near = difflib.get_close_matches(run_id, [p.name for p in rigged], n=3, cutoff=0.5) \

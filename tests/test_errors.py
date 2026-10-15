@@ -531,6 +531,40 @@ class NoRigAtAllTests(unittest.TestCase):
         self.assertIn("`bw status half`", self.run_bw("en", "export", "half")[1])   # 리깅을 못 마친 실행은 그 메시를 안다 — 지금 문구
 
 
+class NotARigRunTests(unittest.TestCase):
+    """A motion or bench run's id where a rig goes says what that run is and gives the same command with the latest rig.
+
+    10/15 19회차 실측(bpy 5.2.2): `bw export motion-…` → "this run did not finish rigging … Rig first with
+    `bw rig <mesh> --run-id motion-…`" — 틀린 말이고, 따르면 동작 실행을 덮어쓴다."""
+
+    run_bw = MissingRunIdTests.run_bw
+    setUp = MissingRunIdTests.setUp
+
+    def test_motion_and_bench_runs_point_at_the_latest_rig(self):
+        sample = str(Path(__file__).resolve().parents[1] / "examples" / "wave.bvh")
+        runs = self.root / "runs"
+        (runs / "walk").mkdir(parents=True); (runs / "walk" / "state.json").write_text("{}"); (runs / "walk" / "motion.blend").write_bytes(b"BLENDER")
+        (runs / "bench-1").mkdir(); (runs / "bench-1" / "bench.json").write_text("{}")
+        for argv in (["export", "walk"], ["demo", "walk"], ["motion", "--bvh", sample, "--rig", "walk"]):
+            code, err = self.run_bw("en", *argv)
+            self.assertEqual(2, code)
+            self.assertIn("`walk` is a `bw motion` run, not a rig", err)
+            self.assertNotIn("--run-id walk", err)   # 동작 실행을 덮어쓰는 안내를 하지 않는다
+            self.assertIn("`bw rig ", err)   # 리그가 없으면 첫 리깅 명령
+        (runs / "r9").mkdir(); (runs / "r9" / "02_rigged.blend").write_bytes(b"BLENDER")
+        for argv in (["export", "walk"], ["motion", "--bvh", sample, "--rig=walk"], ["demo", "bench-1"]):
+            for lang in ("en", "ko"):
+                with self.subTest(argv=argv, lang=lang):
+                    code, err = self.run_bw(lang, *argv)
+                    self.assertEqual(2, code)
+                    cmd = re.search(r"`(bw [^`]*)`", err.split("\n", 1)[1]).group(1)
+                    a = cli.build_parser().parse_args(split_pasted(cmd)[1:])
+                    self.assertEqual("r9", a.rig if argv[0] == "motion" else a.run_id)
+                    self.assertEqual(lang == "ko", bool(re.search("[가-힣]", err)), err)
+        (runs / "half").mkdir(); (runs / "half" / "state.json").write_text("{}")
+        self.assertIn("did not finish rigging", self.run_bw("en", "export", "half")[1])   # 리깅을 못 마친 리그 실행은 지금 문구
+
+
 class HeadlessRenderTests(unittest.TestCase):
     """A renderer that dies for want of a display (libEGL) says so, keeps the finished rig, and gives the same command with BW_NO_RENDER=1.
 
