@@ -39,6 +39,20 @@ def shown(path: Path) -> str:
         return f'"{path}"' if " " in str(path) else str(path)
 
 
+def again(argv: list[str], drop: str) -> str:
+    """이 예제를 다시 돌리는 명령에서 옵션 drop(값이 있으면 값까지, `--preset=X` 꼴도)을 뺀 꼴 — 그대로 붙여 넣어 돈다."""
+    words, skip = [], False
+    for w in argv:
+        if skip:
+            skip = False; continue
+        if w == drop:
+            skip = drop == "--preset"; continue
+        if w.startswith(drop + "="):
+            continue
+        words.append(f'"{w}"' if " " in w else w)
+    return " ".join(["python3", shown(Path(__file__).resolve()), *words])
+
+
 def glb_skin_bones(path: Path) -> list[str]:
     """GLB 의 첫 스킨 관절 이름을 순서대로 돌려준다(순수 파이썬, 블렌더 불필요)."""
     data = Path(path).read_bytes()
@@ -203,8 +217,12 @@ def main() -> int:
                           "after rigging, retarget a procedural BVH (hand wave) and write a summary (humanoid preset)"))
     a = p.parse_args()
     if a.motion and a.preset != "humanoid":   # 리깅(수십 초) 전에 막는다 — 기다린 뒤 거절하지 않게
-        raise SystemExit(T("--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)",
-                           "--motion works with the humanoid preset only (the procedural BVH is a human skeleton)"))
+        # 10/15 19회차: 그대로 칠 명령이 없었다 → 같은 명령에서 --motion 을 뺀 꼴, 메시를 안 줬으면 프리셋을 뺀 꼴(사람 인형에 동작)도
+        no_motion = again(sys.argv[1:], drop="--motion")
+        human = a.mesh is None or a.mesh in SAMPLES   # 절차 인형·저장소 캐릭터는 사람이다 — 내 메시는 모른다
+        doll = T(f"사람 프리셋으로 동작까지: `{again(sys.argv[1:], drop='--preset')}` · ", f"humanoid preset, with motion: `{again(sys.argv[1:], drop='--preset')}` · ") if human else ""
+        raise SystemExit(T(f"--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)\n  → {doll}리그만: `{no_motion}`",
+                           f"--motion works with the humanoid preset only (the procedural BVH is a human skeleton)\n  → {doll}the rig alone: `{no_motion}`"))
     if a.motion and a.table:
         raise SystemExit(T("--motion 과 --table 은 같이 쓸 수 없다 — --table 은 리깅하지 않는다",
                            "--motion and --table do not go together — --table does not rig"))

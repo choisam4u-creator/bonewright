@@ -137,6 +137,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `examples/rig_sample.py --preset quadruped --motion` said only that `--motion` needs the humanoid preset. It now
+  gives the same command without `--motion` (the dog rig alone) and, for the procedural doll or `adventurer`, without
+  `--preset` (the human doll with the hand wave).
 - A `bw motion` or `bw bench` run's id given where a rig goes (`bw export motion-…`, `--rig motion-…`) was called
   a rig that "did not finish rigging", with advice to rig under that id — which would overwrite the motion run. It
   now says what the run is and gives the same command with the latest rig (or the first rig command if there is none).

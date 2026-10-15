@@ -92,6 +92,25 @@ class ExampleMessageTests(unittest.TestCase):
                         self.assertIn(real(version), msg)
                     self.assertIn(want, msg)
 
+    def test_motion_with_quadruped_gives_commands_that_run(self):
+        """`--preset quadruped --motion` stops before rigging with the same command minus `--motion` (and, for a human mesh, minus `--preset`).
+
+        10/15 19회차 실측: "--motion works with the humanoid preset only" 뿐 — 그대로 칠 명령이 없었다."""
+        import shlex
+        import subprocess
+        for argv, want in ((["--preset", "quadruped", "--motion"], [["--motion"], ["--preset", "quadruped"]]),
+                           (["adventurer", "--motion", "--preset=quadruped"], [["adventurer", "--motion"], ["adventurer", "--preset=quadruped"]]),
+                           (["tests/assets/quaternius_adventurer.glb", "--preset", "quadruped", "--motion"], [["tests/assets/quaternius_adventurer.glb", "--preset", "quadruped"]])):
+            for lang in ("en", "ko"):
+                with self.subTest(argv=argv, lang=lang):
+                    r = subprocess.run([sys.executable, "examples/rig_sample.py", *argv], cwd=ROOT, capture_output=True, text=True,
+                                       env={**os.environ, "BW_LANG": lang}, timeout=60)
+                    self.assertEqual(1, r.returncode)
+                    cmds = [shlex.split(c) for c in re.findall(r"`(python3 [^`]*)`", r.stderr)]
+                    self.assertEqual(want, [c[2:] for c in cmds], r.stderr)
+                    self.assertTrue(all(c[1] == "examples/rig_sample.py" for c in cmds))
+                    self.assertEqual(lang == "ko", bool(re.search(r"[가-힣]", r.stderr)), r.stderr)
+
     def test_no_blender_hint_runs_as_pasted(self):
         """The no-Blender hint ends in a command that runs as pasted and prints a bone table.
 
