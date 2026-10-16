@@ -561,7 +561,8 @@ bw motion --bvh walk.bvh --rig my_blob --map bones.json
 ```
 
 It overrides the automatic matching per entry, leaves the rest alone, and tells you how many names it could not
-find in the BVH instead of silently ignoring a typo. Matching by **position** rather than by hand was tried for
+find in the BVH instead of silently ignoring a typo. A rig bone that is not in the rig is reported the same way, with the nearest control: rig
+names are control names, so a humanoid arm is `upper_arm_fk.L`, not the metarig's `upper_arm.L`. Matching by **position** rather than by hand was tried for
 weights and failed badly (see ROADMAP), so this stays manual for now.
 
 A word of warning from testing it: mapping a human shoulder onto a blob's tentacle does apply, and made the mesh

@@ -512,14 +512,25 @@ def headless_hint(step: str, run_dir: Path) -> str:
 def load_bone_map(path: str | Path) -> dict:
     """`--map` 파일을 읽고 모양을 본다. motion() 이 Blender 를 띄우기 **전에** 부른다(10/10 8회차: 없는 파일이 BVH 가져오기 뒤에야 걸렸다)."""
     try:
-        user = json.loads(need_file(path, "--map", T('{"LeftArm": "upper_arm.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm.L"}')).read_text(encoding="utf-8"))
+        user = json.loads(need_file(path, "--map", T('{"LeftArm": "upper_arm_fk.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm_fk.L"}')).read_text(encoding="utf-8"))
     except ValueError as e:
-        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm.L\"}}",
-                        f"--map file is not JSON: {path} ({e})\n  → e.g. {{\"LeftArm\": \"upper_arm.L\"}}"))
+        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm_fk.L\"}}",
+                        f"--map file is not JSON: {path} ({e})\n  → e.g. {{\"LeftArm\": \"upper_arm_fk.L\"}}"))
     if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
-        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}',
-                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path}\n  → e.g. {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}'))
+        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}',
+                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path}\n  → e.g. {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}'))
     return user
+
+
+def map_target_warning(bad: dict) -> str:
+    """`--map` 이 리그에 없는 본으로 보낸 항목 — Blender 쪽에서 말없이 빠져 그 BVH 본이 안 움직였다(10/16 21회차 실측:
+    안내의 예 `upper_arm.L` 은 메타리그 이름이고 컨트롤은 `upper_arm_fk.L`). 가까운 컨트롤이 있으면 고칠 항목을 그대로 댄다."""
+    items = ", ".join(f'"{k}": "{v["to"]}"' + (f' → "{v["near"][0]}"' if v.get("near") else "")
+                      for k, v in list(bad.items())[:4])
+    return T(f"  ⚠ --map: 리그에 없는 본 {len(bad)}개 — 그 BVH 본은 움직이지 않는다: {items}\n"
+             "    → 리그 본 이름은 컨트롤 이름이다(사람 프리셋 팔다리는 `_fk`, 예: upper_arm_fk.L). 매핑 파일을 고쳐 같은 명령",
+             f"  ⚠ --map: {len(bad)} rig bone(s) not in the rig — those BVH bones do not move: {items}\n"
+             "    → rig bone names are control names (humanoid limbs end in `_fk`, e.g. upper_arm_fk.L). Fix the map file and run the same command")
 
 
 def apply_bone_map(mapping: dict, bone_map: "dict | str | Path", bvh_bones: list) -> tuple[dict, int, list]:
@@ -981,6 +992,9 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                       f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
                       f"{n('retarget')} retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved · "
                       f"mean bone direction error {rt.get('mean_dir_deg')}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)"))
+        if bad := {k: v for k, v in (rt.get("no_target") or {}).items() if bone_map and k in user_map}:
+            _log(quiet, map_target_warning(bad))
+            report.append("- --map rig bones not in the rig (not moved): " + ", ".join(f"{k} → {v['to']}" for k, v in bad.items()))
         report += [f"- retarget → `{rig_run}`: mapped {len(rt['mapped'])} bones, unmapped {rt['unmapped']}",
                    f"- legs: {rt.get('legs')} · IK {rt.get('ik_legs') or []} · FK(no foot joint in source) {rt.get('ik_skipped') or []} · roll transfer: {rt.get('roll')} · hand/foot twist error vs BVH: " + ", ".join(f"{k} {v['mean_deg']}°(max {v['max_deg']})" for k, v in (rt.get('roll_deg') or {}).items()),
                    f"- bone direction error vs BVH (proportion-free): mean {rt.get('mean_dir_deg')}° · " +

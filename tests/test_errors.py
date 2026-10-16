@@ -1136,6 +1136,45 @@ class MotionStepNumberTests(unittest.TestCase):
                          self.steps(rig_run="r1", export="auto"))
 
 
+class MapRigNameTests(unittest.TestCase):
+    """A `--map` entry whose rig bone is not in the rig is said, with the nearest control, instead of vanishing.
+
+    10/16 21회차 실측(bpy 5.2.2): 안내의 예 `{"LeftArm": "upper_arm.L"}` 를 그대로 쓰면 컨트롤이 `upper_arm_fk.L` 이라
+    Blender 쪽에서 말없이 빠졌다 — 왼팔이 멈추고(왼손 오차 8.5 → 33.6cm) 로그는 "--map applied 1"."""
+
+    def log(self, lang, no_target):
+        fake = {"import_bvh": {"bones": 2, "frames": [1, 3], "fps": 30, "root_move": 0.0, "armature": "A", "bone_names": ["Hips", "LeftArm"]},
+                "retarget_bvh": {"mapped": {"Hips": "torso"}, "unmapped": ["LeftArm"], "scale": 1.0, "no_target": no_target}}
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}), \
+                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(fake[name])), patch.object(pipeline, "need_blender", lambda cfg: None):
+            root = Path(d); bvh = root / "walk.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
+            (root / "runs" / "r1").mkdir(parents=True); (root / "runs" / "r1" / "02_rigged.blend").write_text("")
+            m = root / "bones.json"; m.write_text('{"LeftArm": "upper_arm.L"}', encoding="utf-8")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                out = pipeline.motion(root, bvh=str(bvh), run_id="m1", bvh_up="y", rig_run="r1", bone_map=str(m))
+            return err.getvalue(), out.read_text(encoding="utf-8")
+
+    def test_rig_name_not_in_rig_is_said_with_the_control_name(self):
+        miss = {"LeftArm": {"to": "upper_arm.L", "near": ["upper_arm_fk.L"]}}
+        log, report = self.log("en", miss)
+        self.assertIn('1 rig bone(s) not in the rig — those BVH bones do not move: "LeftArm": "upper_arm.L" → "upper_arm_fk.L"', log)
+        self.assertIn("LeftArm → upper_arm.L", report)
+        self.assertIn("리그에 없는 본 1개", self.log("ko", miss)[0])
+        # 자동 매핑이 못 붙인 본(--map 에 없는 것)은 말하지 않는다 — 지금처럼 report 의 unmapped 로
+        self.assertNotIn("not in the rig", self.log("en", {"Spine": {"to": "spine_fk", "near": []}})[0])
+
+    def test_examples_use_control_names(self):
+        """The `--map` examples in messages and help name real controls (`upper_arm_fk.L`), not metarig bones."""
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": "en"}):
+            bad = Path(d) / "m.json"; bad.write_text("[1]", encoding="utf-8")
+            with self.assertRaises(pipeline.Blocked) as cm:
+                pipeline.load_bone_map(bad)
+            self.assertIn('"upper_arm_fk.L"', str(cm.exception)); self.assertNotIn('"upper_arm.L"', str(cm.exception))
+            helptext = cli.build_parser()._subparsers._group_actions[0].choices["motion"].format_help()
+            self.assertIn("upper_arm_fk.L", helptext); self.assertNotIn('"upper_arm.L"', helptext)
+
+
 class MotionRigOnlyFlagTests(unittest.TestCase):
     """`bw motion` refuses retarget-only flags without `--rig`, before Blender and before a run folder.
 

@@ -620,8 +620,8 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--legs", choices=["auto", "fk", "ik"], default="auto", help=T("다리 전달: auto(소스에 발끝 관절이 있는 다리만 IK) | fk(회전만) | ik(발 IK 로 BVH 발끝을 좇음, 비율 차이 흡수)", "legs: auto (IK only for legs whose source has toe joints) | fk (rotation only) | ik (foot IK follows the BVH feet, absorbs proportion differences)"))
     m.add_argument("--no-roll", action="store_true", help=T("리타겟에서 비틀림(롤)을 옮기지 않는다(방향만, A/B 비교용)", "do not transfer twist (roll), direction only (for A/B comparison)"))
     m.add_argument("--map", dest="bone_map", metavar="bones.json",
-                   help=T('BVH 본 → 리그 본 매핑 파일 {"LeftArm": "upper_arm.L"}. 이름이 없는 리그(모양 리그의 Limb3_2 등)는 자동 매핑이 못 붙으니 직접 적는다',
-                          'BVH bone → rig bone map {"LeftArm": "upper_arm.L"}. Rigs without standard names (a shape rig\'s Limb3_2 etc.) need one written by hand'))
+                   help=T('BVH 본 → 리그 본 매핑 파일 {"LeftArm": "upper_arm_fk.L"}. 이름이 없는 리그(모양 리그의 Limb3_2 등)는 자동 매핑이 못 붙으니 직접 적는다',
+                          'BVH bone → rig bone map {"LeftArm": "upper_arm_fk.L"}. Rigs without standard names (a shape rig\'s Limb3_2 etc.) need one written by hand'))
     m.add_argument("--export", nargs="?", const="auto", help=T("리타겟 결과를 GLB 로 내보낸다(변형 본만·애니 구움). 경로 생략 시 runs/<id>/animated.glb", "export the retargeted result as GLB (deform bones only, animation baked). Default path runs/<id>/animated.glb"))
     ex = sub.add_parser("export", help=T("리그 결과를 변형 본만 든 GLB 로 내보내기(게임 엔진용), 토큰 0", "export a rig as a deform-only GLB for game engines (0 tokens)"))
     ex.add_argument("run_id", nargs="?", type=run_id_arg, help=T("내보낼 리그의 실행 id(`bw status` 로 목록, 생략하면 최근 리그를 알려 준다)", "run id of the rig to export (list with `bw status`; omit it to be told the latest rig)")); ex.add_argument("--out", help=T("출력 경로(기본 runs/<id>/rigged.glb)", "output path (default runs/<id>/rigged.glb)")); ex.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
