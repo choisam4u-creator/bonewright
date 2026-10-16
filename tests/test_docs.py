@@ -395,10 +395,10 @@ class RetargetTableTests(unittest.TestCase):
     def test_guide_table_matches_bvh_mapping(self):
         from bonewright.retarget import bvh_mapping
         text = (REPO / "docs" / "GUIDE.md").read_text(encoding="utf-8")
-        part = text.split("| Rig control | Mixamo-style names | kimodo-style names |", 1)[1].split("\n\n", 1)[0]
+        part = text.split("| Rig control | Mixamo-style names | kimodo-style names | joint-named (SMPL, pose estimators) |", 1)[1].split("\n\n", 1)[0]
         rows = [[c.strip() for c in ln.strip("|").split("|")] for ln in part.splitlines()[1:] if ln.startswith("|")]
         self.assertGreaterEqual(len(rows), 12)
-        for col, style in ((1, "Mixamo"), (2, "kimodo")):
+        for col, style in ((1, "Mixamo"), (2, "kimodo"), (3, "joint-named")):
             # 이름순이면 Spine < Spine1 < Spine2 로 실제 BVH 계층 순서와 같다(가슴 판정이 순서를 본다)
             names = sorted(n for r in rows for n in re.findall(r"`([^`]+)`", r[col]))
             got = bvh_mapping(names)

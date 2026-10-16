@@ -578,24 +578,26 @@ Units and frame rate are taken from the file (CMU's 16.7-unit hip height becomes
 Which joint drives which control (humanoid preset; the right side is the same with `Right`/`.R`; a `mixamorig:`
 prefix is ignored):
 
-| Rig control | Mixamo-style names | kimodo-style names |
-|---|---|---|
-| `torso` (root motion too) | `Hips` | `Hips` |
-| `chest` | `Spine2` | `Chest` |
-| `neck` | `Neck` | `Neck1` |
-| `head` | `Head` | `Head` |
-| `shoulder.L` | `LeftShoulder` | `LeftShoulder` |
-| `upper_arm_fk.L` | `LeftArm` | `LeftArm` |
-| `forearm_fk.L` | `LeftForeArm` | `LeftForeArm` |
-| `hand_fk.L` | `LeftHand` | `LeftHand` |
-| `thigh_fk.L` | `LeftUpLeg` | `LeftLeg` |
-| `shin_fk.L` | `LeftLeg` | `LeftShin` |
-| `foot_fk.L` | `LeftFoot` | `LeftFoot` |
-| not moved | `Spine`, `Spine1`, `LeftToeBase` | `Spine1`, `Spine2`, `Neck2`, `Jaw`, `LeftEye`, `LeftToeBase` |
+| Rig control | Mixamo-style names | kimodo-style names | joint-named (SMPL, pose estimators) |
+|---|---|---|---|
+| `torso` (root motion too) | `Hips` | `Hips` | `Pelvis` |
+| `chest` | `Spine2` | `Chest` | `Spine3` |
+| `neck` | `Neck` | `Neck1` | `Neck` |
+| `head` | `Head` | `Head` | `Head` |
+| `shoulder.L` | `LeftShoulder` | `LeftShoulder` | `L_Collar` |
+| `upper_arm_fk.L` | `LeftArm` | `LeftArm` | `L_Shoulder` |
+| `forearm_fk.L` | `LeftForeArm` | `LeftForeArm` | `L_Elbow` |
+| `hand_fk.L` | `LeftHand` | `LeftHand` | `L_Wrist` |
+| `thigh_fk.L` | `LeftUpLeg` | `LeftLeg` | `L_Hip` |
+| `shin_fk.L` | `LeftLeg` | `LeftShin` | `L_Knee` |
+| `foot_fk.L` | `LeftFoot` | `LeftFoot` | `L_Ankle` |
+| not moved | `Spine`, `Spine1`, `LeftToeBase` | `Spine1`, `Spine2`, `Neck2`, `Jaw`, `LeftEye`, `LeftToeBase` | `Spine1`, `Spine2`, `L_Foot` |
 
 The **mid spine is not moved on purpose**: the Rigify torso has one FK `chest` control above the hips, so the joint
 called `Chest` — or, without one, the highest-numbered `Spine`/`Torso` joint — drives it, and the joints in between
-are skipped. `LeftLeg` means the thigh when the same side also has a `Shin`, and the shin otherwise. So "unmapped
+are skipped. `LeftLeg` means the thigh when the same side also has a `Shin`, and the shin otherwise. A BVH joint turns the bone that
+starts at it, so when a side has a `Knee` or `Elbow` joint, `Hip` is the thigh and `Shoulder` the upper arm (the
+pelvis and Mixamo's `LeftShoulder` collarbone are unaffected). So "unmapped
 ['Spine']" in `report.md` is expected, not a failure; the motion sample
 [`examples/sample-output/capsule_doll_motion.md`](../examples/sample-output/capsule_doll_motion.md) (`python3
 examples/rig_sample.py --motion`) maps 18 of 19 joints this way. Anything else unmapped can be added with `--map`

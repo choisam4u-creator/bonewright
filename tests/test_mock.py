@@ -458,6 +458,27 @@ class RetargetMappingTests(unittest.TestCase):
         self.assertEqual(m["mixamorig:Neck"], "neck"); self.assertEqual(m["mixamorig:LeftFoot"], "foot_fk.L")
         self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
 
+    def test_joint_names_move_the_limbs(self):
+        """Joint-named BVH (SMPL, pose estimators: L_Hip/L_Knee, L_Shoulder/L_Elbow) moves the arms and legs.
+
+        10/16 22회차: 팔다리 9개가 말없이 안 움직였다(Hip 은 골반, Shoulder 는 쇄골로 읽혔다). BVH 관절은 거기서 시작하는 뼈를 돌린다"""
+        from bonewright.retarget import bvh_mapping
+        smpl = ["Pelvis", "L_Hip", "L_Knee", "L_Ankle", "L_Foot", "R_Hip", "R_Knee", "R_Ankle", "R_Foot", "Spine1", "Spine2", "Spine3",
+                "Neck", "L_Collar", "L_Shoulder", "L_Elbow", "L_Wrist", "L_Hand", "R_Collar", "R_Shoulder", "R_Elbow", "R_Wrist", "R_Hand", "Head"]
+        m = bvh_mapping(smpl)
+        for n, want in (("Pelvis", "torso"), ("L_Hip", "thigh_fk.L"), ("L_Knee", "shin_fk.L"), ("L_Ankle", "foot_fk.L"),
+                        ("R_Hip", "thigh_fk.R"), ("L_Collar", "shoulder.L"), ("L_Shoulder", "upper_arm_fk.L"),
+                        ("L_Elbow", "forearm_fk.L"), ("L_Wrist", "hand_fk.L"), ("R_Elbow", "forearm_fk.R"), ("Spine3", "chest")):
+            self.assertEqual(want, m.get(n), n)
+        self.assertEqual(len(set(m.values())), len(m))
+        # 사족 리그엔 앞다리로
+        q = bvh_mapping(smpl, "quadruped")
+        self.assertEqual(("front_thigh_fk.L", "front_shin_fk.L"), (q.get("L_Shoulder"), q.get("L_Elbow")))
+        # 같은 이름이 다른 규약에선 그대로: Mixamo 의 LeftShoulder 는 쇄골, 위팔 이름이 따로 있으면 Elbow 가 있어도 쇄골
+        mix = bvh_mapping(["Hips", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "LeftUpLeg", "LeftLeg", "LeftFoot"])
+        self.assertEqual(("shoulder.L", "upper_arm_fk.L", "thigh_fk.L"), (mix["LeftShoulder"], mix["LeftArm"], mix["LeftUpLeg"]))
+        self.assertEqual("shoulder.L", bvh_mapping(["Hips", "LeftShoulder", "LeftArm", "LeftElbow"])["LeftShoulder"])
+
 
 class QuadTailMappingTests(unittest.TestCase):
     """사족 꼬리: 늑대 메타리그 꼬리 사슬은 골반 쪽부터 spine.003 → .002 → .001 → spine 이다(번호가 거꾸로).

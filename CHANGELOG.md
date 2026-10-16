@@ -137,6 +137,11 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A joint-named BVH (SMPL and pose-estimation tools: `L_Hip`/`L_Knee`/`L_Ankle`, `L_Shoulder`/`L_Elbow`/`L_Wrist`)
+  left nine arm and leg joints unmoved and still said "done": `Hip` was read as the pelvis and `Shoulder` as the
+  collarbone. When a side has a `Knee` or `Elbow` joint, `Hip` now drives the thigh and `Shoulder` the upper arm
+  (hand/foot error on the sample wave 30.9 → 10.3 cm, the same as the Mixamo-named file). GUIDE's joint table has
+  the column.
 - A `--map` file written the Python/JavaScript way (`{'LeftArm': 'upper_arm_fk.L',}`) got the parser's message and
   an example. It now gets the same map as one line of JSON to put in the file; other JSON errors show the line to
   fix, and a file saved with a byte-order mark (Windows Notepad) is read. A map of the wrong shape names the entries

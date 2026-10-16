@@ -26,6 +26,11 @@ TAIL_TARGETS = ["spine.003", "spine.002", "spine.001", "spine"]
 SIDED = {"shoulder", "upper_arm_fk", "forearm_fk", "hand_fk", "thigh_fk", "shin_fk", "foot_fk",
          "front_thigh_fk", "front_shin_fk", "front_foot_fk"}
 CHEST_WORDS = ("chest", "spine2", "spine3", "upperchest")
+# 관절 이름 규약(SMPL·자세 추정 도구가 내보내는 BVH: L_Hip/L_Knee/L_Ankle, L_Collar/L_Shoulder/L_Elbow/L_Wrist).
+# BVH 관절은 거기서 시작하는 뼈를 돌리므로 Hip=허벅지·Knee=정강이·Shoulder=위팔·Elbow=아래팔이다.
+# 10/16 22회차 실측: 이 규약이면 팔다리 9개가 말없이 안 움직였다(Hip 은 골반, Shoulder 는 쇄골로 읽혔다)
+KNEE_WORDS = {"hip": "thigh", "knee": "shin"}
+ELBOW_WORDS = {"shoulder": "upper_arm", "elbow": "forearm"}
 
 
 def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str]:
@@ -37,6 +42,11 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
     norm = {n: _norm(n) for n in bvh_names}
     # 'leg' 와 'shin' 이 같은 쪽에 함께 있으면 leg=허벅지
     has_shin = {side for n, (core, side) in norm.items() if "shin" in _cores(core)}
+    # 관절 이름 규약: 무릎·팔꿈치가 있는 쪽만(Mixamo 의 LeftShoulder=쇄골, 골반 Hips 는 그대로). 위팔 이름(arm·upperarm)이 따로 있으면 그쪽이 위팔
+    has_knee = {side for n, (core, side) in norm.items() if side and "knee" in _cores(core)}
+    arm_named = {side for core, side in norm.values() if _cores(core) & {"arm", "upperarm"}}
+    has_elbow = {side for core, side in norm.values() if side and "elbow" in _cores(core)} - arm_named
+    elbow_words = {"shoulder": "front_thigh", "elbow": "front_shin"} if quad else ELBOW_WORDS   # 사족은 앞다리
     # 가슴: chest 라는 이름이 없으면(Mixamo: Spine/Spine1/Spine2, Quaternius 동물: Torso/Torso2/Torso3) 번호가 가장 큰 척추 관절을 가슴으로 본다.
     # _norm 이 끝 번호를 지우므로 원래 이름에서 따로 본다
     raw = {n: re.sub(r"[^a-z0-9]", "", n.lower().split(":")[-1]) for n in bvh_names}
@@ -51,6 +61,10 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
         base = None
         if "leg" in cores and side in has_shin:
             base = "thigh"
+        elif side in has_knee and (hit := next((KNEE_WORDS[c] for c in cores if c in KNEE_WORDS), None)):
+            base = hit
+        elif side in has_elbow and (hit := next((elbow_words[c] for c in cores if c in elbow_words), None)):
+            base = hit
         elif n == chest_name:
             base = "chest"
         else:
