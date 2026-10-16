@@ -1,11 +1,34 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/16 21회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/16 22회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 291개, 건너뜀 0
-echo '{"LeftArm": "upper_arm.L"}' > /tmp/m.json && bw motion --bvh examples/wave.bvh --rig r1 --map /tmp/m.json   # ⚠ "LeftArm": "upper_arm.L" → "upper_arm_fk.L"
-BW_HOME=$(mktemp -d) bw motion --bvh examples/wave.bvh   # next: 에 `… --run-id first-rig` 다음 `… --rig first-rig`(자리표시 없음)
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 295개, 건너뜀 0
+sed -e 's/LeftArm/L_Shoulder/;s/LeftForeArm/L_Elbow/;s/LeftUpLeg/L_Hip/;s/LeftLeg/L_Knee/' examples/wave.bvh > /tmp/j.bvh && bw motion --bvh /tmp/j.bvh --rig r1   # 18 bones moved, ⚠ 없음
+sed -e 's/LeftArm/LeftBrachium/' examples/wave.bvh > /tmp/o.bvh && bw motion --bvh /tmp/o.bvh --rig r1   # ⚠ upper_arm_fk.L 가 안 움직임 + `… --map bones.json`
 ```
+
+## 2026-10-16 (22회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv(편집 설치)로 저장소 밖 임시 폴더에서 rig(사람·개) → motion 을 **이름 규약만 바꾼 wave.bvh**(Mixamo·UE·SMPL·Biovision·모르는 이름)와 개 리그로 쳐 보고 **새 항목 3개** 추가, 3개 모두 처리:
+  - **관절 이름 BVH(SMPL·자세 추정 도구: `L_Hip`/`L_Knee`/`L_Shoulder`/`L_Elbow`)**: 팔다리 9개가 말없이 안 움직이고 "done"(본 10개, 손발 오차 30.88cm). `Hip` 이 골반, `Shoulder` 가 쇄골로 읽혔다 → 무릎·팔꿈치가 있는 쪽은 Hip=허벅지·Shoulder=위팔(사족은 앞다리). 18본·10.33cm(Mixamo 이름 파일과 같음). GUIDE 관절 표에 열.
+  - **Biovision 원래 이름(`LeftUpArm`/`LeftLowArm`/`LeftLowLeg`)**: 두 팔·정강이 6개가 안 움직임(31.4cm) → Mixamo 이름처럼(10.33cm). 벤치 정답 이름표(`JOINT_MAP`)는 손대지 않음.
+  - **모르는 이름의 팔다리 본**: "BVH 본 3개 못 옮김" 숫자뿐 → retarget 줄에 못 옮긴 본 이름, ⚠ 로 움직이지 않는 컨트롤·그쪽의 못 알아본 본·그대로 칠 `… --map bones.json` 과 파일 꼴. 안내대로 하면 20.86 → 10.33cm. 개 리그의 "None°·Nonecm" → "재지 않음". 21회차 "다음 후보".
+- CHANGELOG Fixed 3줄, GUIDE 두 문장·표 열, tests/README·CONTRIBUTING 시험 수. 사용자 체감: 흔한 BVH 두 규약이 **말없이 망가지던** 것이 그대로 돌고, 그 밖의 규약은 다음 할 일을 말한다. 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 295개 중 16개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **295개 모두 통과, 건너뜀 0**(147초). 라이선스 경계 검사 OK.
+- 새·바뀐 시험은 고치기 전 코드로 되돌려 모두 실패 확인. 세 고침 모두 bpy 설치본 `bw motion` 으로 고치기 전·후 숫자를 실제로 잼(위 숫자).
+- 못 돌린 것: 실제 렌더(화면 없는 리눅스). 진짜 SMPL·Biovision 모캡 파일이 아니라 wave.bvh 의 이름만 바꾼 파일로 쟀다 — 실제 파일의 축·단위 차이는 Mac 에서 한 번 보면 좋다.
+- CI: PR #10 헤드에서 21회차와 같이 잡 전부 1~3초 만에 단계 없이 끝남(blender 잡도 pending 으로 머물다 같은 식) — 러너가 안 붙는 것(비공개 저장소의 Actions 사용량·결제 한도로 추정, 샘님이 Settings → Billing 에서 확인). 코드와 무관.
+
+**완료 수·추가 수**: 완료 3 · 추가 3 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 다음 후보: 사람 BVH(wave.bvh)를 사족 리그에 줄 때 — 개 리그의 `bw rig` `next:` 가 사람 손 흔들기를 권한다(앞다리가 팔처럼 움직임, 사족 샘플 BVH 가 저장소에 없다), UE 이름(`spine_01`·`ball_l`)의 척추 가운데·발볼, `--map` 에 쓸 리그 컨트롤 목록을 Blender 전에 보는 길.
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 22회차로 적었다. 이 세션의 지정 브랜치(`claude/cloud-work-lctk51`)가 아니라 지시문대로 `claude/cloud-work` 에 푸시했다(지난 회차들과 같음).
 
 ## 2026-10-16 (21회차)
 
