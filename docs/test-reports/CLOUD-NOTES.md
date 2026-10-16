@@ -1,11 +1,37 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/15 20회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/16 21회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 285개, 건너뜀 0
-BW_NO_RENDER=1 bw demo r1; env -u BW_NO_RENDER bw demo r1   # 앞은 BLOCKED + 붙여 넣을 명령·`bw export r1`, 뒤(안내 명령 그대로)는 Mac 에서 실제 영상
-bw motion --bvh examples/wave.bvh --export; bw status r2     # 앞은 `--rig <최근 리그>` 붙인 같은 명령, 뒤는 `bw status r1`
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 291개, 건너뜀 0
+echo '{"LeftArm": "upper_arm.L"}' > /tmp/m.json && bw motion --bvh examples/wave.bvh --rig r1 --map /tmp/m.json   # ⚠ "LeftArm": "upper_arm.L" → "upper_arm_fk.L"
+BW_HOME=$(mktemp -d) bw motion --bvh examples/wave.bvh   # next: 에 `… --run-id first-rig` 다음 `… --rig first-rig`(자리표시 없음)
 ```
+
+## 2026-10-16 (21회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv(편집 설치)로 저장소 밖 임시 폴더에서 rig → motion(`--map` 여러 꼴) → bench 를 쳐 보고 **새 항목 5개** 추가, 5개 모두 처리:
+  - **`--map` 예가 왼팔을 멈춤**(이번 회차의 큰 것): 안내·도움말의 예 `{"LeftArm": "upper_arm.L"}` 를 그대로 쓰면 컨트롤이 `upper_arm_fk.L` 이라 Blender 쪽에서 말없이 빠지고, 자동으로 붙던 LeftArm 까지 잃었다(왼손 오차 8.5 → 33.6cm, 로그는 "applied 1"). 예를 컨트롤 이름으로, 리그에 없는 본은 가까운 컨트롤과 함께 ⚠ 로그·report, GUIDE 한 문장.
+  - **리그가 하나도 없을 때 `bw motion` 의 `next:`**: "`bw status` 의 리그 id + `--rig <id>`" → 첫 리깅 `--run-id first-rig` 다음 같은 명령 `--rig first-rig`. 두 명령을 `&&` 로 이어 retargeted.blend 까지 확인. 20회차 "다음 후보".
+  - **`bw bench <빈 폴더>`**: 받기 명령만 → 없는 경로 안내와 같은 다음 명령(메시가 든 받아 둔 폴더, 없으면 `… && bw bench bench-assets/samples`).
+  - **JSON 이 아닌 `--map`**(작은따옴표·끝 쉼표): 그대로 쓸 JSON 한 줄, 아니면 틀린 줄. BOM 파일(메모장)도 읽음. 20회차 "다음 후보".
+  - **모양이 틀린 `--map`**: 틀린 항목(`"LeftArm": 3`)이나 최상위 형(list)을 댐.
+- CHANGELOG Fixed 4줄, tests/README·CONTRIBUTING 시험 수. 사용자 체감: 셋은 "막힌 자리에서 그대로 칠 다음 명령", 하나(`--map` 예)는 문서·안내를 따랐는데 결과가 조용히 나빠지던 것. 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 291개 중 16개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **291개 모두 통과, 건너뜀 0**(132초). 처음엔 BW_HOME 을 없는 폴더로 줘서 `ClosedPipeTests` 1개가 "BW_HOME does not exist" 경고로 실패 — 폴더를 만들고 다시 돌려 통과(환경 탓, 코드 무관). 라이선스 경계 검사 OK.
+- 새·바뀐 시험은 고치기 전 코드로 되돌려 모두 실패 확인. `--map` ⚠ 문구·고친 매핑(18본, 왼손 오차 원래대로)·`bench` 빈 폴더·`--map` 오류 문구는 bpy 설치본 `bw` 로 실제로 찍어 봄.
+- 못 돌린 것: 실제 렌더(화면 없는 리눅스). `retarget_bvh.py` 의 `_near`(가까운 컨트롤)는 사람 프리셋에서만 실측 — 사족·모양 리그 이름은 difflib 쪽이라 Mac 에서 한 번 보면 좋다.
+- CI: PR #10 헤드(96dc055)에서도 **잡 전부 1~3초 만에 단계 없이 끝남**(run 38839408572·38839404453, unit 3.11·windows·blender failure, 3.13 cancelled) — 17~20회차와 같고 코드와 무관, 러너가 안 붙는 것(비공개 저장소의 Actions 사용량·결제 한도로 추정, 샘님이 Settings → Billing 에서 확인). blender 잡이 pending 으로 머무는 이유도 같다.
+
+**완료 수·추가 수**: 완료 5 · 추가 5 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 같은 시각에 다른 클라우드 세션(session_01WREwVC…)이 `claude/cloud-work` 에 시험 수 문서 맞춤 커밋(eafae7d)을 올려 푸시가 한 번 거절됨 → 내 미푸시 커밋을 그 위로 rebase 해 해결. 회차가 겹쳐 돌면 시험 수 문서가 서로 엇갈릴 수 있다 — 스케줄이 둘 걸려 있는지 샘님 확인.
+- 다음 후보: `--map` 의 리그 쪽 이름을 미리(Blender 전에) 볼 길(리그의 컨트롤 목록을 rig_stats.json 에 남기기), `bw motion` 이 사족 리그에 사람 BVH 를 줄 때의 안내, `--map` 에 쓸 BVH 본 이름을 보여 주는 길(`import:` 줄에 못 옮긴 본 이름).
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 21회차로 적었다.
 
 ## 2026-10-15 (20회차)
 
