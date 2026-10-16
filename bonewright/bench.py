@@ -205,16 +205,17 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
     where, script = pipeline.fetch_bench()   # 저장소 밖에서도 그대로 도는 경로(10/12 13회차)
     fetch = T(f"벤치 자산은 {where}`{script}` 로 bench-assets/ 에 받는다",
               f"Get the benchmark assets into bench-assets/{where} with `{script}`")
+    # 빈 폴더·없는 경로 둘 다 같은 다음 명령: 받아 둔 자산 폴더(메시가 든 것), 없으면 받기 && bench(10/16 21회차: 빈 폴더엔 받기만 있었다)
+    got = Path("bench-assets")
+    subs = sorted(str(d) for d in got.iterdir() if d.is_dir() and any(f.suffix.lower() in (".glb", ".gltf", ".fbx") for f in d.rglob("*"))) if got.is_dir() else []
+    nxt = (T(f"받아 둔 자산 폴더: `bw bench {subs[0]}`", f"Assets already fetched here: `bw bench {subs[0]}`") if subs else
+           T(f"{where}자산을 받은 뒤 폴더째로(샘플 4개): `{script} --only samples && bw bench bench-assets/samples`",
+             f"Fetch the assets{where}, then pass the folder (4 samples): `{script} --only samples && bw bench bench-assets/samples`"))
     if not meshes:
-        raise Blocked(T(f"잴 메시가 없다(폴더 안에 .glb·.gltf·.fbx 가 없다)\n  → 원본 뼈대가 든 GLB/FBX 파일이나 그것이 든 폴더를 줘라. {fetch}",
-                        f"no meshes to measure (no .glb · .gltf · .fbx in the folder)\n  → pass GLB/FBX files that carry their own skeleton, or a folder of them. {fetch}"))
+        raise Blocked(T(f"잴 메시가 없다(폴더 안에 .glb·.gltf·.fbx 가 없다)\n  → 원본 뼈대가 든 GLB/FBX 파일이나 그것이 든 폴더를 줘라. {nxt}",
+                        f"no meshes to measure (no .glb · .gltf · .fbx in the folder)\n  → pass GLB/FBX files that carry their own skeleton, or a folder of them. {nxt}"))
     for m in meshes:
         if not Path(m).expanduser().exists():   # bench 는 폴더도 받는다 — "mesh file not found" 는 반만 맞았다(10/11 10회차)
-            got = Path("bench-assets")
-            subs = sorted(str(d) for d in got.iterdir() if d.is_dir()) if got.is_dir() else []
-            nxt = (T(f"받아 둔 자산 폴더: `bw bench {subs[0]}`", f"Assets already fetched here: `bw bench {subs[0]}`") if subs else
-                   T(f"{where}자산을 받은 뒤 폴더째로(샘플 4개): `{script} --only samples && bw bench bench-assets/samples`",
-                     f"Fetch the assets{where}, then pass the folder (4 samples): `{script} --only samples && bw bench bench-assets/samples`"))
             raise pipeline.Blocked(T(f"메시 파일이나 폴더가 없다: {m}\n  → 경로를 확인하라(공백이 있으면 따옴표). {nxt}",
                                      f"mesh file or folder not found: {m}\n  → check the path (quote it if it has spaces). {nxt}"))
         pipeline.need_mesh_bytes(pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx")))   # 이름만 .fbx 인 파일이 "Blender not found" 뒤에 숨었다(10/13 15회차)

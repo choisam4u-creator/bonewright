@@ -137,6 +137,8 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw bench <empty folder>` named only the fetch script. It now gives the same next step as a missing path: an
+  already-fetched `bench-assets/` folder that holds meshes, or `… --only samples && bw bench bench-assets/samples`.
 - `bw motion --bvh …` with no rig anywhere ended with "the same command + `--rig <id>` with a rig id from
   `bw status`", but `bw status` had no rig to offer. It now gives the first rig command with `--run-id first-rig`,
   then the same motion command with `--rig first-rig`.

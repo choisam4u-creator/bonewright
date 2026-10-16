@@ -1390,8 +1390,8 @@ class BenchInputTests(unittest.TestCase):
             try:
                 for have, want in ((False, "fetch_bench_assets.py --only samples && bw bench bench-assets/samples"),
                                    (True, "`bw bench " + str(Path("bench-assets") / "samples") + "`")):
-                    if have:
-                        (root / "bench-assets" / "samples").mkdir(parents=True)
+                    if have:   # 메시가 든 폴더만 고른다(10/16 21회차)
+                        (root / "bench-assets" / "samples").mkdir(parents=True); (root / "bench-assets" / "samples" / "a.glb").write_bytes(b"glTF")
                     with self.subTest(fetched=have), self.assertRaises(pipeline.Blocked) as cm:
                         self.bench(root, ["nofolder"], fake={})
                     self.assertIn("file or folder not found: nofolder", str(cm.exception)); self.assertIn(want, str(cm.exception))
@@ -1399,6 +1399,30 @@ class BenchInputTests(unittest.TestCase):
                     from bonewright import bench
                     bench.run(root, ["nofolder"], run_id="b1", quiet=True)
                 self.assertIn("파일이나 폴더가 없다", str(cm.exception))
+            finally:
+                os.chdir(cwd)
+            self.assertFalse((root / "runs").exists())
+
+    def test_empty_folder_gives_the_same_next_command(self):
+        """An empty bench folder gives the same next step as a missing path: a fetched folder that holds meshes, or fetch && bench.
+
+        10/16 21회차 실측: `bw bench empty` → 받는 명령만 — 받은 뒤 칠 `bw bench bench-assets/samples` 가 없었다."""
+        with tempfile.TemporaryDirectory() as d:
+            root, cwd = Path(d), os.getcwd()
+            os.chdir(d)
+            try:
+                with self.assertRaises(pipeline.Blocked) as cm:
+                    self.bench(root, [], fake={})
+                self.assertIn("fetch_bench_assets.py --only samples && bw bench bench-assets/samples", str(cm.exception))
+                (root / "bench-assets" / "empty").mkdir(parents=True)   # 메시 없는 폴더는 고르지 않는다
+                (root / "bench-assets" / "samples").mkdir(); (root / "bench-assets" / "samples" / "a.glb").write_bytes(b"glTF")
+                with self.assertRaises(pipeline.Blocked) as cm:
+                    self.bench(root, [], fake={})
+                self.assertIn("`bw bench " + str(Path("bench-assets") / "samples") + "`", str(cm.exception))
+                with patch.dict(os.environ, {"BW_LANG": "ko"}), self.assertRaises(pipeline.Blocked) as cm:
+                    from bonewright import bench
+                    bench.run(root, [], run_id="b1", quiet=True)
+                self.assertIn("받아 둔 자산 폴더", str(cm.exception))
             finally:
                 os.chdir(cwd)
             self.assertFalse((root / "runs").exists())
