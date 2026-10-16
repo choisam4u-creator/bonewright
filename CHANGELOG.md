@@ -142,6 +142,9 @@ See `docs/RELEASING.md` for the release steps.
   collarbone. When a side has a `Knee` or `Elbow` joint, `Hip` now drives the thigh and `Shoulder` the upper arm
   (hand/foot error on the sample wave 30.9 → 10.3 cm, the same as the Mixamo-named file). GUIDE's joint table has
   the column.
+- A BVH with the Biovision names the format itself was described with (`LeftUpArm`, `LeftLowArm`, `LeftLowLeg`)
+  left both arms and both shins unmoved (hand/foot error 31.4 → 10.3 cm on the sample wave). They map like
+  `LeftArm`/`LeftForeArm`/`LeftLeg` now.
 - A `--map` file written the Python/JavaScript way (`{'LeftArm': 'upper_arm_fk.L',}`) got the parser's message and
   an example. It now gets the same map as one line of JSON to put in the file; other JSON errors show the line to
   fix, and a file saved with a byte-order mark (Windows Notepad) is read. A map of the wrong shape names the entries

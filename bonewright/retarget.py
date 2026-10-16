@@ -30,6 +30,10 @@ CHEST_WORDS = ("chest", "spine2", "spine3", "upperchest")
 # BVH 관절은 거기서 시작하는 뼈를 돌리므로 Hip=허벅지·Knee=정강이·Shoulder=위팔·Elbow=아래팔이다.
 # 10/16 22회차 실측: 이 규약이면 팔다리 9개가 말없이 안 움직였다(Hip 은 골반, Shoulder 는 쇄골로 읽혔다)
 KNEE_WORDS = {"hip": "thigh", "knee": "shin"}
+# Biovision 원래 규약(BVH 형식 설명서의 예, 3ds Max·옛 모캡 파일): LeftUpArm/LeftLowArm/LeftLowLeg.
+# 10/16 22회차 실측: 두 팔과 정강이 6개가 말없이 안 움직였다. 벤치 정답 이름표(JOINT_MAP)는 그대로 두고 여기서만 보탠다
+EXTRA_WORDS = {"uparm": "upper_arm", "lowarm": "forearm", "loarm": "forearm", "lowleg": "shin", "loleg": "shin"}
+EXTRA_WORDS_QUAD = {"uparm": "front_thigh", "lowarm": "front_shin", "loarm": "front_shin", "lowleg": "shin", "loleg": "shin"}
 ELBOW_WORDS = {"shoulder": "upper_arm", "elbow": "forearm"}
 
 
@@ -38,7 +42,7 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
     quad = preset == "quadruped"
     joint_map = {**QUAD_MAP, **QUAD_EXTRA} if quad else JOINT_MAP
     fk_target = FK_TARGET_QUAD if quad else FK_TARGET
-    want = {c: base for base, cands in joint_map.items() for c in cands}
+    want = {c: base for base, cands in joint_map.items() for c in cands} | (EXTRA_WORDS_QUAD if quad else EXTRA_WORDS)
     norm = {n: _norm(n) for n in bvh_names}
     # 'leg' 와 'shin' 이 같은 쪽에 함께 있으면 leg=허벅지
     has_shin = {side for n, (core, side) in norm.items() if "shin" in _cores(core)}

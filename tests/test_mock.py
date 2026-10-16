@@ -480,6 +480,20 @@ class RetargetMappingTests(unittest.TestCase):
         self.assertEqual("shoulder.L", bvh_mapping(["Hips", "LeftShoulder", "LeftArm", "LeftElbow"])["LeftShoulder"])
 
 
+    def test_biovision_names_move_the_limbs(self):
+        """Biovision-named BVH (the format's own example: LeftUpArm/LeftLowArm/LeftLowLeg) moves the arms and shins.
+
+        10/16 22회차: 두 팔과 정강이 6개가 말없이 안 움직였다(손발 오차 31.4cm → 고친 뒤 10.33cm, bpy 5.2.2)"""
+        from bonewright.retarget import bvh_mapping
+        bio = ["Hips", "Chest", "Neck", "Head", "LeftCollar", "LeftUpArm", "LeftLowArm", "LeftHand",
+               "LeftUpLeg", "LeftLowLeg", "LeftFoot", "RightUpLeg", "RightLowLeg", "RightFoot"]
+        m = bvh_mapping(bio)
+        for n, want in (("LeftCollar", "shoulder.L"), ("LeftUpArm", "upper_arm_fk.L"), ("LeftLowArm", "forearm_fk.L"),
+                        ("LeftUpLeg", "thigh_fk.L"), ("LeftLowLeg", "shin_fk.L"), ("RightLowLeg", "shin_fk.R")):
+            self.assertEqual(want, m.get(n), n)
+        self.assertEqual(("front_thigh_fk.L", "front_shin_fk.L"), (bvh_mapping(bio, "quadruped").get("LeftUpArm"), bvh_mapping(bio, "quadruped").get("LeftLowArm")))
+
+
 class QuadTailMappingTests(unittest.TestCase):
     """사족 꼬리: 늑대 메타리그 꼬리 사슬은 골반 쪽부터 spine.003 → .002 → .001 → spine 이다(번호가 거꾸로).
     원본 마디 수가 제각각이라 길이 비례로 나눠 준다 — 안 하면 Tail1~8 이 전부 같은 컨트롤로 몰려 꼬리가 안 움직인다"""

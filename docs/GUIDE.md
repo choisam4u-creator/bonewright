@@ -597,7 +597,8 @@ The **mid spine is not moved on purpose**: the Rigify torso has one FK `chest` c
 called `Chest` — or, without one, the highest-numbered `Spine`/`Torso` joint — drives it, and the joints in between
 are skipped. `LeftLeg` means the thigh when the same side also has a `Shin`, and the shin otherwise. A BVH joint turns the bone that
 starts at it, so when a side has a `Knee` or `Elbow` joint, `Hip` is the thigh and `Shoulder` the upper arm (the
-pelvis and Mixamo's `LeftShoulder` collarbone are unaffected). So "unmapped
+pelvis and Mixamo's `LeftShoulder` collarbone are unaffected). Biovision names (`LeftCollar`, `LeftUpArm`, `LeftLowArm`,
+`LeftLowLeg`) map the same way as their Mixamo counterparts. So "unmapped
 ['Spine']" in `report.md` is expected, not a failure; the motion sample
 [`examples/sample-output/capsule_doll_motion.md`](../examples/sample-output/capsule_doll_motion.md) (`python3
 examples/rig_sample.py --motion`) maps 18 of 19 joints this way. Anything else unmapped can be added with `--map`
