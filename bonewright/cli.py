@@ -524,7 +524,12 @@ def motion_next(rd: Path, a: argparse.Namespace) -> str:
                      else T(f"게임용 GLB 로: `{again} --export`", f"as a game-ready GLB: `{again} --export`"))
     else:
         rid = pipeline.latest_rig(ROOT)
-        rig = f"`{again} --rig {rid}`" if rid else T("`bw status` 의 리그 id 로 같은 명령 + `--rig <id>`", "the same command + `--rig <id>` with a rig id from `bw status`")
+        if rid:
+            rig = f"`{again} --rig {rid}`"
+        else:   # 리그가 하나도 없다: 자리표시(`--rig <id>`) 대신 첫 리깅에 id 를 정해 주고 그 id 로 같은 명령(10/16 21회차)
+            where, first = _from_repo()
+            rig = T(f"리그가 아직 없다 — {where}`{first} --run-id first-rig` 다음 `{again} --rig first-rig`",
+                    f"no rig yet — {where}`{first} --run-id first-rig`, then `{again} --rig first-rig`")
         parts.append(T(f"리그에 옮기기: {rig}", f"put it on a rig: {rig}"))
     return T("다음: ", "next: ") + " · ".join(parts)
 

@@ -482,7 +482,12 @@ class MotionNextTests(unittest.TestCase):
             self.assertEqual(("my wave.bvh", "r1", "auto"), (ns.bvh, ns.rig, ns.export))   # 그대로 붙여 넣으면 된다
             self.assertIn("game-ready GLB `runs/motion-1/animated.glb`", self.last_line(["motion", "--bvh", "w.bvh", "--rig", "r1", "--export"], home, glb=True))
             self.assertIn("다음: 열어 볼 파일", self.last_line(["motion", "--bvh", "w.bvh", "--rig", "r1"], home, "ko"))
-            self.assertIn("the same command + `--rig <id>` with a rig id from `bw status`", self.last_line(["motion", "--bvh", "w.bvh"], home))
+            line = self.last_line(["motion", "--bvh", "w.bvh"], home)   # 리그가 하나도 없다: 자리표시 없이 첫 리깅 → 그 id 로 같은 명령(10/16 21회차)
+            self.assertNotIn("<", line)
+            first, again = re.findall(r"`([^`]*)`", line)[1:]
+            self.assertEqual("first-rig", cli.build_parser().parse_args(shlex.split(first)[1:]).run_id)
+            self.assertEqual(("w.bvh", "first-rig"), (lambda ns: (ns.bvh, ns.rig))(cli.build_parser().parse_args(shlex.split(again)[1:])))
+            self.assertIn("리그가 아직 없다", self.last_line(["motion", "--bvh", "w.bvh"], home, "ko"))
             (home / "runs" / "r7").mkdir(); (home / "runs" / "r7" / "02_rigged.blend").write_bytes(b"BLENDER")
             line = self.last_line(["motion", "--bvh", "w.bvh"], home)
             self.assertIn("open `runs/motion-1/motion.blend`", line)
