@@ -1175,6 +1175,50 @@ class MapRigNameTests(unittest.TestCase):
             self.assertIn("upper_arm_fk.L", helptext); self.assertNotIn('"upper_arm.L"', helptext)
 
 
+class UnmovedLimbTests(unittest.TestCase):
+    """Arm/leg controls no BVH bone drives are named with the unrecognised bones and a `--map` command, not just counted.
+
+    10/16 22회차 실측(bpy 5.2.2): 이름 규약이 다른 BVH 는 팔다리가 말없이 안 움직이고 "BVH 본 3개 못 옮김" 숫자와
+    "done" 뿐이었다. 사족 리그에선 오차가 "None°·Nonecm" 으로 찍혔다."""
+    WAVE = ["Hips", "Spine", "Chest", "Neck", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand",
+            "RightShoulder", "RightArm", "RightForeArm", "RightHand", "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase",
+            "RightUpLeg", "RightLeg", "RightFoot"]
+
+    def log(self, lang, names, unmapped, extra=()):
+        fake = {"import_bvh": {"bones": len(names), "frames": [1, 3], "fps": 30, "root_move": 0.0, "armature": "A", "bone_names": names},
+                "retarget_bvh": {"mapped": {}, "unmapped": unmapped, "scale": 1.0, "no_target": {}}}
+        argv = ["bw", "motion", "--bvh", "odd.bvh", "--rig", "r1", *extra]
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", argv), \
+                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(fake[name])), patch.object(pipeline, "need_blender", lambda cfg: None):
+            root = Path(d); bvh = root / "odd.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
+            (root / "runs" / "r1").mkdir(parents=True); (root / "runs" / "r1" / "02_rigged.blend").write_text("")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                out = pipeline.motion(root, bvh=str(bvh), run_id="m1", bvh_up="y", rig_run="r1")
+            return err.getvalue(), out.read_text(encoding="utf-8")
+
+    def test_unrecognised_arm_names_get_a_map_command(self):
+        names = [n.replace("LeftArm", "LeftBrachium").replace("LeftForeArm", "LeftAntebrachium") for n in self.WAVE]
+        log, report = self.log("en", names, ["Spine", "LeftBrachium", "LeftAntebrachium", "LeftToeBase"])
+        self.assertIn("4 BVH bones not moved (Spine, LeftBrachium, LeftAntebrachium, LeftToeBase)", log)
+        self.assertIn("2 limb control(s) do not move (no BVH bone drives them): upper_arm_fk.L, forearm_fk.L", log)
+        self.assertIn("not recognised: LeftBrachium, LeftAntebrachium, LeftToeBase", log)
+        self.assertIn('{"LeftBrachium": "upper_arm_fk.L"}', log)
+        self.assertIn("error not measured", log); self.assertNotIn("None°", log)
+        self.assertIn("limb controls no BVH bone drives (not moved): upper_arm_fk.L, forearm_fk.L", report)
+        cmd = re.search(r"run the same command: `([^`]+)`", log)[1]
+        a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+        self.assertEqual(("odd.bvh", "r1", "bones.json"), (a.bvh, a.rig, a.bone_map))
+        ko = self.log("ko", names, ["LeftBrachium", "LeftAntebrachium"])[0]
+        self.assertIn("팔다리 컨트롤 2개가 움직이지 않는다", ko); self.assertIn("못 옮긴 BVH 본 2개 (LeftBrachium, LeftAntebrachium)", ko)
+
+    def test_full_limbs_say_nothing(self):
+        """Toes and fingers on a side whose limb controls all move are not a warning (Mixamo's LeftToeBase)."""
+        log, report = self.log("en", self.WAVE, ["Spine", "LeftToeBase"])
+        self.assertNotIn("do not move", log); self.assertNotIn("limb controls", report)
+        self.assertIn("2 BVH bones not moved (Spine, LeftToeBase)", log)
+
+
 class MapFileShapeTests(unittest.TestCase):
     """A `--map` file that is not JSON or not {"BVH bone": "rig bone"} says what to write, not just an example.
 

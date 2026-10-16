@@ -545,6 +545,24 @@ def _json_fix(text: str, e: ValueError) -> str:
     return T("예: ", "e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
 
 
+def unmoved_warning(free: list, names: list, has_map: bool) -> str:
+    """팔다리 컨트롤이 비었는데 그쪽에 이름을 못 알아본 BVH 본이 있다 — 그 팔다리는 움직이지 않는다.
+    다음 할 일: 그 이름으로 `--map` 을 써서 같은 명령(10/16 22회차: 숫자만 남고 "done" 이었다)."""
+    side = names[0] if names else ""
+    from .bench import _norm
+    pick = next((c for c in free if c.endswith("." + (_norm(side)[1] or ""))), free[0])
+    eg = json.dumps({side: pick}, ensure_ascii=False)
+    cmd = this_command() if has_map else f"{this_command()} --map bones.json"
+    shown = ", ".join(free[:6]) + (", …" if len(free) > 6 else "")
+    nm = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
+    return T(f"  ⚠ 팔다리 컨트롤 {len(free)}개가 움직이지 않는다(붙은 BVH 본 없음): {shown}\n"
+             f"    이름을 못 알아본 BVH 본: {nm}\n"
+             f"    → 어느 본이 어느 컨트롤인지 매핑 파일에 적어 같은 명령: `{cmd}` — 파일 꼴 {eg}(값은 위 컨트롤 이름 중에서)",
+             f"  ⚠ {len(free)} limb control(s) do not move (no BVH bone drives them): {shown}\n"
+             f"    BVH bones whose names were not recognised: {nm}\n"
+             f"    → write which bone drives which control in a map file and run the same command: `{cmd}` — file shaped like {eg} (values from the controls above)")
+
+
 def map_target_warning(bad: dict) -> str:
     """`--map` 이 리그에 없는 본으로 보낸 항목 — Blender 쪽에서 말없이 빠져 그 BVH 본이 안 움직였다(10/16 21회차 실측:
     안내의 예 `upper_arm.L` 은 메타리그 이름이고 컨트롤은 `upper_arm_fk.L`). 가까운 컨트롤이 있으면 고칠 항목을 그대로 댄다."""
@@ -1011,10 +1029,20 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         rt = r.blender("retarget_bvh", {"blend": str(blend), "bvh": str(Path(bvh).resolve()), "mapping": mapping,
                                         "out_blend": str(r.dir / "retargeted.blend"), "out_dir": str(r.dir),
                                         "render_frames": rf, "height": (an.get("landmarks") or {}).get("height", 1.8), "roll": roll, "bvh_up": bvh_up, "legs": legs})
-        _log(quiet, T(f"{n('retarget')} retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
-                      f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
-                      f"{n('retarget')} retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved · "
-                      f"mean bone direction error {rt.get('mean_dir_deg')}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)"))
+        # 못 옮긴 본은 이름까지(--map 에 쓸 이름), 오차를 못 쟀으면 "None°" 대신 그 말(10/16 22회차: 사족 리그에서 "None°·Nonecm")
+        left = f" ({', '.join(rt['unmapped'][:4])}{', …' if len(rt['unmapped']) > 4 else ''})" if rt["unmapped"] else ""
+        err = (T(f"본 방향 오차 평균 {rt['mean_dir_deg']}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
+                 f"mean bone direction error {rt['mean_dir_deg']}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)")
+               if rt.get("mean_dir_deg") is not None else T("오차는 재지 않음(사람 프리셋 팔다리만 잰다)", "error not measured (humanoid limbs only)"))
+        _log(quiet, T(f"{n('retarget')} retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개{left} · {err}",
+                      f"{n('retarget')} retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved{left} · {err}"))
+        from .retarget import unmoved_limbs
+        # 우리 쪽 매핑으로 센다 — rt["mapped"] 는 Blender 쪽 실제 본 이름이라(사족: front_thigh.L) 컨트롤 이름과 다르다
+        drove = {k: v for k, v in mapping.items() if k not in (rt.get("no_target") or {})}
+        free, names = unmoved_limbs(drove, rt["unmapped"], preset or "humanoid")
+        if free:
+            _log(quiet, unmoved_warning(free, names, bool(bone_map)))
+            report.append(f"- limb controls no BVH bone drives (not moved): {', '.join(free)} · BVH bones not recognised on that side: {', '.join(names)}")
         if bad := {k: v for k, v in (rt.get("no_target") or {}).items() if bone_map and k in user_map}:
             _log(quiet, map_target_warning(bad))
             report.append("- --map rig bones not in the rig (not moved): " + ", ".join(f"{k} → {v['to']}" for k, v in bad.items()))

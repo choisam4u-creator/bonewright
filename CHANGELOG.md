@@ -145,6 +145,11 @@ See `docs/RELEASING.md` for the release steps.
 - A BVH with the Biovision names the format itself was described with (`LeftUpArm`, `LeftLowArm`, `LeftLowLeg`)
   left both arms and both shins unmoved (hand/foot error 31.4 → 10.3 cm on the sample wave). They map like
   `LeftArm`/`LeftForeArm`/`LeftLeg` now.
+- When an arm or leg control ended up with no BVH bone (a naming scheme bonewright does not know), `bw motion`
+  logged only "3 BVH bones not moved" and "done". The retarget line now names the bones not moved, a warning names
+  the limb controls that stay still and the unrecognised bones on that side, with the same command plus
+  `--map bones.json` and the file's shape; following it moved the arm (error 20.9 → 10.3 cm). On a quadruped rig
+  the line said "None°"/"Nonecm"; it says the error is not measured.
 - A `--map` file written the Python/JavaScript way (`{'LeftArm': 'upper_arm_fk.L',}`) got the parser's message and
   an example. It now gets the same map as one line of JSON to put in the file; other JSON errors show the line to
   fix, and a file saved with a byte-order mark (Windows Notepad) is read. A map of the wrong shape names the entries

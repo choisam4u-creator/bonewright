@@ -602,7 +602,8 @@ pelvis and Mixamo's `LeftShoulder` collarbone are unaffected). Biovision names (
 ['Spine']" in `report.md` is expected, not a failure; the motion sample
 [`examples/sample-output/capsule_doll_motion.md`](../examples/sample-output/capsule_doll_motion.md) (`python3
 examples/rig_sample.py --motion`) maps 18 of 19 joints this way. Anything else unmapped can be added with `--map`
-(above). `tests/test_docs.py` checks this table against the matching code.
+(above); when an arm or leg control ends up with no BVH bone at all, `bw motion` names those controls and
+the unrecognised bones and gives the `--map` command. `tests/test_docs.py` checks this table against the matching code.
 
 The **up axis is detected** from the file, because getting it wrong fails silently rather than loudly: the standard
 says Y, Blender exports Z, and feeding a Z-up clip as Y-up moved the wolf's feet a metre off the floor while every

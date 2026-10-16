@@ -94,6 +94,19 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
     return out
 
 
+def unmoved_limbs(mapping: dict[str, str], unmapped: list[str], preset: str = "humanoid") -> tuple[list[str], list[str]]:
+    """팔다리 컨트롤 중 BVH 본이 하나도 안 붙은 것과, 그쪽(좌우)에 있는데 이름을 못 알아본 BVH 본.
+
+    10/16 22회차 실측: 이름 규약이 다른 BVH 는 팔다리가 말없이 안 움직이고 "본 N개 못 옮김" 숫자만 남았다.
+    발가락·손가락처럼 그쪽 컨트롤이 다 찬 쪽의 본은 세지 않는다(Mixamo 의 LeftToeBase 는 경고 거리가 아니다)."""
+    fk = FK_TARGET_QUAD if preset == "quadruped" else FK_TARGET
+    used = set(mapping.values())
+    free = [f"{t}.{s}" for t in fk.values() if t in SIDED for s in ("L", "R") if f"{t}.{s}" not in used]
+    sides = {c.rsplit(".", 1)[1] for c in free}
+    names = [n for n in unmapped if _norm(n)[1] in sides]
+    return (free, names) if names else ([], [])
+
+
 def bvh_rest_joints(path: str) -> dict[str, list[float]]:
     """BVH 의 HIERARCHY 만 읽어 관절의 쉬는 자세 좌표를 만든다(OFFSET 누적). End Site 는 부모이름+'_end'."""
     pos, stack, name = {}, [], None
