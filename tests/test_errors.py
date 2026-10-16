@@ -1175,6 +1175,35 @@ class MapRigNameTests(unittest.TestCase):
             self.assertIn("upper_arm_fk.L", helptext); self.assertNotIn('"upper_arm.L"', helptext)
 
 
+class MapFileShapeTests(unittest.TestCase):
+    """A `--map` file that is not JSON or not {"BVH bone": "rig bone"} says what to write, not just an example.
+
+    10/16 21회차 실측: `{'LeftArm': 'x',}`(파이썬·JS 식) → 파서 메시지와 "e.g. {…}" 뿐, `{"LeftArm": 3}` → 어느 항목인지 없음."""
+
+    def blocked(self, text, lang="en"):
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}):
+            m = Path(d) / "bones.json"; m.write_text(text, encoding="utf-8")
+            with self.assertRaises(pipeline.Blocked) as cm:
+                pipeline.load_bone_map(m)
+            return str(cm.exception)
+
+    def test_python_style_map_gives_the_json_line(self):
+        msg = self.blocked("{'LeftArm': 'upper_arm_fk.L',\n 'LeftForeArm': 'forearm_fk.L',}")
+        line = msg.split("one line: ", 1)[1]
+        self.assertEqual({"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}, json.loads(line))   # 그대로 쓰면 읽힌다
+        self.assertIn("파일 내용을 이 한 줄로", self.blocked("{'a': 'b'}", "ko"))
+
+    def test_other_json_error_names_the_line(self):
+        msg = self.blocked('{\n "LeftArm": "upper_arm_fk.L"\n "LeftForeArm": forearm_fk.L\n}')
+        self.assertIn('fix line 3 `"LeftForeArm": forearm_fk.L`', msg)
+        self.assertIn("3번째 줄", self.blocked('{\n "a": "b"\n "c": d\n}', "ko"))
+
+    def test_wrong_shape_names_the_entry(self):
+        self.assertIn('values that are not text: "LeftArm": 3', self.blocked('{"LeftArm": 3, "Hips": "torso"}'))
+        self.assertIn("the top level is a list", self.blocked('["LeftArm"]'))
+        self.assertIn('글이 아닌 값: "LeftArm": ["a"]', self.blocked('{"LeftArm": ["a"]}', "ko"))
+
+
 class MotionRigOnlyFlagTests(unittest.TestCase):
     """`bw motion` refuses retarget-only flags without `--rig`, before Blender and before a run folder.
 

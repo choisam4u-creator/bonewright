@@ -511,15 +511,38 @@ def headless_hint(step: str, run_dir: Path) -> str:
 
 def load_bone_map(path: str | Path) -> dict:
     """`--map` 파일을 읽고 모양을 본다. motion() 이 Blender 를 띄우기 **전에** 부른다(10/10 8회차: 없는 파일이 BVH 가져오기 뒤에야 걸렸다)."""
+    text = need_file(path, "--map", T('{"LeftArm": "upper_arm_fk.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm_fk.L"}')).read_text(encoding="utf-8-sig")
     try:
-        user = json.loads(need_file(path, "--map", T('{"LeftArm": "upper_arm_fk.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm_fk.L"}')).read_text(encoding="utf-8"))
+        user = json.loads(text)
     except ValueError as e:
-        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm_fk.L\"}}",
-                        f"--map file is not JSON: {path} ({e})\n  → e.g. {{\"LeftArm\": \"upper_arm_fk.L\"}}"))
+        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})", f"--map file is not JSON: {path} ({e})") + "\n  → " + _json_fix(text, e))
     if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
-        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}',
-                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path}\n  → e.g. {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}'))
+        # 어느 항목이 틀렸는지 댄다(10/16 21회차: "형태여야 한다 + 예" 뿐이었다)
+        what = (T(f"최상위가 {type(user).__name__}", f"the top level is a {type(user).__name__}") if not isinstance(user, dict) else
+                T("글이 아닌 값: ", "values that are not text: ") + ", ".join(f'"{k}": {json.dumps(v, ensure_ascii=False)}' for k, v in user.items() if not isinstance(v, str))[:200])
+        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path} — {what}\n  → 예: {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}',
+                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path} — {what}\n  → e.g. {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}'))
     return user
+
+
+def _json_fix(text: str, e: ValueError) -> str:
+    """JSON 이 아닌 `--map` 의 다음 할 일: 파이썬·JS 식(작은따옴표·끝 쉼표)으로 읽히면 그대로 쓸 JSON 한 줄, 아니면 틀린 줄.
+
+    10/16 21회차 실측: `{'LeftArm': 'x',}` → 파서 메시지와 "e.g. {…}" 뿐이었다."""
+    import ast
+    try:
+        fixed = ast.literal_eval(text.strip())
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        fixed = None
+    if isinstance(fixed, dict) and fixed and all(isinstance(k, str) and isinstance(v, str) for k, v in fixed.items()):
+        return T("작은따옴표·끝 쉼표 대신 JSON 으로 — 파일 내용을 이 한 줄로: ", "JSON wants double quotes and no trailing comma — make the file this one line: ") \
+            + json.dumps(fixed, ensure_ascii=False)
+    line = getattr(e, "lineno", None)
+    rows = text.splitlines()
+    if line and 0 < line <= len(rows):
+        src = rows[line - 1].strip()[:120]
+        return T(f"{line}번째 줄 `{src}` 을 고쳐라(이름은 큰따옴표). 예: ", f"fix line {line} `{src}` (names in double quotes). e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
+    return T("예: ", "e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
 
 
 def map_target_warning(bad: dict) -> str:

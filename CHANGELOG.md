@@ -137,6 +137,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A `--map` file written the Python/JavaScript way (`{'LeftArm': 'upper_arm_fk.L',}`) got the parser's message and
+  an example. It now gets the same map as one line of JSON to put in the file; other JSON errors show the line to
+  fix, and a file saved with a byte-order mark (Windows Notepad) is read. A map of the wrong shape names the entries
+  that are wrong (`"LeftArm": 3`) or says the top level is a list.
 - The `--map` example in messages and `bw motion --help`, `{"LeftArm": "upper_arm.L"}`, stopped the left arm when
   copied: the rig control is `upper_arm_fk.L`, so the entry was dropped in Blender without a word (left hand error
   8.5 → 33.6 cm) while the log said "--map applied 1". The examples use control names now, and a map entry whose rig
