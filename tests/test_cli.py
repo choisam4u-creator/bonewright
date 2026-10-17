@@ -1020,6 +1020,47 @@ class NextStepTests(unittest.TestCase):
                     cli.build_parser().parse_args(re.sub(r"<[^>]+>", "w.bvh", cmd).split()[1:])
 
 
+class QuadNextNoteTests(unittest.TestCase):
+    """On a four-legged rig, every `next:` that offers the sample hand wave says the front legs will move like arms.
+
+    10/17 23회차 실측(bpy 5.2.2): 개 리그의 `bw rig`·`bw status <id>`·`bw export`·`bw demo` `next:` 가 사람 손 흔들기
+    샘플을 아무 말 없이 권했고, 그대로 치면 앞다리가 손을 흔들었다."""
+
+    def run_cmd(self, home, argv, lang, patched=None):
+        import os
+        out, err, cwd = io.StringIO(), io.StringIO(), os.getcwd()
+        os.chdir(home)
+        try:
+            with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", home), patch.object(sys, "argv", ["bw", *argv]), \
+                    patch.object(cli.pipeline, *(patched or ("rig", None))), patch("sys.stdout", out), patch("sys.stderr", err):
+                self.assertEqual(0, cli.main())
+        finally:
+            os.chdir(cwd)
+        return out.getvalue() + err.getvalue()
+
+    def test_quadruped_rig_next_lines_warn_and_humanoid_ones_do_not(self):
+        import json
+        import re
+        import shlex
+        for preset in ("quadruped", "humanoid"):
+            with tempfile.TemporaryDirectory() as t:
+                home = Path(t); rd = home / "runs" / "dog"; rd.mkdir(parents=True)
+                (rd / "rig_stats.json").write_text(json.dumps({"preset": preset}), encoding="utf-8")
+                (rd / "state.json").write_text('{"step": "final", "status": "ok"}', encoding="utf-8")
+                (rd / "02_rigged.blend").write_bytes(b"x")
+                runs = {"rig": (["rig", "dog.glb", "--preset", "quadruped"], ("rig", rd / "report.md")),
+                        "status": (["status", "dog"], None),
+                        "export": (["export", "dog"], ("export_rig", rd / "rigged.glb")),
+                        "demo": (["demo", "dog"], ("demo", rd / "demo.mp4"))}
+                for lang in ("en", "ko"):
+                    for name, (argv, ret) in runs.items():
+                        text = self.run_cmd(home, argv, lang, (ret[0], unittest.mock.Mock(return_value=ret[1])) if ret else None)
+                        note = ("the front legs move like arms" if lang == "en" else "앞다리가 팔처럼 움직인다") in text
+                        self.assertEqual(preset == "quadruped", note, (name, lang, text))
+                        for cmd in re.findall(r"`(bw [^`]+)`", text):
+                            cli.build_parser().parse_args(shlex.split(cmd)[1:])
+
+
 class EmptyUsageTests(unittest.TestCase):
     """`bw usage` with no model calls says so on stderr and names the ledger; the JSON on stdout is unchanged.
 

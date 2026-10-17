@@ -137,6 +137,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- On a four-legged rig, the `next:` lines of `bw rig`, `bw status <id>`, `bw export` and `bw demo` offered the sample
+  hand wave with no word that it is a human motion; they now add that the front legs will move like arms and to use a
+  four-legged BVH if you have one.
 - A standing (human) BVH on a four-legged rig — exactly what a quadruped `bw rig`'s `next:` line suggested with the
   sample wave — said only "done" while the front legs waved like arms (direction error 39°). `bw motion` now warns
   that the front legs move like arms and gives the same command on your latest human rig (or the first human rig

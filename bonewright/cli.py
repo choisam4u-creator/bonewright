@@ -543,6 +543,15 @@ def result_label(cmd: str, out: Path) -> str:
     return T("보고서:", "report:")
 
 
+def quad_note(rd: Path) -> str:
+    """네 발 리그의 `next:` 에서 샘플 동작 명령 뒤에 붙일 말 — 샘플은 사람 손 흔들기라 앞다리가 팔처럼 움직인다
+    (10/17 23회차 실측: 개 리그의 `next:` 가 그 명령을 아무 말 없이 권했다). 사람 리그면 빈 글."""
+    if pipeline.rig_preset(rd.parent.parent, rd.name) != "quadruped":
+        return ""
+    return T("(사람 손 흔들기 — 네 발 리그엔 앞다리가 팔처럼 움직인다. 네 발 BVH 가 있으면 그 경로로)",
+             " (a human hand wave — on a four-legged rig the front legs move like arms; use a four-legged BVH if you have one)")
+
+
 def rig_result_next(cmd: str, rid: str, out: Path) -> str:
     """`bw export`·`bw demo` 끝의 다음 줄 — `bw rig` 처럼 그대로 칠 명령(10/15 19회차: 결과 경로 한 줄뿐이었다)."""
     cwd, rd = Path.cwd(), ROOT / "runs" / rid
@@ -558,7 +567,7 @@ def rig_result_next(cmd: str, rid: str, out: Path) -> str:
         parts.append(T(f"게임용 GLB `{pipeline._arg(glb, cwd)}`", f"game-ready GLB `{pipeline._arg(glb, cwd)}`") if glb.is_file()
                      else T(f"`bw export {rid}`(게임용 GLB)", f"`bw export {rid}` (game-ready GLB)"))
     bv = pipeline.sample_bvh()
-    parts.append(T(f"동작을 입힌 GLB: `bw motion --bvh {bv} --rig {rid} --export`", f"with motion, as a GLB: `bw motion --bvh {bv} --rig {rid} --export`"))
+    parts.append(T(f"동작을 입힌 GLB: `bw motion --bvh {bv} --rig {rid} --export`", f"with motion, as a GLB: `bw motion --bvh {bv} --rig {rid} --export`") + quad_note(rd))
     return T("다음: ", "next: ") + " · ".join(parts)
 
 
@@ -575,7 +584,7 @@ def status_detail(rd: Path, kind: str | None) -> list[str]:
     if (rd / "02_rigged.blend").is_file():   # 끝난 리그: `bw rig` 의 next: 와 같은 명령, 이미 만든 것은 빼고
         todo = [c for c, f in ((f"bw demo {rid}", "demo.mp4"), (f"bw export {rid}", "rigged.glb")) if not (rd / f).is_file()]
         todo.append(f"bw motion --bvh {pipeline.sample_bvh()} --rig {rid}")
-        lines.append(T("다음: ", "next: ") + " · ".join(f"`{c}`" for c in todo))
+        lines.append(T("다음: ", "next: ") + " · ".join(f"`{c}`" for c in todo) + quad_note(rd))
     return lines
 
 
@@ -825,7 +834,8 @@ def _main() -> int:
     if a.cmd == "rig":   # README 다음 줄이 `bw demo <run-id>` 라 id 를 경로에서 오려 내지 않게(stdout 은 보고서 경로 한 줄 그대로)
         rid = Path(out).parent.name; bv = pipeline.sample_bvh()   # 저장소의 손 흔들기 BVH — 그대로 붙여 넣어 돈다
         print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh {bv} --rig {rid}`",
-                f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh {bv} --rig {rid}`"), file=sys.stderr)
+                f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh {bv} --rig {rid}`")
+              + quad_note(Path(out).parent), file=sys.stderr)
     elif a.cmd == "motion":   # report: 한 줄뿐이라 결과 파일·GLB 명령을 report.md 를 열어야 알았다(10/13 15회차 실측)
         print(motion_next(Path(out).parent, a), file=sys.stderr)
     elif a.cmd in ("export", "demo"):
