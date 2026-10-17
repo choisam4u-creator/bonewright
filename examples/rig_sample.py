@@ -8,6 +8,7 @@ Reproduce a rig from a mesh (bone count and name table). Zero model calls, zero 
     python3 examples/rig_sample.py path/to/x.glb      # 아무 메시나
     python3 examples/rig_sample.py --table adventurer # 저장소의 캐릭터, 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
     python3 examples/rig_sample.py --motion           # 캡슐 인형을 리깅하고 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
+    python3 examples/rig_sample.py --preset quadruped --motion   # 캡슐 개를 리깅하고 절차 생성 네 발 걷기(24프레임)를 리타겟
 
 리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/<이름>/ 에 남고
 표는 examples/out/<이름>.md 로 쓴다. 결과 문서(표·요약)는 화면 언어와 상관없이 영어다 — sample-output 과 늘 같게. 무거운 자산은 저장소에 넣지 않는다 — `scripts/fetch_bench_assets.py` 로 받는다.
@@ -37,20 +38,6 @@ def shown(path: Path) -> str:
         return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
     except ValueError:
         return f'"{path}"' if " " in str(path) else str(path)
-
-
-def again(argv: list[str], drop: str) -> str:
-    """이 예제를 다시 돌리는 명령에서 옵션 drop(값이 있으면 값까지, `--preset=X` 꼴도)을 뺀 꼴 — 그대로 붙여 넣어 돈다."""
-    words, skip = [], False
-    for w in argv:
-        if skip:
-            skip = False; continue
-        if w == drop:
-            skip = drop == "--preset"; continue
-        if w.startswith(drop + "="):
-            continue
-        words.append(f'"{w}"' if " " in w else w)
-    return " ".join(["python3", shown(Path(__file__).resolve()), *words])
 
 
 def glb_skin_bones(path: Path) -> list[str]:
@@ -188,10 +175,13 @@ def dog_walk_bvh(path: Path, frames: int = 24) -> Path:
     return write_bvh(path, DOG_JOINTS, frames, frame)
 
 
-def motion_and_report(name: str) -> Path:
-    """rig_and_table 로 리깅한 `name` 에 wave_bvh 를 리타겟하고 결과 요약을 examples/out/<name>_motion.md 로 쓴다."""
+def motion_and_report(name: str, preset: str = "humanoid") -> Path:
+    """rig_and_table 로 리깅한 `name` 에 절차 BVH(사람은 wave_bvh, 네 발은 dog_walk_bvh)를 리타겟하고
+    결과 요약을 examples/out/<name>_motion.md 로 쓴다."""
     from bonewright import pipeline
-    bvh = wave_bvh(OUT / "wave.bvh")
+    quad = preset == "quadruped"
+    bvh = dog_walk_bvh(OUT / "dog_walk.bvh") if quad else wave_bvh(OUT / "wave.bvh")
+    joints, what = (DOG_JOINTS, "four-legged walk") if quad else (WAVE_JOINTS, "hand wave")
     run = f"{name}_motion"
     pipeline.motion(OUT, bvh=str(bvh), run_id=run, quiet=True, rig_run=name)
     rt = json.loads((OUT / "runs" / run / "retarget.json").read_text())
@@ -203,8 +193,8 @@ def motion_and_report(name: str) -> Path:
     keep = [re.sub(r"bvh: .*[/\\]", "bvh: examples/out/", ln) for ln in keep]   # 절대 경로(홈 폴더)를 싣지 않는다
     frames = re.search(r"frames \[(\d+), (\d+)\]", "\n".join(keep))
     nframes = int(frames[2]) - int(frames[1]) + 1 if frames else 0
-    md = [f"# {name}: procedural BVH (hand wave) → retarget result", "",
-          f"- BVH joints {len(WAVE_JOINTS)} · frames {nframes} · mapped {len(pairs)} · unmapped BVH joints {len(rt['unmapped'])}",
+    md = [f"# {name}: procedural BVH ({what}) → retarget result", "",
+          f"- BVH joints {len(joints)} · frames {nframes} · mapped {len(pairs)} · unmapped BVH joints {len(rt['unmapped'])}",
           "", "## Mapped joints", "", "| BVH joint | rig control |", "|---|---|"]
     md += [f"| `{a}` | {f'`{b}`' if b else ''} |" for a, b in pairs]
     md += ["", "## report.md excerpt", "", *keep, ""]
@@ -259,16 +249,9 @@ def main() -> int:
     p.add_argument("--table", action="store_true", help=T("리깅하지 않고 GLB 안의 스킨 본 표만 찍는다(블렌더 불필요)",
                                                           "print the skin bone table inside a GLB without rigging (no Blender needed)"))
     p.add_argument("--motion", action="store_true",
-                   help=T("리깅 뒤 절차 생성 BVH(손 흔들기)를 리타겟해 요약을 쓴다(사람 프리셋)",
-                          "after rigging, retarget a procedural BVH (hand wave) and write a summary (humanoid preset)"))
+                   help=T("리깅 뒤 절차 생성 BVH(사람은 손 흔들기, 네 발은 걷기)를 리타겟해 요약을 쓴다",
+                          "after rigging, retarget a procedural BVH (a hand wave, or a walk for --preset quadruped) and write a summary"))
     a = p.parse_args()
-    if a.motion and a.preset != "humanoid":   # 리깅(수십 초) 전에 막는다 — 기다린 뒤 거절하지 않게
-        # 10/15 19회차: 그대로 칠 명령이 없었다 → 같은 명령에서 --motion 을 뺀 꼴, 메시를 안 줬으면 프리셋을 뺀 꼴(사람 인형에 동작)도
-        no_motion = again(sys.argv[1:], drop="--motion")
-        human = a.mesh is None or a.mesh in SAMPLES   # 절차 인형·저장소 캐릭터는 사람이다 — 내 메시는 모른다
-        doll = T(f"사람 프리셋으로 동작까지: `{again(sys.argv[1:], drop='--preset')}` · ", f"humanoid preset, with motion: `{again(sys.argv[1:], drop='--preset')}` · ") if human else ""
-        raise SystemExit(T(f"--motion 은 사람 프리셋에서만 돈다(절차 BVH 가 사람 뼈대다)\n  → {doll}리그만: `{no_motion}`",
-                           f"--motion works with the humanoid preset only (the procedural BVH is a human skeleton)\n  → {doll}the rig alone: `{no_motion}`"))
     if a.motion and a.table:
         raise SystemExit(T("--motion 과 --table 은 같이 쓸 수 없다 — --table 은 리깅하지 않는다",
                            "--motion and --table do not go together — --table does not rig"))
@@ -290,7 +273,7 @@ def main() -> int:
     print(out.read_text(encoding="utf-8"), end="")
     print("\n" + T("표: ", "table: ") + shown(out))
     if a.motion:
-        mo = motion_and_report(name)
+        mo = motion_and_report(name, a.preset)
         print("\n" + mo.read_text(encoding="utf-8"), end="")
         print("\n" + T("리타겟 요약: ", "retarget summary: ") + shown(mo))
     return 0

@@ -63,7 +63,7 @@ Locally, the command above runs the whole suite if Blender (or the `bpy` wheel) 
 skips the Blender half if it is not — so check the skip count before trusting a local pass:
 
 ```
-Ran 304 tests ... OK (skipped=16)   ← the sixteen that matter did not run
+Ran 306 tests ... OK (skipped=17)   ← the seventeen that matter did not run
 ```
 
 Set `BW_REQUIRE_BLENDER=1` to make a missing Blender a failure instead of a skip.

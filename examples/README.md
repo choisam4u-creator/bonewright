@@ -11,6 +11,7 @@ python3 examples/rig_sample.py --preset quadruped   # build a procedural four-le
 python3 examples/rig_sample.py adventurer      # the CC0 character in tests/assets (1.9 MB, Quaternius)
 python3 examples/rig_sample.py --table adventurer   # just the skin bone table inside a GLB, no rigging (no Blender needed)
 python3 examples/rig_sample.py --motion        # rig the capsule doll, then retarget a procedural BVH (24-frame hand wave)
+python3 examples/rig_sample.py --preset quadruped --motion   # rig the capsule dog, then retarget a procedural four-legged walk
 ```
 
 Rigging needs Blender 5.2 LTS or `pip install bpy==5.2.2` (Python 3.13). Results stay in `examples/out/` (ignored by
@@ -26,7 +27,8 @@ See what a result looks like first in [sample-output/capsule_doll.md](sample-out
 [Motion retargeting](../docs/GUIDE.md#motion-retargeting)). `tests/test_examples.py` compares all three with a fresh run.
 The same wave is committed as [`wave.bvh`](wave.bvh), so a rig of your own can take it as is:
 `bw motion --bvh examples/wave.bvh --rig <run-id>` (`bw rig` prints this on its `next:` line with the id filled in).
-For a four-legged rig there is [`dog_walk.bvh`](dog_walk.bvh), a one-second trot made by `rig_sample.dog_walk_bvh`:
+For a four-legged rig there is [`dog_walk.bvh`](dog_walk.bvh), a one-second trot made by `rig_sample.dog_walk_bvh`
+(its result on the capsule dog: [sample-output/capsule_dog_motion.md](sample-output/capsule_dog_motion.md), all 20 joints mapped):
 `bw motion --bvh examples/dog_walk.bvh --rig <run-id>` (a quadruped rig's `next:` line gives this one).
 
 ## Heavy assets

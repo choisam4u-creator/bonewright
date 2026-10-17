@@ -76,7 +76,8 @@ Flags still win over the file. Keys and defaults: [guide → Settings](docs/GUID
 On the benchmark, **63 / 66** assets rig with every gate green and **25 / 29** of the ones that can walk
 retarget a walk cleanly (`python3 scripts/bench_score.py`).
 To check retargeting yourself without any download, see [a sample retarget result](examples/sample-output/capsule_doll_motion.md)
-(`python3 examples/rig_sample.py --motion`: a procedural 24-frame wave BVH, 18 of 19 joints mapped).
+(`python3 examples/rig_sample.py --motion`: a procedural 24-frame wave BVH, 18 of 19 joints mapped), and
+[the same for four legs](examples/sample-output/capsule_dog_motion.md) (`--preset quadruped --motion`: a procedural walk, 20 of 20).
 
 Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows runs only the Blender-free tests in CI and has never been driven by hand.
 

@@ -1,4 +1,5 @@
 """examples/rig_sample.py 의 표 부분(블렌더 불필요). 리깅 부분은 RigMockTests 가 같은 경로를 이미 본다."""
+import io
 import json
 import os
 import re
@@ -16,6 +17,7 @@ from tests._marks import requires_blender  # noqa: E402
 SAMPLE = ROOT / "examples" / "sample-output" / "capsule_doll.md"
 DOG = ROOT / "examples" / "sample-output" / "capsule_dog.md"
 MOTION = ROOT / "examples" / "sample-output" / "capsule_doll_motion.md"
+DOG_MOTION = ROOT / "examples" / "sample-output" / "capsule_dog_motion.md"
 
 
 def motion_rows(md: str) -> list[str]:
@@ -92,24 +94,26 @@ class ExampleMessageTests(unittest.TestCase):
                         self.assertIn(real(version), msg)
                     self.assertIn(want, msg)
 
-    def test_motion_with_quadruped_gives_commands_that_run(self):
-        """`--preset quadruped --motion` stops before rigging with the same command minus `--motion` (and, for a human mesh, minus `--preset`).
+    def test_motion_with_quadruped_goes_on_to_rig(self):
+        """`--preset quadruped --motion` is no longer refused: it goes on to rig (here: stops only for Blender) and then walks the dog.
 
-        10/15 19회차 실측: "--motion works with the humanoid preset only" 뿐 — 그대로 칠 명령이 없었다."""
-        import shlex
-        import subprocess
-        for argv, want in ((["--preset", "quadruped", "--motion"], [["--motion"], ["--preset", "quadruped"]]),
-                           (["adventurer", "--motion", "--preset=quadruped"], [["adventurer", "--motion"], ["adventurer", "--preset=quadruped"]]),
-                           (["tests/assets/quaternius_adventurer.glb", "--preset", "quadruped", "--motion"], [["tests/assets/quaternius_adventurer.glb", "--preset", "quadruped"]])):
-            for lang in ("en", "ko"):
-                with self.subTest(argv=argv, lang=lang):
-                    r = subprocess.run([sys.executable, "examples/rig_sample.py", *argv], cwd=ROOT, capture_output=True, text=True,
-                                       env={**os.environ, "BW_LANG": lang}, timeout=60)
-                    self.assertEqual(1, r.returncode)
-                    cmds = [shlex.split(c) for c in re.findall(r"`(python3 [^`]*)`", r.stderr)]
-                    self.assertEqual(want, [c[2:] for c in cmds], r.stderr)
-                    self.assertTrue(all(c[1] == "examples/rig_sample.py" for c in cmds))
-                    self.assertEqual(lang == "ko", bool(re.search(r"[가-힣]", r.stderr)), r.stderr)
+        10/15 19회차엔 "--motion 은 사람 프리셋에서만"(절차 BVH 가 사람 뼈대) 으로 막았다. 10/17 24회차: 네 발 걷기
+        dog_walk_bvh 가 생겨 개 리그에도 그대로 돈다(capsule_dog_motion.md, bpy 5.2.2 로 20본)."""
+        from unittest import mock
+        from bonewright import blender
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), mock.patch.dict("os.environ", {"BW_LANG": lang}), \
+                    mock.patch.object(sys, "argv", ["rig_sample.py", "--preset", "quadruped", "--motion"]), \
+                    mock.patch.object(blender, "find_blender", return_value=None), mock.patch.object(blender, "has_bpy_module", return_value=False):
+                with self.assertRaises(SystemExit) as cm:
+                    rig_sample.main()
+                self.assertIn("Blender not found" if lang == "en" else "Blender 가 없다", str(cm.exception.code))
+        with mock.patch.object(sys, "argv", ["rig_sample.py", "--preset", "quadruped", "--motion"]), \
+                mock.patch.object(rig_sample, "rig_and_table", return_value=SAMPLE), \
+                mock.patch.object(rig_sample, "motion_and_report", return_value=DOG_MOTION) as mo, \
+                mock.patch("sys.stdout", io.StringIO()):
+            self.assertEqual(0, rig_sample.main())
+        self.assertEqual(("capsule_dog", "quadruped"), mo.call_args.args)
 
     def test_no_blender_hint_runs_as_pasted(self):
         """The no-Blender hint ends in a command that runs as pasted and prints a bone table.
@@ -171,12 +175,13 @@ class ExampleMessageTests(unittest.TestCase):
         fetch = re.search(r"`python3 (.+?)`", str(cm.exception.code))[1].strip('"')
         self.assertTrue(Path(fetch).is_absolute() and Path(fetch).is_file(), fetch)
 
-    def test_motion_on_quadruped_stops_before_rigging(self):
-        """`--motion --preset quadruped` is refused before rigging starts.
+    def test_motion_with_table_stops_before_rigging(self):
+        """`--motion --table` is refused before rigging starts.
 
-        `--motion --preset quadruped` 는 리깅(블렌더 수십 초)을 하기 전에 멈춘다 — 10/9 까지는 다 리깅한 뒤 거절했다."""
+        안 되는 조합은 리깅(블렌더 수십 초)을 하기 전에 멈춘다 — 10/9 까지는 다 리깅한 뒤 거절했다.
+        (`--motion --preset quadruped` 는 10/17 24회차부터 네 발 걷기로 돈다 — 위 시험)"""
         from unittest import mock
-        for argv in (["--motion", "--preset", "quadruped"], ["--motion", "--table", "adventurer"]):
+        for argv in (["--motion", "--table", "adventurer"],):
             with self.subTest(argv=argv), mock.patch.dict("os.environ", {"BW_LANG": "en"}), \
                  mock.patch.object(sys, "argv", ["rig_sample.py", *argv]), \
                  mock.patch.object(rig_sample, "rig_and_table", side_effect=AssertionError("rigged before refusing")):
@@ -287,15 +292,24 @@ class SampleOutputTests(unittest.TestCase):
         """Sample output documents linked from the English README contain no Hangul.
 
         영어 README 가 링크하는 예시 문서 — 첫 클릭에서 한국어 페이지를 만나지 않게(주석 포함 한글 없음)."""
-        for doc in (SAMPLE, DOG, MOTION, ROOT / "examples" / "README.md"):
+        for doc in (SAMPLE, DOG, MOTION, DOG_MOTION, ROOT / "examples" / "README.md"):
             with self.subTest(doc=doc.name):
                 text = doc.read_text(encoding="utf-8").replace("[한국어](README.ko.md)", "")   # 언어 바꾸는 링크는 둔다
                 self.assertEqual([], re.findall(r"[가-힣]+", text))
 
     def test_motion_sample_has_no_absolute_path(self):
-        text = MOTION.read_text(encoding="utf-8")
-        for bad in ("/home/", "/Users/", "C:\\"):
-            self.assertNotIn(bad, text)
+        for doc in (MOTION, DOG_MOTION):
+            text = doc.read_text(encoding="utf-8")
+            for bad in ("/home/", "/Users/", "C:\\"):
+                self.assertNotIn(bad, text)
+
+    def test_dog_walk_maps_like_the_dog_motion_sample(self):
+        """The four-legged walk maps (without Blender) like the dog motion sample's table, every joint."""
+        from bonewright.retarget import bvh_mapping
+        mapping = bvh_mapping([j[1] for j in rig_sample.DOG_JOINTS], "quadruped")
+        rows = [f"| `{a}` | `{b}` |" for a, b in sorted(mapping.items())]
+        self.assertEqual(rows, [r for r in motion_rows(DOG_MOTION.read_text(encoding="utf-8")) if r.startswith("|")])
+        self.assertEqual(len(rig_sample.DOG_JOINTS), len(rows))
 
     @requires_blender
     def test_capsule_doll_still_retargets_like_the_sample(self):
@@ -306,6 +320,14 @@ class SampleOutputTests(unittest.TestCase):
         now = rig_sample.motion_and_report("capsule_doll_mcheck").read_text(encoding="utf-8")
         self.assertEqual(motion_rows(MOTION.read_text(encoding="utf-8")), motion_rows(now),
                          "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py --motion → examples/sample-output/")
+
+    @requires_blender
+    def test_capsule_dog_still_retargets_like_the_sample(self):
+        """Retargeting the capsule dog with the four-legged walk still matches its motion sample."""
+        rig_sample.rig_and_table(None, "capsule_dog_mcheck", "quadruped")
+        now = rig_sample.motion_and_report("capsule_dog_mcheck", "quadruped").read_text(encoding="utf-8")
+        self.assertEqual(motion_rows(DOG_MOTION.read_text(encoding="utf-8")), motion_rows(now),
+                         "다시 만든다: BW_NO_RENDER=1 python3 examples/rig_sample.py --preset quadruped --motion → examples/sample-output/")
 
     @requires_blender
     def test_capsule_doll_still_rigs_like_the_sample(self):

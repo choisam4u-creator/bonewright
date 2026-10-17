@@ -70,7 +70,8 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 벤치마크에서 **66개 중 63개**가 게이트를 전부 통과했고, 걸을 수 있는 29개 중 **25개**가 걷기 리타깃을
 깨끗하게 받았다(`python3 scripts/bench_score.py`).
 리타깃을 내려받는 것 없이 직접 확인하려면 [리타깃 결과 예시](examples/sample-output/capsule_doll_motion.md)를 본다
-(`python3 examples/rig_sample.py --motion`: 절차 생성 손 흔들기 BVH 24프레임, 관절 19개 중 18개를 옮김).
+(`python3 examples/rig_sample.py --motion`: 절차 생성 손 흔들기 BVH 24프레임, 관절 19개 중 18개를 옮김),
+[네 발도](examples/sample-output/capsule_dog_motion.md)(`--preset quadruped --motion`: 절차 생성 걷기, 20개 다).
 
 상태: **v0.2(알파)**. macOS에서 개발, Linux는 CI에서 시험을 돌린다, Windows는 CI에서 블렌더 없는 시험만 돌고 손으로 써 본 적은 없다.
 

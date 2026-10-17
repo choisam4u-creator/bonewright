@@ -10,6 +10,7 @@ python3 examples/rig_sample.py --preset quadruped   # 절차적 네 발 캡슐 �
 python3 examples/rig_sample.py adventurer      # tests/assets 의 CC0 캐릭터(1.9MB, Quaternius)
 python3 examples/rig_sample.py --table adventurer   # 리깅 없이 GLB 안의 스킨 본 표만 (블렌더 불필요)
 python3 examples/rig_sample.py --motion        # 캡슐 인형 리깅 뒤 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
+python3 examples/rig_sample.py --preset quadruped --motion   # 캡슐 개 리깅 뒤 절차 생성 네 발 걷기(24프레임)를 리타겟
 ```
 
 리깅에는 Blender 5.2 LTS 또는 `pip install bpy==5.2.2`(파이썬 3.13)가 필요하다. 결과는 `examples/out/`(git 제외)에
@@ -22,7 +23,8 @@ Rigify 늑대 메타리그라 앞발·뒷발 발가락 본까지 있다). 동작
 `Spine` 은 척추 중간이라 따로 옮기지 않는다 — [Motion retargeting](../docs/GUIDE.md#motion-retargeting) 의 관절 표). `tests/test_examples.py` 가 세 예시와 지금 결과를 대조한다.
 같은 손 흔들기를 [`wave.bvh`](wave.bvh) 로 실어 두었다 — 내 리그에도 그대로 넣을 수 있다:
 `bw motion --bvh examples/wave.bvh --rig <run-id>`(`bw rig` 끝의 `next:` 줄이 id 를 채워 보여 준다).
-네 발 리그에는 [`dog_walk.bvh`](dog_walk.bvh)(`rig_sample.dog_walk_bvh` 가 만든 1초 속보)를 쓴다:
+네 발 리그에는 [`dog_walk.bvh`](dog_walk.bvh)(`rig_sample.dog_walk_bvh` 가 만든 1초 속보 — 캡슐 개 결과는
+[sample-output/capsule_dog_motion.md](sample-output/capsule_dog_motion.md), 관절 20개를 다 옮김)를 쓴다:
 `bw motion --bvh examples/dog_walk.bvh --rig <run-id>`(사족 리그의 `next:` 줄이 이것을 준다).
 
 ## 무거운 자산

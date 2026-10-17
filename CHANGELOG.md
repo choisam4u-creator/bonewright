@@ -137,6 +137,9 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 - `examples/dog_walk.bvh` (made by `examples/rig_sample.py`'s `dog_walk_bvh`, MIT): a one-second four-legged trot
   whose rest pose bends like Rigify's wolf metarig, so a quadruped rig has a sample motion that runs as pasted.
+- `python3 examples/rig_sample.py --preset quadruped --motion` rigs the capsule dog and retargets that walk onto it
+  (it used to refuse: "--motion works with the humanoid preset only"); the result is
+  `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
 - On a four-legged rig, the `next:` lines of `bw rig`, `bw status <id>`, `bw export` and `bw demo` (and `bw motion`
