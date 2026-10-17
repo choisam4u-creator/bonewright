@@ -1,11 +1,34 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/16 22회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/17 23회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 295개, 건너뜀 0
-sed -e 's/LeftArm/L_Shoulder/;s/LeftForeArm/L_Elbow/;s/LeftUpLeg/L_Hip/;s/LeftLeg/L_Knee/' examples/wave.bvh > /tmp/j.bvh && bw motion --bvh /tmp/j.bvh --rig r1   # 18 bones moved, ⚠ 없음
-sed -e 's/LeftArm/LeftBrachium/' examples/wave.bvh > /tmp/o.bvh && bw motion --bvh /tmp/o.bvh --rig r1   # ⚠ upper_arm_fk.L 가 안 움직임 + `… --map bones.json`
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 303개, 건너뜀 0
+python3 examples/rig_sample.py --preset quadruped && bw rig examples/out/capsule_dog.glb --preset quadruped --run-id dog --no-judge   # next: 끝에 "front legs move like arms"
+bw motion --bvh examples/wave.bvh --rig dog; bw motion --bvh examples/wave.bvh --rig dog --preset humanoid   # ⚠ upright·사람 리그 명령 / BLOCKED + --preset 뺀 명령
 ```
+
+## 2026-10-17 (23회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv(편집 설치)로 저장소 밖 임시 폴더에서 개 리그(capsule_dog)·사람 리그(adventurer) + wave.bvh 를 쳐 보고 **새 항목 3개** 추가, 3개 모두 처리(22회차 "다음 후보" 의 사족 쪽):
+  - **리그와 다른 `--preset`**: 개 리그에 `bw motion … --preset humanoid` → 말없이 팔다리 6개가 안 움직이고, ⚠ 는 "이름을 못 알아본 BVH 본: LeftArm…" + 리그에 없는 `upper_arm_fk.L` 로 `--map` 을 쓰라 했다(틀린 진단). → Blender 전에 `BLOCKED:` + `--preset` 을 뺀 같은 명령.
+  - **사람 BVH 를 네 발 리그에**(개 리그 `next:` 가 권한 그대로): 앞다리가 손을 흔드는데(39.12°·32.36cm) 말없이 "done" → BVH 쉬는 자세가 서 있는 몸이면 ⚠ 두 줄 + 최근 사람 리그로 바꾼 같은 명령(없으면 첫 리깅)·report 한 줄. 안내 명령 `--rig hero` 는 18본·4.86°·10.33cm. 이 일로 `bvh_rest_joints` 가 부모 OFFSET 을 더하지 않던 잠복 버그(머리 y 0.1, 실제 0.55)도 고침 — 위 축 자동 판단은 국소 OFFSET 방향 덕에 우연히 맞아 왔다.
+  - **네 발 리그의 `next:`**(`bw rig`·`bw status <id>`·`bw export`·`bw demo`): 사람 손 흔들기 샘플에 "앞다리가 팔처럼 움직인다, 네 발 BVH 가 있으면 그 경로로" 한 마디.
+- CHANGELOG Fixed 3줄, GUIDE 두 줄(리타겟 절), tests/README·CONTRIBUTING 시험 수. 사용자 체감: 안내 명령을 그대로 쳤는데 결과가 말없이 이상하던 두 길이 이제 말하고 다음 명령을 준다. 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 303개 중 16개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **303개 모두 통과, 건너뜀 0**(136초). 라이선스 경계 검사 OK.
+- 새 시험 8개(`RigPresetMismatchTests` 2·`UprightOnQuadTests` 3·`BvhRestPoseTests` 2·`QuadNextNoteTests` 1)는 고치기 전 코드에서 실패 확인(`test_same_or_unknown_preset_goes_on` 은 회귀 방지라 옛 코드에서도 통과). 세 고침 모두 bpy 설치본 `bw` 로 실제 문구·숫자 확인.
+- 못 돌린 것: 실제 렌더(화면 없는 리눅스). 진짜 네 발 모캡 BVH(Quaternius 늑대)로 `bvh_upright` 가 False 인지는 합성 개 BVH 로만 봤다 — Mac 의 bench-assets 늑대 클립으로 한 번 보면 좋다(⚠ 가 안 나와야 한다).
+- CI: PR #10 헤드(aee360c)에서도 잡 전부 1~3초 만에 단계 없이 끝남(run 38994361934·38994357915: unit 3.13·windows·blender failure, 3.11 cancelled). blender 잡이 pending 으로 머물다 이렇게 끝나는 이유: 러너가 안 붙음(비공개 저장소의 Actions 사용량·결제 한도로 추정, Settings → Billing) — 코드와 무관.
+
+**완료 수·추가 수**: 완료 3 · 추가 3 (완료 ≥ 추가) · 남은 [ ] 0.
+
+**막힌 것 / 다음**
+- 다음 후보: `--map` 에 쓸 리그 컨트롤 목록을 Blender 전에 보는 길(rig_stats.json 에 컨트롤 이름), 네 발 샘플 BVH(절차 생성 걷기)를 저장소에 실어 개 리그 `next:` 가 그대로 도는 동작을 권하기, UE 이름(`spine_01`~`05`)의 척추 가운데.
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 23회차로 적었다. 이 세션의 지정 브랜치(`claude/cloud-work-ph50b3`)가 아니라 지시문대로 `claude/cloud-work` 에 푸시했다(지난 회차들과 같음).
 
 ## 2026-10-16 (22회차)
 
