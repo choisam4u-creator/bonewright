@@ -620,7 +620,8 @@ axis on which the head sits above the feet; with no recognisable head or feet it
   and source rigs carry anywhere from two to eight tail joints, so they are spread evenly over the four controls.
   Without this every `Tail*` joint collided on one control and the tail stayed frozen.
   A four-legged rig wants a four-legged clip: a standing (human) BVH on it — the sample `wave.bvh` included — drives
-  the front legs with the arms, and `bw motion` says so with the same command on your latest human rig.
+  the front legs with the arms, and `bw motion` says so with the same command on the repository's four-legged walk
+  (below) or on your latest human rig.
   The repository ships one: [`examples/dog_walk.bvh`](../examples/dog_walk.bvh), a procedural one-second trot whose
   rest pose bends like the wolf metarig (20 joints, all mapped; 8.5° mean bone direction error on the capsule dog).
   A four-legged rig's `next:` lines offer it instead of the hand wave.

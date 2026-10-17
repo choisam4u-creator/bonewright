@@ -302,6 +302,15 @@ def swap_arg(old: str, new: str) -> str:
     return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
 
 
+def swap_opt(flag: str, new: str) -> str:
+    """지금 친 명령에서 옵션 하나의 값(`--bvh X`·`--bvh=X`)만 new 로 바꾼 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
+    words, nxt = [], False
+    for w in sys.argv[1:]:
+        words.append(new if nxt else f"{flag}={new}" if w.startswith(flag + "=") else w)
+        nxt = w == flag
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+
+
 def drop_opt(flag: str) -> str:
     """지금 친 명령에서 옵션 하나(`--preset X`·`--preset=X`)를 뺀 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
     words, skip = [], False
@@ -605,10 +614,12 @@ def upright_on_quad_warning(root: Path, rig_run: str) -> str:
         from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
         where, first = _from_repo()
         nxt = T(f"사람 리그부터 — {where}`{first}`, 그 `next:` 줄의 명령", f"rig a human first — {where}`{first}`, then the command on its `next:` line")
+    # 10/17 24회차: "네 발 동작 BVH 를 주거나" — 줄 파일이 없었다. 저장소의 네 발 걷기로 바꾼 같은 명령을 먼저
+    walk = swap_opt("--bvh", sample_bvh(quad=True))
     return T(f"  ⚠ 이 BVH 는 서 있는 몸(머리가 골반 위)인데 리그 `{rig_run}` 은 네 발(quadruped)이다 — 팔이 앞다리를 움직여 앞다리가 팔처럼 움직인다\n"
-             f"    → 네 발 동작 BVH 를 주거나, {nxt}",
+             f"    → 네 발 동작으로(저장소의 네 발 걷기): `{walk}` · 또는 {nxt}",
              f"  ⚠ this BVH stands upright (head above the hips) but rig `{rig_run}` is four-legged (quadruped) — its arms drive the front legs, so the front legs move like arms\n"
-             f"    → give a four-legged motion file, or {nxt}")
+             f"    → a four-legged motion (the repository's walk): `{walk}` · or {nxt}")
 
 
 def map_target_warning(bad: dict) -> str:

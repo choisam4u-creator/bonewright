@@ -1277,6 +1277,17 @@ class UprightOnQuadTests(unittest.TestCase):
                 out = pipeline.motion(root, bvh=str(self.WAVE), run_id="m1", bvh_up="auto", rig_run=rig)
             return err.getvalue(), out.read_text(encoding="utf-8")
 
+    def test_human_motion_on_a_dog_rig_gives_the_dog_walk_first(self):
+        """The first way out is the same command with the repository's four-legged walk as the BVH.
+
+        10/17 24회차: "네 발 동작 BVH 를 주거나" 엔 줄 파일이 없었다 → 같은 명령에서 BVH 만 저장소 네 발 걷기로."""
+        for lang, label in (("en", "a four-legged motion (the repository's walk)"), ("ko", "네 발 동작으로(저장소의 네 발 걷기)")):
+            log = self.log(lang, {"dog": "quadruped"})[0]
+            cmd = re.search(re.escape(label) + r": `([^`]+)`", log)[1]
+            a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+            self.assertEqual(("dog_walk.bvh", "dog"), (Path(a.bvh).name, a.rig))
+            self.assertTrue(Path(a.bvh).is_file(), a.bvh)
+
     def test_human_motion_on_a_dog_rig_names_the_human_rig(self):
         log, report = self.log("en", {"hero": "humanoid", "dog": "quadruped"})
         self.assertIn("this BVH stands upright (head above the hips) but rig `dog` is four-legged", log)
