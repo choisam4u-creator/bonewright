@@ -137,6 +137,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- `bw motion --rig <rig> --preset X` with a preset other than the one the rig was made with ran anyway: on a dog rig
+  `--preset humanoid` left six limb controls unmoved, and the warning blamed the BVH names and suggested a `--map` to
+  controls the rig does not have. It now stops before Blender with the same command without `--preset` (the preset is
+  read from the rig).
 - A joint-named BVH (SMPL and pose-estimation tools: `L_Hip`/`L_Knee`/`L_Ankle`, `L_Shoulder`/`L_Elbow`/`L_Wrist`)
   left nine arm and leg joints unmoved and still said "done": `Hip` was read as the pelvis and `Shoulder` as the
   collarbone. When a side has a `Knee` or `Elbow` joint, `Hip` now drives the thigh and `Shoulder` the upper arm

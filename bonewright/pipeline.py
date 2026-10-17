@@ -291,6 +291,28 @@ def swap_arg(old: str, new: str) -> str:
     return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
 
 
+def drop_opt(flag: str) -> str:
+    """지금 친 명령에서 옵션 하나(`--preset X`·`--preset=X`)를 뺀 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
+    words, skip = [], False
+    for w in sys.argv[1:]:
+        if skip:
+            skip = False
+        elif w == flag:
+            skip = True
+        elif not w.startswith(flag + "="):
+            words.append(w)
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+
+
+def rig_preset(root: Path, run_id: str) -> str | None:
+    """리그 실행 기록(rig_stats.json)의 프리셋. 기록이 없는 옛 실행이면 None."""
+    rs = root / "runs" / run_id / "rig_stats.json"
+    try:
+        return json.loads(rs.read_text(encoding="utf-8")).get("preset") if rs.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
 def need_rig(root: Path, run_id: str, use: str = "") -> Path:
     """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
     use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""
@@ -963,6 +985,13 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             raise Blocked(T(f"{what}, 그리고 리깅을 마친 실행이 없다\n  → 먼저 {where}`{first}`, 그 `next:` 줄의 id 를 `--rig <id>` 로 붙여 같은 명령 — 아니면 그 옵션을 빼라",
                             f"{what}, and no rig has been made yet\n  → {where}run `{first}` first, then this command with `--rig <id>` from its `next:` line — or drop the option"))
     rig_blend = need_rig(root, rig_run, "--rig {}") if rig_run else None
+    # 10/17 23회차 실측: 개 리그에 `--preset humanoid` → 말없이 돌아 팔다리 6개가 안 움직이고, ⚠ 는 "이름을 못 알아봤다" +
+    # 리그에 없는 `upper_arm_fk.L` 로 --map 을 쓰라 했다. 리그와 다른 프리셋은 Blender 전에 막고 그 옵션을 뺀 같은 명령
+    if rig_run and preset and (was := rig_preset(root, rig_run)) and was != preset:
+        raise Blocked(T(f"`--preset {preset}` 인데 리그 `{rig_run}` 은 {was} 로 리깅됐다 — `--preset` 은 리그의 프리셋이라, 다르면 팔다리가 안 움직인다\n"
+                        f"  → 그 옵션을 뺀 같은 명령(리그 기록에서 읽는다): `{drop_opt('--preset')}`",
+                        f"`--preset {preset}` but rig `{rig_run}` was rigged as {was} — `--preset` is the rig's preset, and a different one leaves its limbs unmoved\n"
+                        f"  → the same command without it (read from the rig): `{drop_opt('--preset')}`"))
     user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
@@ -1003,8 +1032,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     r.state("import", "running")
     from .retarget import detect_bvh_up
     if rig_run and preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid). 위 축 판단에도 필요하다
-        rs = root / "runs" / rig_run / "rig_stats.json"
-        preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
+        preset = rig_preset(root, rig_run) or "humanoid"
     if bvh_up == "auto":   # 위 축을 틀리면 조용히 망가진다(늑대 걷기: 발이 바닥에서 1m 뜸) → 머리·발 위치로 정한다
         bvh_up = detect_bvh_up(str(Path(bvh).resolve()), preset or "humanoid")
         _log(quiet, T(f"{n('import')} bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)", f"{n('import')} bvh up axis detected: {bvh_up} (if wrong, set it with --bvh-up)"))

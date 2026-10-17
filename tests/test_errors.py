@@ -1219,6 +1219,41 @@ class UnmovedLimbTests(unittest.TestCase):
         self.assertIn("2 BVH bones not moved (Spine, LeftToeBase)", log)
 
 
+class RigPresetMismatchTests(unittest.TestCase):
+    """`bw motion --rig <dog rig> --preset humanoid` stops before Blender with the same command minus `--preset`.
+
+    10/17 23회차 실측(bpy 5.2.2): 개 리그에 `--preset humanoid` 를 주면 말없이 돌아 팔다리 6개가 안 움직였고,
+    ⚠ 는 "이름을 못 알아본 BVH 본"(LeftArm…) + 리그에 없는 `upper_arm_fk.L` 로 `--map` 을 쓰라 했다."""
+
+    def blocked(self, argv, lang="en", stats='{"preset": "quadruped"}'):
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", argv), \
+                patch.object(pipeline, "need_blender", lambda cfg: self.fail("reached Blender")):
+            root = Path(d); bvh = root / "wave.bvh"; bvh.write_text("HIERARCHY\n", encoding="utf-8")
+            rd = root / "runs" / "dog"; rd.mkdir(parents=True); (rd / "02_rigged.blend").write_text("")
+            if stats:
+                (rd / "rig_stats.json").write_text(stats, encoding="utf-8")
+            with self.assertRaises(pipeline.Blocked) as cm:
+                pipeline.motion(root, bvh=str(bvh), run_id="m1", rig_run="dog", preset="humanoid", export="auto")
+            return str(cm.exception)
+
+    def test_different_preset_gives_the_command_without_it(self):
+        for argv in (["bw", "motion", "--bvh", "wave.bvh", "--rig", "dog", "--preset", "humanoid", "--export"],
+                     ["bw", "motion", "--bvh", "wave.bvh", "--preset=humanoid", "--rig", "dog", "--export"]):
+            msg = self.blocked(argv)
+            self.assertIn("rig `dog` was rigged as quadruped", msg)
+            cmd = re.search(r"without it \(read from the rig\): `([^`]+)`", msg)[1]
+            a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+            self.assertEqual(("wave.bvh", "dog", None, "auto"), (a.bvh, a.rig, a.preset, a.export))
+        self.assertIn("리그 `dog` 은 quadruped 로 리깅됐다", self.blocked(argv, "ko"))
+
+    def test_same_or_unknown_preset_goes_on(self):
+        """An old rig with no rig_stats.json keeps the flag (it is the only way to say the preset)."""
+        argv = ["bw", "motion", "--bvh", "wave.bvh", "--rig", "dog", "--preset", "humanoid"]
+        for stats in ('{"preset": "humanoid"}', None):
+            with self.assertRaises(AssertionError):   # 막히지 않고 Blender 단계까지 간다
+                self.blocked(argv, stats=stats)
+
+
 class MapFileShapeTests(unittest.TestCase):
     """A `--map` file that is not JSON or not {"BVH bone": "rig bone"} says what to write, not just an example.
 
