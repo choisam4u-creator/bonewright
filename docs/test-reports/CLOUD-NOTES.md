@@ -1,11 +1,35 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/17 23회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/17 24회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 303개, 건너뜀 0
-python3 examples/rig_sample.py --preset quadruped && BW_BACKEND=mock bw rig examples/out/capsule_dog.glb --preset quadruped --run-id dog   # next: 끝에 "front legs move like arms"
-bw motion --bvh examples/wave.bvh --rig dog; bw motion --bvh examples/wave.bvh --rig dog --preset humanoid   # ⚠ upright·사람 리그 명령 / BLOCKED + --preset 뺀 명령
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 311개, 건너뜀 0
+python3 examples/rig_sample.py --preset quadruped --motion      # 개 리그에 네 발 걷기 20/20 — capsule_dog_motion.md 와 같은 표
+BW_BACKEND=mock bw rig examples/out/capsule_dog.glb --preset quadruped --run-id dog && bw demo dog && bw motion --bvh examples/dog_walk.bvh --rig dog --export   # 영상·GLB 로 걷는 모양 눈으로 확인
 ```
+
+## 2026-10-17 (24회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv 로 저장소 밖 임시 폴더에서 개 리그·사람 리그를 쳐 보고 **새 항목 4개** 추가, 4개 모두 처리(23회차 "다음 후보" 의 네 발 샘플 BVH 에서 출발):
+  - **네 발 샘플 BVH**: `examples/dog_walk.bvh`(`rig_sample.dog_walk_bvh`, 1초 속보, 쉬는 자세는 늑대 메타리그 꺾임, 휠에도). 네 발 리그의 `next:`(rig·status·export·demo·출처 없는 motion)가 손 흔들기 대신 이것을 준다(23회차 `quad_note` 는 뺌). 개 리그에 20본·방향 오차 8.52°(손 흔들기 39.12°)·발 닿음 BVH 와 같음.
+  - **`rig_sample.py --preset quadruped --motion`**: "사람 프리셋에서만" 거절 → 개 리그에 네 발 걷기를 입혀 `sample-output/capsule_dog_motion.md`(20/20), README 두 언어.
+  - **서 있는 몸 BVH → 네 발 리그 ⚠**: "네 발 동작 BVH 를 주거나"(줄 파일 없음) → BVH 만 저장소 네 발 걷기로 바꾼 같은 명령을 먼저.
+  - **네 발 BVH → 사람 리그**: 꼬리 4개 버림·손발 오차 55.45cm 인데 말없이 "done" → ⚠ + 네 발 리그로·손 흔들기로 바꾼 같은 명령. 사람 기준 위 축 판단이 이 파일을 Z 위(뒷다리로 선 개)로 읽어서, 판단은 네 발 기준 위 축 + 앞발이 바닥에 있는지로 한다.
+- 사용자 체감: 네 발 경로(리깅 → `next:` → 동작 → GLB)가 처음으로 안내 명령 그대로 끝까지 맞게 돈다. 설치~첫 결과 단계 수는 그대로.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 311개 중 17개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **311개 모두 통과, 건너뜀 0**(202초). 라이선스 경계 검사 OK.
+- 새·바뀐 시험은 고치기 전 코드에서 실패 확인. 네 고침 모두 bpy 설치본 `bw`·`rig_sample.py` 로 실제 문구·숫자 확인(위 숫자). 저장소의 BVH 3개(wave·dog_walk·spikes walk_wave)와 Z 위 변형으로 `bvh_lying` 오탐 없음.
+- 못 돌린 것: 실제 렌더(화면 없는 리눅스) — 걷는 모양은 숫자로만 봤다(Mac 확인 셋째 줄). 진짜 네 발 모캡(Quaternius 늑대)에 `bvh_lying` 이 True 인지는 저장소에 파일이 없어 못 봄.
+- CI: PR #10 헤드(d8494c0)에서도 잡 전부 1~3초 만에 단계 없이 끝남(run 39040496153: unit 3.11·windows·blender failure, 3.13 cancelled; run 39040500413 은 queued). blender 잡이 pending 으로 머물다 이렇게 끝나는 이유: 러너가 안 붙음(비공개 저장소의 Actions 사용량·결제 한도로 추정, Settings → Billing) — 코드와 무관.
+
+**완료 수·추가 수**: 완료 4 · 추가 4 (완료 ≥ 추가) · 남은 [ ] 0. 지시문은 "새 항목 5개" 지만 완료 ≥ 추가를 지키려 실측으로 확인한 4개만 넣었다.
+
+**막힌 것 / 다음**
+- 다음 후보: `--map` 에 쓸 리그 컨트롤 목록을 Blender 전에 보는 길(rig_stats.json 에 컨트롤 이름), `bw demo` 가 네 발 리그에 무슨 동작을 쓰는지 확인(렌더 필요 — Mac), 진짜 늑대 BVH 로 `bvh_lying`.
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 24회차로 적었다. 이 세션의 지정 브랜치(`claude/cloud-work-fu5b8h`)가 아니라 지시문대로 `claude/cloud-work` 에 푸시했다(지난 회차들과 같음).
 
 ## 2026-10-17 (23회차)
 
