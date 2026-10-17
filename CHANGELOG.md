@@ -135,11 +135,14 @@ See `docs/RELEASING.md` for the release steps.
 - `bw doctor` marks each item `[required]` or `[optional]` and exits 0 when Blender or `bpy` is found, even
   without `codex` (only the default model-judged `bw rig` needs it). Its output follows `BW_LANG` too.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
+- `examples/dog_walk.bvh` (made by `examples/rig_sample.py`'s `dog_walk_bvh`, MIT): a one-second four-legged trot
+  whose rest pose bends like Rigify's wolf metarig, so a quadruped rig has a sample motion that runs as pasted.
 
 ### Fixed
-- On a four-legged rig, the `next:` lines of `bw rig`, `bw status <id>`, `bw export` and `bw demo` offered the sample
-  hand wave with no word that it is a human motion; they now add that the front legs will move like arms and to use a
-  four-legged BVH if you have one.
+- On a four-legged rig, the `next:` lines of `bw rig`, `bw status <id>`, `bw export` and `bw demo` (and `bw motion`
+  with no source) offered the sample hand wave, and pasting it made the front legs wave like arms. They now offer
+  `examples/dog_walk.bvh`, a procedural four-legged trot shipped in the repository and the wheel (20 joints, all mapped;
+  8.5° mean bone direction error on the capsule dog against 39° for the wave).
 - A standing (human) BVH on a four-legged rig — exactly what a quadruped `bw rig`'s `next:` line suggested with the
   sample wave — said only "done" while the front legs waved like arms (direction error 39°). `bw motion` now warns
   that the front legs move like arms and gives the same command on your latest human rig (or the first human rig

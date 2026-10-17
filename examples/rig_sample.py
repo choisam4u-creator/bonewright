@@ -102,11 +102,30 @@ WAVE_JOINTS = [
 ]
 
 
-def wave_bvh(path: Path, frames: int = 24) -> Path:
-    """왼팔은 내리고 오른팔을 들어 아래팔을 흔드는 짧은 BVH 를 쓴다(순수 파이썬, 매번 같은 파일)."""
-    import math
+# 절차 생성 네 발 BVH(라이선스 문제 없음): Y 위, +Z 앞, 미터, 서 있는 개. 앞다리는 Quaternius 동물처럼 UpperArm/LowerArm/Wrist,
+# 뒷다리는 UpperLeg/LowerLeg/Foot, 꼬리는 Tail1~4 — `retarget.bvh_mapping(…, "quadruped")` 가 20개를 다 알아본다.
+# 10/17 24회차: 개 리그의 `next:` 가 권할 네 발 샘플이 없어 사람 손 흔들기를 권했다(앞다리가 팔처럼 움직였다)
+DOG_JOINTS = [   # 쉬는 자세는 Rigify 늑대 메타리그(캡슐 개 리그)와 같은 꺾임 — 뒷다리 허벅지는 앞으로, 정강이는 뒤로, 발목 아래는 곧게
+    (None, "Hips", (0, 0, 0), None),
+    ("Hips", "Chest", (0, 0.08, 0.40), None), ("Chest", "Neck", (0, 0.02, 0.19), None),
+    ("Neck", "Head", (0, 0.06, 0.09), (0, 0.02, 0.12)),
+    ("Chest", "LeftUpperArm", (0.11, -0.23, 0.16), None), ("LeftUpperArm", "LeftLowerArm", (0, -0.224, 0.018), None),
+    ("LeftLowerArm", "LeftWrist", (0, -0.114, -0.002), (0, -0.042, 0)),
+    ("Chest", "RightUpperArm", (-0.11, -0.23, 0.16), None), ("RightUpperArm", "RightLowerArm", (0, -0.224, 0.018), None),
+    ("RightLowerArm", "RightWrist", (0, -0.114, -0.002), (0, -0.042, 0)),
+    ("Hips", "LeftUpperLeg", (0.11, -0.034, 0.04), None), ("LeftUpperLeg", "LeftLowerLeg", (0, -0.128, 0.066), None),
+    ("LeftLowerLeg", "LeftFoot", (0, -0.196, -0.21), (0, -0.106, 0)),
+    ("Hips", "RightUpperLeg", (-0.11, -0.034, 0.04), None), ("RightUpperLeg", "RightLowerLeg", (0, -0.128, 0.066), None),
+    ("RightLowerLeg", "RightFoot", (0, -0.196, -0.21), (0, -0.106, 0)),
+    ("Hips", "Tail1", (0, -0.03, -0.14), None), ("Tail1", "Tail2", (0, 0.03, -0.09), None),
+    ("Tail2", "Tail3", (0, 0.03, -0.09), None), ("Tail3", "Tail4", (0, 0.02, -0.09), (0, 0.01, -0.08)),
+]
+
+
+def write_bvh(path: Path, joints: list, frames: int, frame) -> Path:
+    """joints(부모, 이름, 오프셋, 끝 오프셋)와 frame(f) → (루트 위치, {이름: (Z, X, Y) 도}) 로 BVH 를 쓴다(순수 파이썬, 매번 같은 파일)."""
     kids: dict = {}
-    for parent, name, off, end in WAVE_JOINTS:
+    for parent, name, off, end in joints:
         kids.setdefault(parent, []).append((name, off, end))
     lines = ["HIERARCHY"]
 
@@ -122,24 +141,51 @@ def wave_bvh(path: Path, frames: int = 24) -> Path:
             lines.extend([f"{pad}\tEnd Site", f"{pad}\t{{", f"{pad}\t\tOFFSET {end[0]:.4f} {end[1]:.4f} {end[2]:.4f}", f"{pad}\t}}"])
         lines.append(pad + "}")
 
-    emit("Hips", (0, 0, 0), None, 0)
+    root = joints[0][1]
+    emit(root, (0, 0, 0), None, 0)
     lines += ["MOTION", f"Frames: {frames}", f"Frame Time: {1 / 24:.6f}"]
     order = []
     def walk(name):
         order.append(name)
         for k in kids.get(name, []):
             walk(k[0])
-    walk("Hips")
+    walk(root)
     for f in range(frames):
-        w = math.sin(2 * math.pi * f / 12)   # 0.5초에 한 번 흔든다
-        rot = {"LeftArm": (-70, 0, 0), "RightArm": (-60, 0, 0), "RightForeArm": (-30 + 25 * w, 0, 0),
-               "LeftLeg": (0, 5, 0), "RightLeg": (0, 5, 0)}   # (Z, X, Y) 도
-        vals = [0.01 * w, 0.95, 0.0, 0, 0, 0]
+        pos, rot = frame(f)
+        vals = [*pos, *rot.get(root, (0, 0, 0))]
         for name in order[1:]:
             vals += rot.get(name, (0, 0, 0))
         lines.append(" ".join(f"{v:.4f}" for v in vals))
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def wave_bvh(path: Path, frames: int = 24) -> Path:
+    """왼팔은 내리고 오른팔을 들어 아래팔을 흔드는 짧은 BVH 를 쓴다(순수 파이썬, 매번 같은 파일)."""
+    import math
+
+    def frame(f):
+        w = math.sin(2 * math.pi * f / 12)   # 0.5초에 한 번 흔든다
+        rot = {"LeftArm": (-70, 0, 0), "RightArm": (-60, 0, 0), "RightForeArm": (-30 + 25 * w, 0, 0),
+               "LeftLeg": (0, 5, 0), "RightLeg": (0, 5, 0)}   # (Z, X, Y) 도
+        return (0.01 * w, 0.95, 0.0), rot
+    return write_bvh(path, WAVE_JOINTS, frames, frame)
+
+
+def dog_walk_bvh(path: Path, frames: int = 24) -> Path:
+    """네 발로 걷는(속보: 왼앞·오른뒤가 같이) 1초 BVH 를 쓴다 — 앞으로 0.8m, 다리는 X 축으로 흔든다(순수 파이썬, 매번 같은 파일)."""
+    import math
+
+    def frame(f):
+        ph = 2 * math.pi * f / frames
+        rot = {"Head": (0, -4 * math.sin(2 * ph), 0), "Tail1": (6 * math.sin(ph), 10, 0), "Tail2": (6 * math.sin(ph), 0, 0)}
+        for side, legs in (("Left", (0, math.pi)), ("Right", (math.pi, 0))):   # (앞다리, 뒷다리) 위상
+            for kind, (up, low, end), p in (("Arm", ("UpperArm", "LowerArm", "Wrist"), legs[0]), ("Leg", ("UpperLeg", "LowerLeg", "Foot"), legs[1])):
+                s, lift = math.sin(ph + p), max(0.0, math.cos(ph + p))   # 앞으로 나가는 반 주기에 무릎을 굽힌다
+                bend = 35 * lift if kind == "Arm" else -30 * lift   # 앞다리는 발을 뒤로, 뒷다리(뒤꿈치)는 앞으로 접는다
+                rot[side + up] = (0, -22 * s, 0); rot[side + low] = (0, bend, 0); rot[side + end] = (0, -0.6 * bend, 0)
+        return (0.0, 0.53 + 0.01 * math.cos(2 * ph), 0.8 * f / frames), rot
+    return write_bvh(path, DOG_JOINTS, frames, frame)
 
 
 def motion_and_report(name: str) -> Path:

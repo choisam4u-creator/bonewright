@@ -1020,11 +1020,12 @@ class NextStepTests(unittest.TestCase):
                     cli.build_parser().parse_args(re.sub(r"<[^>]+>", "w.bvh", cmd).split()[1:])
 
 
-class QuadNextNoteTests(unittest.TestCase):
-    """On a four-legged rig, every `next:` that offers the sample hand wave says the front legs will move like arms.
+class QuadNextSampleTests(unittest.TestCase):
+    """On a four-legged rig, every `next:` that offers a sample motion offers the four-legged walk, and it is a real file.
 
     10/17 23회차 실측(bpy 5.2.2): 개 리그의 `bw rig`·`bw status <id>`·`bw export`·`bw demo` `next:` 가 사람 손 흔들기
-    샘플을 아무 말 없이 권했고, 그대로 치면 앞다리가 손을 흔들었다."""
+    샘플을 권했고, 그대로 치면 앞다리가 손을 흔들었다(23회차엔 말만 붙였다). 10/17 24회차: 저장소에 네 발 걷기
+    examples/dog_walk.bvh 를 싣고 개 리그엔 그것을 준다 — 개 리그에 20본·방향 오차 8.52°(손 흔들기는 39.12°)."""
 
     def run_cmd(self, home, argv, lang, patched=None):
         import os
@@ -1038,11 +1039,11 @@ class QuadNextNoteTests(unittest.TestCase):
             os.chdir(cwd)
         return out.getvalue() + err.getvalue()
 
-    def test_quadruped_rig_next_lines_warn_and_humanoid_ones_do_not(self):
+    def test_quadruped_rig_next_lines_give_the_dog_walk(self):
         import json
         import re
         import shlex
-        for preset in ("quadruped", "humanoid"):
+        for preset, want in (("quadruped", "dog_walk.bvh"), ("humanoid", "wave.bvh")):
             with tempfile.TemporaryDirectory() as t:
                 home = Path(t); rd = home / "runs" / "dog"; rd.mkdir(parents=True)
                 (rd / "rig_stats.json").write_text(json.dumps({"preset": preset}), encoding="utf-8")
@@ -1051,14 +1052,46 @@ class QuadNextNoteTests(unittest.TestCase):
                 runs = {"rig": (["rig", "dog.glb", "--preset", "quadruped"], ("rig", rd / "report.md")),
                         "status": (["status", "dog"], None),
                         "export": (["export", "dog"], ("export_rig", rd / "rigged.glb")),
-                        "demo": (["demo", "dog"], ("demo", rd / "demo.mp4"))}
+                        "demo": (["demo", "dog"], ("demo", rd / "demo.mp4")),
+                        "motion": (["motion"], None)}   # 출처 없는 `bw motion`: 최근 리그에 샘플
                 for lang in ("en", "ko"):
                     for name, (argv, ret) in runs.items():
-                        text = self.run_cmd(home, argv, lang, (ret[0], unittest.mock.Mock(return_value=ret[1])) if ret else None)
-                        note = ("the front legs move like arms" if lang == "en" else "앞다리가 팔처럼 움직인다") in text
-                        self.assertEqual(preset == "quadruped", note, (name, lang, text))
-                        for cmd in re.findall(r"`(bw [^`]+)`", text):
-                            cli.build_parser().parse_args(shlex.split(cmd)[1:])
+                        if name == "motion":
+                            text = self.run_fail(home, argv, lang)
+                        else:
+                            text = self.run_cmd(home, argv, lang, (ret[0], unittest.mock.Mock(return_value=ret[1])) if ret else None)
+                        cmds = [shlex.split(c) for c in re.findall(r"`(bw motion --bvh [^`]+)`", text)]
+                        self.assertTrue(cmds, (name, lang, text))
+                        for cmd in cmds:
+                            ns = cli.build_parser().parse_args(cmd[1:])
+                            self.assertEqual(("dog", want), (ns.rig, Path(ns.bvh).name), (name, lang, text))
+                            self.assertTrue(Path(ns.bvh).is_file(), ns.bvh)   # 지금 폴더(저장소 밖)에서 그대로 열린다
+
+    def run_fail(self, home, argv, lang):
+        import os
+        err, cwd = io.StringIO(), os.getcwd()
+        os.chdir(home)
+        try:
+            with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", home), patch.object(sys, "argv", ["bw", *argv]), \
+                    patch("sys.stdout", io.StringIO()), patch("sys.stderr", err):
+                self.assertEqual(2, cli.main())
+        finally:
+            os.chdir(cwd)
+        return err.getvalue()
+
+    def test_dog_walk_is_a_four_legged_motion(self):
+        """The shipped dog walk maps every joint onto the quadruped controls, is not upright and is what the generator writes."""
+        sys.path.insert(0, str(Path(cli.__file__).resolve().parents[1] / "examples"))
+        import rig_sample
+        from bonewright import retarget
+        bvh = Path(cli.__file__).resolve().parents[1] / "examples" / "dog_walk.bvh"
+        names = [j[1] for j in rig_sample.DOG_JOINTS]
+        self.assertEqual(sorted(names), sorted(retarget.bvh_mapping(names, "quadruped")))
+        self.assertEqual("y", retarget.detect_bvh_up(str(bvh), "quadruped"))
+        self.assertFalse(retarget.bvh_upright(str(bvh)))
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(rig_sample.dog_walk_bvh(Path(d) / "d.bvh").read_bytes(), bvh.read_bytes(),
+                             "python3 -c \"import sys; sys.path.insert(0, 'examples'); import rig_sample, pathlib; rig_sample.dog_walk_bvh(pathlib.Path('examples/dog_walk.bvh'))\"")
 
 
 class EmptyUsageTests(unittest.TestCase):

@@ -219,17 +219,25 @@ def need_pin_names(pins: dict, preset: str) -> None:
                     f"--pin bone not in the {preset} metarig:\n{listed}\n  → use a metarig bone name (case and .L/.R must match). e.g. --pin {ex}=0.6,0,1.3"))
 
 
-def sample_bvh() -> str:
+def sample_bvh(quad: bool = False) -> str:
     """안내에 넣을 샘플 BVH 경로(examples/wave.bvh — rig_sample.wave_bvh 가 만든 손 흔들기 24프레임, 저장소에 실려 있다).
+    quad 면 네 발 걷기(examples/dog_walk.bvh — rig_sample.dog_walk_bvh, 10/17 24회차).
     저장소 폴더에서 치면 상대 경로, 다른 곳이면 저장소의 절대 경로, 설치본(`pip install .`)이면 휠에 실린 사본
     (pyproject force-include → bonewright/_samples/, 10/12 13회차), 그것도 없으면 자리표시."""
-    if Path("examples/wave.bvh").is_file():
-        return "examples/wave.bvh"
+    name = "dog_walk.bvh" if quad else "wave.bvh"
+    if Path("examples", name).is_file():
+        return f"examples/{name}"
     here = Path(__file__).resolve().parent
-    for p in (here.parent / "examples" / "wave.bvh", here / "_samples" / "wave.bvh"):
+    for p in (here.parent / "examples" / name, here / "_samples" / name):
         if p.is_file():
             return f'"{p}"' if any(c.isspace() for c in str(p)) else str(p)
     return T("<파일.bvh>", "<file.bvh>")
+
+
+def rig_sample_bvh(root: Path, rig_run: str) -> str:
+    """그 리그에 그대로 입힐 샘플 BVH — 네 발 리그면 네 발 걷기, 아니면 손 흔들기.
+    10/17 24회차: 개 리그의 `next:` 가 사람 손 흔들기를 권해 앞다리가 팔처럼 움직였다(23회차엔 말만 붙였다)."""
+    return sample_bvh(rig_preset(root, rig_run) == "quadruped")
 
 
 def fetch_bench() -> tuple[str, str]:
@@ -978,6 +986,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     if not text and not bvh:
         bv = sample_bvh()   # 그대로 붙여 넣어 도는 BVH(저장소의 손 흔들기)
         if (rid := latest_rig(root)):   # 리그가 있으면 자리표시 대신 최근 리그 — export·demo 처럼(10/12 13회차)
+            bv = rig_sample_bvh(root, rid)
             raise Blocked(T(f"동작 출처가 없다\n  → 가장 최근 리그에 샘플 동작: `bw motion --bvh {bv} --rig {rid}`(다른 리그는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
                             f"no motion source\n  → the sample motion on the latest rig: `bw motion --bvh {bv} --rig {rid}` (other rigs: `bw status`) or `bw motion --text \"a person walks\"`"))
         # 10/15 20회차: 리그가 없는데 `--rig <rig run-id>` 자리표시 — 채울 id 가 없다. `--rig` 없이 도는 꼴과 첫 리깅 명령
@@ -1017,7 +1026,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         gen, text_model = kimodo_paths(kroot, k)
         if gen is None:   # 10/13 16회차: 대신 쓸 `--bvh file` 이 자리표시였다 — 출처 없음 안내처럼 샘플 BVH·리그를 채운다
             rid = rig_run or latest_rig(root)
-            alt = f"bw motion --bvh {sample_bvh()}" + (f" --rig {rid}" if rid else "")
+            alt = f"bw motion --bvh {rig_sample_bvh(root, rid) if rid else sample_bvh()}" + (f" --rig {rid}" if rid else "")
             raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → {guide()} 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 BVH 로: `{alt}`",
                             f"kimodo.cpp is not built: {kroot}/build/release/kmd-generate\n  → build it as in \"Text → motion: building kimodo.cpp\" in {guide()}, or use a BVH instead of text: `{alt}`"))
         if text_model is None:
