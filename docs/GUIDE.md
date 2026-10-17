@@ -624,7 +624,9 @@ axis on which the head sits above the feet; with no recognisable head or feet it
   (below) or on your latest human rig.
   The repository ships one: [`examples/dog_walk.bvh`](../examples/dog_walk.bvh), a procedural one-second trot whose
   rest pose bends like the wolf metarig (20 joints, all mapped; 8.5° mean bone direction error on the capsule dog).
-  A four-legged rig's `next:` lines offer it instead of the hand wave.
+  A four-legged rig's `next:` lines offer it instead of the hand wave. The other way round — a four-legged BVH (head
+  in front of the hips, front paws on the floor) on a human rig — the front legs would drive the arms and the tail is
+  dropped, so `bw motion` says so with the same command on your latest four-legged rig or with the hand wave.
 - **Legs (`--legs auto`, default):** legs whose source chain ends at a foot tip are driven by Rigify's foot IK: the
   tip follows the BVH tip relative to the hip, scaled by the leg-length ratio, with the clip's lowest foot point taken
   as the floor. Legs whose source chain stops at the wrist (the Quaternius wolf's front legs — the paw is a detached

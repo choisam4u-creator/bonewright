@@ -622,6 +622,20 @@ def upright_on_quad_warning(root: Path, rig_run: str) -> str:
              f"    → a four-legged motion (the repository's walk): `{walk}` · or {nxt}")
 
 
+def lying_on_human_warning(root: Path, rig_run: str) -> str:
+    """네 발(누운 몸) BVH 를 사람 리그에 — 앞다리가 팔을, 뒷다리가 다리를 움직이고 꼬리는 버려진다(10/17 24회차: 손발 오차 55.45cm, "done").
+    다음 할 일: 네 발 리그가 있으면 그 리그로 바꾼 같은 명령, 그리고 저장소의 사람 샘플(손 흔들기)로 바꾼 같은 명령."""
+    wave = swap_opt("--bvh", sample_bvh())
+    if (quad := latest_rig(root, "quadruped")):
+        nxt = T(f"네 발 리그에: `{swap_arg(rig_run, quad)}` · 또는 ", f"onto a four-legged rig: `{swap_arg(rig_run, quad)}` · or ")
+    else:
+        nxt = ""
+    return T(f"  ⚠ 이 BVH 는 네 발 짐승(머리가 골반 앞)인데 리그 `{rig_run}` 은 사람(humanoid)이다 — 앞다리가 팔을 움직이고 꼬리는 옮기지 않는다\n"
+             f"    → {nxt}사람 동작으로(저장소의 손 흔들기): `{wave}`",
+             f"  ⚠ this BVH is four-legged (head in front of the hips) but rig `{rig_run}` is a human (humanoid) — its front legs drive the arms and the tail is dropped\n"
+             f"    → {nxt}a human motion (the repository's hand wave): `{wave}`")
+
+
 def map_target_warning(bad: dict) -> str:
     """`--map` 이 리그에 없는 본으로 보낸 항목 — Blender 쪽에서 말없이 빠져 그 BVH 본이 안 움직였다(10/16 21회차 실측:
     안내의 예 `upper_arm.L` 은 메타리그 이름이고 컨트롤은 `upper_arm_fk.L`). 가까운 컨트롤이 있으면 고칠 항목을 그대로 댄다."""
@@ -1113,6 +1127,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         if preset == "quadruped" and bvh_upright(str(Path(bvh).resolve()), bvh_up):
             _log(quiet, upright_on_quad_warning(root, rig_run))
             report.append("- the BVH stands upright (a human motion) on a quadruped rig: its arms drive the front legs")
+        from .retarget import bvh_lying
+        if preset != "quadruped" and bvh_lying(str(Path(bvh).resolve())):
+            _log(quiet, lying_on_human_warning(root, rig_run))
+            report.append("- the BVH is four-legged (lying body) on a humanoid rig: its front legs drive the arms")
         if bad := {k: v for k, v in (rt.get("no_target") or {}).items() if bone_map and k in user_map}:
             _log(quiet, map_target_warning(bad))
             report.append("- --map rig bones not in the rig (not moved): " + ", ".join(f"{k} → {v['to']}" for k, v in bad.items()))

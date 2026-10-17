@@ -1308,6 +1308,65 @@ class UprightOnQuadTests(unittest.TestCase):
         self.assertNotIn("stands upright", log + report)
 
 
+class LyingOnHumanTests(unittest.TestCase):
+    """A four-legged BVH on a human rig warns that the front legs drive the arms and gives the same command on a dog rig or with the hand wave.
+
+    10/17 24회차 실측(bpy 5.2.2): `bw motion --bvh examples/dog_walk.bvh --rig hero` → 꼬리 4개 못 옮김·손발 오차
+    55.45cm(앞다리가 팔을 움직인다)인데 말없이 "done". 사람 기준 위 축 판단은 이 파일을 Z 위(뒷다리로 선 개)로 읽는다."""
+    EX = Path(__file__).resolve().parent.parent / "examples"
+
+    def log(self, lang, rigs, rig="hero", bvh="dog_walk.bvh"):
+        path = self.EX / bvh
+        names = [l.split()[1] for l in path.read_text(encoding="utf-8").splitlines() if l.split()[:1] in (["ROOT"], ["JOINT"])]
+        fake = {"import_bvh": {"bones": len(names), "frames": [1, 3], "fps": 30, "root_move": 0.0, "armature": "A", "bone_names": names},
+                "retarget_bvh": {"mapped": {}, "unmapped": [], "scale": 1.0, "no_target": {}}}
+        argv = ["bw", "motion", f"--bvh={path}", "--rig", rig]
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", argv), \
+                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(fake[name])), patch.object(pipeline, "need_blender", lambda cfg: None):
+            root = Path(d)
+            for rid, preset in rigs.items():
+                rd = root / "runs" / rid; rd.mkdir(parents=True); (rd / "02_rigged.blend").write_text("")
+                (rd / "rig_stats.json").write_text(json.dumps({"preset": preset}), encoding="utf-8")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                out = pipeline.motion(root, bvh=str(path), run_id="m1", bvh_up="auto", rig_run=rig)
+            return err.getvalue(), out.read_text(encoding="utf-8")
+
+    def commands(self, log):
+        return [cli.build_parser().parse_args(shlex.split(c)[1:]) for c in re.findall(r"`(bw motion [^`]+)`", log)]
+
+    def test_dog_motion_on_a_human_rig_names_the_dog_rig_and_the_wave(self):
+        for lang, head in (("en", "this BVH is four-legged (head in front of the hips) but rig `hero` is a human"),
+                           ("ko", "이 BVH 는 네 발 짐승(머리가 골반 앞)인데 리그 `hero` 은 사람(humanoid)이다")):
+            log, report = self.log(lang, {"hero": "humanoid", "dog": "quadruped"})
+            self.assertIn(head, log)
+            self.assertIn("four-legged (lying body) on a humanoid rig", report)
+            got = [(Path(a.bvh).name, a.rig) for a in self.commands(log)]
+            self.assertEqual([("dog_walk.bvh", "dog"), ("wave.bvh", "hero")], got)
+            self.assertTrue(all(Path(a.bvh).is_file() for a in self.commands(log)))
+
+    def test_no_dog_rig_gives_the_wave_only(self):
+        log = self.log("en", {"hero": "humanoid"})[0]
+        self.assertEqual([("wave.bvh", "hero")], [(Path(a.bvh).name, a.rig) for a in self.commands(log)])
+
+    def test_matching_body_plans_say_nothing(self):
+        for rigs, rig, bvh in (({"hero": "humanoid"}, "hero", "wave.bvh"), ({"dog": "quadruped"}, "dog", "dog_walk.bvh")):
+            log, report = self.log("en", rigs, rig, bvh)
+            self.assertNotIn("⚠", log, (rig, bvh))
+            self.assertNotIn("lying body", report)
+
+    def test_lying_reads_either_up_axis(self):
+        """Y-up as written and Z-up as Blender exports it: the dog lies, the wave does not."""
+        from bonewright.retarget import bvh_lying
+        with tempfile.TemporaryDirectory() as d:
+            for bvh, want in (("dog_walk.bvh", True), ("wave.bvh", False)):
+                text = (self.EX / bvh).read_text(encoding="utf-8")
+                z = re.sub(r"OFFSET (\S+) (\S+) (\S+)", lambda m: f"OFFSET {m[1]} {-float(m[3]):.4f} {m[2]}", text)
+                for name, body in (("y.bvh", text), ("z.bvh", z)):
+                    (Path(d) / name).write_text(body, encoding="utf-8")
+                    self.assertEqual(want, bvh_lying(str(Path(d) / name)), (bvh, name))
+
+
 class MapFileShapeTests(unittest.TestCase):
     """A `--map` file that is not JSON or not {"BVH bone": "rig bone"} says what to write, not just an example.
 

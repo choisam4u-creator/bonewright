@@ -150,6 +150,10 @@ See `docs/RELEASING.md` for the release steps.
   sample wave — said only "done" while the front legs waved like arms (direction error 39°). `bw motion` now warns
   that the front legs move like arms and gives the same command with the repository's four-legged walk as the BVH,
   or on your latest human rig (or the first human rig command). BVH rest-pose joint positions now add up their parents' offsets (each joint had only its own offset).
+- A four-legged BVH on a human rig (`bw motion --bvh examples/dog_walk.bvh --rig <human rig>`) said only "done" while
+  the front legs drove the arms and the tail was dropped (hand/foot error 55 cm). `bw motion` now warns and gives the
+  same command on your latest four-legged rig, or with the hand wave sample. The check reads the body with the
+  four-legged up axis: the human one takes the dog for Z-up, standing on its hind legs.
 - `bw motion --rig <rig> --preset X` with a preset other than the one the rig was made with ran anyway: on a dog rig
   `--preset humanoid` left six limb controls unmoved, and the warning blamed the BVH names and suggested a `--map` to
   controls the rig does not have. It now stops before Blender with the same command without `--preset` (the preset is

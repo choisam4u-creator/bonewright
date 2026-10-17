@@ -155,18 +155,44 @@ def detect_bvh_up(path: str, preset: str = "humanoid") -> str:
     return "z" if scores[2] >= scores[1] else "y"
 
 
+def _head_up(path: str, bvh_up: str) -> float | None:
+    """BVH 쉬는 자세에서 루트(골반)→머리 방향의 위 성분(0~1, 단위 벡터 기준). 머리를 못 찾으면 None."""
+    pos = bvh_rest_joints(path)
+    if not pos:
+        return None
+    root = pos[next(iter(pos))]
+    head = next((p for n, p in pos.items() if not n.endswith("_end") and "head" in _cores(_norm(n)[0])), None)
+    if head is None:
+        return None
+    d = [head[i] - root[i] for i in range(3)]
+    size = sum(x * x for x in d) ** 0.5
+    return d[1 if bvh_up == "y" else 2] / size if size > 0 else None
+
+
 def bvh_upright(path: str, bvh_up: str = "y") -> bool:
     """BVH 쉬는 자세가 서 있는 몸인가: 루트(골반)에서 머리로 가는 방향이 거의 위 축이다(사족은 머리가 앞으로 간다).
     10/17 23회차 실측: 사람 손 흔들기를 개 리그에 주면 팔이 앞다리를 움직여 앞다리가 손을 흔들었는데 말없이 "done" 이었다.
     머리를 못 찾으면 False(말하지 않는다)."""
-    pos = bvh_rest_joints(path)
-    if not pos:
-        return False
-    root = pos[next(iter(pos))]
-    head = next((p for n, p in pos.items() if not n.endswith("_end") and "head" in _cores(_norm(n)[0])), None)
-    if head is None:
-        return False
-    d = [head[i] - root[i] for i in range(3)]
-    size = sum(x * x for x in d) ** 0.5
-    return size > 0 and d[1 if bvh_up == "y" else 2] > 0.8 * size
+    up = _head_up(path, bvh_up)
+    return up is not None and up > 0.8
 
+
+def bvh_lying(path: str) -> bool:
+    """BVH 가 네 발 짐승의 몸인가: 네 발 기준 위 축으로 볼 때 루트(골반)→머리가 위 축보다 앞쪽이고(위 성분 절반 미만)
+    앞발(손목·손 끝)이 뒷발처럼 바닥 가까이 있다(몸 높이의 25% 안). 사람 BVH 는 기어가는 동작이라도 쉬는 자세(T·A 자세)는
+    서 있고 손이 바닥에서 멀다. 위 축은 사람 기준 판단을 믿지 않는다 — 사람 기준이면 개가 뒷다리로 선 Z 위가 된다.
+    10/17 24회차 실측: 네 발 걷기를 사람 리그에 주면 앞다리가 팔을 움직이고 꼬리 4개는 못 옮겨 손발 오차 55.45cm 인데
+    말없이 "done". 머리·앞발을 못 찾으면 False."""
+    up = detect_bvh_up(path, "quadruped")
+    head = _head_up(path, up)
+    if head is None or head >= 0.5:
+        return False
+    ax = 1 if up == "y" else 2
+    pos = bvh_rest_joints(path)
+    side = lambda n, words: _norm(n.removesuffix("_end"))[1] and _cores(_norm(n.removesuffix("_end"))[0]) & words
+    paws = [p[ax] for n, p in pos.items() if side(n, {"wrist", "hand", "arm3"})]
+    feet = [p[ax] for n, p in pos.items() if side(n, {"foot", "ankle", "toe", "leg3"})]
+    if not (paws and feet):
+        return False
+    tall = max(p[ax] for p in pos.values()) - min(p[ax] for p in pos.values())
+    return tall > 0 and min(paws) - min(feet) < 0.25 * tall
