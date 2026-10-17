@@ -3,7 +3,7 @@
 **Mac 에서 돌릴 것 (블렌더 필요, 10/17 23회차 기준)**
 ```bash
 git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 303개, 건너뜀 0
-python3 examples/rig_sample.py --preset quadruped && bw rig examples/out/capsule_dog.glb --preset quadruped --run-id dog --no-judge   # next: 끝에 "front legs move like arms"
+python3 examples/rig_sample.py --preset quadruped && BW_BACKEND=mock bw rig examples/out/capsule_dog.glb --preset quadruped --run-id dog   # next: 끝에 "front legs move like arms"
 bw motion --bvh examples/wave.bvh --rig dog; bw motion --bvh examples/wave.bvh --rig dog --preset humanoid   # ⚠ upright·사람 리그 명령 / BLOCKED + --preset 뺀 명령
 ```
 
