@@ -245,10 +245,13 @@ def fetch_bench() -> tuple[str, str]:
     return "", "python3 " + (f'"{p}"' if any(c.isspace() for c in str(p)) else str(p))
 
 
-def latest_rig(root: Path) -> str | None:
-    """가장 최근에 리깅을 마친 실행 id(02_rigged.blend 시각), 없으면 None — 안내 명령의 `<run-id>` 자리를 채운다."""
+def latest_rig(root: Path, preset: str | None = None) -> str | None:
+    """가장 최근에 리깅을 마친 실행 id(02_rigged.blend 시각), 없으면 None — 안내 명령의 `<run-id>` 자리를 채운다.
+    preset 을 주면 그 프리셋 리그만(기록 없는 옛 리그는 humanoid 로 본다)."""
     runs = root / "runs"
     rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+    if preset:
+        rigged = [p for p in rigged if (rig_preset(root, p.name) or "humanoid") == preset]
     return max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name if rigged else None
 
 
@@ -583,6 +586,21 @@ def unmoved_warning(free: list, names: list, has_map: bool) -> str:
              f"  ⚠ {len(free)} limb control(s) do not move (no BVH bone drives them): {shown}\n"
              f"    BVH bones whose names were not recognised: {nm}\n"
              f"    → write which bone drives which control in a map file and run the same command: `{cmd}` — file shaped like {eg} (values from the controls above)")
+
+
+def upright_on_quad_warning(root: Path, rig_run: str) -> str:
+    """서 있는 몸(사람) BVH 를 네 발 리그에 — 팔이 앞다리를 움직인다(10/17 23회차: 개 리그의 앞다리가 손을 흔들고 "done").
+    다음 할 일: 사람 리그가 있으면 그 리그로 바꾼 같은 명령, 없으면 저장소 캐릭터 첫 리깅."""
+    if (hum := latest_rig(root, "humanoid")):
+        nxt = T(f"사람 리그에: `{swap_arg(rig_run, hum)}`", f"onto a human rig: `{swap_arg(rig_run, hum)}`")
+    else:
+        from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+        where, first = _from_repo()
+        nxt = T(f"사람 리그부터 — {where}`{first}`, 그 `next:` 줄의 명령", f"rig a human first — {where}`{first}`, then the command on its `next:` line")
+    return T(f"  ⚠ 이 BVH 는 서 있는 몸(머리가 골반 위)인데 리그 `{rig_run}` 은 네 발(quadruped)이다 — 팔이 앞다리를 움직여 앞다리가 팔처럼 움직인다\n"
+             f"    → 네 발 동작 BVH 를 주거나, {nxt}",
+             f"  ⚠ this BVH stands upright (head above the hips) but rig `{rig_run}` is four-legged (quadruped) — its arms drive the front legs, so the front legs move like arms\n"
+             f"    → give a four-legged motion file, or {nxt}")
 
 
 def map_target_warning(bad: dict) -> str:
@@ -1071,6 +1089,10 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         if free:
             _log(quiet, unmoved_warning(free, names, bool(bone_map)))
             report.append(f"- limb controls no BVH bone drives (not moved): {', '.join(free)} · BVH bones not recognised on that side: {', '.join(names)}")
+        from .retarget import bvh_upright
+        if preset == "quadruped" and bvh_upright(str(Path(bvh).resolve()), bvh_up):
+            _log(quiet, upright_on_quad_warning(root, rig_run))
+            report.append("- the BVH stands upright (a human motion) on a quadruped rig: its arms drive the front legs")
         if bad := {k: v for k, v in (rt.get("no_target") or {}).items() if bone_map and k in user_map}:
             _log(quiet, map_target_warning(bad))
             report.append("- --map rig bones not in the rig (not moved): " + ", ".join(f"{k} → {v['to']}" for k, v in bad.items()))

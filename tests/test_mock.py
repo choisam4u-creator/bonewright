@@ -580,6 +580,61 @@ Frame Time: 0.0333
         self.assertEqual("y", detect_bvh_up(path))
 
 
+class BvhRestPoseTests(unittest.TestCase):
+    """BVH rest joints add up the parents' offsets, and a standing body is told from a four-legged one."""
+    WAVE = Path(__file__).resolve().parent.parent / "examples" / "wave.bvh"
+
+    def test_offsets_add_up(self):
+        """Each joint sits at the sum of its parents' offsets.
+
+        10/17 23회차: 부모를 stack[-1](자기 자신)로 읽어 각 관절이 자기 OFFSET 만 가졌다(머리 y 0.1 — 실제 0.55)."""
+        from bonewright.retarget import bvh_rest_joints
+        pos = bvh_rest_joints(str(self.WAVE))
+        self.assertAlmostEqual(0.55, pos["Head"][1]); self.assertAlmostEqual(-0.89, pos["LeftFoot"][1])
+        self.assertAlmostEqual(0.69, pos["LeftHand"][0])
+
+    def test_upright_human_and_level_dog(self):
+        """A human BVH stands upright; a dog whose head goes forward does not."""
+        from bonewright.retarget import bvh_upright
+        self.assertTrue(bvh_upright(str(self.WAVE), "y"))
+        self.assertFalse(bvh_upright(str(self.WAVE), "z"))   # Z 가 위인 파일로 읽으면 머리가 앞에 있다
+        dog = """HIERARCHY
+ROOT Hips
+{
+OFFSET 0 0.5 0
+CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+JOINT Spine
+{
+OFFSET 0 0.02 0.3
+CHANNELS 3 Zrotation Xrotation Yrotation
+JOINT Neck
+{
+OFFSET 0 0.1 0.2
+CHANNELS 3 Zrotation Xrotation Yrotation
+JOINT Head
+{
+OFFSET 0 0.05 0.1
+CHANNELS 3 Zrotation Xrotation Yrotation
+End Site
+{
+OFFSET 0 0 0.1
+}
+}
+}
+}
+}
+MOTION
+Frames: 1
+Frame Time: 0.0333
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+"""
+        f = Path(tempfile.mkdtemp(prefix="bw-bvh-")) / "dog.bvh"
+        f.write_text(dog, encoding="utf-8")
+        self.assertFalse(bvh_upright(str(f), "y"))
+        f.write_text(dog.replace("Head", "Bone4"), encoding="utf-8")
+        self.assertFalse(bvh_upright(str(f), "y"))   # 머리를 못 찾으면 말하지 않는다
+
+
 class FromSkeletonTests(unittest.TestCase):
     """원본 뼈대를 그대로 받는 경로(--from-skeleton, Blender 불필요).
     자산으로 확인한 실패들이 다시 나오지 않게 고정한다"""

@@ -137,6 +137,10 @@ See `docs/RELEASING.md` for the release steps.
 - `scripts/fetch_bench_assets.py` downloads five more human and robot assets (coverage 57 → 62 of 66).
 
 ### Fixed
+- A standing (human) BVH on a four-legged rig — exactly what a quadruped `bw rig`'s `next:` line suggested with the
+  sample wave — said only "done" while the front legs waved like arms (direction error 39°). `bw motion` now warns
+  that the front legs move like arms and gives the same command on your latest human rig (or the first human rig
+  command). BVH rest-pose joint positions now add up their parents' offsets (each joint had only its own offset).
 - `bw motion --rig <rig> --preset X` with a preset other than the one the rig was made with ran anyway: on a dog rig
   `--preset humanoid` left six limb controls unmoved, and the warning blamed the BVH names and suggested a `--map` to
   controls the rig does not have. It now stops before Blender with the same command without `--preset` (the preset is

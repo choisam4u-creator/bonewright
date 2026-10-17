@@ -121,7 +121,8 @@ def bvh_rest_joints(path: str) -> dict[str, list[float]]:
             elif w == "END":
                 name = (stack[-1] if stack else "root") + "_end"
             elif w == "OFFSET" and name and len(tok) >= 4:
-                base = pos.get(stack[-1], [0.0, 0.0, 0.0]) if stack else [0.0, 0.0, 0.0]
+                # 부모는 stack[-2] 다 — `{` 에서 지금 관절이 이미 쌓였다(10/17 23회차: stack[-1] 이라 누적이 안 되고 자기 OFFSET 만 남았다)
+                base = pos.get(stack[-2], [0.0, 0.0, 0.0]) if len(stack) >= 2 else [0.0, 0.0, 0.0]
                 pos[name] = [base[i] + float(tok[i + 1]) for i in range(3)]
             elif w == "{":
                 stack.append(name)
@@ -152,3 +153,20 @@ def detect_bvh_up(path: str, preset: str = "humanoid") -> str:
         return "y"
     scores = {ax: min(t[ax] for t in top) - max(l[ax] for l in low) for ax in (1, 2)}
     return "z" if scores[2] >= scores[1] else "y"
+
+
+def bvh_upright(path: str, bvh_up: str = "y") -> bool:
+    """BVH 쉬는 자세가 서 있는 몸인가: 루트(골반)에서 머리로 가는 방향이 거의 위 축이다(사족은 머리가 앞으로 간다).
+    10/17 23회차 실측: 사람 손 흔들기를 개 리그에 주면 팔이 앞다리를 움직여 앞다리가 손을 흔들었는데 말없이 "done" 이었다.
+    머리를 못 찾으면 False(말하지 않는다)."""
+    pos = bvh_rest_joints(path)
+    if not pos:
+        return False
+    root = pos[next(iter(pos))]
+    head = next((p for n, p in pos.items() if not n.endswith("_end") and "head" in _cores(_norm(n)[0])), None)
+    if head is None:
+        return False
+    d = [head[i] - root[i] for i in range(3)]
+    size = sum(x * x for x in d) ** 0.5
+    return size > 0 and d[1 if bvh_up == "y" else 2] > 0.8 * size
+

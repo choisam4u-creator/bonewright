@@ -1254,6 +1254,49 @@ class RigPresetMismatchTests(unittest.TestCase):
                 self.blocked(argv, stats=stats)
 
 
+class UprightOnQuadTests(unittest.TestCase):
+    """A standing (human) BVH on a four-legged rig warns that the front legs move like arms and gives a human-rig command.
+
+    10/17 23회차 실측(bpy 5.2.2): 개 리그의 `bw rig` `next:` 가 권하는 그대로 `bw motion --bvh wave.bvh --rig dog` →
+    앞다리가 손을 흔들고(오차 39.12°·32.36cm) 말없이 "done"."""
+    WAVE = Path(__file__).resolve().parent.parent / "examples" / "wave.bvh"
+
+    def log(self, lang, rigs, rig="dog"):
+        names = [l.split()[1] for l in self.WAVE.read_text(encoding="utf-8").splitlines() if l.split()[:1] in (["ROOT"], ["JOINT"])]
+        fake = {"import_bvh": {"bones": len(names), "frames": [1, 3], "fps": 30, "root_move": 0.0, "armature": "A", "bone_names": names},
+                "retarget_bvh": {"mapped": {}, "unmapped": [], "scale": 1.0, "no_target": {}}}
+        argv = ["bw", "motion", "--bvh", str(self.WAVE), "--rig", rig]
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", argv), \
+                patch.object(pipeline, "run_script", lambda name, *a, **k: dict(fake[name])), patch.object(pipeline, "need_blender", lambda cfg: None):
+            root = Path(d)
+            for rid, preset in rigs.items():
+                rd = root / "runs" / rid; rd.mkdir(parents=True); (rd / "02_rigged.blend").write_text("")
+                (rd / "rig_stats.json").write_text(json.dumps({"preset": preset}), encoding="utf-8")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                out = pipeline.motion(root, bvh=str(self.WAVE), run_id="m1", bvh_up="auto", rig_run=rig)
+            return err.getvalue(), out.read_text(encoding="utf-8")
+
+    def test_human_motion_on_a_dog_rig_names_the_human_rig(self):
+        log, report = self.log("en", {"hero": "humanoid", "dog": "quadruped"})
+        self.assertIn("this BVH stands upright (head above the hips) but rig `dog` is four-legged", log)
+        self.assertIn("stands upright (a human motion) on a quadruped rig", report)
+        cmd = re.search(r"onto a human rig: `([^`]+)`", log)[1]
+        a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+        self.assertEqual((str(self.WAVE), "hero"), (a.bvh, a.rig))
+        self.assertIn("리그 `dog` 은 네 발(quadruped)이다", self.log("ko", {"hero": "humanoid", "dog": "quadruped"})[0])
+
+    def test_no_human_rig_gives_the_first_rig_command(self):
+        log = self.log("en", {"dog": "quadruped"})[0]
+        cmd = re.search(r"rig a human first — (?:from the repository folder, )?`([^`]+)`", log)[1]
+        a = cli.build_parser().parse_args(shlex.split(cmd)[1:])
+        self.assertEqual(("rig", "humanoid"), (a.cmd, a.preset))
+
+    def test_human_rig_says_nothing(self):
+        log, report = self.log("en", {"hero": "humanoid"}, rig="hero")
+        self.assertNotIn("stands upright", log + report)
+
+
 class MapFileShapeTests(unittest.TestCase):
     """A `--map` file that is not JSON or not {"BVH bone": "rig bone"} says what to write, not just an example.
 
