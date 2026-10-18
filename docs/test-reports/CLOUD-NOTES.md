@@ -1,11 +1,37 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/18 25회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/18 26회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 317개, 건너뜀 0
-cd /tmp && bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge; cd -      # 저장소 밖: 저장소 파일로 바꾼 같은 명령이 나와야 한다(그것을 치면 리깅)
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 322개, 건너뜀 0
+bw rig tests/assets/quaternius_adventurer.glb --preset quadruped --no-judge; bw status      # needs_review 줄에 걸린 검사와 --preset quadruped 가 든 --targets 명령
 python3 examples/rig_sample.py --preset quadruped --motion      # 24회차 확인 그대로(개 리그 20/20)
 ```
+
+## 2026-10-18 (26회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv 로 저장소 밖 임시 폴더에서 25회차 "다음 후보" 를 쳐 보고 **새 항목 4개** 추가, 4개 모두 처리:
+  - **거절된 리깅의 `bw status`**: 뼈대 없는 상자에 `--from-skeleton`, 안 맞는 메시 → "preflight rejected · input tokens 0" 뿐이었다. 이제 BLOCKED 메시지(이유·`--targets …targets_draft.json` 명령·`--force`)를 다시 준다. 상태는 `rejected` 그대로.
+  - **needs_review 리그의 `bw status`**: "final needs_review" 뿐이었다. 이제 첫 걸린 검사(외 N개)와 토큰 0 `--targets` 재실행 명령을 준다. 이 일로 report.md·거절 안내의 재실행 명령이 `--preset quadruped` 를 빠뜨리던 것도 고쳤다(그대로 치면 네 발 목표표를 사람 메타리그에 얹었다).
+  - **needs_review 로 끝난 `bw rig` 끝**: `next:` 앞에 같은 줄(걸린 검사·고칠 명령).
+  - **움직이지 않는 팔다리 ⚠ 의 `--map` 꼴**: 첫 짝 하나뿐이라 그대로 쓰면 나머지 팔다리가 또 안 움직였다. 이제 BVH 부모 사슬로 짝 전부를 준다(위팔 → 아래팔 → 손, 허벅지 → 정강이). 아직 없는 파일을 만드는 명령에도 같은 꼴.
+- 사용자 체감: 검사에 걸리거나 거절된 리그가 터미널을 닫은 뒤에도 `bw status` 한 줄로 고칠 명령을 준다. 이름이 다른 BVH 는 ⚠ → 만드는 명령 → 같은 명령 세 번으로 끝난다(전에는 팔다리마다 한 바퀴씩). 설치~첫 결과 단계 수는 그대로.
+- CHANGELOG Fixed 4줄, GUIDE 한 곳(`bw status`), tests/README·CONTRIBUTING 시험 수.
+- 둘째·셋째 항목(state 에 남기는 일과 `bw status` 의 needs_review 줄)은 한 커밋에 들어갔다(e492ad8). 넷째 항목 커밋에서 시험 설명 첫 줄이 한국어라 `test_docs` 하나가 실패해 바로 다음 커밋(b3861db)에서 고쳤다.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 322개 중 17개 건너뜀, 나머지 통과(c2cc389 만 위 한 건 실패 → b3861db 에서 통과).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **322개 모두 통과, 건너뜀 0**(165초). 라이선스 경계 검사 OK.
+- 새 시험 5개(`RejectedRunStatusTests` 1·`NeedsReviewStatusTests` 2·`LimbPairsTests` 2)는 고치기 전 코드에서 실패 확인. bpy 설치본 `bw` 로 안내 명령을 그대로 쳐 봤다: `bw status` 의 `--preset quadruped --targets` 재실행이 토큰 0 으로 끝까지 돈다. 왼팔 3·왼다리 2 이름을 바꾼 wave.bvh 는 ⚠ → `echo … > bones.json` → 같은 명령으로 `--map applied 5`·18본·4.86°·10.33cm(원래 이름과 같음).
+- 못 돌린 것: 실제 렌더(화면 없는 리눅스), 실제 모델 호출(mock 백엔드로만 needs_review 를 만들었다).
+- CI: PR #10 헤드(b3861db)에서도 잡이 전부 2초 만에 단계 없이 끝났다(run 39135078487·39135074540: unit 3.11·windows·blender 는 failure, 3.13 은 cancelled). blender 잡이 pending 으로 있다가 이렇게 끝나는 이유: 러너가 붙지 않는다(비공개 저장소의 Actions 사용량·결제 한도로 추정, Settings → Billing). 코드와는 무관하다.
+
+**완료 수·추가 수**: 완료 4 · 추가 4 (완료 ≥ 추가) · 남은 [ ] 0. 지시문은 "새 항목 5개" 지만 완료 ≥ 추가를 지키려 실측으로 확인한 4개만 넣었다.
+
+**막힌 것 / 다음**
+- 다음 후보: 게이트 문구(`deform bones outside the mesh`)가 한국어 실행에서도 영어인 것, 사슬 시작이 둘 다 빈 쪽(팔·다리 이름이 모두 낯선 BVH)의 짝을 쉬는 자세 높이로 가르기, `bw demo` 가 네 발 리그에 무슨 동작을 쓰는지(렌더 필요 — Mac).
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 26회차로 적었다. 이 세션의 지정 브랜치(`claude/cloud-work-k4fat2`)가 아니라 지시문대로 `claude/cloud-work` 에 푸시했다(지난 회차들과 같음, 지정 브랜치에도 같은 커밋을 올렸다).
 
 ## 2026-10-18 (25회차)
 
