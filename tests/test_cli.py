@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -866,6 +867,64 @@ class BlockedRunStatusTests(unittest.TestCase):
                 self.assertEqual(("w.bvh", "r1", "m1"), (a.bvh, a.rig, a.run_id))
                 state = json.loads((Path(t) / "runs" / "m1" / "state.json").read_text(encoding="utf-8"))
                 self.assertEqual("failed", state["status"])
+
+
+class RejectedRunStatusTests(unittest.TestCase):
+    """A rejected run (`--from-skeleton` without a skeleton, a mesh that does not fit) keeps its BLOCKED message; `bw status` shows it.
+
+    10/18 26회차 실측(bpy 5.2.2): `bw status` 가 "preflight rejected · input tokens 0" 뿐 — 손으로 고칠 `--targets` 명령과
+    `--force` 가 터미널에만 있었다."""
+
+    def test_status_repeats_the_rejection_and_its_commands(self):
+        import re
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                def fake_rig(root, *a, **k):
+                    from bonewright.config import DEFAULTS
+                    r = cli.pipeline.Run(Path(t), "b2", DEFAULTS, quiet=True)
+                    r.state("preflight", "rejected", reasons=["no arm axis"])
+                    raise cli.pipeline.Blocked("this mesh does not fit the quadruped preset:\n  - no arm axis\n"
+                                               "  move the joints, then `bw rig box.glb --preset quadruped --targets runs/b2/targets_draft.json` costs 0 tokens")
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "rig", "box.glb", "--preset", "quadruped", "--run-id", "b2"]), \
+                        patch.object(cli.pipeline, "rig", fake_rig), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(2, cli.main())
+                out = io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                shown = out.getvalue()
+                self.assertIn("does not fit the quadruped preset", shown); self.assertIn("- no arm axis", shown)
+                a = cli.build_parser().parse_args(re.search(r"`bw (rig [^`]+)`", shown).group(1).split())
+                self.assertEqual(("box.glb", "quadruped", "runs/b2/targets_draft.json"), (a.mesh, a.preset, a.targets))
+                state = json.loads((Path(t) / "runs" / "b2" / "state.json").read_text(encoding="utf-8"))
+                self.assertEqual(("rejected", ["no arm axis"]), (state["status"], state["reasons"]))   # 상태는 거절 그대로
+
+
+class NeedsReviewStatusTests(unittest.TestCase):
+    """`bw status` on a `needs_review` rig names the failed check and the 0-token `--targets` rerun (with the run's preset).
+
+    10/18 26회차 실측(bpy 5.2.2): "final needs_review" 뿐 — 무엇이 걸렸는지·고칠 명령이 report.md 에만 있었고,
+    그 명령은 `--preset quadruped` 를 빠뜨려 그대로 치면 네 발 목표표를 사람 메타리그에 얹었다."""
+
+    def test_status_names_the_failed_check_and_the_rerun(self):
+        import re
+        for lang, want in (("en", "(+1 more)"), ("ko", "외 1개")):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                rd = Path(t) / "runs" / "q1"; rd.mkdir(parents=True)
+                mesh = Path(t) / "my dog.glb"; mesh.write_text("")
+                (rd / "targets.json").write_text("{}", encoding="utf-8")
+                (rd / "state.json").write_text(json.dumps({"step": "final", "status": "needs_review", "input_tokens": 0, "preset": "quadruped",
+                                                           "mesh": str(mesh), "reasons": ["deform bones outside the mesh 2", "symmetry error 0.054"]}), encoding="utf-8")
+                out = io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                shown = out.getvalue()
+                self.assertIn("deform bones outside the mesh 2", shown); self.assertIn(want, shown); self.assertNotIn("for-issue", shown)
+                a = cli.build_parser().parse_args(shlex.split(re.search(r"`bw (rig [^`]+)`", shown).group(1)))
+                self.assertEqual((str(mesh), "quadruped", str(rd / "targets.json")), (str(Path(a.mesh).resolve()), a.preset, str(Path(a.targets).resolve())))
+        self.assertEqual(("", "", " --preset quadruped"), (cli.pipeline.preset_opt(None), cli.pipeline.preset_opt("humanoid"), cli.pipeline.preset_opt("quadruped")))
 
 
 class EmptyStatusTests(unittest.TestCase):

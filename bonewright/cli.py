@@ -665,13 +665,15 @@ def _closed_stdout() -> int:
 
 def remember_blocked(e: Exception) -> None:
     """실행 폴더를 만든 뒤에 막혔으면 그 메시지(고칠 명령 포함)를 state 에 남긴다 — 나중의 `bw status` 가 같은 다음 명령을 준다.
-    10/18 25회차 실측: 화면 없는 곳의 `bw motion … --rig` 가 `BW_NO_RENDER=1 …` 을 줬는데, `bw status` 는 이슈 보고 명령뿐이었다."""
+    10/18 25회차 실측: 화면 없는 곳의 `bw motion … --rig` 가 `BW_NO_RENDER=1 …` 을 줬는데, `bw status` 는 이슈 보고 명령뿐이었다.
+    10/18 26회차: 거절(`rejected`)도 — `--from-skeleton` 없는 파일·안 맞는 메시의 `--targets …` 명령이 `bw status` 에 없었다(상태는 그대로)."""
     r = pipeline.Run.current
     f = r and r.dir / r.state_file
     try:
         s = json.loads(f.read_text(encoding="utf-8")) if f and f.is_file() else None
-        if isinstance(s, dict) and s.get("status") in ("running", "failed"):
-            pipeline.atomic_write(f, json.dumps({**s, "status": "failed", "blocked": str(e)}, ensure_ascii=False, indent=2))
+        if isinstance(s, dict) and s.get("status") in ("running", "failed", "rejected"):
+            status = "rejected" if s["status"] == "rejected" else "failed"
+            pipeline.atomic_write(f, json.dumps({**s, "status": status, "blocked": str(e)}, ensure_ascii=False, indent=2))
     except (OSError, ValueError):   # 기록은 덤이다 — BLOCKED 안내는 이미 나갔다
         pass
 
@@ -797,6 +799,13 @@ def _main() -> int:
                     if s.get("blocked"):   # 10/18 25회차: 실행 중 BLOCKED 의 다음 명령(BW_NO_RENDER=1 …)이 터미널을 닫으면 사라졌다
                         why, *fix = str(s["blocked"]).splitlines()
                         line += T(f"  → 이유: {why}", f"  → why: {why}") + "".join(f"\n    {f.strip()}" for f in fix)
+                    elif s["status"] == "needs_review" and s.get("reasons"):   # 10/18 26회차: 무엇이 걸렸는지·다음 명령이 report.md 에만 있었다
+                        first, more = s["reasons"][0], len(s["reasons"]) - 1
+                        line += T(f"  → 걸린 검사: {first}", f"  → failed check: {first}") + (T(f" 외 {more}개", f" (+{more} more)") if more else "")
+                        if s.get("mesh") and (runs / rid / "targets.json").is_file():   # 지금 폴더 기준 경로로(report.md 의 명령은 그때 폴더 기준)
+                            again = f"bw rig {pipeline._arg(s['mesh'], Path.cwd())}{pipeline.preset_opt(s.get('preset'))} --targets {pipeline._arg(runs / rid / 'targets.json', Path.cwd())}"
+                            line += T(f"\n    → targets.json 의 관절을 고쳐 다시(토큰 0): `{again}` · 자세히: {pipeline._arg(runs / rid / 'report.md', Path.cwd())}",
+                                      f"\n    → fix the joints in targets.json and rerun (0 tokens): `{again}` · details: {pipeline._arg(runs / rid / 'report.md', Path.cwd())}")
                     elif s["status"] in ("failed", "budget_stop", "usage_limit", "interrupted") or status != s["status"]:   # 왜 멈췄는지 볼 곳(로그 꼬리·state)
                         line += T(f"  → 이유: `bw doctor --for-issue {rid}`", f"  → why: `bw doctor --for-issue {rid}`")
                 except (ValueError, KeyError, TypeError, OSError) as e:

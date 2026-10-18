@@ -417,6 +417,12 @@ def _arg(path: str | Path, base: Path) -> str:
     return f'"{s}"' if any(c.isspace() for c in s) else s
 
 
+def preset_opt(preset: str | None) -> str:
+    """다시 칠 `bw rig` 명령에 붙일 프리셋 — 기본(humanoid)이 아닐 때만. 10/18 26회차: `--targets` 재실행 안내가
+    `--preset quadruped` 를 빠뜨려, 그대로 치면 네 발 목표표를 사람 메타리그에 얹었다."""
+    return f" --preset {preset}" if preset and preset != "humanoid" else ""
+
+
 def _log(quiet: bool, msg: str) -> None:
     if not quiet:
         print(f"[bw {time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
@@ -898,9 +904,9 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                 pass   # 추정이 실패해도 메타리그 기본값은 남긴다
             atomic_write(r.dir / "targets_draft.json", json.dumps(draft, ensure_ascii=False, indent=2))
             hint += T(f"\n  손으로 고칠 출발점을 남겼다: {r.dir / 'targets_draft.json'} (메타리그를 이 메시 크기로 맞춘 것)"
-                      f"\n  관절을 옮긴 뒤 `bw rig {_arg(mesh, root)} --targets {_arg(r.dir / 'targets_draft.json', root)}` 로 돌리면 토큰 0 이다",
+                      f"\n  관절을 옮긴 뒤 `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets {_arg(r.dir / 'targets_draft.json', root)}` 로 돌리면 토큰 0 이다",
                       f"\n  a starting point to edit by hand: {r.dir / 'targets_draft.json'} (the metarig scaled to this mesh)"
-                      f"\n  move the joints, then `bw rig {_arg(mesh, root)} --targets {_arg(r.dir / 'targets_draft.json', root)}` costs 0 tokens")
+                      f"\n  move the joints, then `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets {_arg(r.dir / 'targets_draft.json', root)}` costs 0 tokens")
         except Exception as e:   # 초안은 부가 기능이다 — 실패해도 거절 이유는 그대로 알린다
             hint += T(f"\n  (목표표 초안을 만들지 못했다: {e})", f"\n  (could not write the targets draft: {e})")
         raise Blocked(T(f"이 메시는 {preset} 프리셋에 맞지 않는다(토큰 0 으로 중단):", f"this mesh does not fit the {preset} preset (stopped, 0 tokens):") +
@@ -1050,11 +1056,12 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  f" · ⚠ bones crossing gaps between parts {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}") if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
-              f"- targets: `runs/{run_id}/targets.json` " + T(f"(손으로 고쳐 `bw rig {_arg(mesh, root)} --targets runs/{run_id}/targets.json` 로 토큰 0 재실행)", f"(edit by hand and rerun with `bw rig {_arg(mesh, root)} --targets runs/{run_id}/targets.json`, 0 tokens)")
+              f"- targets: `runs/{run_id}/targets.json` " + T(f"(손으로 고쳐 `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets runs/{run_id}/targets.json` 로 토큰 0 재실행)", f"(edit by hand and rerun with `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets runs/{run_id}/targets.json`, 0 tokens)")
               + (T(f" · 고정 {sorted(pins)}", f" · pinned {sorted(pins)}") if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
-    r.state("final", status)
+    # 걸린 검사와 고칠 명령을 state 에도 — `bw status` 가 다시 준다(10/18 26회차: report.md 를 열어야 알았다)
+    r.state("final", status, **({"reasons": fails, "mesh": str(Path(mesh).resolve()), "preset": preset} if fails else {}))
     _log(quiet, T(f"완료({status}) → {r.dir / 'report.md'}", f"done ({status}) → {r.dir / 'report.md'}"))
     return r.dir / "report.md"
 

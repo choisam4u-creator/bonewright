@@ -142,6 +142,12 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- `bw status` on a rejected rig (`--from-skeleton` on a file without a skeleton, a mesh that does not fit the preset)
+  showed only `preflight rejected · input tokens 0`; the reasons, the `--targets` draft command and `--force` were in
+  the terminal only. It now repeats the `BLOCKED:` message, and the run stays `rejected`.
+- `bw status` on a `needs_review` rig said nothing about why. It now names the first failed check and the 0-token
+  rerun from that run's `targets.json`. That rerun command (also in `report.md` and in the rejected-mesh hint) left out
+  `--preset quadruped`, so pasting it put a four-legged target table on the human metarig; it now carries the preset.
 - Running the `… --map bones.json` command the unmoved-limb warning gives, before making the file, said only "file not
   found, pass a JSON file shaped like …". It now gives the command that makes it, filled from the BVH's unrecognised
   bone and the free control (`echo '{"L_Bicep": "upper_arm_fk.L"}' > bones.json`, `Set-Content` on Windows), then the same command.
