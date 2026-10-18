@@ -1,11 +1,36 @@
 # 클라우드 회차 기록
 
-**Mac 에서 돌릴 것 (블렌더 필요, 10/17 24회차 기준)**
+**Mac 에서 돌릴 것 (블렌더 필요, 10/18 25회차 기준)**
 ```bash
-git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 311개, 건너뜀 0
-python3 examples/rig_sample.py --preset quadruped --motion      # 개 리그에 네 발 걷기 20/20 — capsule_dog_motion.md 와 같은 표
-BW_BACKEND=mock bw rig examples/out/capsule_dog.glb --preset quadruped --run-id dog && bw demo dog && bw motion --bvh examples/dog_walk.bvh --rig dog --export   # 영상·GLB 로 걷는 모양 눈으로 확인
+git fetch && git checkout claude/cloud-work && git pull && BW_REQUIRE_BLENDER=1 python3 -m unittest      # 317개, 건너뜀 0
+cd /tmp && bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge; cd -      # 저장소 밖: 저장소 파일로 바꾼 같은 명령이 나와야 한다(그것을 치면 리깅)
+python3 examples/rig_sample.py --preset quadruped --motion      # 24회차 확인 그대로(개 리그 20/20)
 ```
+
+## 2026-10-18 (25회차)
+
+**한 일** (커밋마다 `claude/cloud-work` 에 푸시, PR #10 에 얹힘)
+- `latest.md`(10/1 Mac) 종합 PASS → FAIL 없음. origin/main(145fe4b)은 이미 들어 있어 병합 없음.
+- 남은 [ ] 가 0개라 bpy 5.2.2 venv 와 블렌더 없는 설치본 venv 로 저장소 밖 임시 폴더에서 쳐 보고 **새 항목 4개** 추가, 4개 모두 처리:
+  - **저장소 밖에서 README 상대 경로**: `bw rig tests/assets/quaternius_adventurer.glb …`·`bw motion --bvh examples/dog_walk.bvh` 가 "경로를 확인하라" 뿐(네 발 걷기엔 손 흔들기를 권함) → 저장소 기준 경로라고 말하고 저장소의 그 파일로 바꾼 같은 명령(`pipeline.repo_copy`, 휠의 `_samples` 도).
+  - **실행 중 BLOCKED 의 다음 명령 보존**: 화면 없는 곳의 `bw motion … --rig` 가 `BW_NO_RENDER=1 …` 을 주지만, 나중의 `bw status` 는 `bw doctor --for-issue` 뿐(거기에도 원인 없음) → state 에 메시지를 남기고 `bw status` 가 이유와 다음 명령을 다시 준다(`cli.remember_blocked`).
+  - **`--map` BVH 이름 오타·거꾸로 쓴 파일**: "N개 무시" 뿐 → 가까운 BVH 본과 고친 파일 한 줄, 거꾸로면 바꾼 파일, 없으면 BVH 본 이름들(`pipeline.unknown_map_names`).
+  - **아직 없는 `--map` 파일**: ⚠ 가 준 `… --map bones.json` 을 파일 없이 치면 "JSON 을 지정하라" 뿐 → Blender 전에 BVH 이름으로 채운 만드는 명령(`echo '…' > bones.json`, Windows `Set-Content`)과 같은 명령(`pipeline.missing_map`).
+- 사용자 체감: README 첫 명령을 다른 폴더에서 쳐도 다음 한 줄로 첫 결과까지 간다. `--map` 경로는 ⚠ → 만드는 명령 → 같은 명령이 끊김 없이 이어진다. 설치~첫 결과 단계 수는 그대로(저장소 밖에서 친 경우 실패 1회 → 안내 명령 1회).
+- CHANGELOG Fixed 4줄, GUIDE 두 곳(`bw status`·`--map`), tests/README·CONTRIBUTING 시험 수.
+
+**돌린 시험**
+- `python3 -m unittest`(3.11, 블렌더 없음): 317개 중 17개 건너뜀, 나머지 통과(커밋마다).
+- bpy 5.2.2 venv(Python 3.13) `BW_REQUIRE_BLENDER=1 BW_NO_RENDER=1 python -m unittest`: **317개 모두 통과, 건너뜀 0**(156초). 라이선스 경계 검사 OK.
+- 새 시험 6개(`InputErrorTests` 1·`BlockedRunStatusTests` 1·`MapBvhNameTests` 3·`MissingMapFileTests` 1)는 고치기 전 코드에서 실패 확인. 네 고침 모두 bpy 설치본 `bw` 로 안내 명령을 그대로 쳐서 끝까지 도는 것 확인(리깅 404본·`--map applied 2`·18본 4.86°·같은 run-id 재실행 final ok).
+- 못 돌린 것: 실제 렌더(화면 없는 리눅스 — 오히려 이 덕에 둘째 항목을 찾았다). Windows 의 `Set-Content` 명령은 문자열 대조로만 봤다(Windows 손 시험 없음).
+- CI: PR #10 헤드에서도 잡 전부 2초 만에 단계 없이 끝남(run 39089269529·39089266901: unit 3.11·windows·blender failure, 3.13 cancelled). blender 잡이 pending 으로 머물다 이렇게 끝나는 이유: 러너가 안 붙음(비공개 저장소의 Actions 사용량·결제 한도로 추정, Settings → Billing) — 코드와 무관.
+
+**완료 수·추가 수**: 완료 4 · 추가 4 (완료 ≥ 추가) · 남은 [ ] 0. 지시문은 "새 항목 5개" 지만 완료 ≥ 추가를 지키려 실측으로 확인한 4개만 넣었다.
+
+**막힌 것 / 다음**
+- 다음 후보: 이름을 못 알아본 팔다리 본이 여럿일 때 `--map` 꼴을 짝 전부로(지금은 첫 짝 하나), 게이트 거절(`rejected`) 실행의 `bw status` 에도 이유 한 줄, `bw demo` 가 네 발 리그에 무슨 동작을 쓰는지(렌더 필요 — Mac).
+- 지시문의 "4회차부터·3회차(커밋 24)" 는 옛 문구로 보여 기록대로 25회차로 적었다. 이 세션의 지정 브랜치(`claude/cloud-work-joaoq6`)가 아니라 지시문대로 `claude/cloud-work` 에 푸시했다(지난 회차들과 같음).
 
 ## 2026-10-17 (24회차)
 
