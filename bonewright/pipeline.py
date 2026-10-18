@@ -44,7 +44,12 @@ def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (),
     if not p.is_file():
         near = near_files(p, exts)
         also = T(f"\n  → 이 폴더에 비슷한 파일: {' · '.join(near)}", f"\n  → similar file here: {' · '.join(near)}") if near else ""
-        if not near and set(exts) & set(MESH_EXTS) and p.name in README_NAMES:   # 10/14 17회차: README 의 `bw rig character.glb` 를 그대로 쳤다
+        if not near and (repo := repo_copy(str(path))):   # 10/18 25회차: 저장소 밖에서 README 의 `tests/assets/…`·`examples/…` 를 그대로 쳤다
+            q = f'"{repo}"' if any(c.isspace() for c in repo) else repo
+            cmd = swap_arg(str(path), repo) if str(path) in sys.argv[1:] else q
+            also = T(f"\n  → `{path}` 는 저장소 폴더 기준 경로다. 저장소의 그 파일로: `{cmd}`",
+                     f"\n  → `{path}` is relative to the repository folder. With the repository's file: `{cmd}`")
+        elif not near and set(exts) & set(MESH_EXTS) and p.name in README_NAMES:   # 10/14 17회차: README 의 `bw rig character.glb` 를 그대로 쳤다
             from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
             where, first = _from_repo()
             also = T(f"\n  → `{p.name}`: README 의 예시 이름이다. 내 파일 경로로 바꾸거나, 먼저 {where}저장소 캐릭터로(모델 호출 없음): `{first}`",
@@ -116,6 +121,18 @@ def near_files(p: Path, exts: tuple[str, ...] = ()) -> list[str]:
         s = str(p.with_name(f))
         out.append(f'"{s}"' if any(c.isspace() for c in s) else s)
     return out
+
+
+def repo_copy(path: str) -> str | None:
+    """지금 폴더에 없는 상대 경로가 저장소(또는 휠에 실린 examples 사본)에 있으면 그 절대 경로. README 의 명령은 저장소 폴더 기준이다."""
+    p = Path(path)
+    if p.is_absolute() or not p.parts or p.parts[0] in ("..", "~"):
+        return None
+    here = Path(__file__).resolve().parent
+    for c in (here.parent / p, *([here / "_samples" / p.name] if p.parts[0] == "examples" and len(p.parts) == 2 else [])):
+        if c.is_file():
+            return str(c)
+    return None
 
 
 def targets_problems(data) -> list[str]:
@@ -1022,7 +1039,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                         f"no motion source\n  → the sample motion, imported into Blender only (no rig yet): `bw motion --bvh {bv}`\n"
                         f"  → to put it on a character, rig first — {where}`{first}`; its `next:` line gives the `bw motion` command with the id filled in"))
     if bvh and not text:
-        bv = sample_bvh()
+        bv = sample_bvh(rig_preset(root, rig_run) == "quadruped" if rig_run else Path(bvh).name == "dog_walk.bvh")   # 10/18 25회차: 네 발 걷기를 찾는데 손 흔들기를 권했다
         need_bvh_bytes(need_file(bvh, "BVH", T(f"경로를 확인하라. 저장소의 샘플: `--bvh {bv}`, 그 밖엔 Mixamo·CMU 등에서 받거나 `--text` 로 만든다",
                                 f"check the path. The repository's sample: `--bvh {bv}`; otherwise get one from Mixamo, CMU etc., or make one with `--text`"), (".bvh",)))
     if not rig_run:   # 리타겟 옵션은 `if rig_run:` 안에서만 쓰인다 — 말없이 버리면 기다린 끝에 GLB 가 없다

@@ -116,6 +116,33 @@ class InputErrorTests(unittest.TestCase):
         finally:
             os.chdir(cwd)
 
+    def test_repo_relative_path_outside_the_repo_gives_the_same_command_with_the_repo_file(self):
+        """README's repository-relative paths typed from another folder give the same command with the repository's file.
+
+        10/18 25회차 실측: 저장소 밖에서 `bw rig tests/assets/quaternius_adventurer.glb …` → "check the path" 뿐,
+        `bw motion --bvh examples/dog_walk.bvh` → 사람 손 흔들기 샘플을 권했다."""
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.root)
+            for lang, want in (("ko", "저장소 폴더 기준 경로"), ("en", "relative to the repository folder")):
+                with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}):
+                    argv = ["bw", "rig", "tests/assets/quaternius_adventurer.glb", "--from-skeleton", "--no-judge"]
+                    with patch.object(sys, "argv", argv):
+                        msg = self.blocked(pipeline.rig, self.root, argv[2], quiet=True)
+                    self.assertIn(want, msg)
+                    a = cli.build_parser().parse_args(split_pasted(msg.splitlines()[-1].split("`")[-2])[1:])
+                    self.assertTrue(Path(a.mesh).is_absolute() and Path(a.mesh).is_file(), a.mesh)
+                    self.assertTrue(a.from_skeleton and a.no_judge)
+                    argv = ["bw", "motion", "--bvh", "examples/dog_walk.bvh", "--rig", "dog"]
+                    with patch.object(sys, "argv", argv):
+                        msg = self.blocked(pipeline.motion, self.root, bvh=argv[3], rig_run="dog", quiet=True)
+                    a = cli.build_parser().parse_args(split_pasted(msg.splitlines()[-1].split("`")[-2])[1:])
+                    self.assertEqual("dog_walk.bvh", Path(a.bvh).name); self.assertTrue(Path(a.bvh).is_file())
+                    self.assertEqual("dog", a.rig)
+            self.assertNotIn("repository folder", self.blocked(pipeline.rig, self.root, "tests/assets/nosuch.glb", quiet=True))
+        finally:
+            os.chdir(cwd)
+
     def test_missing_file_names_the_similar_one_beside_it(self):
         """A missing mesh, --bvh or --targets names the file beside it that differs in case, extension or a typo.
 

@@ -142,6 +142,9 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- The README's repository-relative paths (`tests/assets/quaternius_adventurer.glb`, `examples/dog_walk.bvh`) typed from
+  another folder said only "check the path" (and `examples/dog_walk.bvh` was answered with the human wave sample). The
+  message now says the path is relative to the repository folder and gives the same command with the repository's file.
 - On a four-legged rig, the `next:` lines of `bw rig`, `bw status <id>`, `bw export` and `bw demo` (and `bw motion`
   with no source) offered the sample hand wave, and pasting it made the front legs wave like arms. They now offer
   `examples/dog_walk.bvh`, a procedural four-legged trot shipped in the repository and the wheel (20 joints, all mapped;
