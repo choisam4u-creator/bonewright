@@ -927,7 +927,9 @@ class NeedsReviewStatusTests(unittest.TestCase):
         self.assertEqual(("", "", " --preset quadruped"), (cli.pipeline.preset_opt(None), cli.pipeline.preset_opt("humanoid"), cli.pipeline.preset_opt("quadruped")))
 
     def test_rig_end_gives_the_fix_before_next(self):
-        """`bw rig` 끝도: "done (needs_review)" 뒤에 바로 demo·export 만 권했다 — 고칠 명령을 `next:` 앞에. ok 면 말 없음."""
+        """The end of `bw rig` gives the same fix before its `next:` line; an `ok` rig says nothing more.
+
+        10/18 26회차: "done (needs_review)" 뒤에 바로 demo·export 만 권했다."""
         import re
         for status in ("needs_review", "ok"):
             for lang in ("en", "ko"):
