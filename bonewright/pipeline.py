@@ -610,8 +610,16 @@ def _json_fix(text: str, e: ValueError) -> str:
     return T("예: ", "e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
 
 
-def map_example(free: list, names: list) -> str:
-    """`--map` 파일 꼴 한 줄 — 이름을 못 알아본 첫 BVH 본과 같은 쪽의 빈 컨트롤."""
+def map_example(free: list, names: list, mapping: dict | None = None, bvh: str | None = None) -> str:
+    """`--map` 파일 꼴 한 줄 — BVH 부모 사슬로 정한 짝 전부(10/18 26회차: 첫 짝 하나뿐이라 나머지 팔다리는 또 안 움직였다).
+    사슬을 못 읽으면 이름을 못 알아본 첫 BVH 본과 같은 쪽의 빈 컨트롤."""
+    from .retarget import bvh_parents, limb_pairs
+    try:
+        parents = bvh_parents(bvh) if bvh else {}
+    except OSError:
+        parents = {}
+    if pairs := limb_pairs(free, names, mapping or {}, parents):
+        return json.dumps(pairs, ensure_ascii=False)
     side = names[0] if names else ""
     from .bench import _norm
     pick = next((c for c in free if c.endswith("." + (_norm(side)[1] or ""))), free[0])
@@ -633,7 +641,7 @@ def missing_map(path: str, bvh: str | None, preset: str | None) -> str | None:
         mapping = bvh_mapping(names, preset)
         free, unrec = unmoved_limbs(mapping, [n for n in names if n not in mapping], preset)
         if free:
-            eg = map_example(free, unrec)
+            eg = map_example(free, unrec, mapping, str(Path(bvh).expanduser()))
         elif preset == "quadruped":
             eg = json.dumps({"LeftArm": "front_thigh_fk.L"})
     q = f'"{path}"' if any(c.isspace() for c in str(path)) else str(path)
@@ -642,10 +650,10 @@ def missing_map(path: str, bvh: str | None, preset: str | None) -> str | None:
              f"--map file does not exist yet: {path}\n  → make it (BVH bone on the left → rig control on the right, several per line): `{make}`\n  → then the same command: `{this_command()}`")
 
 
-def unmoved_warning(free: list, names: list, has_map: bool) -> str:
+def unmoved_warning(free: list, names: list, has_map: bool, mapping: dict | None = None, bvh: str | None = None) -> str:
     """팔다리 컨트롤이 비었는데 그쪽에 이름을 못 알아본 BVH 본이 있다 — 그 팔다리는 움직이지 않는다.
     다음 할 일: 그 이름으로 `--map` 을 써서 같은 명령(10/16 22회차: 숫자만 남고 "done" 이었다)."""
-    eg = map_example(free, names)
+    eg = map_example(free, names, mapping, bvh)
     cmd = this_command() if has_map else f"{this_command()} --map bones.json"
     shown = ", ".join(free[:6]) + (", …" if len(free) > 6 else "")
     nm = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
@@ -1205,7 +1213,7 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         drove = {k: v for k, v in mapping.items() if k not in (rt.get("no_target") or {})}
         free, names = unmoved_limbs(drove, rt["unmapped"], preset or "humanoid")
         if free:
-            _log(quiet, unmoved_warning(free, names, bool(bone_map)))
+            _log(quiet, unmoved_warning(free, names, bool(bone_map), drove, str(Path(bvh).resolve())))
             report.append(f"- limb controls no BVH bone drives (not moved): {', '.join(free)} · BVH bones not recognised on that side: {', '.join(names)}")
         from .retarget import bvh_upright
         if preset == "quadruped" and bvh_upright(str(Path(bvh).resolve()), bvh_up):

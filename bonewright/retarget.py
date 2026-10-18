@@ -107,6 +107,57 @@ def unmoved_limbs(mapping: dict[str, str], unmapped: list[str], preset: str = "h
     return (free, names) if names else ([], [])
 
 
+# 팔다리 사슬에서 바로 위 컨트롤(좌우 뺀 이름). 여기 없는 SIDED 컨트롤은 사슬의 시작(몸통에 붙는다)
+LIMB_PARENT = {"upper_arm_fk": "shoulder", "forearm_fk": "upper_arm_fk", "hand_fk": "forearm_fk",
+               "shin_fk": "thigh_fk", "foot_fk": "shin_fk", "front_shin_fk": "front_thigh_fk", "front_foot_fk": "front_shin_fk"}
+
+
+def bvh_parents(path: str) -> dict[str, str | None]:
+    """BVH 관절 → 부모 관절(루트는 None), 파일 순서. End Site 는 뺀다."""
+    out, stack, name = {}, [], None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for raw in fh:
+            tok = raw.split()
+            if not tok:
+                continue
+            w = tok[0].upper()
+            if w in ("ROOT", "JOINT") and len(tok) > 1:
+                name = tok[1]; out[name] = next((b for b in reversed(stack) if b), None)
+            elif w == "END":
+                name = None
+            elif w == "{":
+                stack.append(name)
+            elif w == "}":
+                if stack:
+                    stack.pop()
+            elif w == "MOTION":
+                break
+    return out
+
+
+def limb_pairs(free: list[str], names: list[str], mapping: dict[str, str], parents: dict[str, str | None]) -> dict[str, str]:
+    """이름을 못 알아본 팔다리 BVH 본 → 빈 컨트롤, BVH 부모 사슬로. 부모가 위팔이면 아래팔, 몸통에 붙으면 그쪽 사슬의 시작.
+    정할 수 없는 본(발가락처럼 사슬 끝 뒤, 시작이 둘 다 빈 쪽)은 뺀다. 10/18 26회차: `--map` 꼴이 첫 짝 하나뿐이라
+    그대로 쓰면 나머지 팔다리는 여전히 안 움직였다."""
+    got: dict[str, str] = {}
+    if not parents:
+        return got
+    left = list(free)
+    for n in [n for n in parents if n in names]:
+        side, p = _norm(n)[1], parents[n]
+        if not side:
+            continue
+        pc = (mapping.get(p) or got.get(p)) if p else None
+        if pc and "." in pc:   # 부모가 팔다리 컨트롤이면 그 다음 마디
+            up, ps = pc.rsplit(".", 1)
+            want = [c for c in left if ps == side and c.endswith("." + side) and LIMB_PARENT.get(c.rsplit(".", 1)[0]) == up]
+        else:                  # 몸통(좌우 없는 컨트롤)·못 알아본 몸통 본 밑이면 그쪽 사슬의 시작
+            want = [c for c in left if c.endswith("." + side) and c.rsplit(".", 1)[0] not in LIMB_PARENT]
+        if len(want) == 1:
+            got[n] = want[0]; left.remove(want[0])
+    return got
+
+
 def bvh_rest_joints(path: str) -> dict[str, list[float]]:
     """BVH 의 HIERARCHY 만 읽어 관절의 쉬는 자세 좌표를 만든다(OFFSET 누적). End Site 는 부모이름+'_end'."""
     pos, stack, name = {}, [], None

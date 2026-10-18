@@ -1246,6 +1246,61 @@ class UnmovedLimbTests(unittest.TestCase):
         self.assertIn("2 BVH bones not moved (Spine, LeftToeBase)", log)
 
 
+class LimbPairsTests(unittest.TestCase):
+    """The `--map` shape the unmoved-limb warning and the make-it command give pairs every unrecognised limb bone (BVH parent chain).
+
+    10/18 26회차 실측(bpy 5.2.2): 왼팔·왼다리 이름이 다른 BVH 에 ⚠ 의 꼴이 `{"LeftBrachium": "upper_arm_fk.L"}` 하나뿐 —
+    그대로 쓰면 아래팔·손·다리는 여전히 안 움직이고 ⚠ 가 또 나왔다. 짝 전부로 쓰면 18본·4.86°(원래 이름과 같음)."""
+    RENAME = (("LeftForeArm", "LeftAntebrachium"), ("LeftArm", "LeftBrachium"), ("LeftHand", "LeftManus"),
+              ("LeftUpLeg", "LeftFemur"), ("LeftLeg\n", "LeftTibia\n"), ("LeftLeg ", "LeftTibia "))
+    WANT = {"LeftBrachium": "upper_arm_fk.L", "LeftAntebrachium": "forearm_fk.L", "LeftManus": "hand_fk.L",
+            "LeftFemur": "thigh_fk.L", "LeftTibia": "shin_fk.L"}
+
+    def odd_bvh(self, d):
+        text = (Path(__file__).resolve().parents[1] / "examples" / "wave.bvh").read_text(encoding="utf-8")
+        for a, b in self.RENAME:
+            text = text.replace(a, b)
+        (Path(d) / "odd.bvh").write_text(text, encoding="utf-8")
+        return str(Path(d) / "odd.bvh")
+
+    def test_warning_and_make_command_pair_the_whole_chain(self):
+        import platform
+        from bonewright.retarget import bvh_mapping, bvh_rest_joints, unmoved_limbs
+        with tempfile.TemporaryDirectory() as d:
+            bvh = self.odd_bvh(d)
+            names = [n for n in bvh_rest_joints(bvh) if not n.endswith("_end")]
+            mapping = bvh_mapping(names, "humanoid")
+            free, unrec = unmoved_limbs(mapping, [n for n in names if n not in mapping], "humanoid")
+            for lang in ("en", "ko"):
+                with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), \
+                        patch.object(sys, "argv", ["bw", "motion", "--bvh", bvh, "--rig", "r1"]):
+                    log = pipeline.unmoved_warning(free, unrec, False, mapping, bvh)
+                    self.assertEqual(self.WANT, json.loads(re.search(r"(\{[^}]+\})", log)[1]))
+            cwd = os.getcwd()
+            try:
+                os.chdir(d)
+                with patch.object(sys, "argv", ["bw", "motion", "--bvh", "odd.bvh", "--rig", "r1", "--map", "bones.json"]), \
+                        patch.object(platform, "system", lambda: "Linux"):
+                    make = re.findall(r"`([^`]+)`", pipeline.missing_map("bones.json", "odd.bvh", "humanoid"))[0]
+                self.assertEqual(self.WANT, json.loads(shlex.split(make)[1]))
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(set(), {n for n in unrec if n not in self.WANT} - {"LeftToeBase"})   # 발가락은 사슬 끝 뒤라 뺀다
+
+    def test_chain_rules(self):
+        from bonewright.retarget import limb_pairs
+        parents = {"Hips": None, "Chest": "Hips", "LeftShoulder": "Chest", "LeftBrach": "LeftShoulder", "LeftAnte": "LeftBrach",
+                   "LeftFoot": "Hips", "LeftToe": "LeftFoot", "LeftThing": "Hips", "LeftOther": "Hips"}
+        mapping = {"Hips": "torso", "Chest": "chest", "LeftShoulder": "shoulder.L", "LeftFoot": "foot_fk.L"}
+        free = ["upper_arm_fk.L", "forearm_fk.L", "thigh_fk.L", "shin_fk.L"]
+        got = limb_pairs(free, ["LeftBrach", "LeftAnte", "LeftToe", "LeftThing", "LeftOther"], mapping, parents)
+        self.assertEqual({"LeftBrach": "upper_arm_fk.L", "LeftAnte": "forearm_fk.L", "LeftThing": "thigh_fk.L"}, got)   # 발가락은 사슬 끝 뒤, LOther 는 남은 시작이 없다
+        two = limb_pairs(["shoulder.L", "thigh_fk.L"], ["LeftThing", "LeftOther"], mapping, parents)
+        self.assertEqual({}, two)   # 시작이 둘 다 비면 정하지 않는다
+        self.assertEqual({}, limb_pairs(free, ["LeftBrach"], mapping, {}))   # 사슬을 못 읽으면 호출한 쪽이 첫 짝 하나로
+        self.assertEqual('{"LeftBrach": "upper_arm_fk.L"}', pipeline.map_example(free, ["LeftBrach"]))
+
+
 class RigPresetMismatchTests(unittest.TestCase):
     """`bw motion --rig <dog rig> --preset humanoid` stops before Blender with the same command minus `--preset`.
 

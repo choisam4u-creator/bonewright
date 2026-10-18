@@ -142,6 +142,10 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- When several limb bones of a BVH had unrecognised names, the unmoved-limb warning and the command that makes the
+  `--map` file paired only the first one (`{"LeftBrachium": "upper_arm_fk.L"}`), so following it left the forearm,
+  hand and leg still unmoved and the warning came back. The pairs now follow the BVH parent chain (upper arm →
+  forearm → hand, thigh → shin), all of them in one line; bones after the end of a chain (toes) are left out.
 - `bw status` on a rejected rig (`--from-skeleton` on a file without a skeleton, a mesh that does not fit the preset)
   showed only `preflight rejected · input tokens 0`; the reasons, the `--targets` draft command and `--force` were in
   the terminal only. It now repeats the `BLOCKED:` message, and the run stays `rejected`.
