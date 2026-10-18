@@ -142,6 +142,9 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- Running the `… --map bones.json` command the unmoved-limb warning gives, before making the file, said only "file not
+  found, pass a JSON file shaped like …". It now gives the command that makes it, filled from the BVH's unrecognised
+  bone and the free control (`echo '{"L_Bicep": "upper_arm_fk.L"}' > bones.json`, `Set-Content` on Windows), then the same command.
 - A `--map` key that is not a BVH bone (`LeftArn`, `leftforearm`) was reported only as "ignored", so the fix meant
   opening the BVH. The log now names the closest BVH bone and prints the file fixed to use it on one line; a map written
   the wrong way round (`{"upper_arm_fk.L": "LeftArm"}`) gets the swapped file, and with nothing close the BVH's bone names.

@@ -604,13 +604,42 @@ def _json_fix(text: str, e: ValueError) -> str:
     return T("예: ", "e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
 
 
-def unmoved_warning(free: list, names: list, has_map: bool) -> str:
-    """팔다리 컨트롤이 비었는데 그쪽에 이름을 못 알아본 BVH 본이 있다 — 그 팔다리는 움직이지 않는다.
-    다음 할 일: 그 이름으로 `--map` 을 써서 같은 명령(10/16 22회차: 숫자만 남고 "done" 이었다)."""
+def map_example(free: list, names: list) -> str:
+    """`--map` 파일 꼴 한 줄 — 이름을 못 알아본 첫 BVH 본과 같은 쪽의 빈 컨트롤."""
     side = names[0] if names else ""
     from .bench import _norm
     pick = next((c for c in free if c.endswith("." + (_norm(side)[1] or ""))), free[0])
-    eg = json.dumps({side: pick}, ensure_ascii=False)
+    return json.dumps({side: pick}, ensure_ascii=False)
+
+
+def missing_map(path: str, bvh: str | None, preset: str | None) -> str | None:
+    """`--map` 파일이 아직 없을 때(비슷한 파일도 없을 때) 만드는 명령(OS 셸별)과 같은 명령. 내용은 Blender 전에 BVH 이름으로 정한다:
+    움직이지 않을 팔다리가 있으면 ⚠ 와 같은 꼴, 없으면 사람 왼팔 예. 10/18 25회차 실측: ⚠ 가 준 `… --map bones.json` 을 그대로
+    치면 "파일이 없다 → {…} 형태의 JSON 을 지정하라" 뿐 — 무엇을 어떻게 만들지 없었다."""
+    import platform
+    p = Path(path).expanduser()
+    if p.exists() or near_files(p) or not p.parent.is_dir():
+        return None   # 폴더·비슷한 파일·없는 폴더는 need_file 의 안내가 낫다
+    eg = json.dumps({"LeftArm": "upper_arm_fk.L"})
+    if bvh and preset and Path(bvh).is_file():
+        from .retarget import bvh_mapping, bvh_rest_joints, unmoved_limbs
+        names = [n for n in bvh_rest_joints(str(Path(bvh).expanduser())) if not n.endswith("_end")]
+        mapping = bvh_mapping(names, preset)
+        free, unrec = unmoved_limbs(mapping, [n for n in names if n not in mapping], preset)
+        if free:
+            eg = map_example(free, unrec)
+        elif preset == "quadruped":
+            eg = json.dumps({"LeftArm": "front_thigh_fk.L"})
+    q = f'"{path}"' if any(c.isspace() for c in str(path)) else str(path)
+    make = f"Set-Content {q} '{eg}'" if platform.system() == "Windows" else f"echo '{eg}' > {q}"
+    return T(f"--map 파일이 아직 없다: {path}\n  → 만들고(왼쪽 BVH 본 → 오른쪽 리그 컨트롤, 한 줄에 여럿): `{make}`\n  → 그다음 같은 명령: `{this_command()}`",
+             f"--map file does not exist yet: {path}\n  → make it (BVH bone on the left → rig control on the right, several per line): `{make}`\n  → then the same command: `{this_command()}`")
+
+
+def unmoved_warning(free: list, names: list, has_map: bool) -> str:
+    """팔다리 컨트롤이 비었는데 그쪽에 이름을 못 알아본 BVH 본이 있다 — 그 팔다리는 움직이지 않는다.
+    다음 할 일: 그 이름으로 `--map` 을 써서 같은 명령(10/16 22회차: 숫자만 남고 "done" 이었다)."""
+    eg = map_example(free, names)
     cmd = this_command() if has_map else f"{this_command()} --map bones.json"
     shown = ", ".join(free[:6]) + (", …" if len(free) > 6 else "")
     nm = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
@@ -1087,6 +1116,8 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                         f"  → 그 옵션을 뺀 같은 명령(리그 기록에서 읽는다): `{drop_opt('--preset')}`",
                         f"`--preset {preset}` but rig `{rig_run}` was rigged as {was} — `--preset` is the rig's preset, and a different one leaves its limbs unmoved\n"
                         f"  → the same command without it (read from the rig): `{drop_opt('--preset')}`"))
+    if bone_map and (miss := missing_map(bone_map, bvh, rig_run and (preset or rig_preset(root, rig_run) or "humanoid"))):
+        raise Blocked(miss)
     user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()

@@ -281,7 +281,7 @@ class InputErrorTests(unittest.TestCase):
         (self.root / "runs" / "r1").mkdir(parents=True); (self.root / "runs" / "r1" / "02_rigged.blend").write_bytes(b"x")
         bvh = self.root / "w.bvh"; bvh.write_text("HIERARCHY\n")
         msg = self.blocked(pipeline.motion, self.root, bvh=str(bvh), rig_run="r1", bone_map=str(self.root / "nope.json"), quiet=True)
-        self.assertIn("--map 파일이 없다", msg)
+        self.assertIn("--map 파일이 아직 없다", msg)
         self.assertEqual(["r1"], sorted(p.name for p in (self.root / "runs").iterdir()), "실행 폴더를 만들면 안 된다")
 
     def test_binary_targets_file_is_named_as_such(self):
@@ -1450,6 +1450,38 @@ class MapBvhNameTests(unittest.TestCase):
 
     def test_nothing_close_lists_the_bvh_bones(self):
         self.assertIn("This BVH's bones: Hips, Spine, LeftArm", self.hint({"Zzz": "q"}))
+
+
+class MissingMapFileTests(unittest.TestCase):
+    """A `--map` file that does not exist yet gets the command that makes it (from the BVH's names) and the same command.
+
+    10/18 25회차 실측: ⚠ 가 준 `… --map bones.json` 을 그대로 치면 "파일이 없다 → {…} 형태의 JSON 을 지정하라" 뿐."""
+
+    def test_missing_map_gives_the_make_command_and_the_same_command(self):
+        import platform
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as d:
+            odd = Path(d) / "odd.bvh"
+            odd.write_text((repo / "examples" / "wave.bvh").read_text().replace("LeftArm", "L_Bicep", 1), encoding="utf-8")
+            cwd = os.getcwd()
+            try:
+                os.chdir(d)
+                for lang, want in (("ko", "아직 없다"), ("en", "does not exist yet")):
+                    argv = ["bw", "motion", "--bvh", "odd.bvh", "--map", "bones.json"]
+                    with self.subTest(lang=lang), patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", argv), \
+                            patch.object(platform, "system", lambda: "Linux"):
+                        msg = str(pipeline.missing_map("bones.json", "odd.bvh", "humanoid"))
+                        self.assertIn(want, msg)
+                        make, again = re.findall(r"`([^`]+)`", msg)
+                        self.assertEqual({"L_Bicep": "upper_arm_fk.L"}, json.loads(shlex.split(make)[1]))   # ⚠ 와 같은 꼴(리눅스 셸 꼴로 고정)
+                        self.assertEqual(argv[1:], split_pasted(again)[1:])
+                with patch.object(platform, "system", lambda: "Windows"):
+                    self.assertIn("Set-Content bones.json '{\"LeftArm\": \"upper_arm_fk.L\"}'", pipeline.missing_map("bones.json", None, None))
+                Path("Bones.json").write_text("{}")   # 비슷한 파일이 있으면 need_file 의 안내로
+                self.assertIsNone(pipeline.missing_map("bones.jsn", "odd.bvh", "humanoid"))
+                self.assertIsNone(pipeline.missing_map("Bones.json", "odd.bvh", "humanoid"))
+            finally:
+                os.chdir(cwd)
 
 
 class MotionRigOnlyFlagTests(unittest.TestCase):
