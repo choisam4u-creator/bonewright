@@ -439,7 +439,7 @@ one per line with its kind (rig, motion or bench) — `rig-20261010-101500: rig 
 or a usage limit ends with `→ why: bw doctor --for-issue <run-id>`, which shows its state and the end of its log. A run that
 stopped on a `BLOCKED:` message instead repeats that message there, with its next command (`BW_NO_RENDER=1 bw motion …`);
 so does a rejected rig (`fit rejected`, `preflight rejected`: the reasons, the `--targets` draft command, `--force`).
-A rig that finished as `needs_review` names its first failed check and the 0-token rerun from its `targets.json`
+A rig that finished as `needs_review` (both at the end of `bw rig`, before its `next:` line, and in `bw status`) names its first failed check and the 0-token rerun from its `targets.json`
 (`bw rig <mesh> --preset <preset> --targets runs/<id>/targets.json`).
 `bw export` and `bw demo` record their own `export_state.json` / `demo_state.json`, so a failed export never turns a
 finished rig into a failed one.

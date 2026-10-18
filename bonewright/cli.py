@@ -562,6 +562,19 @@ def rig_result_next(cmd: str, rid: str, out: Path) -> str:
     return T("다음: ", "next: ") + " · ".join(parts)
 
 
+def review_fix(rd: Path, s: dict) -> str:
+    """`needs_review` 리그의 첫 걸린 검사와 토큰 0 재실행 명령(지금 폴더 기준 경로, 그 실행의 프리셋) — `bw status`·`bw rig` 끝.
+    10/18 26회차 실측: report.md 에만 있었고, 그 명령은 `--preset quadruped` 를 빠뜨렸다."""
+    cwd = Path.cwd()
+    first, more = s["reasons"][0], len(s["reasons"]) - 1
+    out = T(f"→ 걸린 검사: {first}", f"→ failed check: {first}") + (T(f" 외 {more}개", f" (+{more} more)") if more else "")
+    if s.get("mesh") and (rd / "targets.json").is_file():
+        again = f"bw rig {pipeline._arg(s['mesh'], cwd)}{pipeline.preset_opt(s.get('preset'))} --targets {pipeline._arg(rd / 'targets.json', cwd)}"
+        out += T(f"\n    → targets.json 의 관절을 고쳐 다시(토큰 0): `{again}` · 자세히: {pipeline._arg(rd / 'report.md', cwd)}",
+                 f"\n    → fix the joints in targets.json and rerun (0 tokens): `{again}` · details: {pipeline._arg(rd / 'report.md', cwd)}")
+    return out
+
+
 def status_detail(rd: Path, kind: str | None) -> list[str]:
     """`bw status <id>` 의 목록 줄 아래: 보고서·만든 파일·(리그면) 다음 명령. 10/15 19회차: 목록 줄과 똑같았다."""
     cwd, rid = Path.cwd(), rd.name
@@ -800,12 +813,7 @@ def _main() -> int:
                         why, *fix = str(s["blocked"]).splitlines()
                         line += T(f"  → 이유: {why}", f"  → why: {why}") + "".join(f"\n    {f.strip()}" for f in fix)
                     elif s["status"] == "needs_review" and s.get("reasons"):   # 10/18 26회차: 무엇이 걸렸는지·다음 명령이 report.md 에만 있었다
-                        first, more = s["reasons"][0], len(s["reasons"]) - 1
-                        line += T(f"  → 걸린 검사: {first}", f"  → failed check: {first}") + (T(f" 외 {more}개", f" (+{more} more)") if more else "")
-                        if s.get("mesh") and (runs / rid / "targets.json").is_file():   # 지금 폴더 기준 경로로(report.md 의 명령은 그때 폴더 기준)
-                            again = f"bw rig {pipeline._arg(s['mesh'], Path.cwd())}{pipeline.preset_opt(s.get('preset'))} --targets {pipeline._arg(runs / rid / 'targets.json', Path.cwd())}"
-                            line += T(f"\n    → targets.json 의 관절을 고쳐 다시(토큰 0): `{again}` · 자세히: {pipeline._arg(runs / rid / 'report.md', Path.cwd())}",
-                                      f"\n    → fix the joints in targets.json and rerun (0 tokens): `{again}` · details: {pipeline._arg(runs / rid / 'report.md', Path.cwd())}")
+                        line += "  " + review_fix(runs / rid, s)
                     elif s["status"] in ("failed", "budget_stop", "usage_limit", "interrupted") or status != s["status"]:   # 왜 멈췄는지 볼 곳(로그 꼬리·state)
                         line += T(f"  → 이유: `bw doctor --for-issue {rid}`", f"  → why: `bw doctor --for-issue {rid}`")
                 except (ValueError, KeyError, TypeError, OSError) as e:
@@ -851,6 +859,12 @@ def _main() -> int:
     print(result_label(a.cmd, out), out)
     if a.cmd == "rig":   # README 다음 줄이 `bw demo <run-id>` 라 id 를 경로에서 오려 내지 않게(stdout 은 보고서 경로 한 줄 그대로)
         rid = Path(out).parent.name; bv = pipeline.rig_sample_bvh(ROOT, rid)   # 저장소의 샘플 BVH(네 발 리그면 네 발 걷기) — 그대로 붙여 넣어 돈다
+        try:   # needs_review 면 고칠 명령을 먼저(10/18 26회차: "done (needs_review)" 뒤에 바로 demo·export 만 권했다)
+            st = json.loads((Path(out).parent / "state.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            st = {}
+        if isinstance(st, dict) and st.get("status") == "needs_review" and st.get("reasons"):
+            print(T("검토 필요 ", "needs review ") + review_fix(Path(out).parent, st), file=sys.stderr)
         print(T(f"다음: `bw demo {rid}`(움직이는 영상) · `bw export {rid}`(게임용 GLB) · `bw motion --bvh {bv} --rig {rid}`",
                 f"next: `bw demo {rid}` (video of it moving) · `bw export {rid}` (game-ready GLB) · `bw motion --bvh {bv} --rig {rid}`"),
               file=sys.stderr)

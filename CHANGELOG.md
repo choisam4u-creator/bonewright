@@ -142,6 +142,8 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- A `bw rig` that finished as `needs_review` went straight from `done (needs_review)` to `next: bw demo · bw export`.
+  It now prints the first failed check and the 0-token `--targets` rerun before the `next:` line.
 - When several limb bones of a BVH had unrecognised names, the unmoved-limb warning and the command that makes the
   `--map` file paired only the first one (`{"LeftBrachium": "upper_arm_fk.L"}`), so following it left the forearm,
   hand and leg still unmoved and the warning came back. The pairs now follow the BVH parent chain (upper arm →

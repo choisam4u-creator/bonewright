@@ -926,6 +926,28 @@ class NeedsReviewStatusTests(unittest.TestCase):
                 self.assertEqual((str(mesh), "quadruped", str(rd / "targets.json")), (str(Path(a.mesh).resolve()), a.preset, str(Path(a.targets).resolve())))
         self.assertEqual(("", "", " --preset quadruped"), (cli.pipeline.preset_opt(None), cli.pipeline.preset_opt("humanoid"), cli.pipeline.preset_opt("quadruped")))
 
+    def test_rig_end_gives_the_fix_before_next(self):
+        """`bw rig` 끝도: "done (needs_review)" 뒤에 바로 demo·export 만 권했다 — 고칠 명령을 `next:` 앞에. ok 면 말 없음."""
+        import re
+        for status in ("needs_review", "ok"):
+            for lang in ("en", "ko"):
+                with self.subTest(status=status, lang=lang), tempfile.TemporaryDirectory() as t:
+                    rd = Path(t) / "runs" / "q1"; rd.mkdir(parents=True)
+                    (rd / "targets.json").write_text("{}", encoding="utf-8"); (rd / "report.md").write_text("", encoding="utf-8")
+                    (rd / "state.json").write_text(json.dumps({"step": "final", "status": status, "preset": "quadruped", "mesh": str(Path(t) / "dog.glb"),
+                                                               **({"reasons": ["symmetry error 0.054"]} if status != "ok" else {})}), encoding="utf-8")
+                    out, err = io.StringIO(), io.StringIO()
+                    with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                            patch.object(cli.pipeline, "rig", return_value=rd / "report.md"), \
+                            patch.object(sys, "argv", ["bw", "rig", "dog.glb", "--preset", "quadruped"]), patch("sys.stdout", out), patch("sys.stderr", err):
+                        self.assertEqual(0, cli.main())
+                    shown = err.getvalue()
+                    self.assertEqual(status != "ok", "symmetry error 0.054" in shown)
+                    if status != "ok":
+                        self.assertLess(shown.index("symmetry error"), shown.index("bw demo q1"))
+                        a = cli.build_parser().parse_args(shlex.split(re.search(r"`bw (rig [^`]+)`", shown).group(1)))
+                        self.assertEqual(("quadruped", str(rd / "targets.json")), (a.preset, str(Path(a.targets).resolve())))
+
 
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
