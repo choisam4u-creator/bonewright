@@ -142,6 +142,9 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- A `--map` key that is not a BVH bone (`LeftArn`, `leftforearm`) was reported only as "ignored", so the fix meant
+  opening the BVH. The log now names the closest BVH bone and prints the file fixed to use it on one line; a map written
+  the wrong way round (`{"upper_arm_fk.L": "LeftArm"}`) gets the swapped file, and with nothing close the BVH's bone names.
 - A run that stopped on `BLOCKED:` after its folder was made (the renderer without a display, a Rigify failure) showed
   only `→ why: bw doctor --for-issue <id>` in `bw status`, and the next command the message gave was lost with the
   terminal. The run now keeps the message, and `bw status` repeats its reason and next command.

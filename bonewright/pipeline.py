@@ -664,6 +664,32 @@ def map_target_warning(bad: dict) -> str:
              "    → rig bone names are control names (humanoid limbs end in `_fk`, e.g. upper_arm_fk.L). Fix the map file and run the same command")
 
 
+def unknown_map_names(unknown: list, bvh_bones: list, path: str) -> str:
+    """`--map` 의 BVH 쪽 이름이 BVH 에 없을 때 다음 할 일: 가까운 BVH 본(대소문자·difflib)과 고친 파일 한 줄, 없으면 BVH 본 이름들.
+    10/18 25회차 실측: `{"LeftArn": …}` 에 "BVH 에 없는 이름 1개 무시: LeftArn" 뿐 — 무엇으로 고칠지는 BVH 를 열어 봐야 했다."""
+    import difflib
+    low = {b.lower(): b for b in bvh_bones}
+    near = {k: low.get(k.lower()) or next(iter(difflib.get_close_matches(k, bvh_bones, n=1, cutoff=0.6)), None) for k in unknown}
+    hit = {k: v for k, v in near.items() if v}
+    try:
+        user = load_bone_map(path)
+    except Blocked:
+        user = {}
+    if not hit and user and all(v in bvh_bones for k, v in user.items() if k in unknown):   # 키·값을 거꾸로({"리그 본": "BVH 본"})
+        swapped = json.dumps({v: k for k, v in user.items()}, ensure_ascii=False)
+        return T(f"  → 거꾸로 적은 것 같다 — 왼쪽(키)이 BVH 본, 오른쪽이 리그 본이다. 바꾼 {Path(path).name}: {swapped}",
+                 f"  → it looks reversed — the keys are BVH bones and the values rig bones. {Path(path).name} swapped: {swapped}")
+    if hit:
+        fixed = json.dumps({hit.get(k, k): v for k, v in user.items()}, ensure_ascii=False) if user else ""
+        pairs = " · ".join(f"{k} → {v}" for k, v in hit.items())
+        line = T(f"  → BVH 의 가까운 이름: {pairs}", f"  → closest BVH bone names: {pairs}")
+        if fixed and len(fixed) <= 300:
+            line += T(f"\n  → 고친 {Path(path).name}: {fixed}", f"\n  → {Path(path).name} fixed: {fixed}")
+        return line
+    names = ", ".join(bvh_bones[:8]) + (", …" if len(bvh_bones) > 8 else "")
+    return T(f"  → 왼쪽(키)은 BVH 본 이름이다. 이 BVH 의 본: {names}", f"  → the keys are BVH bone names. This BVH's bones: {names}")
+
+
 def apply_bone_map(mapping: dict, bone_map: "dict | str | Path", bvh_bones: list) -> tuple[dict, int, list]:
     """사용자 매핑 파일을 자동 매핑 위에 덮어쓴다. {"BVH 본": "리그 본"} 형태.
 
@@ -1119,6 +1145,9 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
             mapping, applied, unknown = apply_bone_map(mapping, user_map, imp["bone_names"])
             _log(quiet, T(f"  📄 --map {applied}개 적용", f"  📄 --map applied {applied}")
                         + (T(f" · BVH 에 없는 이름 {len(unknown)}개 무시: {', '.join(unknown[:4])}", f" · ignored {len(unknown)} names not in the BVH: {', '.join(unknown[:4])}") if unknown else ""))
+            if unknown:
+                _log(quiet, unknown_map_names(unknown, imp["bone_names"], bone_map))
+                report.append("- --map BVH names not in the BVH (ignored): " + ", ".join(unknown))
         r.state("retarget", "running")
         fa, fb = imp["frames"] if imp.get("frames") else (1, 1)
         rf = sorted({fa, fa + (fb - fa) // 3, fa + 2 * (fb - fa) // 3, fb})

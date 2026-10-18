@@ -1423,6 +1423,35 @@ class MapFileShapeTests(unittest.TestCase):
         self.assertIn('글이 아닌 값: "LeftArm": ["a"]', self.blocked('{"LeftArm": ["a"]}', "ko"))
 
 
+class MapBvhNameTests(unittest.TestCase):
+    """`--map` keys that are not BVH bones get the closest BVH name and the fixed file, a reversed map gets the swapped one.
+
+    10/18 25회차 실측: `{"LeftArn": …}` 에 "BVH 에 없는 이름 1개 무시: LeftArn" 뿐, `{"upper_arm_fk.L": "LeftArm"}`(거꾸로)도 같은 말."""
+    BONES = ["Hips", "Spine", "LeftArm", "LeftForeArm", "RightArm"]
+
+    def hint(self, data, lang="en"):
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"BW_LANG": lang}):
+            m = Path(d) / "bones.json"; m.write_text(json.dumps(data), encoding="utf-8")
+            _, _, unknown = pipeline.apply_bone_map({}, m, self.BONES)
+            return pipeline.unknown_map_names(unknown, self.BONES, str(m))
+
+    def test_typo_gives_the_closest_name_and_the_fixed_file(self):
+        msg = self.hint({"LeftArn": "upper_arm_fk.L", "leftforearm": "forearm_fk.L", "RightArm": "upper_arm_fk.R"})
+        self.assertIn("LeftArn → LeftArm", msg)
+        fixed = json.loads(msg.split("bones.json fixed: ", 1)[1])
+        self.assertEqual({"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L", "RightArm": "upper_arm_fk.R"}, fixed)
+        self.assertEqual((3, []), pipeline.apply_bone_map({}, fixed, self.BONES)[1:])   # 고친 꼴은 모두 적용된다
+        self.assertIn("가까운 이름", self.hint({"LeftArn": "x"}, "ko"))
+
+    def test_reversed_map_gives_the_swapped_file(self):
+        msg = self.hint({"upper_arm_fk.L": "LeftArm"})
+        self.assertEqual({"LeftArm": "upper_arm_fk.L"}, json.loads(msg.split("bones.json swapped: ", 1)[1]))
+        self.assertIn("거꾸로", self.hint({"upper_arm_fk.L": "LeftArm"}, "ko"))
+
+    def test_nothing_close_lists_the_bvh_bones(self):
+        self.assertIn("This BVH's bones: Hips, Spine, LeftArm", self.hint({"Zzz": "q"}))
+
+
 class MotionRigOnlyFlagTests(unittest.TestCase):
     """`bw motion` refuses retarget-only flags without `--rig`, before Blender and before a run folder.
 
