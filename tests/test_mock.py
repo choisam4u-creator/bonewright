@@ -40,6 +40,11 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual([], st["bones_outside_bbox"])
         state = json.loads((self.tmp / "runs/t1/state.json").read_text())
         self.assertEqual("ok", state["status"], (self.tmp / "runs/t1/report.md").read_text())
+        rep = (self.tmp / "runs/t1/report.md").read_text()
+        self.assertNotIn(str((self.tmp / "runs/t1").resolve()), rep)   # 실행 폴더 안 파일은 상대 경로(이슈에 그대로 붙인다)
+        self.assertIn("- targets: `runs/t1/targets.json`", rep)   # 프로젝트 폴더에서 그대로 `--targets` 에 넘길 수 있는 경로(10/7 Codex 리뷰)
+        self.assertIn("`bw rig test_humanoid.glb --targets runs/t1/targets.json`", rep)   # 메시 경로까지 채워 그대로 돈다(10/11 9회차)
+        self.assertRegex(rep, r"- versions: bonewright \S+ · Blender \d")   # 이슈 재현용 버전 줄(Blender 쪽 _common.done 이 채운다)
         # 렌더는 사람이 볼 그림이라 `BW_NO_RENDER=1` 로 끌 수 있다(화면 없는 CI 서버에서 렌더러가 죽는다).
         # 꺼져 있으면 그림이 없는 게 정상이고, 켜져 있으면 세 장이 다 나와야 한다
         if os.environ.get("BW_NO_RENDER") != "1":
@@ -60,7 +65,9 @@ class RigMockTests(unittest.TestCase):
         st = json.loads((self.tmp / "runs/t1/rig_stats.json").read_text()); self.assertEqual("humanoid", st["preset"])
 
     def test_retarget_bvh_and_export(self):
-        """BVH 를 리그에 옮기고 GLB 로 내보낸다: 본 방향 오차 0, 메시 모서리 늘어남 6배 미만, 발이 바닥 아래로 안 감, 다시 읽은 GLB 의 손발 위치 일치"""
+        """BVH retarget and GLB export: no bone direction error, bounded stretch, feet above floor.
+
+        BVH 를 리그에 옮기고 GLB 로 내보낸다: 본 방향 오차 0, 메시 모서리 늘어남 6배 미만, 발이 바닥 아래로 안 감, 다시 읽은 GLB 의 손발 위치 일치"""
         pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t3", quiet=True, no_judge=True)
         out = pipeline.motion(self.tmp, bvh=str(ROOT / "spikes/motion_out/walk_wave.bvh"), run_id="m3", quiet=True, rig_run="t3", export="auto")
         self.assertTrue(out.exists())
@@ -77,9 +84,13 @@ class RigMockTests(unittest.TestCase):
         self.assertTrue((self.tmp / "runs/m3/animated.glb").exists())
         rep = (self.tmp / "runs/m3/report.md").read_text()
         self.assertIn("re-import check", rep); self.assertIn("'DEF-hand.L': 0.0", rep, rep)
+        self.assertNotIn(str((self.tmp / "runs/m3").resolve()), rep)
+        self.assertRegex(rep, r"- versions: bonewright \S+ · Blender \d")
 
     def test_human_only_bones_go_when_the_source_has_no_counterpart(self):
-        """원본 뼈대에 대응 관절이 없는 **사람 전용 본**은 지운다 — 떠 있으면 살을 가져간다.
+        """Human-only bones with no source counterpart are removed.
+
+        원본 뼈대에 대응 관절이 없는 **사람 전용 본**은 지운다 — 떠 있으면 살을 가져간다.
 
         `breast.L/R` 은 어느 게임 리그에도 없어서 항상 사라진다(사람·네발 모두).
         `pelvis.L/R` 은 **네발일 때만** 지운다 — 사람 몸에서는 제 자리에 앉아 엉덩이 살을 맡는다
@@ -93,7 +104,9 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual(st["removed_extra_bones"], 2, st)
 
     def test_user_bone_map_overrides_and_reports_typos(self):
-        """`--map` 은 자동 매핑 위에 덮어쓰고, **BVH 에 없는 이름은 세어서 알려 준다**.
+        """--map overrides the automatic mapping and counts names missing from the BVH.
+
+        `--map` 은 자동 매핑 위에 덮어쓰고, **BVH 에 없는 이름은 세어서 알려 준다**.
 
         이름으로 짝짓는 자동 매핑은 이름 없는 리그(`Limb3_2`)에 아무것도 못 붙인다 — 벤치 66종 중
         34종이 그래서 동작을 못 받았다. 오타를 조용히 넘기면 사용자는 "왜 안 붙지"만 반복한다."""
@@ -111,7 +124,9 @@ class RigMockTests(unittest.TestCase):
                 pipeline.apply_bone_map({}, f, [])
 
     def test_model_gaps_are_filled_from_landmarks(self):
-        """모델이 자신 없어 **빼고 답한 본**은 랜드마크 배치로 메운다.
+        """Bones the model left out are filled from landmark placement.
+
+        모델이 자신 없어 **빼고 답한 본**은 랜드마크 배치로 메운다.
 
         빼는 것 자체는 옳다 — 실제 실행에서 "다리 중심선이 발목까지 안 와서 shin·foot 을 제외했다"
         고 답했다. 문제는 그러면 그 본이 **메타리그 기본값**으로 남는다는 것이다. mannequiny 실측:
@@ -132,7 +147,9 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual((out2, filled2), (model, []))                 # 모델 답 그대로 간다
 
     def test_real_asset_survives_retarget_without_tearing(self):
-        """**실제 자산**으로 리타겟 후 메시 늘어남을 잰다.
+        """A real asset is retargeted without the mesh tearing.
+
+        **실제 자산**으로 리타겟 후 메시 늘어남을 잰다.
 
         절차 생성 테스트 메시는 껍질이 하나라 가중치 손해를 못 잡는다. 실제 게임 메시는 옷·머리카락이
         겹친 여러 껍질이라, 가중치를 건드리는 변경이 여기서만 드러난다(cross_trim 을 켰을 때
@@ -147,7 +164,9 @@ class RigMockTests(unittest.TestCase):
         self.assertLess(rt["stretch"]["edges_over_2x"], rt["stretch"]["edges"] * 0.01, rt["stretch"])
 
     def test_shape_rig_follows_the_mesh_when_there_is_no_skeleton(self):
-        """--from-shape: 메시 속 중심선에서 뼈대를 직접 만든다. 해부학 이름은 없지만 모든 정점이 붙고
+        """--from-shape builds a skeleton from the medial axis with every vertex weighted.
+
+        --from-shape: 메시 속 중심선에서 뼈대를 직접 만든다. 해부학 이름은 없지만 모든 정점이 붙고
         본이 메시 안에 있어야 한다(사람·개과 비율을 못 쓰는 곤충·괴물을 위한 길)"""
         out = pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="shape1", quiet=True, from_shape=True, no_judge=True)
         self.assertTrue(out.exists())
@@ -160,7 +179,9 @@ class RigMockTests(unittest.TestCase):
         self.assertIn(state["status"], ("ok", "needs_review"), (self.tmp / "runs/shape1/report.md").read_text())
 
     def test_bad_elbow_is_snapped_to_axis(self):
-        """모델이 팔꿈치를 팔 중심선에서 15cm 아래로 찍어도 중심선으로 되돌리고(axis_snapped) 변형 본이 메시 밖에 남지 않는다."""
+        """An elbow placed 15 cm off the arm axis is snapped back and stays inside the mesh.
+
+        모델이 팔꿈치를 팔 중심선에서 15cm 아래로 찍어도 중심선으로 되돌리고(axis_snapped) 변형 본이 메시 밖에 남지 않는다."""
         pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t2", quiet=True, no_judge=True)
         run = self.tmp / "runs/t2"
         a = json.loads((run / "analysis.json").read_text()); fit = json.loads((run / "fit.json").read_text())
@@ -175,7 +196,9 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual(0, st["deform_outside_mesh"], st.get("deform_outside_mesh_bones"))
 
     def test_real_shape_cc0_character(self):
-        """CC0 게임 캐릭터(스킨 메시+아마추어+가방+손가락, T 포즈)를 mock 으로 리깅: 아마추어를 버리고 REST 자세로 굽고, 대리 메시 가중치가 붙고, 변형 본이 메시 안에 있어야 한다."""
+        """A CC0 game character rigs with mock: rest pose, proxy weights, deform bones inside the mesh.
+
+        CC0 게임 캐릭터(스킨 메시+아마추어+가방+손가락, T 포즈)를 mock 으로 리깅: 아마추어를 버리고 REST 자세로 굽고, 대리 메시 가중치가 붙고, 변형 본이 메시 안에 있어야 한다."""
         asset = Path(__file__).parent / "assets" / "quaternius_adventurer.glb"
         if not asset.exists():
             self.skipTest("tests/assets/quaternius_adventurer.glb 없음")
@@ -189,7 +212,9 @@ class RigMockTests(unittest.TestCase):
         self.assertEqual("ok", json.loads((self.tmp / "runs/t3/state.json").read_text())["status"])
 
     def test_pin_and_targets_reuse(self):
-        """--targets 는 모델을 부르지 않고(토큰 0) 같은 리그를 다시 만든다. --pin 은 모든 보정을 이기고 그 좌표에 정확히 놓인다."""
+        """--targets rebuilds the same rig without the model; --pin wins over every correction.
+
+        --targets 는 모델을 부르지 않고(토큰 0) 같은 리그를 다시 만든다. --pin 은 모든 보정을 이기고 그 좌표에 정확히 놓인다."""
         pipeline.rig(self.tmp, str(self.mesh), "humanoid", run_id="t4", quiet=True, no_judge=True)
         targets = json.loads((self.tmp / "runs/t4/targets.json").read_text())
         self.assertIn("shin.L", targets)
@@ -211,7 +236,9 @@ class RigMockTests(unittest.TestCase):
         self.assertGreater(st["symmetry_max_error"], 0.03)   # 한쪽만 고정했으니 대칭 게이트가 잡아야 한다
 
     def test_bench_against_original_rig(self):
-        """원본 뼈대가 든 CC0 캐릭터로 관절 오차를 잰다. 숫자가 나빠지면(회귀) 여기서 걸린다.
+        """Joint error against the original rig of a CC0 character (regression guard).
+
+        원본 뼈대가 든 CC0 캐릭터로 관절 오차를 잰다. 숫자가 나빠지면(회귀) 여기서 걸린다.
         기준선(2026-09-15, 광선 기반 가랑이 검출 뒤): 평균 6.08cm · 골반 4.35cm · 목 1.60cm.
         골반은 이 자산에서만 0.89 → 4.35cm 로 나빠졌지만 허벅지 8.3 → 4.75, 무릎 6.82 → 4.53 으로
         전체 평균은 6.56 → 6.08 로 내려갔고, 다른 자산은 골반이 12.8 → 1.7cm, 34.1 → 1.3cm 로 좋아졌다."""
@@ -250,7 +277,9 @@ class BenchMappingTests(unittest.TestCase):
             self.assertIn("upperarm", bench._cores(core), name); self.assertEqual("L", side, name)
 
     def test_rig_name_conventions(self):
-        """리깅 도구마다 뼈 이름 규약이 다르다. --from-skeleton 이 통하려면 이게 다 잡혀야 한다.
+        """Bone naming conventions of common rigging tools are all recognised for --from-skeleton.
+
+        리깅 도구마다 뼈 이름 규약이 다르다. --from-skeleton 이 통하려면 이게 다 잡혀야 한다.
         DAZ 는 구분자 없이 l/r 을 앞에 붙이고(lShldr), Character Creator 는 CC_Base_L_ 접두사를 쓴다"""
         want = {c: b for b, cs in bench.JOINT_MAP.items() for c in cs}
         suites = {
@@ -272,7 +301,9 @@ class BenchMappingTests(unittest.TestCase):
         self.assertEqual(("lowerleg", None), bench._norm("lowerleg"))
 
     def test_preflight_rejects_non_human(self):
-        """거절 게이트: 사람 전제가 깨진 메시는 모델을 부르기 전에 막는다(토큰 0).
+        """Preflight rejects non-human meshes before calling the model (0 tokens).
+
+        거절 게이트: 사람 전제가 깨진 메시는 모델을 부르기 전에 막는다(토큰 0).
         기준값은 자산 17종의 분석 신호와 정답 대조 오차를 맞춰 고른 것이라, 경계가 바뀌면 여기서 걸린다"""
         from bonewright.gates import preflight
         from bonewright.config import DEFAULTS
@@ -297,7 +328,9 @@ class BenchMappingTests(unittest.TestCase):
         self.assertEqual([], qb); self.assertTrue(qw)
 
     def test_compare_matches_quaternius_animals(self):
-        """Quaternius 동물 규약은 이름이 관절보다 한 칸씩 밀려 있다(BackLeg=고관절, BackUpperLeg=무릎).
+        """Quaternius animal names (shifted by one joint) map to the right joints.
+
+        Quaternius 동물 규약은 이름이 관절보다 한 칸씩 밀려 있다(BackLeg=고관절, BackUpperLeg=무릎).
         이름만 보면 BackUpperLeg 를 넓적다리로 붙이기 쉬운데, 실제 본 좌표로 확인한 대응을 지킨다"""
         gt = {"Back": {"head": [0, -0.6, 1.98]}, "BackLeg.L": {"head": [0.34, -0.6, 1.76]},
               "BackUpperLeg.L": {"head": [0.34, -0.36, 1.34]}, "BackLowerLeg.L": {"head": [0.35, -1.24, 0.82]},
@@ -337,7 +370,9 @@ class GateTests(unittest.TestCase):
         self.assertEqual(1, len(gates.judge_gates({"bones_outside_mesh": ["left hand"], "proportions_ok": True})))
 
     def test_weight_leak_gate(self):
-        """팔 본이 몸통으로 샌 정점이 기준(0.5%)을 넘으면 게이트가 잡는다. 복셀 대리 메시가 팔·몸통을 붙이면 생기는 위험."""
+        """The gate catches arm weights leaking into the torso above 0.5% of vertices.
+
+        팔 본이 몸통으로 샌 정점이 기준(0.5%)을 넘으면 게이트가 잡는다. 복셀 대리 메시가 팔·몸통을 붙이면 생기는 위험."""
         g = {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03,
              "deform_bones_min": 60, "max_bones_outside_bbox": 0, "max_weight_leak_ratio": 0.005, "max_deform_outside_mesh": 0}
         base = {"unweighted_verts": 0, "weight_sum_min": 1.0, "weight_sum_max": 1.0, "deform_bones": 160,
@@ -354,7 +389,9 @@ class GateTests(unittest.TestCase):
         self.assertEqual([], gates.rig_gates({**base, "weight_leak_torso_verts": 0, "weight_leak_arm_torso": 0}, g, 1000))
 
     def test_reasons_follow_bw_lang(self):
-        """BW_LANG=en 이면 거절 사유(preflight·rig_gates·judge_gates)에 한글이 하나도 없다."""
+        """With BW_LANG=en, rejection reasons from all gates contain no Hangul.
+
+        BW_LANG=en 이면 거절 사유(preflight·rig_gates·judge_gates)에 한글이 하나도 없다."""
         g = {"max_unweighted_ratio": 0.0, "weight_sum_min": 0.98, "weight_sum_max": 1.02, "symmetry_max_error": 0.03,
              "deform_bones_min": 60, "max_bones_outside_bbox": 0, "max_weight_leak_ratio": 0.005, "max_deform_outside_mesh": 0}
         bad = {"unweighted_verts": 5, "filled_from_neighbor": 100, "weight_sum_min": 0.5, "weight_sum_max": 1.0, "deform_bones": 10,
@@ -374,7 +411,9 @@ class GateTests(unittest.TestCase):
         self.assertEqual([], hangul)
 
     def test_model_text_in_english_mode_is_labelled(self):
-        """시각 판정의 자유 문장은 프롬프트 언어(기본 ko)로 온다. 영어 화면이면 모델 출력이라고 밝히고 --lang en 을 안내한다."""
+        """In English mode, free text from the visual judge is labelled as model output with a --lang hint.
+
+        시각 판정의 자유 문장은 프롬프트 언어(--lang ko 나 config 로 화면과 다르게 정할 수 있다)로 온다. 영어 화면이면 모델 출력이라고 밝히고 --lang en 을 안내한다."""
         judge = {"bones_outside_mesh": ["왼손"], "proportions_ok": False, "notes": "팔이 너무 길다"}
         with patch.dict(os.environ, {"BW_LANG": "en"}):
             fails = gates.judge_gates(judge)
@@ -419,6 +458,41 @@ class RetargetMappingTests(unittest.TestCase):
         self.assertEqual(m["mixamorig:Neck"], "neck"); self.assertEqual(m["mixamorig:LeftFoot"], "foot_fk.L")
         self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
 
+    def test_joint_names_move_the_limbs(self):
+        """Joint-named BVH (SMPL, pose estimators: L_Hip/L_Knee, L_Shoulder/L_Elbow) moves the arms and legs.
+
+        10/16 22회차: 팔다리 9개가 말없이 안 움직였다(Hip 은 골반, Shoulder 는 쇄골로 읽혔다). BVH 관절은 거기서 시작하는 뼈를 돌린다"""
+        from bonewright.retarget import bvh_mapping
+        smpl = ["Pelvis", "L_Hip", "L_Knee", "L_Ankle", "L_Foot", "R_Hip", "R_Knee", "R_Ankle", "R_Foot", "Spine1", "Spine2", "Spine3",
+                "Neck", "L_Collar", "L_Shoulder", "L_Elbow", "L_Wrist", "L_Hand", "R_Collar", "R_Shoulder", "R_Elbow", "R_Wrist", "R_Hand", "Head"]
+        m = bvh_mapping(smpl)
+        for n, want in (("Pelvis", "torso"), ("L_Hip", "thigh_fk.L"), ("L_Knee", "shin_fk.L"), ("L_Ankle", "foot_fk.L"),
+                        ("R_Hip", "thigh_fk.R"), ("L_Collar", "shoulder.L"), ("L_Shoulder", "upper_arm_fk.L"),
+                        ("L_Elbow", "forearm_fk.L"), ("L_Wrist", "hand_fk.L"), ("R_Elbow", "forearm_fk.R"), ("Spine3", "chest")):
+            self.assertEqual(want, m.get(n), n)
+        self.assertEqual(len(set(m.values())), len(m))
+        # 사족 리그엔 앞다리로
+        q = bvh_mapping(smpl, "quadruped")
+        self.assertEqual(("front_thigh_fk.L", "front_shin_fk.L"), (q.get("L_Shoulder"), q.get("L_Elbow")))
+        # 같은 이름이 다른 규약에선 그대로: Mixamo 의 LeftShoulder 는 쇄골, 위팔 이름이 따로 있으면 Elbow 가 있어도 쇄골
+        mix = bvh_mapping(["Hips", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "LeftUpLeg", "LeftLeg", "LeftFoot"])
+        self.assertEqual(("shoulder.L", "upper_arm_fk.L", "thigh_fk.L"), (mix["LeftShoulder"], mix["LeftArm"], mix["LeftUpLeg"]))
+        self.assertEqual("shoulder.L", bvh_mapping(["Hips", "LeftShoulder", "LeftArm", "LeftElbow"])["LeftShoulder"])
+
+
+    def test_biovision_names_move_the_limbs(self):
+        """Biovision-named BVH (the format's own example: LeftUpArm/LeftLowArm/LeftLowLeg) moves the arms and shins.
+
+        10/16 22회차: 두 팔과 정강이 6개가 말없이 안 움직였다(손발 오차 31.4cm → 고친 뒤 10.33cm, bpy 5.2.2)"""
+        from bonewright.retarget import bvh_mapping
+        bio = ["Hips", "Chest", "Neck", "Head", "LeftCollar", "LeftUpArm", "LeftLowArm", "LeftHand",
+               "LeftUpLeg", "LeftLowLeg", "LeftFoot", "RightUpLeg", "RightLowLeg", "RightFoot"]
+        m = bvh_mapping(bio)
+        for n, want in (("LeftCollar", "shoulder.L"), ("LeftUpArm", "upper_arm_fk.L"), ("LeftLowArm", "forearm_fk.L"),
+                        ("LeftUpLeg", "thigh_fk.L"), ("LeftLowLeg", "shin_fk.L"), ("RightLowLeg", "shin_fk.R")):
+            self.assertEqual(want, m.get(n), n)
+        self.assertEqual(("front_thigh_fk.L", "front_shin_fk.L"), (bvh_mapping(bio, "quadruped").get("LeftUpArm"), bvh_mapping(bio, "quadruped").get("LeftLowArm")))
+
 
 class QuadTailMappingTests(unittest.TestCase):
     """사족 꼬리: 늑대 메타리그 꼬리 사슬은 골반 쪽부터 spine.003 → .002 → .001 → spine 이다(번호가 거꾸로).
@@ -437,7 +511,9 @@ class QuadTailMappingTests(unittest.TestCase):
         self.assertEqual(len(set(m.values())), len(m), "같은 컨트롤에 둘이 붙으면 안 된다")
 
     def test_short_tail_maps_from_the_base(self):
-        """마디가 4개보다 적은 꼬리는 밑동부터 순서대로 채운다(가운데를 비우면 사슬이 끊겨 보인다)"""
+        """A tail with fewer than four segments is mapped from the base in order.
+
+        마디가 4개보다 적은 꼬리는 밑동부터 순서대로 채운다(가운데를 비우면 사슬이 끊겨 보인다)"""
         from bonewright.retarget import bvh_mapping
         m = bvh_mapping(["Back", "Tail1", "Tail2"], "quadruped")
         self.assertEqual("spine.003", m["Tail1"]); self.assertEqual("spine.002", m["Tail2"])
@@ -494,12 +570,69 @@ Frame Time: 0.0333
             self.assertEqual(up, detect_bvh_up(self._write(up)), f"{up} 위 축을 못 알아봤다")
 
     def test_unknown_names_fall_back_to_standard(self):
-        """머리·발을 못 찾으면 BVH 규약대로 y 를 쓴다(추측으로 망가뜨리지 않는다)"""
+        """BVH up axis falls back to y when head and feet cannot be found.
+
+        머리·발을 못 찾으면 BVH 규약대로 y 를 쓴다(추측으로 망가뜨리지 않는다)"""
         from bonewright.retarget import detect_bvh_up
         path = self._write("z")
         txt = Path(path).read_text(encoding="utf-8").replace("Head", "Bone9").replace("Neck", "Bone8").replace("LeftFoot", "Bone7")
         Path(path).write_text(txt, encoding="utf-8")
         self.assertEqual("y", detect_bvh_up(path))
+
+
+class BvhRestPoseTests(unittest.TestCase):
+    """BVH rest joints add up the parents' offsets, and a standing body is told from a four-legged one."""
+    WAVE = Path(__file__).resolve().parent.parent / "examples" / "wave.bvh"
+
+    def test_offsets_add_up(self):
+        """Each joint sits at the sum of its parents' offsets.
+
+        10/17 23회차: 부모를 stack[-1](자기 자신)로 읽어 각 관절이 자기 OFFSET 만 가졌다(머리 y 0.1 — 실제 0.55)."""
+        from bonewright.retarget import bvh_rest_joints
+        pos = bvh_rest_joints(str(self.WAVE))
+        self.assertAlmostEqual(0.55, pos["Head"][1]); self.assertAlmostEqual(-0.89, pos["LeftFoot"][1])
+        self.assertAlmostEqual(0.69, pos["LeftHand"][0])
+
+    def test_upright_human_and_level_dog(self):
+        """A human BVH stands upright; a dog whose head goes forward does not."""
+        from bonewright.retarget import bvh_upright
+        self.assertTrue(bvh_upright(str(self.WAVE), "y"))
+        self.assertFalse(bvh_upright(str(self.WAVE), "z"))   # Z 가 위인 파일로 읽으면 머리가 앞에 있다
+        dog = """HIERARCHY
+ROOT Hips
+{
+OFFSET 0 0.5 0
+CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+JOINT Spine
+{
+OFFSET 0 0.02 0.3
+CHANNELS 3 Zrotation Xrotation Yrotation
+JOINT Neck
+{
+OFFSET 0 0.1 0.2
+CHANNELS 3 Zrotation Xrotation Yrotation
+JOINT Head
+{
+OFFSET 0 0.05 0.1
+CHANNELS 3 Zrotation Xrotation Yrotation
+End Site
+{
+OFFSET 0 0 0.1
+}
+}
+}
+}
+}
+MOTION
+Frames: 1
+Frame Time: 0.0333
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+"""
+        f = Path(tempfile.mkdtemp(prefix="bw-bvh-")) / "dog.bvh"
+        f.write_text(dog, encoding="utf-8")
+        self.assertFalse(bvh_upright(str(f), "y"))
+        f.write_text(dog.replace("Head", "Bone4"), encoding="utf-8")
+        self.assertFalse(bvh_upright(str(f), "y"))   # 머리를 못 찾으면 말하지 않는다
 
 
 class FromSkeletonTests(unittest.TestCase):
@@ -525,7 +658,9 @@ class FromSkeletonTests(unittest.TestCase):
                 "Foot.R": {"head": [-0.1 * s, 0, 0.1], "tail": [-0.1 * s, -0.1, 0.0], "parent": "LowerLeg.R"}}
 
     def test_sides_follow_coordinates_not_names(self):
-        """가져오기가 메시를 180° 돌리면 원본 'Left' 가 우리 -X 로 온다. 이름만 믿으면 팔이 교차한다"""
+        """Left and right come from coordinates, not names, so a 180-degree import does not cross arms.
+
+        가져오기가 메시를 180° 돌리면 원본 'Left' 가 우리 -X 로 온다. 이름만 믿으면 팔이 교차한다"""
         from bonewright.from_skeleton import targets_from_skeleton
         for flip in (False, True):
             tg, _ = targets_from_skeleton(self._humanoid(flip), "humanoid", 1.8)
@@ -534,7 +669,9 @@ class FromSkeletonTests(unittest.TestCase):
             self.assertGreater(tg["thigh.L"]["head"][0], 0, f"flip={flip}")
 
     def test_missing_wrist_uses_previous_bone_tail(self):
-        """손목 관절이 없는 뼈대(로봇)는 팔뚝 본의 tail 이 곧 손목이다 — 기본 자리에 남으면 몸을 가로지른다"""
+        """Without a wrist joint, the forearm bone's tail is used as the wrist.
+
+        손목 관절이 없는 뼈대(로봇)는 팔뚝 본의 tail 이 곧 손목이다 — 기본 자리에 남으면 몸을 가로지른다"""
         from bonewright.from_skeleton import targets_from_skeleton
         tg, info = targets_from_skeleton(self._humanoid(), "humanoid", 1.8)
         self.assertAlmostEqual(0.7, tg["hand.L"]["head"][0], places=3)   # LowerArm.L 의 tail
@@ -542,7 +679,9 @@ class FromSkeletonTests(unittest.TestCase):
         self.assertEqual([], info["limbs_absent"])
 
     def test_palm_counts_as_wrist(self):
-        """손목 이름 없이 손바닥만 있는 리그(three.js RobotExpressive)도 손이 제자리에 와야 한다"""
+        """A rig with a palm but no wrist name still puts the hand in place.
+
+        손목 이름 없이 손바닥만 있는 리그(three.js RobotExpressive)도 손이 제자리에 와야 한다"""
         j = self._humanoid()
         j["Palm1.L"] = {"head": [0.8, 0, 1.45], "tail": [0.9, 0, 1.45], "parent": "LowerArm.L"}
         j["Palm1.R"] = {"head": [-0.8, 0, 1.45], "tail": [-0.9, 0, 1.45], "parent": "LowerArm.R"}
@@ -551,7 +690,9 @@ class FromSkeletonTests(unittest.TestCase):
         self.assertAlmostEqual(0.8, tg["hand.L"]["head"][0], places=3)
 
     def test_half_rigged_source_is_mirrored(self):
-        """한쪽만 리깅한 자산은 몸 한가운데를 기준으로 비춰 채운다(안 그러면 반대쪽이 기본 자리에 남는다)"""
+        """A source rigged on one side only is mirrored across the body centre.
+
+        한쪽만 리깅한 자산은 몸 한가운데를 기준으로 비춰 채운다(안 그러면 반대쪽이 기본 자리에 남는다)"""
         from bonewright.from_skeleton import targets_from_skeleton
         j = {k: v for k, v in self._humanoid().items() if not k.endswith(".R")}
         tg, info = targets_from_skeleton(j, "humanoid", 1.8)
@@ -560,14 +701,18 @@ class FromSkeletonTests(unittest.TestCase):
         self.assertIn("upper_arm.R", info["mirrored"])
 
     def test_absent_limb_is_reported(self):
-        """팔다리가 통째로 없는 뼈대(반쪽 자산)는 채울 근거가 없다 → 파이프라인이 0 토큰으로 막을 수 있게 알린다"""
+        """A skeleton missing a whole limb is reported so the pipeline can stop at 0 tokens.
+
+        팔다리가 통째로 없는 뼈대(반쪽 자산)는 채울 근거가 없다 → 파이프라인이 0 토큰으로 막을 수 있게 알린다"""
         from bonewright.from_skeleton import targets_from_skeleton
         j = {k: v for k, v in self._humanoid().items() if "Leg" not in k and "Foot" not in k}
         _, info = targets_from_skeleton(j, "humanoid", 1.8)
         self.assertEqual(["thigh"], info["limbs_absent"])
 
     def test_quadruped_chain_follows_source_spine(self):
-        """사족: 등·꼬리는 휘어 있다. 양 끝만 이으면 본이 몸 밖으로 나가고, 꼬리 사슬은 골반과 같은 점에서 시작해야
+        """Quadruped spine and tail chains follow the curved source spine and start at the pelvis.
+
+        사족: 등·꼬리는 휘어 있다. 양 끝만 이으면 본이 몸 밖으로 나가고, 꼬리 사슬은 골반과 같은 점에서 시작해야
         Rigify 가 'disjoint' 로 실패하지 않는다(늑대로 확인)"""
         from bonewright.from_skeleton import targets_from_skeleton
         j = {"Body": {"head": [0, -0.8, 0.5], "tail": [0, -0.8, 0.6], "parent": None},
@@ -634,7 +779,9 @@ class MedialShapeTests(unittest.TestCase):
         self.assertLess(max(gaps) - min(gaps), 0.05, f"간격이 고르지 않다: {gaps}")
 
     def test_classify_assigns_roles_by_coordinate_not_name(self):
-        """좌우는 x 부호로 정한다 — 가져오기가 메시를 180° 돌려도 팔다리가 교차하지 않는다"""
+        """Medial-axis roles take left/right from the x sign, not from names.
+
+        좌우는 x 부호로 정한다 — 가져오기가 메시를 180° 돌려도 팔다리가 교차하지 않는다"""
         shape = {"root": [0, 0, 0.9, 0.1], "tips": [
             self._tip([(0.15, 0, 0.02), (0.15, 0, 0.5), (0, 0, 0.9)]),     # 왼발(+x)
             self._tip([(-0.15, 0, 0.02), (-0.15, 0, 0.5), (0, 0, 0.9)]),   # 오른발(-x)
@@ -674,7 +821,9 @@ class MedialShapeTests(unittest.TestCase):
         self.assertEqual(self.M.arm_axis(self._tip([(0.05, 0, 1.3), (0, 0, 1.0)]), torso_hw=0.15), [])
 
     def test_classify_quadruped_finds_four_paws_head_and_tail(self):
-        """네 발·머리·꼬리. 머리와 꼬리는 이름이 아니라 **경로 굵기**로 가른다(꼬리가 가늘다)"""
+        """Quadruped classification finds four paws, head and tail (tail by path thickness).
+
+        네 발·머리·꼬리. 머리와 꼬리는 이름이 아니라 **경로 굵기**로 가른다(꼬리가 가늘다)"""
         def paw(x, y):
             return self._tip([(x, y, 0.02), (x, y, 0.3), (x * 0.5, y, 0.6)], r=0.03)
         shape = {"root": [0, 0, 0.6, 0.15], "tips": [
@@ -691,7 +840,9 @@ class MedialShapeTests(unittest.TestCase):
         self.assertLess(roles["front.R"]["p"][0], 0)
 
     def test_inconsistent_read_supplies_values_but_does_not_clear_the_gate(self):
-        """좌우가 어긋난 읽기(견갑을 손으로 잡은 경우)는 값만 보태고 통과시키지는 않는다"""
+        """An asymmetric medial read supplies values but does not clear the gate.
+
+        좌우가 어긋난 읽기(견갑을 손으로 잡은 경우)는 값만 보태고 통과시키지는 않는다"""
         good = {"foot.L": self._tip([(0.2, 0, 0.02)]), "foot.R": self._tip([(-0.2, 0, 0.02)]),
                 "hand.L": self._tip([(0.7, 0, 1.4)]), "hand.R": self._tip([(-0.7, 0, 1.4)]),
                 "head": self._tip([(0, 0, 1.75)])}
@@ -708,7 +859,9 @@ class MedialShapeTests(unittest.TestCase):
         self.assertTrue(any("좌우로 어긋난다" in b for b in block), block)
 
     def test_medial_evidence_is_reported_by_the_gate(self):
-        """속에서 채운 값은 막지 않되, 어디서 왔는지 경고로 남긴다"""
+        """Values filled from the medial axis pass but are reported as warnings.
+
+        속에서 채운 값은 막지 않되, 어디서 왔는지 경고로 남긴다"""
         land = {"height": 1.8, "arm_axis_L": [[1, 0, 1, 0.1]], "arm_axis_R": [[-1, 0, 1, 0.1]],
                 "leg_axis_L": [[0.1, 0, 0.5, 0.1]], "leg_axis_R": [[-0.1, 0, 0.5, 0.1]],
                 "ratio_fallbacks": [], "symmetry_error": 0.0,

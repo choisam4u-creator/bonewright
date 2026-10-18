@@ -1,16 +1,16 @@
-<!-- 생성: `BW_NO_RENDER=1 python3 examples/rig_sample.py` (bpy 5.2.2 LTS, BW_BACKEND=mock, 2026-10-06).
-     입력은 make_test_mesh 가 절차적으로 만든 캡슐 인형이라 라이선스 문제가 없다.
-     tests/test_examples.py 가 이 표와 지금 리깅 결과를 대조한다 — 리그가 바뀌면 같은 명령으로 다시 만든다. -->
-# capsule_doll: `capsule_doll.glb` → 리깅 결과
+<!-- Made with `BW_NO_RENDER=1 python3 examples/rig_sample.py` (bpy 5.2.2 LTS, BW_BACKEND=mock, 2026-10-06).
+     The input is a capsule doll built by make_test_mesh, so there is no licence question.
+     tests/test_examples.py compares this table with a fresh rig — when the rig changes, regenerate with the same command. -->
+# capsule_doll: `capsule_doll.glb` → rig result
 
-- 관문: **ok** · 리그 본 410(변형 73) · 가중치 없는 정점 0
-- 입력 파일에 스킨 본 없음
+- gates: **ok** · rig bones 410 (deform 73) · unweighted vertices 0
+- no skin bones in the input file
 
-## 내보낸 GLB 의 변형 본
+## Deform bones in the exported GLB
 
-- 본 73개 · 왼쪽 29 · 오른쪽 29 · 가운데 15
+- 73 bones · left 29 · right 29 · center 15
 
-| 부위 | 개수 | 이름 |
+| part | count | names |
 |---|---:|---|
 | thigh | 4 | `DEF-thigh.L`, `DEF-thigh.L.001`, `DEF-thigh.R`, `DEF-thigh.R.001` |
 | shin | 4 | `DEF-shin.L`, `DEF-shin.L.001`, `DEF-shin.R`, `DEF-shin.R.001` |

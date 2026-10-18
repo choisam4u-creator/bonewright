@@ -13,6 +13,20 @@
 | 커밋 작성자 메일 | — | 커밋 2개에 개인 gmail 주소 | **판단 필요** (아래 3) |
 | 라이선스 없는 에셋 | 없음 | 과거에만 있던 이진 파일 없음 | 아니오(표기 보강 1건 권장, 아래 4) |
 
+## 다시 훑음 (2026-10-10, 클라우드 4회차)
+
+기준: `claude/cloud-work` 69f8d08(= `main` 145fe4b + PR #10 분), `git rev-list --all` 커밋 162개. 아래 "재현 명령" 과 같은 방식.
+**이번에도 아무것도 지우거나 기록을 고치지 않았다.**
+
+| 항목 | 10/4 → 10/10 | 공개 전 조치 필요? |
+|---|---|---|
+| 비밀 값·비밀 파일 | 없음 → 없음(무늬에 걸리는 것은 이 문서의 무늬 목록뿐) | 아니오 |
+| 개인 절대경로(현재 트리) | 2곳 → 같은 2곳(`docs/reports/2026-09-17-a.html:173`, `2026-09-19-a.html:32`). 27fd528 뒤 새로 든 파일 21개에는 없음 | 2절 그대로 |
+| 새 파일의 `/Users/`·`/home/` | — | 아니오: `scrub()`·`check_issue_report.py` 의 무늬와 시험의 가짜 이름(`alice`)뿐 |
+| 커밋 메일 | 개인 gmail 2개 → **9개**. 모두 GitHub 웹에서 병합한 커밋(PR #1~#9), 커밋하는 쪽은 `noreply@github.com` | **판단 필요**: 웹 병합 한 번마다 하나씩 는다. 3절 설정을 켜기 전까지 PR #10 병합도 하나를 더한다 |
+| 에셋·미디어 | 이진 파일 8개 → 같은 8개, 표기 모두 있음. 새 예시(`examples/sample-output/*.md`)는 절차 생성 메시라 외부 자산 없음 | 아니오 |
+| 이름 | — | 참고: 별칭 "샘님" 이 내부 기록 6개(`docs/CLOUD-BACKLOG.md`·`CLOUD-NOTES.md`·`RELEASING.md`·`CODE-OF-CONDUCT-PLAN.md`·`DOCS-SPLIT-PLAN.md`·이 문서)에 있다. 공개 문서(README·GUIDE·examples)에는 없음 |
+
 ## 1. 비밀 값
 
 다음 무늬로 현재 트리와 모든 커밋을 찾았고 걸린 것이 없다:
@@ -49,7 +63,7 @@
 | `tests/assets/quaternius_adventurer.glb` | 1.9 MB | Quaternius "Adventurer", CC0 1.0 — `tests/assets/README.md` | 표기 있음 |
 | `docs/media/rig-views.png`, `rig-ik.gif`, `walk-retarget.gif` | 0.2 MB씩 | GDQuest Mannequiny 렌더, CC BY 4.0 — `docs/media/ATTRIBUTION.md` | 표기·변경 내용 있음 |
 | `docs/media/quad-views.png`, `quad-demo.gif` | 0.1·0.6 MB | Quaternius Wolf 렌더, CC0 — 같은 파일 | 표기 있음 |
-| `spikes/rig_view2.png` | 0.1 MB | `spikes/render_rig2.py` 가 원기둥·구로 절차 생성 | 외부 자산 아님 |
+| `spikes/rig_view2.png` | 0.1 MB | 지운 스파이크(`render_rig2.py`, 10/11 삭제)가 원기둥·구로 절차 생성 | 외부 자산 아님 |
 | `spikes/motion_out/walk_wave.bvh` | 46 KB | kimodo.cpp + NVIDIA SOMA RP v1.1 가중치로 생성 | 표기 있음(10/6 보강) |
 
 - 원본 메시(`mannequiny.glb`, `Wolf.gltf`)는 기록 어디에도 커밋된 적이 없다(내려받기 스크립트로만 받음).

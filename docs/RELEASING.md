@@ -1,4 +1,20 @@
-# 릴리스 절차
+# 릴리스 절차 (Releasing)
+
+> **English summary.** Only the maintainer tags and publishes releases; contributors and automated sessions prepare
+> steps 1–3 at most. While on 0.x: fixes, docs and examples bump the third number (0.2.0 → 0.2.1); a new command or
+> flag, a changed default, or a change that moves a benchmark number bumps the second (0.2.x → 0.3.0). The proposed
+> next version is the first line under `[Unreleased]` in `CHANGELOG.md`, and `tests/test_release.py` checks it.
+>
+> 1. **Tests** — the whole suite with Blender (`BW_REQUIRE_BLENDER=1 python3 -m unittest`) and
+>    `python3 scripts/check_license_boundary.py`.
+> 2. **Version in three places** — `pyproject.toml`, `bonewright/__init__.py`, `plugin/.codex-plugin/plugin.json`
+>    (`tests/test_release.py` fails if they differ).
+> 3. **CHANGELOG** — move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and fix the compare links at the bottom.
+> 4. **Merge to main, then an annotated tag** `vX.Y.Z` with the benchmark numbers and main features.
+> 5. **GitHub release** whose body is that CHANGELOG section.
+>
+> There is no fixed schedule; a release goes out when `[Unreleased]` holds something worth shipping. The rest of
+> this page is the maintainer's detailed Korean notes.
 
 태그·GitHub 릴리스는 **Mac 총괄(샘님)만** 만든다. 클라우드 회차는 아래 1~3단계 준비까지만 하고 태그는 만들지 않는다.
 
@@ -10,6 +26,24 @@
 | 새 명령·옵션, 기본값 변경, 결과 숫자(벤치)가 달라지는 변경 | 둘째 (0.2.x → 0.3.0) | `--from-shape`, 가중치 기본값 |
 
 다음 버전 제안은 `CHANGELOG.md` 의 `[Unreleased]` 첫 줄에 적어 둔다.
+`tests.test_release` 가 그 줄의 버전이 지금 버전보다 큰지, 셋째 자리 제안인데 새 플래그·기본값 변경을 적지 않았는지 본다.
+
+### 다음 버전 점검 (2026-10-08, 클라우드)
+
+v0.2.0(9/20) 뒤 `[Unreleased]` 에 쌓인 것을 위 표에 대 보면 **0.3.0** 이다. 10/7 까지는 0.2.1 로 적혀 있었다.
+
+| 쌓인 것 | 표의 칸 |
+|---|---|
+| `bw --version`, `bw doctor --for-issue [RUN_ID]` | 새 옵션 → 둘째 |
+| `bw rig --lang` 생략 시 ko → BW_LANG·로캘(10/8) | 기본값 변경 → 둘째 |
+| 화면 문구 영어 기본(BW_LANG), `bw doctor` 종료코드(codex 없어도 0) | 기본 동작 변경 → 둘째 |
+| report.md 상대 경로, 입력 오류 `Blocked`, 사족 렌더 카메라, plugin-path, `--pin` 검사 | 고침 → 셋째 |
+| GUIDE·README 재구성, 예시 결과 2개, 이슈·PR 템플릿, 시험 추가 | 문서·예제 → 셋째 |
+
+벤치 숫자를 바꾸는 변경은 없다(사족 렌더 카메라는 판정 그림만, 사람은 그대로). 태그 전에 Mac 에서 할 일:
+1단계 시험 → 2단계 세 곳을 `0.3.0` 으로 → 3단계 `## [0.3.0] - 날짜`, 맨 아래 `[0.3.0]: …/compare/v0.2.0...v0.3.0`
+와 `[Unreleased]: …/compare/v0.3.0...HEAD`. 0.2.1 로 내기로 하면 CHANGELOG 첫 줄만 바꾸면 된다(시험이 "새 플래그"
+문구를 보고 실패하므로 그 줄의 이유도 같이 고친다).
 
 ## 단계
 

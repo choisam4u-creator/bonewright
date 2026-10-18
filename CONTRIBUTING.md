@@ -16,6 +16,7 @@ add a line there too when you record a new failure.
 ```bash
 python3 -m unittest tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
                                              # the same list CI runs; Blender-dependent tests skip automatically
+python3 -m unittest                          # short form: discovers the same seven modules
 python3 scripts/check_license_boundary.py    # MIT core must not import bpy
 ```
 
@@ -38,7 +39,8 @@ through the JSON contract in `blender.run_script`.
 ## Style
 
 - Comments and commit messages are written in Korean in this repository; English is fine in PRs and issues.
-- Issues: pick a template — *A rig came out wrong*, *Install or `bw doctor` problem*, or *Feature request*. Usage
+- Issues: pick a template — *A rig came out wrong*, *Install or `bw doctor` problem*, *The documentation is wrong or
+  unclear*, or *Feature request*. Usage
   questions go to [docs/GUIDE.md](docs/GUIDE.md) first; security reports go through [SECURITY.md](SECURITY.md).
 - A comment should say **why**, and cite the measurement that made the code look like that. Avoid restating the code.
 - No new tuning constant without a sentence saying what it was fitted on.
@@ -61,7 +63,10 @@ Locally, the command above runs the whole suite if Blender (or the `bpy` wheel) 
 skips the Blender half if it is not — so check the skip count before trusting a local pass:
 
 ```
-Ran 105 tests ... OK (skipped=13)   ← the thirteen that matter did not run
+Ran 322 tests ... OK (skipped=17)   ← the seventeen that matter did not run
 ```
 
 Set `BW_REQUIRE_BLENDER=1` to make a missing Blender a failure instead of a skip.
+
+A new test's docstring starts with one English line — `unittest -v` prints it next to the test name in the CI
+log. A longer explanation (Korean is fine) goes after a blank line. `tests/test_docs.py` checks this.

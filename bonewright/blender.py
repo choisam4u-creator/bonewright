@@ -17,6 +17,55 @@ class BlenderError(RuntimeError):
     pass
 
 
+class BlenderMissing(BlenderError):
+    """Blender 도 bpy 모듈도 없음. 사용자가 설치로 고치는 것이라 이슈 신고 안내를 붙이지 않는다."""
+
+
+DOWNLOAD = "https://www.blender.org/download/"
+
+
+def missing_message(cfg: dict) -> str:
+    """Blender 없음 문구. BW_BLENDER(또는 설정의 app)를 이미 줬는데 그 파일이 없으면 그 경로를 짚는다."""
+    app = cfg.get("app") or os.environ.get("BW_BLENDER")
+    if app and not Path(app).exists():
+        return T(f"BW_BLENDER(또는 runs/config.json 의 blender.app)가 가리키는 파일이 없다: {app}\n"
+                 "  → Blender 실행 파일의 전체 경로로 고쳐라(macOS: /Applications/Blender.app/Contents/MacOS/Blender)\n"
+                 "  → 고친 뒤 `bw doctor` 로 확인",
+                 f"BW_BLENDER (or blender.app in runs/config.json) points at a file that does not exist: {app}\n"
+                 "  → set it to the full path of the Blender executable (macOS: /Applications/Blender.app/Contents/MacOS/Blender)\n"
+                 "  → then check with `bw doctor`")
+    bpy = bpy_install()
+    return T("Blender 를 찾을 수 없다\n"
+             f"  → Blender 5.2 LTS 를 설치하거나({DOWNLOAD}) {bpy} 또는 BW_BLENDER 에 실행 파일 경로를 지정하라\n"
+             "  → 설치한 뒤 `bw doctor` 로 확인하고 같은 명령을 다시 실행",
+             "Blender not found\n"
+             f"  → install Blender 5.2 LTS ({DOWNLOAD}), or {bpy}, or set BW_BLENDER to its path\n"
+             "  → then check with `bw doctor` and run the same command again")
+
+
+def bpy_install(version: tuple[int, int] | None = None) -> str:
+    """bpy 휠을 까는 안내. bpy 5.2.2 는 cp313 휠뿐이라 다른 파이썬에서 `pip install bpy==5.2.2` 를 그대로 치면
+    "No matching distribution" 이다(10/11 12회차) — 지금 버전이 다르면 3.13 venv 를 만드는 명령을 준다."""
+    version = version or sys.version_info[:2]
+    if tuple(version) == (3, 13):
+        return T("`pip install bpy==5.2.2`(지금 Python 3.13 — 맞다)", "`pip install bpy==5.2.2` (this is Python 3.13, which it needs)")
+    now = f"{version[0]}.{version[1]}"
+    pkg, pre = _package_dir()
+    return T(f"bpy 휠(Python 3.13 전용, 지금 {now}): {pre}`python3.13 -m venv .venv` 로 만든 환경에서 `pip install {pkg} bpy==5.2.2`",
+             f"the bpy wheel (Python 3.13 only, this is {now}): {pre}`python3.13 -m venv .venv`, then inside it `pip install {pkg} bpy==5.2.2`")
+
+
+def _package_dir() -> tuple[str, str]:
+    """`pip install <여기> bpy==5.2.2` 의 <여기>와 그 앞에 붙일 말. 저장소 폴더면 `.`, 다른 폴더면 저장소의 절대 경로
+    (공백이면 따옴표), 설치본만이면 `.` 에 '저장소 폴더에서'. 10/12 14회차: 임시 폴더에서 `pip install .` 을 그대로 치면 실패했다."""
+    repo = Path(__file__).resolve().parents[1]
+    if not (repo / "pyproject.toml").is_file():
+        return ".", T("저장소 폴더에서 ", "from the repository folder, ")
+    if Path.cwd().resolve() == repo:
+        return ".", ""
+    return (f'"{repo}"' if any(c.isspace() for c in str(repo)) else str(repo)), ""
+
+
 def find_blender(cfg: dict) -> list[str] | None:
     app = cfg.get("app") or os.environ.get("BW_BLENDER")
     if app and Path(app).exists():
@@ -49,9 +98,23 @@ def _windows_blender() -> Path | None:
     return max(found, key=_version_key) if found else None
 
 
+_BPY_CACHE: dict[str, bool] = {}
+
+
 def has_bpy_module(python: str = sys.executable) -> bool:
-    r = subprocess.run([python, "-c", "import bpy"], capture_output=True, text=True)
-    return r.returncode == 0
+    """`python -c "import bpy"` 가 되는지. 한 번 띄우는 데 0.7초쯤 걸려(10/10 8회차 실측) 프로세스당 파이썬마다 한 번만 본다 —
+    앱 없이 bpy 휠로 도는 `bw rig` 는 Blender 단계마다 이걸 불렀다."""
+    if python not in _BPY_CACHE:
+        r = subprocess.run([python, "-c", "import bpy"], capture_output=True, text=True)
+        _BPY_CACHE[python] = r.returncode == 0
+    return _BPY_CACHE[python]
+
+
+def require(cfg: dict) -> None:
+    """Blender(앱 또는 bpy 모듈)를 찾을 수 있는지 실행 폴더를 만들기 **전에** 본다. 없으면 BlenderMissing.
+    10/10 8회차: 없는 채로 `bw rig`·`bw motion` 을 치면 runs/<id> 를 먼저 만들고 실패해 `bw status` 에 실패 실행이 쌓였다."""
+    if not (find_blender(cfg) or has_bpy_module()):
+        raise BlenderMissing(missing_message(cfg))
 
 
 def run_script(name: str, params: dict, cfg: dict, log_dir: Path, mock: bool = False) -> dict:
@@ -68,8 +131,7 @@ def run_script(name: str, params: dict, cfg: dict, log_dir: Path, mock: bool = F
     elif has_bpy_module():
         cmd = [sys.executable, "-c", boot]
     else:
-        raise BlenderError(T("Blender 를 찾을 수 없다\n  → Blender.app 을 설치하거나 `pip install bpy==5.2.2`(Python 3.13) 또는 BW_BLENDER 경로를 지정하라",
-                             "Blender not found\n  → install Blender, or `pip install bpy==5.2.2` (Python 3.13), or set BW_BLENDER to its path"))
+        raise BlenderMissing(missing_message(cfg))
     env = {**os.environ, "BW_PARAMS": str(work / "params.json")}
     with open(log_dir / f"{name}.log", "w", encoding="utf-8") as log:
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=cfg.get("timeout", 600), env=env, cwd=str(work))

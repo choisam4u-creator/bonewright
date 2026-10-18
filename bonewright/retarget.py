@@ -26,6 +26,15 @@ TAIL_TARGETS = ["spine.003", "spine.002", "spine.001", "spine"]
 SIDED = {"shoulder", "upper_arm_fk", "forearm_fk", "hand_fk", "thigh_fk", "shin_fk", "foot_fk",
          "front_thigh_fk", "front_shin_fk", "front_foot_fk"}
 CHEST_WORDS = ("chest", "spine2", "spine3", "upperchest")
+# 관절 이름 규약(SMPL·자세 추정 도구가 내보내는 BVH: L_Hip/L_Knee/L_Ankle, L_Collar/L_Shoulder/L_Elbow/L_Wrist).
+# BVH 관절은 거기서 시작하는 뼈를 돌리므로 Hip=허벅지·Knee=정강이·Shoulder=위팔·Elbow=아래팔이다.
+# 10/16 22회차 실측: 이 규약이면 팔다리 9개가 말없이 안 움직였다(Hip 은 골반, Shoulder 는 쇄골로 읽혔다)
+KNEE_WORDS = {"hip": "thigh", "knee": "shin"}
+# Biovision 원래 규약(BVH 형식 설명서의 예, 3ds Max·옛 모캡 파일): LeftUpArm/LeftLowArm/LeftLowLeg.
+# 10/16 22회차 실측: 두 팔과 정강이 6개가 말없이 안 움직였다. 벤치 정답 이름표(JOINT_MAP)는 그대로 두고 여기서만 보탠다
+EXTRA_WORDS = {"uparm": "upper_arm", "lowarm": "forearm", "loarm": "forearm", "lowleg": "shin", "loleg": "shin"}
+EXTRA_WORDS_QUAD = {"uparm": "front_thigh", "lowarm": "front_shin", "loarm": "front_shin", "lowleg": "shin", "loleg": "shin"}
+ELBOW_WORDS = {"shoulder": "upper_arm", "elbow": "forearm"}
 
 
 def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str]:
@@ -33,10 +42,15 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
     quad = preset == "quadruped"
     joint_map = {**QUAD_MAP, **QUAD_EXTRA} if quad else JOINT_MAP
     fk_target = FK_TARGET_QUAD if quad else FK_TARGET
-    want = {c: base for base, cands in joint_map.items() for c in cands}
+    want = {c: base for base, cands in joint_map.items() for c in cands} | (EXTRA_WORDS_QUAD if quad else EXTRA_WORDS)
     norm = {n: _norm(n) for n in bvh_names}
     # 'leg' 와 'shin' 이 같은 쪽에 함께 있으면 leg=허벅지
     has_shin = {side for n, (core, side) in norm.items() if "shin" in _cores(core)}
+    # 관절 이름 규약: 무릎·팔꿈치가 있는 쪽만(Mixamo 의 LeftShoulder=쇄골, 골반 Hips 는 그대로). 위팔 이름(arm·upperarm)이 따로 있으면 그쪽이 위팔
+    has_knee = {side for n, (core, side) in norm.items() if side and "knee" in _cores(core)}
+    arm_named = {side for core, side in norm.values() if _cores(core) & {"arm", "upperarm"}}
+    has_elbow = {side for core, side in norm.values() if side and "elbow" in _cores(core)} - arm_named
+    elbow_words = {"shoulder": "front_thigh", "elbow": "front_shin"} if quad else ELBOW_WORDS   # 사족은 앞다리
     # 가슴: chest 라는 이름이 없으면(Mixamo: Spine/Spine1/Spine2, Quaternius 동물: Torso/Torso2/Torso3) 번호가 가장 큰 척추 관절을 가슴으로 본다.
     # _norm 이 끝 번호를 지우므로 원래 이름에서 따로 본다
     raw = {n: re.sub(r"[^a-z0-9]", "", n.lower().split(":")[-1]) for n in bvh_names}
@@ -51,6 +65,10 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
         base = None
         if "leg" in cores and side in has_shin:
             base = "thigh"
+        elif side in has_knee and (hit := next((KNEE_WORDS[c] for c in cores if c in KNEE_WORDS), None)):
+            base = hit
+        elif side in has_elbow and (hit := next((elbow_words[c] for c in cores if c in elbow_words), None)):
+            base = hit
         elif n == chest_name:
             base = "chest"
         else:
@@ -76,6 +94,70 @@ def bvh_mapping(bvh_names: list[str], preset: str = "humanoid") -> dict[str, str
     return out
 
 
+def unmoved_limbs(mapping: dict[str, str], unmapped: list[str], preset: str = "humanoid") -> tuple[list[str], list[str]]:
+    """팔다리 컨트롤 중 BVH 본이 하나도 안 붙은 것과, 그쪽(좌우)에 있는데 이름을 못 알아본 BVH 본.
+
+    10/16 22회차 실측: 이름 규약이 다른 BVH 는 팔다리가 말없이 안 움직이고 "본 N개 못 옮김" 숫자만 남았다.
+    발가락·손가락처럼 그쪽 컨트롤이 다 찬 쪽의 본은 세지 않는다(Mixamo 의 LeftToeBase 는 경고 거리가 아니다)."""
+    fk = FK_TARGET_QUAD if preset == "quadruped" else FK_TARGET
+    used = set(mapping.values())
+    free = [f"{t}.{s}" for t in fk.values() if t in SIDED for s in ("L", "R") if f"{t}.{s}" not in used]
+    sides = {c.rsplit(".", 1)[1] for c in free}
+    names = [n for n in unmapped if _norm(n)[1] in sides]
+    return (free, names) if names else ([], [])
+
+
+# 팔다리 사슬에서 바로 위 컨트롤(좌우 뺀 이름). 여기 없는 SIDED 컨트롤은 사슬의 시작(몸통에 붙는다)
+LIMB_PARENT = {"upper_arm_fk": "shoulder", "forearm_fk": "upper_arm_fk", "hand_fk": "forearm_fk",
+               "shin_fk": "thigh_fk", "foot_fk": "shin_fk", "front_shin_fk": "front_thigh_fk", "front_foot_fk": "front_shin_fk"}
+
+
+def bvh_parents(path: str) -> dict[str, str | None]:
+    """BVH 관절 → 부모 관절(루트는 None), 파일 순서. End Site 는 뺀다."""
+    out, stack, name = {}, [], None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for raw in fh:
+            tok = raw.split()
+            if not tok:
+                continue
+            w = tok[0].upper()
+            if w in ("ROOT", "JOINT") and len(tok) > 1:
+                name = tok[1]; out[name] = next((b for b in reversed(stack) if b), None)
+            elif w == "END":
+                name = None
+            elif w == "{":
+                stack.append(name)
+            elif w == "}":
+                if stack:
+                    stack.pop()
+            elif w == "MOTION":
+                break
+    return out
+
+
+def limb_pairs(free: list[str], names: list[str], mapping: dict[str, str], parents: dict[str, str | None]) -> dict[str, str]:
+    """이름을 못 알아본 팔다리 BVH 본 → 빈 컨트롤, BVH 부모 사슬로. 부모가 위팔이면 아래팔, 몸통에 붙으면 그쪽 사슬의 시작.
+    정할 수 없는 본(발가락처럼 사슬 끝 뒤, 시작이 둘 다 빈 쪽)은 뺀다. 10/18 26회차: `--map` 꼴이 첫 짝 하나뿐이라
+    그대로 쓰면 나머지 팔다리는 여전히 안 움직였다."""
+    got: dict[str, str] = {}
+    if not parents:
+        return got
+    left = list(free)
+    for n in [n for n in parents if n in names]:
+        side, p = _norm(n)[1], parents[n]
+        if not side:
+            continue
+        pc = (mapping.get(p) or got.get(p)) if p else None
+        if pc and "." in pc:   # 부모가 팔다리 컨트롤이면 그 다음 마디
+            up, ps = pc.rsplit(".", 1)
+            want = [c for c in left if ps == side and c.endswith("." + side) and LIMB_PARENT.get(c.rsplit(".", 1)[0]) == up]
+        else:                  # 몸통(좌우 없는 컨트롤)·못 알아본 몸통 본 밑이면 그쪽 사슬의 시작
+            want = [c for c in left if c.endswith("." + side) and c.rsplit(".", 1)[0] not in LIMB_PARENT]
+        if len(want) == 1:
+            got[n] = want[0]; left.remove(want[0])
+    return got
+
+
 def bvh_rest_joints(path: str) -> dict[str, list[float]]:
     """BVH 의 HIERARCHY 만 읽어 관절의 쉬는 자세 좌표를 만든다(OFFSET 누적). End Site 는 부모이름+'_end'."""
     pos, stack, name = {}, [], None
@@ -90,7 +172,8 @@ def bvh_rest_joints(path: str) -> dict[str, list[float]]:
             elif w == "END":
                 name = (stack[-1] if stack else "root") + "_end"
             elif w == "OFFSET" and name and len(tok) >= 4:
-                base = pos.get(stack[-1], [0.0, 0.0, 0.0]) if stack else [0.0, 0.0, 0.0]
+                # 부모는 stack[-2] 다 — `{` 에서 지금 관절이 이미 쌓였다(10/17 23회차: stack[-1] 이라 누적이 안 되고 자기 OFFSET 만 남았다)
+                base = pos.get(stack[-2], [0.0, 0.0, 0.0]) if len(stack) >= 2 else [0.0, 0.0, 0.0]
                 pos[name] = [base[i] + float(tok[i + 1]) for i in range(3)]
             elif w == "{":
                 stack.append(name)
@@ -121,3 +204,46 @@ def detect_bvh_up(path: str, preset: str = "humanoid") -> str:
         return "y"
     scores = {ax: min(t[ax] for t in top) - max(l[ax] for l in low) for ax in (1, 2)}
     return "z" if scores[2] >= scores[1] else "y"
+
+
+def _head_up(path: str, bvh_up: str) -> float | None:
+    """BVH 쉬는 자세에서 루트(골반)→머리 방향의 위 성분(0~1, 단위 벡터 기준). 머리를 못 찾으면 None."""
+    pos = bvh_rest_joints(path)
+    if not pos:
+        return None
+    root = pos[next(iter(pos))]
+    head = next((p for n, p in pos.items() if not n.endswith("_end") and "head" in _cores(_norm(n)[0])), None)
+    if head is None:
+        return None
+    d = [head[i] - root[i] for i in range(3)]
+    size = sum(x * x for x in d) ** 0.5
+    return d[1 if bvh_up == "y" else 2] / size if size > 0 else None
+
+
+def bvh_upright(path: str, bvh_up: str = "y") -> bool:
+    """BVH 쉬는 자세가 서 있는 몸인가: 루트(골반)에서 머리로 가는 방향이 거의 위 축이다(사족은 머리가 앞으로 간다).
+    10/17 23회차 실측: 사람 손 흔들기를 개 리그에 주면 팔이 앞다리를 움직여 앞다리가 손을 흔들었는데 말없이 "done" 이었다.
+    머리를 못 찾으면 False(말하지 않는다)."""
+    up = _head_up(path, bvh_up)
+    return up is not None and up > 0.8
+
+
+def bvh_lying(path: str) -> bool:
+    """BVH 가 네 발 짐승의 몸인가: 네 발 기준 위 축으로 볼 때 루트(골반)→머리가 위 축보다 앞쪽이고(위 성분 절반 미만)
+    앞발(손목·손 끝)이 뒷발처럼 바닥 가까이 있다(몸 높이의 25% 안). 사람 BVH 는 기어가는 동작이라도 쉬는 자세(T·A 자세)는
+    서 있고 손이 바닥에서 멀다. 위 축은 사람 기준 판단을 믿지 않는다 — 사람 기준이면 개가 뒷다리로 선 Z 위가 된다.
+    10/17 24회차 실측: 네 발 걷기를 사람 리그에 주면 앞다리가 팔을 움직이고 꼬리 4개는 못 옮겨 손발 오차 55.45cm 인데
+    말없이 "done". 머리·앞발을 못 찾으면 False."""
+    up = detect_bvh_up(path, "quadruped")
+    head = _head_up(path, up)
+    if head is None or head >= 0.5:
+        return False
+    ax = 1 if up == "y" else 2
+    pos = bvh_rest_joints(path)
+    side = lambda n, words: _norm(n.removesuffix("_end"))[1] and _cores(_norm(n.removesuffix("_end"))[0]) & words
+    paws = [p[ax] for n, p in pos.items() if side(n, {"wrist", "hand", "arm3"})]
+    feet = [p[ax] for n, p in pos.items() if side(n, {"foot", "ankle", "toe", "leg3"})]
+    if not (paws and feet):
+        return False
+    tall = max(p[ax] for p in pos.values()) - min(p[ax] for p in pos.values())
+    return tall > 0 and min(paws) - min(feet) < 0.25 * tall

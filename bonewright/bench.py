@@ -9,10 +9,11 @@ import time
 from pathlib import Path
 
 from . import pipeline
-from .blender import run_script
+from .blender import BlenderMissing, run_script
 from .config import load
 from .i18n import T
 from .manifest import atomic_write
+from .pipeline import Blocked
 
 # 우리 변형 본 → 원본 뼈대 이름 후보(정규화된 핵심 이름). 앞에서부터 우선 매칭
 JOINT_MAP = {
@@ -200,6 +201,28 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         preset: str = "humanoid", skin: bool = False, weights: str | None = None, rest_pose: str | None = None,
         gt_mesh: str | None = None) -> Path:
     cfg = load(root)
+    # 입력은 Blender·실행 폴더 전에 확인한다: 빈 폴더가 "measured 0/0 · mean None" 으로 종료 0, 없는 파일이 "Blender not found" 로 보였다
+    where, script = pipeline.fetch_bench()   # 저장소 밖에서도 그대로 도는 경로(10/12 13회차)
+    fetch = T(f"벤치 자산은 {where}`{script}` 로 bench-assets/ 에 받는다",
+              f"Get the benchmark assets into bench-assets/{where} with `{script}`")
+    # 빈 폴더·없는 경로 둘 다 같은 다음 명령: 받아 둔 자산 폴더(메시가 든 것), 없으면 받기 && bench(10/16 21회차: 빈 폴더엔 받기만 있었다)
+    got = Path("bench-assets")
+    subs = sorted(str(d) for d in got.iterdir() if d.is_dir() and any(f.suffix.lower() in (".glb", ".gltf", ".fbx") for f in d.rglob("*"))) if got.is_dir() else []
+    nxt = (T(f"받아 둔 자산 폴더: `bw bench {subs[0]}`", f"Assets already fetched here: `bw bench {subs[0]}`") if subs else
+           T(f"{where}자산을 받은 뒤 폴더째로(샘플 4개): `{script} --only samples && bw bench bench-assets/samples`",
+             f"Fetch the assets{where}, then pass the folder (4 samples): `{script} --only samples && bw bench bench-assets/samples`"))
+    if not meshes:
+        raise Blocked(T(f"잴 메시가 없다(폴더 안에 .glb·.gltf·.fbx 가 없다)\n  → 원본 뼈대가 든 GLB/FBX 파일이나 그것이 든 폴더를 줘라. {nxt}",
+                        f"no meshes to measure (no .glb · .gltf · .fbx in the folder)\n  → pass GLB/FBX files that carry their own skeleton, or a folder of them. {nxt}"))
+    for m in meshes:
+        if not Path(m).expanduser().exists():   # bench 는 폴더도 받는다 — "mesh file not found" 는 반만 맞았다(10/11 10회차)
+            raise pipeline.Blocked(T(f"메시 파일이나 폴더가 없다: {m}\n  → 경로를 확인하라(공백이 있으면 따옴표). {nxt}",
+                                     f"mesh file or folder not found: {m}\n  → check the path (quote it if it has spaces). {nxt}"))
+        pipeline.need_mesh_bytes(pipeline.need_file(m, T("메시", "mesh"), T(f"경로를 확인하라. {fetch}", f"check the path. {fetch}"), (".glb", ".gltf", ".fbx")))   # 이름만 .fbx 인 파일이 "Blender not found" 뒤에 숨었다(10/13 15회차)
+    if gt_mesh:   # 어느 인자인지 이름을 댄다(10/10 8회차: "mesh file not found" 로만 나왔다)
+        pipeline.need_file(gt_mesh, "--gt-mesh", T("정답 뼈대를 가져올 원본(T 포즈) 파일 경로를 확인하라", "check the path of the original (T-pose) file to take the reference skeleton from"),
+                           (".glb", ".gltf", ".fbx"))
+        pipeline.need_mesh_bytes(Path(gt_mesh).expanduser())
     run_id = run_id or time.strftime("bench-%Y%m%d-%H%M%S")
     out_dir = root / "runs" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -238,6 +261,8 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
                 if r.get("error_cm") is not None:
                     csv.append(f"{name},{r['joint']},{r['error_cm']},{r['error_pct_height']}," +
                                ",".join(str(v) for v in r["ours"]) + "," + ",".join(str(v) for v in r["gt"]))
+        except BlenderMissing:   # 설치 문제는 자산마다 되풀이하지 않고 설치 안내 한 번으로(cli 가 BLOCKED 로)
+            raise
         except Exception as e:  # 자산 하나가 실패해도 나머지는 계속한다
             row["error"] = str(e).splitlines()[0][:160]
         results.append(row)
@@ -273,6 +298,9 @@ def run(root: Path, meshes: list[str], run_id: str | None = None, quiet: bool = 
         else:
             md.append(f"| {r['asset']} | {r['height']} | {r['matched']} | {r['mean_cm']} | {r['median_cm']} | {r['max_cm']} | {r['worst']} |")
     atomic_write(out_dir / "report.md", "\n".join(md) + "\n")
+    if not ok:   # 하나도 못 쟀으면 성공(종료 0)이 아니다
+        raise Blocked(T(f"자산 {len(results)}개 중 하나도 못 쟀다 — 자산별 이유는 {out_dir / 'report.md'}\n  → 원본 뼈대가 든 자산인지 확인하라. {fetch}",
+                        f"measured none of {len(results)} assets — the reason for each is in {out_dir / 'report.md'}\n  → check that they carry their own skeleton. {fetch}"))
     if not quiet:
         print(T(f"\n요약: 측정 {summary['measured']}/{summary['assets']} · 평균 {summary['mean_cm']}cm → {out_dir / 'report.md'}",
                 f"\nsummary: measured {summary['measured']}/{summary['assets']} · mean {summary['mean_cm']}cm → {out_dir / 'report.md'}"))
