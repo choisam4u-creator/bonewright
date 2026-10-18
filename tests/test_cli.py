@@ -834,6 +834,40 @@ class InterruptTests(unittest.TestCase):
         self.assertIn("stopped (r1, step weights)", err.getvalue()); self.assertNotIn("Traceback", err.getvalue())
 
 
+class BlockedRunStatusTests(unittest.TestCase):
+    """A run stopped by `BLOCKED:` after its folder exists keeps the message; `bw status` shows its reason and next command.
+
+    10/18 25회차 실측: 화면 없는 곳의 `bw motion … --rig` 가 `BW_NO_RENDER=1 …` 을 줬는데, 나중의 `bw status` 는
+    이슈 보고용 `bw doctor --for-issue` 뿐이었다(로그 꼬리에도 원인이 없다)."""
+
+    def test_status_repeats_the_blocked_next_command(self):
+        import re
+        for lang in ("en", "ko"):
+            with self.subTest(lang=lang), tempfile.TemporaryDirectory() as t:
+                def fake_motion(root, *a, **k):
+                    from bonewright.config import DEFAULTS
+                    r = cli.pipeline.Run(Path(t), "m1", DEFAULTS, quiet=True)
+                    r.state("retarget_bvh", "failed")
+                    raise cli.pipeline.Blocked("no display\n  → finish without pictures: `BW_NO_RENDER=1 bw motion --bvh w.bvh --rig r1 --run-id m1`")
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "motion", "--bvh", "w.bvh", "--rig", "r1", "--run-id", "m1"]), \
+                        patch.object(cli.pipeline, "motion", fake_motion), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(2, cli.main())
+                (Path(t) / "runs" / "old").mkdir()   # 이유가 없는 옛 실패는 지금처럼 이슈 보고 명령
+                (Path(t) / "runs" / "old" / "state.json").write_text('{"step": "x", "status": "failed"}', encoding="utf-8")
+                out = io.StringIO()
+                with patch.dict(os.environ, {"BW_LANG": lang}), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(sys, "argv", ["bw", "status"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                    self.assertEqual(0, cli.main())
+                shown = out.getvalue()
+                self.assertIn("no display", shown); self.assertNotIn("for-issue m1", shown); self.assertIn("for-issue old", shown)
+                cmd = re.search(r"`(BW_NO_RENDER=1 bw [^`]+)`", shown).group(1)
+                a = cli.build_parser().parse_args(cmd.split()[2:])
+                self.assertEqual(("w.bvh", "r1", "m1"), (a.bvh, a.rig, a.run_id))
+                state = json.loads((Path(t) / "runs" / "m1" / "state.json").read_text(encoding="utf-8"))
+                self.assertEqual("failed", state["status"])
+
+
 class EmptyStatusTests(unittest.TestCase):
     """`bw status` with no runs says where it looked and what to do (it printed nothing, exit 0).
 

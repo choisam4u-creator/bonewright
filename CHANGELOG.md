@@ -142,6 +142,9 @@ See `docs/RELEASING.md` for the release steps.
   `examples/sample-output/capsule_dog_motion.md`, checked against a fresh run like the other samples.
 
 ### Fixed
+- A run that stopped on `BLOCKED:` after its folder was made (the renderer without a display, a Rigify failure) showed
+  only `→ why: bw doctor --for-issue <id>` in `bw status`, and the next command the message gave was lost with the
+  terminal. The run now keeps the message, and `bw status` repeats its reason and next command.
 - The README's repository-relative paths (`tests/assets/quaternius_adventurer.glb`, `examples/dog_walk.bvh`) typed from
   another folder said only "check the path" (and `examples/dog_walk.bvh` was answered with the human wave sample). The
   message now says the path is relative to the repository folder and gives the same command with the repository's file.

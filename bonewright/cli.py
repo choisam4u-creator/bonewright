@@ -663,6 +663,19 @@ def _closed_stdout() -> int:
     return 1
 
 
+def remember_blocked(e: Exception) -> None:
+    """실행 폴더를 만든 뒤에 막혔으면 그 메시지(고칠 명령 포함)를 state 에 남긴다 — 나중의 `bw status` 가 같은 다음 명령을 준다.
+    10/18 25회차 실측: 화면 없는 곳의 `bw motion … --rig` 가 `BW_NO_RENDER=1 …` 을 줬는데, `bw status` 는 이슈 보고 명령뿐이었다."""
+    r = pipeline.Run.current
+    f = r and r.dir / r.state_file
+    try:
+        s = json.loads(f.read_text(encoding="utf-8")) if f and f.is_file() else None
+        if isinstance(s, dict) and s.get("status") in ("running", "failed"):
+            pipeline.atomic_write(f, json.dumps({**s, "status": "failed", "blocked": str(e)}, ensure_ascii=False, indent=2))
+    except (OSError, ValueError):   # 기록은 덤이다 — BLOCKED 안내는 이미 나갔다
+        pass
+
+
 def main() -> int:
     """`bw doctor | head` 처럼 읽는 쪽이 먼저 닫으면 오류가 아니다. 파이프로 나가는 stdout 은 블록 버퍼라 끝날 때
     flush 에서야 터지므로, 여기서 flush 까지 하고 받는다(10/10 CI 에서 드러남)."""
@@ -732,6 +745,7 @@ def _main() -> int:
         if a.cmd in ("status", "doctor"):   # rig 등은 처음 돌 때 만든다. 목록·점검만 "없다" 를 알린다
             print(msg[1], file=sys.stderr)
     started = time.time() - 1  # 파일 시각 해상도 여유
+    pipeline.Run.current = None   # 아래 Blocked 가 이번 명령의 실행에만 이유를 적도록
     try:
         if a.cmd == "doctor":
             return doctor() if a.for_issue is None else issue_report(a.for_issue or None)
@@ -780,7 +794,10 @@ def _main() -> int:
                     line = f"{rid}: {kind + ' · ' if kind else ''}{s['step']} {status} · "   # 먼저 키를 읽는다: 목록·키 없는 state 는 아래 except 로
                     tokens = f"{s.get('input_tokens', 0):,}"
                     line += T(f"입력 토큰 {tokens}", f"input tokens {tokens}")
-                    if s["status"] in ("failed", "budget_stop", "usage_limit", "interrupted") or status != s["status"]:   # 왜 멈췄는지 볼 곳(로그 꼬리·state)
+                    if s.get("blocked"):   # 10/18 25회차: 실행 중 BLOCKED 의 다음 명령(BW_NO_RENDER=1 …)이 터미널을 닫으면 사라졌다
+                        why, *fix = str(s["blocked"]).splitlines()
+                        line += T(f"  → 이유: {why}", f"  → why: {why}") + "".join(f"\n    {f.strip()}" for f in fix)
+                    elif s["status"] in ("failed", "budget_stop", "usage_limit", "interrupted") or status != s["status"]:   # 왜 멈췄는지 볼 곳(로그 꼬리·state)
                         line += T(f"  → 이유: `bw doctor --for-issue {rid}`", f"  → why: `bw doctor --for-issue {rid}`")
                 except (ValueError, KeyError, TypeError, OSError) as e:
                     line = T(f"{rid}: state.json 을 읽지 못함({type(e).__name__}: {e}) — 이 실행만 건너뜀. 필요 없으면 {runs / rid} 를 지워도 된다",
@@ -816,7 +833,8 @@ def _main() -> int:
         else:
             out = pipeline.motion(ROOT, text=a.text, bvh=a.bvh, run_id=a.run_id, quiet=a.quiet, rig_run=a.rig, export=a.export, roll=not a.no_roll, preset=a.preset, bvh_up=a.bvh_up, legs=a.legs, bone_map=a.bone_map)
     except (pipeline.Blocked, blender.BlenderMissing) as e:   # 설치·설정으로 고치는 것: 이슈 안내 없이
-        print("BLOCKED:", e, file=sys.stderr); return 2
+        print("BLOCKED:", e, file=sys.stderr)
+        remember_blocked(e); return 2
     except BrokenPipeError:
         raise                # main() 이 조용히 끝낸다 — '예상 못 한 오류' 가 아니다
     except Exception as e:  # Blender 오류 등
