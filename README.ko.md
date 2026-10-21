@@ -47,8 +47,10 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 | 이미 뼈대가 있음 | `bw rig x.glb --from-skeleton` (맞춤 호출 없음, `--no-judge` 를 더하면 토큰 0) |
 | 뼈대 없고 맞는 프리셋도 없음 | `bw rig x.glb --from-shape` |
 
-`bw rig` 한 번은 모델 호출 2회(약 1달러)다: 맞춤(fit)과 시각 판정(judge). `--from-skeleton`·`--from-shape` 는 맞춤 호출을,
-`--no-judge` 는 판정을, `BW_BACKEND=mock` 은 둘 다 건너뛴다. 그래서 앞의 둘 중 하나에 `--no-judge` 를 붙이면 codex 가 아예 필요 없다.
+기본 `bw rig` 는 모델을 최대 2회(약 1달러) 호출할 수 있다: 맞춤(fit)과 시각 판정(judge). `--from-skeleton`·`--from-shape` 는
+맞춤을 건너뛴다. 둘 중 한 옵션에 `--no-judge` 를 함께 쓰면 모델 호출 0회이며 codex 가 필요 없다.
+`bw rig character.glb --no-judge` 는 기본 백엔드에서 맞춤 모델 호출이 남는다.
+`BW_BACKEND=mock` 은 두 단계에 mock 백엔드를 써서 모델 호출 0회이며 codex 가 필요 없다.
 
 **언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유와 `bw rig`·`bw motion` 진행 로그와 Blender 스크립트 안에서 나온 분석 경고·오류, `bw bench` 표와 실행 보고서(`report.md`)도 같다.
 

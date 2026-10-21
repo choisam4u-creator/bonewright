@@ -49,9 +49,10 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 | already has a skeleton | `bw rig x.glb --from-skeleton` (no fit call; add `--no-judge` for 0 tokens) |
 | no skeleton and no preset fits | `bw rig x.glb --from-shape` |
 
-A `bw rig` run makes two model calls (about $1): fit and the visual judge. `--from-skeleton` / `--from-shape` skip the
-fit call, `--no-judge` skips the judge, and `BW_BACKEND=mock` skips both, so any of the first two with `--no-judge`
-needs no codex at all.
+A default `bw rig` run can make two model calls (about $1): fit and the visual judge. `--from-skeleton` / `--from-shape`
+skip fit; combine either option with `--no-judge` for 0 model calls and no codex requirement.
+`bw rig character.glb --no-judge` still leaves the fit model call enabled with the default backend.
+`BW_BACKEND=mock` uses the mock backend for both stages: 0 model calls, no codex required.
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
 `ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line and the `bw rig` / `bw motion`
