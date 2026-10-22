@@ -111,8 +111,10 @@ the Windows CI job is removed. `bw` looks for Blender under
 Blender 5.2 LTS (or the `bpy` wheel) does the work; the CLI is plain Python with no dependencies.
 
 ```bash
+git clone https://github.com/choisam4u-creator/bonewright && cd bonewright
+python3 -m venv .venv && source .venv/bin/activate   # Homebrew / Linux Python refuses a global pip install (PEP 668)
 pip install .                 # or: pip install ".[headless]" to pull the bpy wheel instead of Blender.app
-bw doctor                     # checks that Blender and Rigify are reachable
+bw doctor                     # checks that Blender or bpy is found (either one) and marks what is optional
 bw rig character.glb          # rig it; add --from-skeleton if the file already has one
 ```
 
@@ -418,7 +420,7 @@ because a bone bridging a gap still skins correctly while a bone with a loose en
 ## Install and run
 
 ```bash
-pip install .            # installs `bw`
+pip install .            # installs `bw` (inside the venv from Install above)
 bw doctor                # Blender (app or bpy wheel), Codex login, kimodo.cpp (optional)
 bw rig character.glb --preset humanoid
 bw rig already_rigged.glb --from-skeleton   # use the file's own skeleton, no model call (0 tokens)

@@ -58,7 +58,7 @@ See `docs/RELEASING.md` for the release steps.
 - `examples/rig_sample.py`: rig a small sample mesh (procedural capsule doll, the CC0 `adventurer`, or any GLB)
   and write a table of deform-bone count, left/right split and names. `--table x.glb` reads a GLB without Blender.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them
-  for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `bpy` job).
+  for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `blender` job).
 - `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
 - Issue templates for install / `bw doctor` problems and feature requests; blank issues now point to the guide and
   SECURITY.md. `bw --version` prints the package version the install template asks for.
