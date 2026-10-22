@@ -29,7 +29,7 @@ pip install .                 # or: pip install ".[headless]" to use the bpy whe
 bw doctor                     # checks that Blender or bpy is found (either one) and marks what is optional
 ```
 
-On Windows the second line is `py -m venv .venv` then `.venv\Scripts\activate`. In a new terminal, activate the venv
+In a new terminal, activate the venv
 again before `bw`; if `bw` is still not found, `python3 -m bonewright` runs the same commands (`python3 -m bonewright doctor`).
 
 ## First run
@@ -80,7 +80,7 @@ To check retargeting yourself without any download, see [a sample retarget resul
 (`python3 examples/rig_sample.py --motion`: a procedural 24-frame wave BVH, 18 of 19 joints mapped), and
 [the same for four legs](examples/sample-output/capsule_dog_motion.md) (`--preset quadruped --motion`: a procedural walk, 20 of 20).
 
-Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows runs only the Blender-free tests in CI and has never been driven by hand.
+Status: **v0.2 (alpha)**. Development and local validation target macOS; the existing CI runs the test suite on Linux.
 
 ## More
 

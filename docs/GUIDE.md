@@ -102,8 +102,8 @@ caught by animating, not by the gates. If you touch weights, run the motion benc
 
 Status: **v0.2 (alpha).** Humanoid and quadruped Rigify presets. Developed on macOS with Blender 5.2 LTS and
 Codex CLI 0.155. **Linux runs the whole test suite in CI** on every push (ubuntu-latest, `bpy` wheel, renders
-off) and it is green — but nobody has driven it interactively on a Linux desktop. **Windows is unsupported:**
-CI runs the Blender-free tests on `windows-latest`, and `bw` looks for Blender under
+off), but nobody has driven it interactively on a Linux desktop. **Windows is unsupported:**
+the Windows CI job is removed. `bw` looks for Blender under
 `Program Files\Blender Foundation\Blender X.Y\blender.exe`, but no rig has ever been built on Windows.
 
 ## Install
@@ -116,7 +116,7 @@ bw doctor                     # checks that Blender and Rigify are reachable
 bw rig character.glb          # rig it; add --from-skeleton if the file already has one
 ```
 
-Developed on macOS with Blender 5.2 LTS and Codex CLI 0.155; Linux is covered by CI, Windows only by the Blender-free tests.
+Developed and locally validated on macOS with Blender 5.2 LTS and Codex CLI 0.155; CI uses two Linux jobs.
 Everything except the `fit` and `judge` steps costs zero model tokens; `BW_BACKEND=mock` runs the whole pipeline
 deterministically with no model calls at all, which is what the tests and the benchmark use. Only `mock` and
 `codex` (the default when unset) are accepted: any other value, a typo such as `Mock` included, stops before any model

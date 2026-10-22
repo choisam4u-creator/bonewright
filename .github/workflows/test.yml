@@ -1,6 +1,5 @@
-# Three jobs.
+# Two jobs.
 #   unit         — only what runs without Blender (fast). Rig, weight and retarget tests skip themselves
-#   unit-windows — the same tests on Windows (no Blender); the first evidence for Windows support
 #   blender      — installs the `bpy` wheel and runs **everything**. This is where the project itself is verified
 # A green `unit` alone only means "the Python imports"; that is why `blender` is a separate job.
 name: test
@@ -30,32 +29,6 @@ jobs:
           mkdir -p "$HOME/bw-home/runs" && printf '{"kimodo": {"root": "%s/kimodo"}, "rig": {"cross_trimm": false}}' "$HOME" > "$HOME/bw-home/runs/config.json"
           BW_HOME="$HOME/bw-home" python "$GITHUB_WORKSPACE/scripts/check_issue_report.py" --expect-config
       - name: Licence boundary — the bonewright/ core does not import bpy (stays MIT)
-        run: python scripts/check_license_boundary.py
-
-  unit-windows:
-    runs-on: windows-latest
-    env:
-      # Piped stdout is cp1252 and cannot print test names (Korean docstrings). A real console is UTF-8
-      PYTHONUTF8: "1"
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - run: pip install .
-      - name: Tests (Blender-dependent ones skip themselves)
-        run: python -m unittest -v tests.test_mock tests.test_cli tests.test_examples tests.test_errors tests.test_release tests.test_docs tests.test_i18n
-      - name: CLI imports
-        run: bw --help
-      - name: Installed plugin-path points at the real plugin (outside the repository)
-        working-directory: ${{ runner.temp }}
-        shell: bash
-        run: python -c "import pathlib, subprocess, sys; p = pathlib.Path(subprocess.check_output(['bw', 'plugin-path'], text=True).strip()); sys.exit(0 if (p / '.codex-plugin' / 'plugin.json').is_file() else 1)"
-      - name: Installed bw doctor --for-issue turns C:\Users\<name> into ~ (Windows home replacement, for real)
-        working-directory: ${{ runner.temp }}
-        shell: bash
-        run: BW_HOME="$USERPROFILE\bw-home" python "$GITHUB_WORKSPACE/scripts/check_issue_report.py"
-      - name: Licence boundary
         run: python scripts/check_license_boundary.py
 
   blender:

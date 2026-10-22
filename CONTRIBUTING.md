@@ -53,10 +53,10 @@ chain starts inside the chest.
 
 ## What CI actually runs
 
-Three jobs. `unit` (Linux, Python 3.11 and 3.13) and `unit-windows` (Windows, Python 3.13) install this package
-and run the tests that do not need Blender. Both jobs check CLI imports and the license boundary, verify that
+Two jobs. `unit` (Linux, Python 3.11 and 3.13) installs this package
+and runs the tests that do not need Blender. It checks CLI imports and the license boundary, verifies that
 installed `bw plugin-path` points to a plugin containing `.codex-plugin/plugin.json` outside the repository,
-and check home-path redaction in installed `bw doctor --for-issue` reports from outside the repository.
+and checks home-path redaction in installed `bw doctor --for-issue` reports from outside the repository.
 `blender` installs the `bpy` wheel and runs **every** test, including rig generation, skinning and retargeting.
 If you change anything that touches weights, the `blender` job is the one that matters.
 

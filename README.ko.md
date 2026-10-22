@@ -27,7 +27,7 @@ pip install .                 # Blender.app 대신 bpy 휠을 쓰려면: pip ins
 bw doctor                     # Blender 나 bpy 중 하나가 잡히는지 확인하고, 선택 항목을 표시
 ```
 
-Windows 에서는 둘째 줄이 `py -m venv .venv` 다음 `.venv\Scripts\activate` 다. 새 터미널에서는 `bw` 전에 venv 를 다시
+새 터미널에서는 `bw` 전에 venv 를 다시
 켠다. 그래도 `bw` 를 못 찾으면 `python3 -m bonewright` 가 같은 명령이다(`python3 -m bonewright doctor`).
 
 ## 첫 실행
@@ -75,7 +75,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 (`python3 examples/rig_sample.py --motion`: 절차 생성 손 흔들기 BVH 24프레임, 관절 19개 중 18개를 옮김),
 [네 발도](examples/sample-output/capsule_dog_motion.md)(`--preset quadruped --motion`: 절차 생성 걷기, 20개 다).
 
-상태: **v0.2(알파)**. macOS에서 개발, Linux는 CI에서 시험을 돌린다, Windows는 CI에서 블렌더 없는 시험만 돌고 손으로 써 본 적은 없다.
+상태: **v0.2(알파)**. 개발과 로컬 검증은 macOS를 기준으로 하며, 기존 CI는 Linux에서 시험을 돌린다.
 
 ## 더 보기
 
