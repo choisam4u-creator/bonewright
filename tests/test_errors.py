@@ -308,6 +308,17 @@ class InputErrorTests(unittest.TestCase):
         from bonewright import config
         self.assertEqual([], config.type_problems({"budget": {"max_input_tokens": 1000, "price_input_per_m": 3}, "rig": {"face": True}}))
 
+        for lang, want in (("ko", "유한한 숫자"), ("en", "finite number")):
+            for value in ("NaN", "Infinity", "-Infinity", "1e400"):
+                with self.subTest(lang=lang, value=value), patch.dict(os.environ, {"BW_LANG": lang}):
+                    (self.root / "runs" / "config.json").write_text(
+                        '{"budget": {"max_input_tokens": ' + value + '}}', encoding="utf-8")
+                    msg = self.blocked(pipeline.rig, self.root, str(self.root / "a.glb"), quiet=True)
+                    self.assertIn("budget.max_input_tokens: " + want, msg)
+                    self.assertEqual(["config.json"], sorted(p.name for p in (self.root / "runs").iterdir()))
+        self.assertEqual([], config.type_problems({"budget": {"max_input_tokens": 1000.0, "price_input_per_m": 0.0}}))
+        self.assertEqual([], config.type_problems({"budget": {"max_input_tokens": 10 ** 400}}))
+
     def test_settings_value_not_allowed(self):
         """Settings values outside the command-line choices (`"lang": "fr"`, `"rest_pose": "T"`) stop with the allowed values."""
         (self.root / "runs").mkdir()

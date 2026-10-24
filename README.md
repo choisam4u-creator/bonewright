@@ -29,7 +29,7 @@ pip install .                 # or: pip install ".[headless]" to use the bpy whe
 bw doctor                     # checks that Blender or bpy is found (either one) and marks what is optional
 ```
 
-On Windows the second line is `py -m venv .venv` then `.venv\Scripts\activate`. In a new terminal, activate the venv
+In a new terminal, activate the venv
 again before `bw`; if `bw` is still not found, `python3 -m bonewright` runs the same commands (`python3 -m bonewright doctor`).
 
 ## First run
@@ -49,9 +49,10 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 | already has a skeleton | `bw rig x.glb --from-skeleton` (no fit call; add `--no-judge` for 0 tokens) |
 | no skeleton and no preset fits | `bw rig x.glb --from-shape` |
 
-A `bw rig` run makes two model calls (about $1): fit and the visual judge. `--from-skeleton` / `--from-shape` skip the
-fit call, `--no-judge` skips the judge, and `BW_BACKEND=mock` skips both, so any of the first two with `--no-judge`
-needs no codex at all.
+A default `bw rig` run can make two model calls (about $1): fit and the visual judge. `--from-skeleton` / `--from-shape`
+skip fit; combine either option with `--no-judge` for 0 model calls and no codex requirement.
+`bw rig character.glb --no-judge` still leaves the fit model call enabled with the default backend.
+`BW_BACKEND=mock` uses the mock backend for both stages: 0 model calls, no codex required.
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
 `ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line and the `bw rig` / `bw motion`
@@ -79,7 +80,7 @@ To check retargeting yourself without any download, see [a sample retarget resul
 (`python3 examples/rig_sample.py --motion`: a procedural 24-frame wave BVH, 18 of 19 joints mapped), and
 [the same for four legs](examples/sample-output/capsule_dog_motion.md) (`--preset quadruped --motion`: a procedural walk, 20 of 20).
 
-Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows runs only the Blender-free tests in CI and has never been driven by hand.
+Status: **v0.2 (alpha)**. Development and local validation target macOS; the existing CI runs the test suite on Linux.
 
 ## More
 

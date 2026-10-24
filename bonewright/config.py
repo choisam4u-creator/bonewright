@@ -1,6 +1,7 @@
 """기본 설정. runs/config.json 이 있으면 덮어쓴다(중첩 병합)."""
 import difflib
 import json
+import math
 import os
 from pathlib import Path
 
@@ -127,6 +128,10 @@ def type_problems(user: dict, known: dict = DEFAULTS, prefix: str = "") -> list[
             continue
         number = isinstance(d, (int, float)) and not isinstance(d, bool)
         ok = (isinstance(v, (int, float)) and not isinstance(v, bool)) if number else isinstance(v, type(d))
+        if number and isinstance(v, float) and not math.isfinite(v):
+            from .i18n import T
+            out.append(f"{prefix}{k}: {T('유한한 숫자', 'finite number')} ({json.dumps(d)}) ← {json.dumps(v)}")
+            continue
         if not ok:
             out.append(f"{prefix}{k}: {_type_name(d)} ({json.dumps(d, ensure_ascii=False)}) ← {_type_name(v)} {json.dumps(v, ensure_ascii=False)}")
     return out

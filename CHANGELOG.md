@@ -25,7 +25,7 @@ See `docs/RELEASING.md` for the release steps.
 - `bw motion` ends with a `next:` line too: the `.blend` to open, and either the GLB it wrote or the same command
   with `--export` (without `--rig`: the same command with the latest rig's id).
 - `tests/README.md` opens with an English summary (one command, what skips without Blender, the two environment
-  switches, the three CI jobs); `tests/test_docs.py` keeps its skip count honest.
+  switches, the two CI jobs); `tests/test_docs.py` keeps its skip count honest.
 - `docs/RELEASING.md`, which this changelog points to, opens with an English summary (who releases, how the version
   number is chosen, the five steps); the detailed notes below it stay in Korean.
 - `report.md` (rig and motion) starts with a versions line — bonewright, Blender, Python and OS — because the
@@ -52,13 +52,13 @@ See `docs/RELEASING.md` for the release steps.
   versions, `BW_*` settings, the `bw doctor` result, and one run's `state.json` with the last 40 lines of its newest
   log (the latest run when no id is given), plus `runs/config.json` as it is (even when broken) with any unknown
   keys named. Home-folder paths are replaced with `~`. The issue templates ask for it.
-  CI runs the installed command outside the repository on Linux, Windows and the `bpy` job
+  CI runs the installed command outside the repository in the Linux `unit` and `blender` jobs
   (`scripts/check_issue_report.py`): one `<details>` block, no traceback, and no home-folder path left — with
-  `BW_HOME` placed under the home folder so there is a path to replace (`C:\Users\<name>` on Windows).
+  `BW_HOME` placed under the home folder so there is a path to replace.
 - `examples/rig_sample.py`: rig a small sample mesh (procedural capsule doll, the CC0 `adventurer`, or any GLB)
   and write a table of deform-bone count, left/right split and names. `--table x.glb` reads a GLB without Blender.
 - Blender-dependent tests are marked with `@requires_blender` (`tests/_marks.py`). `BW_SKIP_BLENDER=1` skips them
-  for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `bpy` job).
+  for a quick check; `BW_REQUIRE_BLENDER=1` turns a missing Blender into a failure (used by the CI `blender` job).
 - `docs/PRE-PUBLIC-AUDIT.md`: what to look at before the repository goes public (report only, nothing removed).
 - Issue templates for install / `bw doctor` problems and feature requests; blank issues now point to the guide and
   SECURITY.md. `bw --version` prints the package version the install template asks for.
@@ -70,7 +70,7 @@ See `docs/RELEASING.md` for the release steps.
   titles the templates quote and the files `ISSUE_TEMPLATE/config.yml` links to.
 - Package metadata: project URLs (home, guide, issues, changelog) and both license notices (`LICENSE`, MIT, and
   `bonewright/bpy_scripts/LICENSE`, GPL) are now shipped in the sdist and wheel (`license-files`, hatchling ≥ 1.27).
-- CI runs the Blender-free tests on `windows-latest` too. `bw` now finds Blender installed under
+- CI uses two Linux jobs; the Windows Blender-free job is removed. `bw` now finds Blender installed under
   `Program Files\Blender Foundation\Blender X.Y\blender.exe` (newest version wins). No rig has been built on Windows.
 - `tests/test_i18n.py`: every `T(Korean, English)` pair in `bonewright/` must have no Hangul on the English side and
   the same f-string placeholders on both. `tests/test_docs.py` also checks that every test-command list (CI,
@@ -359,7 +359,7 @@ See `docs/RELEASING.md` for the release steps.
 - README Install (both languages) started at `pip install .` with no clone, although First run uses files inside the
   repository; on macOS Homebrew and recent Linux Python a global `pip install` is refused (PEP 668); and the
   `bw doctor` comment claimed a Rigify check doctor does not make. It now goes clone → venv → `pip install .` →
-  `bw doctor` (Blender or bpy, either one), with the Windows venv line.
+  `bw doctor` (Blender or bpy, either one).
 - `bw status` stopped at the first run whose `state.json` it could not read (a missing key, broken JSON — e.g. a
   sync-conflict copy or a run from an older version) with an "unexpected error, open an issue" message. That run
   now gets its own line saying it was skipped and which folder can be deleted; the other runs are still listed.

@@ -27,7 +27,7 @@ pip install .                 # Blender.app 대신 bpy 휠을 쓰려면: pip ins
 bw doctor                     # Blender 나 bpy 중 하나가 잡히는지 확인하고, 선택 항목을 표시
 ```
 
-Windows 에서는 둘째 줄이 `py -m venv .venv` 다음 `.venv\Scripts\activate` 다. 새 터미널에서는 `bw` 전에 venv 를 다시
+새 터미널에서는 `bw` 전에 venv 를 다시
 켠다. 그래도 `bw` 를 못 찾으면 `python3 -m bonewright` 가 같은 명령이다(`python3 -m bonewright doctor`).
 
 ## 첫 실행
@@ -47,8 +47,10 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 | 이미 뼈대가 있음 | `bw rig x.glb --from-skeleton` (맞춤 호출 없음, `--no-judge` 를 더하면 토큰 0) |
 | 뼈대 없고 맞는 프리셋도 없음 | `bw rig x.glb --from-shape` |
 
-`bw rig` 한 번은 모델 호출 2회(약 1달러)다: 맞춤(fit)과 시각 판정(judge). `--from-skeleton`·`--from-shape` 는 맞춤 호출을,
-`--no-judge` 는 판정을, `BW_BACKEND=mock` 은 둘 다 건너뛴다. 그래서 앞의 둘 중 하나에 `--no-judge` 를 붙이면 codex 가 아예 필요 없다.
+기본 `bw rig` 는 모델을 최대 2회(약 1달러) 호출할 수 있다: 맞춤(fit)과 시각 판정(judge). `--from-skeleton`·`--from-shape` 는
+맞춤을 건너뛴다. 둘 중 한 옵션에 `--no-judge` 를 함께 쓰면 모델 호출 0회이며 codex 가 필요 없다.
+`bw rig character.glb --no-judge` 는 기본 백엔드에서 맞춤 모델 호출이 남는다.
+`BW_BACKEND=mock` 은 두 단계에 mock 백엔드를 써서 모델 호출 0회이며 codex 가 필요 없다.
 
 **언어.** `bw --help` 는 로캘이 `ko_*` 이거나 `BW_LANG=ko` 면 한국어, 아니면 영어다. `bw doctor` 출력과 `BLOCKED:` 오류 메시지도 같다. `BLOCKED:` 아래 나열되는 게이트 거절 사유와 `bw rig`·`bw motion` 진행 로그와 Blender 스크립트 안에서 나온 분석 경고·오류, `bw bench` 표와 실행 보고서(`report.md`)도 같다.
 
@@ -73,7 +75,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 (`python3 examples/rig_sample.py --motion`: 절차 생성 손 흔들기 BVH 24프레임, 관절 19개 중 18개를 옮김),
 [네 발도](examples/sample-output/capsule_dog_motion.md)(`--preset quadruped --motion`: 절차 생성 걷기, 20개 다).
 
-상태: **v0.2(알파)**. macOS에서 개발, Linux는 CI에서 시험을 돌린다, Windows는 CI에서 블렌더 없는 시험만 돌고 손으로 써 본 적은 없다.
+상태: **v0.2(알파)**. 개발과 로컬 검증은 macOS를 기준으로 하며, 기존 CI는 Linux에서 시험을 돌린다.
 
 ## 더 보기
 
