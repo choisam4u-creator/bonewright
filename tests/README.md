@@ -4,8 +4,8 @@
 > Blender 5.2 (or `pip install bpy==5.2.2`) everything runs; without it 17 Blender tests skip themselves — check the
 > skip count before trusting a pass. `BW_SKIP_BLENDER=1` skips them on purpose (fast check); `BW_REQUIRE_BLENDER=1`
 > turns a missing Blender into a failure (CI's `blender` job). A new test that calls Blender (`blender.run_script`,
-> `pipeline.rig`, ...) gets `@requires_blender` from `tests/_marks.py`. CI runs three jobs: `unit` (Linux, Python 3.11
-> and 3.13, no Blender), `unit-windows` (no Blender) and `blender` (the `bpy` wheel, headless, rendering off). The
+> `pipeline.rig`, ...) gets `@requires_blender` from `tests/_marks.py`. CI runs two jobs: `unit` (Linux, Python 3.11
+> and 3.13, no Blender) and `blender` (Linux, the `bpy` wheel, headless, rendering off). The
 > table below (in Korean) lists every module, whether it needs Blender (필요 = yes, 불필요 = no, 일부 = some) and
 > how many tests it has; `tests/test_docs.py` checks the numbers against the loader.
 
@@ -29,5 +29,5 @@ BW_REQUIRE_BLENDER=1 python3 -m unittest tests.test_mock tests.test_cli tests.te
 ```
 
 새 시험이 Blender(`blender.run_script`·`pipeline.rig` 등)를 부르면 클래스에 `@requires_blender`(`tests/_marks.py`)를 붙인다.
-CI(`.github/workflows/test.yml`)는 `unit`(블렌더 없음, 리눅스 3.11·3.13), `unit-windows`(블렌더 없음), `blender`(`pip install bpy==5.2.2`, 헤드리스, 렌더 끔) 세 잡으로 돈다.
+CI(`.github/workflows/test.yml`)는 `unit`(블렌더 없음, 리눅스 3.11·3.13), `blender`(리눅스, `pip install bpy==5.2.2`, 헤드리스, 렌더 끔) 두 잡으로 돈다.
 `blender` 잡은 시험 뒤 저장소 밖에서 설치본 `bw` 로 `BW_BACKEND=mock bw rig` 를 끝까지 한 번 돈다(휠에 `bpy_scripts`·`prompts` 가 실렸는지).

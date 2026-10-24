@@ -37,12 +37,12 @@
 ## 2. 개인 경로
 
 **현재 트리**
-- `docs/reports/2026-09-19-a.html:32` — "개인 절대경로(`/Users/sam/…`) 제거"라는 **설명 문구**. 실제 경로는 아니고 사용자 이름 `sam` 만 드러난다.
-- `docs/reports/2026-09-17-a.html:173` — `~/Desktop/Gpt_Codex/bonewright` (홈 아래 폴더 구조).
+- `docs/reports/2026-09-19-a.html:32` — 개인 절대경로를 지웠다는 설명의 예를 `/Users/<이름>/…`로 바꾼다.
+- `docs/reports/2026-09-17-a.html:173` — 홈 아래 저장소 경로를 `<저장소>`로 바꾼다.
 
 **git 기록에만 있음** (d6091c2 "개인 경로를 지우고"에서 현재 트리에서는 지워짐)
-- `docs/research-20260913.html`, `docs/v0.1-status-20260913.html` — `/Users/sam/Desktop/Gpt_Codex/bonewright/`,
-  `/Users/sam/Desktop/Gpt_Codex/blender-anim-codex/vendor/kimodo.cpp/` 등 전체 경로(각 12개 커밋에 남음).
+- `docs/research-20260913.html`, `docs/v0.1-status-20260913.html` — `<저장소>/`,
+  `<관련 저장소>/vendor/kimodo.cpp/` 등 전체 경로(각 12개 커밋에 남음).
 
 위험도는 낮다(사용자 이름·폴더 구조 정도, 비밀 아님). 선택지:
 1. 그대로 공개 — 가장 간단. 현재 트리의 `~/Desktop/…` 한 줄만 `<저장소>` 로 바꾸는 작은 PR 정도.
