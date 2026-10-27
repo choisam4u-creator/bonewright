@@ -102,8 +102,8 @@ caught by animating, not by the gates. If you touch weights, run the motion benc
 
 Status: **v0.2 (alpha).** Humanoid and quadruped Rigify presets. Developed on macOS with Blender 5.2 LTS and
 Codex CLI 0.155. **Linux runs the whole test suite in CI** on every push (ubuntu-latest, `bpy` wheel, renders
-off) and it is green — but nobody has driven it interactively on a Linux desktop. **Windows is unsupported:**
-CI runs the Blender-free tests on `windows-latest`, and `bw` looks for Blender under
+off), but nobody has driven it interactively on a Linux desktop. **Windows is unsupported:**
+the Windows CI job is removed. `bw` looks for Blender under
 `Program Files\Blender Foundation\Blender X.Y\blender.exe`, but no rig has ever been built on Windows.
 
 ## Install
@@ -111,14 +111,18 @@ CI runs the Blender-free tests on `windows-latest`, and `bw` looks for Blender u
 Blender 5.2 LTS (or the `bpy` wheel) does the work; the CLI is plain Python with no dependencies.
 
 ```bash
+git clone https://github.com/choisam4u-creator/bonewright && cd bonewright
+python3 -m venv .venv && source .venv/bin/activate   # Homebrew / Linux Python refuses a global pip install (PEP 668)
 pip install .                 # or: pip install ".[headless]" to pull the bpy wheel instead of Blender.app
-bw doctor                     # checks that Blender and Rigify are reachable
+bw doctor                     # checks that Blender or bpy is found (either one) and marks what is optional
 bw rig character.glb          # rig it; add --from-skeleton if the file already has one
 ```
 
-Developed on macOS with Blender 5.2 LTS and Codex CLI 0.155; Linux is covered by CI, Windows only by the Blender-free tests.
+Developed and locally validated on macOS with Blender 5.2 LTS and Codex CLI 0.155; CI uses two Linux jobs.
 Everything except the `fit` and `judge` steps costs zero model tokens; `BW_BACKEND=mock` runs the whole pipeline
-deterministically with no model calls at all, which is what the tests and the benchmark use.
+deterministically with no model calls at all, which is what the tests and the benchmark use. Only `mock` and
+`codex` (the default when unset) are accepted: any other value, a typo such as `Mock` included, stops before any model
+call instead of quietly falling back to the paid path.
 
 ## Which flag do I want?
 
@@ -167,7 +171,7 @@ Faces are off by default. Motion retargeting (BVH → rig → GLB) exists and is
 ### Known gaps and failed attempts
 
 An English digest of the end of `docs/ROADMAP.md` (Korean, dated 2026-09-15 to 09-19). Every line below was measured
-on the deterministic path; the ROADMAP section named in brackets has the full tables. Read it before retrying any of these.
+on the deterministic path; the linked ROADMAP section (in Korean) has the full tables. Read it before retrying any of these.
 
 - **Gates only see a character standing still.** On 2026-09-19 three plausible changes passed every gate and made real
   deformation worse; all three surfaced only when a walk was retargeted. Weight changes must be measured *moving*.
@@ -175,22 +179,22 @@ on the deterministic path; the ROADMAP section named in brackets has the full ta
   robot_expressive, KayKit skeleton warrior) share it: an arm or pelvis bone reaches across an empty chest and takes rib
   vertices (11 / 94 sampled on the skeleton warrior; the original author's rig leaks 0). Geodesic trimming changed
   nothing (voxel dilation fills the thin walls too); splitting by part count failed because mannequiny has 60 parts.
-  [막힌 곳: KayKit 해골 전사]
+  [ROADMAP: KayKit skeleton warrior leak](ROADMAP.md#막힌-곳-kaykit-해골-전사의-팔몸통-누수-2026-09-19-다섯-번째-실패)
 - **Failed — deleting finger segments the source does not have.** Rabbit improved slightly (12.19 → 11.30x max edge
-  stretch), godot_player went 1.87 → 8.46x and a KayKit mage stopped rigging. Reverted. [실패: 손가락 마디 지우기]
+  stretch), godot_player went 1.87 → 8.46x and a KayKit mage stopped rigging. Reverted. [ROADMAP: deleting finger segments](ROADMAP.md#실패-원본에-없는-손가락-마디-지우기-2026-09-19)
 - **Failed — copying the original author's weights by joint position.** Leak dropped to 0 / 94, but stretch went
   5.78 → 11.25x (skeleton warrior) and 3.72 → 20.71x (cesium_man): zero-length marker joints make "nearest position"
-  meaningless. Needs those markers rebuilt as segments first. [실패: 원작자의 가중치를 자리로 짝지어]
+  meaningless. Needs those markers rebuilt as segments first. [ROADMAP: original weights by position](ROADMAP.md#실패-원작자의-가중치를-자리로-짝지어-가져오기-2026-09-19)
 - **Replaced — trimming influences with one ray per vertex.** It fixed the hollow skeleton (11 → 0 leak) but on
   mannequiny, built from separate parts, stretch went 4.71 → 7.88x (87 edges over 2x vs 6): the way to a neighbouring
   part always leaves the shell. `rig.cross_trim` now measures voxel-geodesic distance instead and is on by default
-  (`bonewright/bpy_scripts/_voxgeo.py` explains why); ROADMAP and the 0.2.0 changelog still describe the ray version.
+  (`bonewright/bpy_scripts/_voxgeo.py` explains why). The 0.2.0 changelog first described the ray version; corrected.
 - **Open hole — retargeting onto a `--from-shape` rig.** It runs (16 bones mapped on mannequiny) but tears: max stretch
   44x, 1,228 edges over 2x, against under 6x on the preset path, because the arm chain starts inside the chest. Two fixes
   failed (sphere thickness does not separate torso from limbs on low-poly meshes; dropping short chains also cut 2–4 of
-  a scorpion's 10 legs). Use shape rigs for posing, weights and export, not motion. [모양 리그에 이름을 붙였다]
+  a scorpion's 10 legs). Use shape rigs for posing, weights and export, not motion. [ROADMAP: naming shape rigs](ROADMAP.md#모양-리그에-이름을-붙였다--되는-것과-안-되는-것-2026-09-19)
 - **Partial — quadruped motion.** Wolf front legs and tails are not retargeted; a clip that leans forward the whole time
-  loses the lean (the reference frame is the clip's most typical pose). [애니메이션 (3단계)]
+  loses the lean (the reference frame is the clip's most typical pose). [ROADMAP: animation, stage 3](ROADMAP.md#애니메이션-3단계--리타게팅-완료-2026-09-15)
 - **Not built — partial meshes.** Upper-body-only meshes are rejected; there is no partial-rig route yet.
 
 ### Which backend produced these numbers
@@ -273,7 +277,7 @@ path back to the body; resample each path into three segments, hang them off a b
 The generic rig above then turns it into controls. Zero model calls.
 
 ```bash
-bw rig scorpion.glb --from-shape     # 팔다리 10개, 본 31개, 게이트 통과
+bw rig scorpion.glb --from-shape     # 10 limbs, 31 bones, gates pass
 ```
 
 Every asset the silhouette gate used to refuse now rigs this way — the insect, `kira` seated in her room, `fox` under
@@ -416,7 +420,7 @@ because a bone bridging a gap still skins correctly while a bone with a loose en
 ## Install and run
 
 ```bash
-pip install .            # installs `bw`
+pip install .            # installs `bw` (inside the venv from Install above)
 bw doctor                # Blender (app or bpy wheel), Codex login, kimodo.cpp (optional)
 bw rig character.glb --preset humanoid
 bw rig already_rigged.glb --from-skeleton   # use the file's own skeleton, no model call (0 tokens)
@@ -425,7 +429,22 @@ bw motion --bvh walk.bvh --rig <run-id> --export         # retarget a BVH onto a
 bw demo <run-id>         # mp4/gif of the rig moving through IK controls (0 tokens)
 bw export <run-id>       # game-ready GLB: deform bones only (73, not 410) + skin, re-imported and checked (0 tokens)
 bw bench a.glb b.glb     # compare against the original skeletons (0 tokens)
+bw status                # every run under runs/: step, status, input tokens
+bw status <run-id>       # one run: its report, the files it made, and (for a rig) the commands not yet run
 ```
+
+Each run lives in `runs/<run-id>/` (`report.md`, `targets.json`, the `.blend` files, `logs/`). The id defaults to
+`rig-<date>-<time>`; `--run-id` takes letters, digits and `. _ -` only (no `/`, `\` or `..`, so a run never lands
+outside `runs/`). Giving the id of a finished rig replaces it, and the old rig's `rigged.glb` and demo video are
+removed so they never sit beside the new rig. `bw status` lists them
+one per line with its kind (rig, motion or bench) — `rig-20261010-101500: rig · final ok · input tokens 81,234`. A run that failed or was stopped by the budget
+or a usage limit ends with `→ why: bw doctor --for-issue <run-id>`, which shows its state and the end of its log. A run that
+stopped on a `BLOCKED:` message instead repeats that message there, with its next command (`BW_NO_RENDER=1 bw motion …`);
+so does a rejected rig (`fit rejected`, `preflight rejected`: the reasons, the `--targets` draft command, `--force`).
+A rig that finished as `needs_review` (both at the end of `bw rig`, before its `next:` line, and in `bw status`) names its first failed check and the 0-token rerun from its `targets.json`
+(`bw rig <mesh> --preset <preset> --targets runs/<id>/targets.json`).
+`bw export` and `bw demo` record their own `export_state.json` / `demo_state.json`, so a failed export never turns a
+finished rig into a failed one.
 
 Cost: one `bw rig` makes **2 model calls** — a fit call (~80k input tokens) and a visual judge call (2 images).
 Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. A rejected mesh costs nothing, and
@@ -433,8 +452,13 @@ Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. 
 
 When a command stops with `BLOCKED:`, the line starting with `→` says what to change. For an error it did not
 expect, it also prints the run's `logs/` folder (one Blender log per step); prefix the command with `BW_DEBUG=1`
-to get the full Python traceback for an issue report. `bw doctor --for-issue <run-id>` gathers the versions, the
-run's `state.json` and the tail of its last log into one block to paste into the issue, with home paths replaced by `~`.
+to get the full Python traceback for an issue report. `bw doctor --for-issue <run-id>` gathers the versions, your
+`runs/config.json` (with any unknown keys named), the run's `state.json` and the tail of its last log into one block to paste into the issue, with home paths replaced by `~`.
+
+On a machine with no display (a headless Linux server, WSL, a container), Blender's renderer cannot start (the log shows
+`Couldn't open libEGL.so.1`). The rig is already saved by then; `bw` says so and gives the same command with
+`BW_NO_RENDER=1` in front, which skips the pictures (and with them the visual judge). `bw demo` needs the pictures, so it
+needs EGL (`sudo apt install libegl1` on Debian/Ubuntu) or a machine with a display.
 
 A-pose input rigs as well as T-pose. `--rest-pose t` bakes a T-pose rest, which downstream animation usually expects.
 Measured on one asset posed at several arm angles, against its own original T-pose skeleton:
@@ -466,6 +490,35 @@ vertex's nearest deform bone is dropped from it. Automatic weights hand arm bone
 bodies whose shoulders sit close in; a natural blend at an elbow or shoulder keeps both bones because their distances
 are comparable. Measured effect on skinning agreement with the original rigs: mannequiny 0.600 → 0.605, cesium_man
 side agreement 0.997 → 0.998, Quaternius Adventurer unchanged.
+
+### Settings (`runs/config.json`)
+
+Every setting has a built-in default; `runs/config.json` in the project folder (`BW_HOME` if set, else the nearest
+folder upward that holds `bonewright/` or `runs/`, falling back to the current folder if neither is found)
+overrides only the keys it names, section by section. A file that is not valid JSON stops with `BLOCKED:` naming the line and
+column; so does a value of the wrong type (a string where a number goes) or one the matching flag would refuse
+(`"lang": "fr"`, `"rest_pose": "T"`), each listed with what is expected. An unknown key (usually a typo) only warns.
+`bw doctor` reports any of these as one `[settings]` line and checks everything else. The keys you are most likely to change:
+
+| Key | Default | What it does |
+|---|---|---|
+| `lang` | `""` | language of the model prompts (`ko` or `en`); empty follows the screen language |
+| `rig.rest_pose` | `"keep"` | `keep` the mesh's own pose, or `t` to bake a T-pose rest (same as `--rest-pose`) |
+| `rig.weights` | `"auto"` | `auto` (Bone Heat, voxel proxy if it leaves gaps) or `proxy` (same as `--weights`) |
+| `rig.cross_trim` | `true` | drop weights that reach across empty space from another body part |
+| `rig.face` | `false` | keep the metarig's face bones |
+| `blender.app` | `""` | path to the Blender executable; empty searches `BW_BLENDER`, `PATH`, then the usual install folders |
+| `blender.timeout` | `600` | seconds one Blender step may run |
+| `budget.max_input_tokens` | `600000` | a run stops once its input tokens reach this (same as `--budget`) |
+| `render.size` | `512` | pixel size of the review renders |
+| `kimodo.root` | `"vendor/kimodo.cpp"` | where the kimodo.cpp build lives (see below) |
+
+The prompt language is picked in this order: `bw rig --lang`, then `lang` here, then `BW_LANG`, then the system
+locale. Command-line flags always beat the file. For example:
+
+```json
+{"lang": "en", "rig": {"rest_pose": "t"}, "blender": {"app": "/opt/blender-5.2/blender"}}
+```
 
 ### Text → motion: building kimodo.cpp (optional)
 
@@ -515,7 +568,9 @@ bw motion --bvh walk.bvh --rig my_blob --map bones.json
 ```
 
 It overrides the automatic matching per entry, leaves the rest alone, and tells you how many names it could not
-find in the BVH instead of silently ignoring a typo. Matching by **position** rather than by hand was tried for
+find in the BVH instead of silently ignoring a typo — with the closest BVH bone name and the file fixed to use it,
+or the file swapped if keys and values look reversed. A rig bone that is not in the rig is reported the same way, with the nearest control: rig
+names are control names, so a humanoid arm is `upper_arm_fk.L`, not the metarig's `upper_arm.L`. Matching by **position** rather than by hand was tried for
 weights and failed badly (see ROADMAP), so this stays manual for now.
 
 A word of warning from testing it: mapping a human shoulder onto a blob's tentacle does apply, and made the mesh
@@ -527,6 +582,36 @@ stretch worse (8.24x → 14.26x). The option gives you the controls; it cannot t
 `LeftUpLeg/LeftLeg`, CMU and Quaternius animal `BackLeg/FrontUpperLeg` conventions are covered by tests or runs).
 Units and frame rate are taken from the file (CMU's 16.7-unit hip height becomes a 0.06 scale); zero-length joints
 (CMU hands) take their direction from the first non-thumb child bone.
+
+Which joint drives which control (humanoid preset; the right side is the same with `Right`/`.R`; a `mixamorig:`
+prefix is ignored):
+
+| Rig control | Mixamo-style names | kimodo-style names | joint-named (SMPL, pose estimators) |
+|---|---|---|---|
+| `torso` (root motion too) | `Hips` | `Hips` | `Pelvis` |
+| `chest` | `Spine2` | `Chest` | `Spine3` |
+| `neck` | `Neck` | `Neck1` | `Neck` |
+| `head` | `Head` | `Head` | `Head` |
+| `shoulder.L` | `LeftShoulder` | `LeftShoulder` | `L_Collar` |
+| `upper_arm_fk.L` | `LeftArm` | `LeftArm` | `L_Shoulder` |
+| `forearm_fk.L` | `LeftForeArm` | `LeftForeArm` | `L_Elbow` |
+| `hand_fk.L` | `LeftHand` | `LeftHand` | `L_Wrist` |
+| `thigh_fk.L` | `LeftUpLeg` | `LeftLeg` | `L_Hip` |
+| `shin_fk.L` | `LeftLeg` | `LeftShin` | `L_Knee` |
+| `foot_fk.L` | `LeftFoot` | `LeftFoot` | `L_Ankle` |
+| not moved | `Spine`, `Spine1`, `LeftToeBase` | `Spine1`, `Spine2`, `Neck2`, `Jaw`, `LeftEye`, `LeftToeBase` | `Spine1`, `Spine2`, `L_Foot` |
+
+The **mid spine is not moved on purpose**: the Rigify torso has one FK `chest` control above the hips, so the joint
+called `Chest` — or, without one, the highest-numbered `Spine`/`Torso` joint — drives it, and the joints in between
+are skipped. `LeftLeg` means the thigh when the same side also has a `Shin`, and the shin otherwise. A BVH joint turns the bone that
+starts at it, so when a side has a `Knee` or `Elbow` joint, `Hip` is the thigh and `Shoulder` the upper arm (the
+pelvis and Mixamo's `LeftShoulder` collarbone are unaffected). Biovision names (`LeftCollar`, `LeftUpArm`, `LeftLowArm`,
+`LeftLowLeg`) map the same way as their Mixamo counterparts. So "unmapped
+['Spine']" in `report.md` is expected, not a failure; the motion sample
+[`examples/sample-output/capsule_doll_motion.md`](../examples/sample-output/capsule_doll_motion.md) (`python3
+examples/rig_sample.py --motion`) maps 18 of 19 joints this way. Anything else unmapped can be added with `--map`
+(above); when an arm or leg control ends up with no BVH bone at all, `bw motion` names those controls and
+the unrecognised bones and gives the `--map` command. `tests/test_docs.py` checks this table against the matching code.
 
 The **up axis is detected** from the file, because getting it wrong fails silently rather than loudly: the standard
 says Y, Blender exports Z, and feeding a Z-up clip as Y-up moved the wolf's feet a metre off the floor while every
@@ -542,6 +627,14 @@ axis on which the head sits above the feet; with no recognisable head or feet it
 - **Tail (quadrupeds):** the wolf metarig's tail chain is numbered backwards from the pelvis (`spine.003` → `spine`),
   and source rigs carry anywhere from two to eight tail joints, so they are spread evenly over the four controls.
   Without this every `Tail*` joint collided on one control and the tail stayed frozen.
+  A four-legged rig wants a four-legged clip: a standing (human) BVH on it — the sample `wave.bvh` included — drives
+  the front legs with the arms, and `bw motion` says so with the same command on the repository's four-legged walk
+  (below) or on your latest human rig.
+  The repository ships one: [`examples/dog_walk.bvh`](../examples/dog_walk.bvh), a procedural one-second trot whose
+  rest pose bends like the wolf metarig (20 joints, all mapped; 8.5° mean bone direction error on the capsule dog).
+  A four-legged rig's `next:` lines offer it instead of the hand wave. The other way round — a four-legged BVH (head
+  in front of the hips, front paws on the floor) on a human rig — the front legs would drive the arms and the tail is
+  dropped, so `bw motion` says so with the same command on your latest four-legged rig or with the hand wave.
 - **Legs (`--legs auto`, default):** legs whose source chain ends at a foot tip are driven by Rigify's foot IK: the
   tip follows the BVH tip relative to the hip, scaled by the leg-length ratio, with the clip's lowest foot point taken
   as the floor. Legs whose source chain stops at the wrist (the Quaternius wolf's front legs — the paw is a detached
