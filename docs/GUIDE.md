@@ -607,9 +607,7 @@ are skipped. `LeftLeg` means the thigh when the same side also has a `Shin`, and
 starts at it, so when a side has a `Knee` or `Elbow` joint, `Hip` is the thigh and `Shoulder` the upper arm (the
 pelvis and Mixamo's `LeftShoulder` collarbone are unaffected). Biovision names (`LeftCollar`, `LeftUpArm`, `LeftLowArm`,
 `LeftLowLeg`) map the same way as their Mixamo counterparts. So "unmapped
-['Spine']" in `report.md` is expected, not a failure; the motion sample
-[`examples/sample-output/capsule_doll_motion.md`](../examples/sample-output/capsule_doll_motion.md) (`python3
-examples/rig_sample.py --motion`) maps 18 of 19 joints this way. Anything else unmapped can be added with `--map`
+['Spine']" in `report.md` is expected, not a failure. Anything else unmapped can be added with `--map`
 (above); when an arm or leg control ends up with no BVH bone at all, `bw motion` names those controls and
 the unrecognised bones and gives the `--map` command. `tests/test_docs.py` checks this table against the matching code.
 
@@ -628,11 +626,8 @@ axis on which the head sits above the feet; with no recognisable head or feet it
   and source rigs carry anywhere from two to eight tail joints, so they are spread evenly over the four controls.
   Without this every `Tail*` joint collided on one control and the tail stayed frozen.
   A four-legged rig wants a four-legged clip: a standing (human) BVH on it — the sample `wave.bvh` included — drives
-  the front legs with the arms, and `bw motion` says so with the same command on the repository's four-legged walk
-  (below) or on your latest human rig.
-  The repository ships one: [`examples/dog_walk.bvh`](../examples/dog_walk.bvh), a procedural one-second trot whose
-  rest pose bends like the wolf metarig (20 joints, all mapped; 8.5° mean bone direction error on the capsule dog).
-  A four-legged rig's `next:` lines offer it instead of the hand wave. The other way round — a four-legged BVH (head
+  the front legs with the arms, and `bw motion` says so with the same command on your latest human rig.
+  The other way round — a four-legged BVH (head
   in front of the hips, front paws on the floor) on a human rig — the front legs would drive the arms and the tail is
   dropped, so `bw motion` says so with the same command on your latest four-legged rig or with the hand wave.
 - **Legs (`--legs auto`, default):** legs whose source chain ends at a foot tip are driven by Rigify's foot IK: the
