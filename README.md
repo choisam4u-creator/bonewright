@@ -2,7 +2,7 @@
 
 **Give it a character mesh (`.glb` / `.gltf`), get back a Blender rig you can animate** — Rigify controls,
 skin weights on every vertex, and a pass/fail gate that tells you when the result should not be trusted.
-Python drives the steps, `codex exec` judges, gates verify. [한국어](README.ko.md)
+Python drives the steps, `codex exec` fits joints, gates verify. [한국어](README.ko.md)
 
 <p align="center">
   <img src="docs/media/rig-views.png" width="860"
@@ -49,7 +49,7 @@ bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 | already has a skeleton | `bw rig x.glb --from-skeleton` (no fit call; add `--no-judge` for 0 tokens) |
 | no skeleton and no preset fits | `bw rig x.glb --from-shape` |
 
-A default `bw rig` run can make two model calls (about $1): fit and the visual judge. `--from-skeleton` / `--from-shape`
+A default `bw rig` run can make at most one model call: fit. The visual judge is off by default and live judge calls are blocked; only an explicitly requested mock judge can run. `--from-skeleton` / `--from-shape`
 skip fit; combine either option with `--no-judge` for 0 model calls and no codex requirement.
 `bw rig character.glb --no-judge` still leaves the fit model call enabled with the default backend.
 `BW_BACKEND=mock` uses the mock backend for both stages: 0 model calls, no codex required.

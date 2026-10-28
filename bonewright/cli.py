@@ -57,8 +57,8 @@ def doctor(warn_unknown: bool = True) -> int:
     else:
         print(either, T("bpy 모듈:", "bpy module:"), T("있음", "found") if bpy_ok else T("없음 — ", "not found — ") + blender.bpy_install())
     codex = shutil.which("codex")
-    print(opt, "codex CLI:", codex or T("없음 — 모델 판정(기본 `bw rig`)에만 필요. 토큰 0 경로(--from-skeleton·--from-shape·--targets·BW_BACKEND=mock)는 없이 된다 → https://developers.openai.com/codex",
-                                       "not found — needed only for the model judge (default `bw rig`). The 0-token routes (--from-skeleton, --from-shape, --targets, BW_BACKEND=mock) work without it → https://developers.openai.com/codex"))
+    print(opt, "codex CLI:", codex or T("없음 — 맞춤 모델(기본 `bw rig`)에만 필요. 토큰 0 경로(--from-skeleton·--from-shape·--targets·BW_BACKEND=mock)는 없이 된다 → https://developers.openai.com/codex",
+                                       "not found — needed only for the fit model (default `bw rig`). The 0-token routes (--from-skeleton, --from-shape, --targets, BW_BACKEND=mock) work without it → https://developers.openai.com/codex"))
     if codex:
         print("  ", subprocess.run(["codex", "--version"], capture_output=True, text=True).stdout.strip())
         login = subprocess.run(["codex", "login", "status"], capture_output=True, text=True)
@@ -69,8 +69,8 @@ def doctor(warn_unknown: bool = True) -> int:
     if backend == "mock":
         print(T("모델 호출: 없음 — BW_BACKEND=mock(토큰 0)", "model calls: none — BW_BACKEND=mock (0 tokens)"))
     elif backend == "codex":
-        print(T("모델 호출: codex(기본) — 기본 `bw rig` 는 2회(≈$1). 토큰 0 은 BW_BACKEND=mock, 또는 --from-skeleton·--targets 에 --no-judge 를 함께",
-                "model calls: codex (default) — a default `bw rig` makes 2 (≈$1). For 0 tokens: BW_BACKEND=mock, or --from-skeleton / --targets together with --no-judge"))
+        print(T("모델 호출: codex(기본) — 기본 `bw rig` 는 fit 최대 1회. 시각 판정은 꺼짐. 토큰 0 은 BW_BACKEND=mock, 또는 --from-skeleton·--targets 에 --no-judge 를 함께",
+                "model calls: codex (default) — a default `bw rig` makes up to 1 fit call. The visual judge is off. For 0 tokens: BW_BACKEND=mock, or --from-skeleton / --targets together with --no-judge"))
     print(T("작업 폴더(ROOT):", "work folder (ROOT):"), ROOT, T("(BW_HOME 으로 바꿀 수 있음)", "(change with BW_HOME)"))
     if warn_unknown and (warn := unknown_keys_line(ROOT)):
         print(warn)
@@ -242,7 +242,7 @@ def _hint_on_bad_command(p: argparse.ArgumentParser, sub) -> None:
                                      "`bw rig <mesh> --targets runs/<id>/targets.json` (where it stopped: `bw status <id>`)")
                 return orig(message)
             if (alias := ALIASES.get(m.group(1).lower())):   # 철자는 멀어도 뜻이 같은 말(`bw retarget`·`bw why`) — 10/13 15회차 실측
-                cmd = alias[0].replace("<file.bvh>", pipeline.sample_bvh())   # 자리표시 대신 그대로 도는 값(샘플 BVH·최근 리그)
+                cmd = alias[0].replace("<file.bvh>", pipeline.quote_arg(pipeline.sample_bvh()))   # 자리표시 대신 그대로 도는 값(샘플 BVH·최근 리그)
                 if "<first-rig>" in cmd:
                     where, first = _from_repo()   # 설치본만이면 '저장소 폴더에서'
                     cmd = where + cmd.replace("<first-rig>", first)
@@ -340,7 +340,7 @@ def _hint_on_unknown_option(p: argparse.ArgumentParser, sub) -> None:
                     if o in ("export", "demo") and (rid := pipeline.latest_rig(ROOT)):
                         words.append(rid)
                     if o == "motion" and flag not in ("--bvh", "--text"):   # 동작 출처가 꼭 있어야 돈다 — 저장소의 샘플 BVH
-                        words += ["--bvh", pipeline.sample_bvh()]
+                        words += ["--bvh", pipeline.quote_arg(pipeline.sample_bvh())]
                     words.append(flag)
                     if act.nargs != 0:
                         nxt = val if eq else (args[i + 1] if i + 1 < len(args) and not args[i + 1].startswith("-") else "")
@@ -487,7 +487,7 @@ def example(flag: str) -> str | None:
     """EXAMPLES 의 값, 그때그때 그대로 도는 값으로: `--bvh` 는 sample_bvh()(저장소 밖이면 절대 경로), `--rig` 는 최근 리그 id.
     10/13 16회차 실측: 임시 폴더에서 `bw motion --bvh` → "e.g. --bvh examples/wave.bvh"(없는 파일)."""
     if flag == "--bvh":
-        return pipeline.sample_bvh()
+        return pipeline.quote_arg(pipeline.sample_bvh())
     if flag == "--rig" and (rid := pipeline.latest_rig(ROOT)):
         return rid
     return EXAMPLES.get(flag)
@@ -557,7 +557,7 @@ def rig_result_next(cmd: str, rid: str, out: Path) -> str:
             parts.append(T(f"GIF `{pipeline._arg(gif, cwd)}`", f"GIF `{pipeline._arg(gif, cwd)}`"))
         parts.append(T(f"게임용 GLB `{pipeline._arg(glb, cwd)}`", f"game-ready GLB `{pipeline._arg(glb, cwd)}`") if glb.is_file()
                      else T(f"`bw export {rid}`(게임용 GLB)", f"`bw export {rid}` (game-ready GLB)"))
-    bv = pipeline.rig_sample_bvh(ROOT, rid)   # 네 발 리그면 네 발 걷기
+    bv = pipeline.quote_arg(pipeline.rig_sample_bvh(ROOT, rid))   # 네 발 리그면 네 발 걷기
     parts.append(T(f"동작을 입힌 GLB: `bw motion --bvh {bv} --rig {rid} --export`", f"with motion, as a GLB: `bw motion --bvh {bv} --rig {rid} --export`"))
     return T("다음: ", "next: ") + " · ".join(parts)
 
@@ -569,7 +569,7 @@ def review_fix(rd: Path, s: dict) -> str:
     first, more = s["reasons"][0], len(s["reasons"]) - 1
     out = T(f"→ 걸린 검사: {first}", f"→ failed check: {first}") + (T(f" 외 {more}개", f" (+{more} more)") if more else "")
     if s.get("mesh") and (rd / "targets.json").is_file():
-        again = f"bw rig {pipeline._arg(s['mesh'], cwd)}{pipeline.preset_opt(s.get('preset'))} --targets {pipeline._arg(rd / 'targets.json', cwd)}"
+        again = f"bw rig {pipeline._arg(s['mesh'], cwd)}{pipeline.preset_opt(s.get('preset'))} --targets {pipeline._arg(rd / 'targets.json', cwd)} --no-judge"
         out += T(f"\n    → targets.json 의 관절을 고쳐 다시(토큰 0): `{again}` · 자세히: {pipeline._arg(rd / 'report.md', cwd)}",
                  f"\n    → fix the joints in targets.json and rerun (0 tokens): `{again}` · details: {pipeline._arg(rd / 'report.md', cwd)}")
     return out
@@ -587,7 +587,7 @@ def status_detail(rd: Path, kind: str | None) -> list[str]:
         lines.append(T("  만든 파일: ", "  files: ") + " · ".join(made))
     if (rd / "02_rigged.blend").is_file():   # 끝난 리그: `bw rig` 의 next: 와 같은 명령, 이미 만든 것은 빼고
         todo = [c for c, f in ((f"bw demo {rid}", "demo.mp4"), (f"bw export {rid}", "rigged.glb")) if not (rd / f).is_file()]
-        todo.append(f"bw motion --bvh {pipeline.rig_sample_bvh(rd.parent.parent, rid)} --rig {rid}")
+        todo.append(f"bw motion --bvh {pipeline.quote_arg(pipeline.rig_sample_bvh(rd.parent.parent, rid))} --rig {rid}")
         lines.append(T("다음: ", "next: ") + " · ".join(f"`{c}`" for c in todo))
     return lines
 
@@ -605,7 +605,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--run-id", type=run_id_arg, help=T("실행 폴더 이름 runs/<id>(기본 rig-날짜-시각). 같은 id 면 덮어쓴다", "name of the run folder runs/<id> (default rig-<date>-<time>); the same id overwrites")); r.add_argument("--lang", choices=["ko", "en"], help=T("모델 프롬프트 언어(생략하면 runs/config.json 의 lang, 그것도 없으면 BW_LANG·로캘)", "language of the model prompts (default: lang in runs/config.json, else BW_LANG / locale like the screen text)")); r.add_argument("--budget", type=positive_int("--budget", 600_000), metavar="TOKENS",
                    help=T("모델 입력 토큰 상한(기본 600,000 — runs/config.json 의 budget.max_input_tokens). 넘으면 멈춘다",
                           "cap on model input tokens (default 600,000 — budget.max_input_tokens in runs/config.json); the run stops when it is reached"))
-    r.add_argument("--no-judge", action="store_true", help=T("시각 판정(모델 호출) 생략", "skip the visual judge (model call)")); r.add_argument("--facing", choices=FACING, default="auto", help=facing_help()); r.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
+    r.add_argument("--no-judge", action="store_true", default=True, help=T("시각 판정 생략(기본 꺼짐, 실제 모델 판정 차단)", "skip the visual judge (off by default; live judge disabled)")); r.add_argument("--facing", choices=FACING, default="auto", help=facing_help()); r.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
     _hint_on_choice(r, "--facing", facing_help)
     r.add_argument("--force", action="store_true", help=T("거절 게이트를 무시하고 진행(비인간·크기 이상 메시도 리깅 시도)", "ignore the rejection gate and rig anyway (non-human or oddly sized meshes too)"))
     _hint_on_conflict(r, T("→ 하나만 준다: --from-skeleton 은 파일에 든 원본 뼈대를 쓰고, --from-shape 은 뼈대가 없을 때 메시 모양에서 만든다",
@@ -624,8 +624,8 @@ def build_parser() -> argparse.ArgumentParser:
     m = sub.add_parser("motion", help=T("텍스트(kimodo.cpp) 또는 BVH 에서 동작을 만들어 Blender 로 가져온다", "make motion from text (kimodo.cpp) or a BVH and bring it into Blender"))
     msrc = m.add_mutually_exclusive_group()   # 동작 출처는 하나만(10/11 12회차: 둘 다 주면 말없이 --text 로 가 kimodo 없음으로 멈췄다)
     msrc.add_argument("--text", help=T("동작을 글로(kimodo.cpp 로 BVH 를 만든다, 예: \"a person walks\")", "describe the motion in words (kimodo.cpp makes the BVH, e.g. \"a person walks\")")); msrc.add_argument("--bvh", help=T("옮길 BVH 파일", "BVH file to retarget")); m.add_argument("--run-id", type=run_id_arg, help=T("실행 폴더 이름 runs/<id>(기본 motion-날짜-시각)", "name of the run folder runs/<id> (default motion-<date>-<time>)")); m.add_argument("--quiet", action="store_true", help=T("진행 로그를 끈다(결과·오류만)", "no progress log (results and errors only)"))
-    _hint_on_conflict(m, T(f"→ 하나만 준다: 이미 있는 동작 파일이면 --bvh(예: --bvh {pipeline.sample_bvh()}), 글로 새로 만들려면 --text(kimodo.cpp 필요)",
-                           f"→ pick one: --bvh for a motion file you have (e.g. --bvh {pipeline.sample_bvh()}), --text to make one from words (needs kimodo.cpp)"))
+    _hint_on_conflict(m, T(f"→ 하나만 준다: 이미 있는 동작 파일이면 --bvh(예: --bvh {pipeline.quote_arg(pipeline.sample_bvh())}), 글로 새로 만들려면 --text(kimodo.cpp 필요)",
+                           f"→ pick one: --bvh for a motion file you have (e.g. --bvh {pipeline.quote_arg(pipeline.sample_bvh())}), --text to make one from words (needs kimodo.cpp)"))
     m.add_argument("--rig", type=run_id_arg, help=T("리깅 결과 run-id: 그 리그에 동작을 옮긴다(리타겟, 토큰 0)", "run-id of a rig: retarget the motion onto it (0 tokens)"))
     m.add_argument("--preset", choices=["humanoid", "quadruped"], default=None, help=T("리그의 프리셋. 생략하면 리그 실행 기록(rig_stats.json)에서 읽는다", "the rig's preset. Read from the rig run (rig_stats.json) when omitted"))
     _hint_on_preset(m)
@@ -858,7 +858,7 @@ def _main() -> int:
         report_unexpected(e, started, getattr(a, "run_id", None)); return 2
     print(result_label(a.cmd, out), out)
     if a.cmd == "rig":   # README 다음 줄이 `bw demo <run-id>` 라 id 를 경로에서 오려 내지 않게(stdout 은 보고서 경로 한 줄 그대로)
-        rid = Path(out).parent.name; bv = pipeline.rig_sample_bvh(ROOT, rid)   # 저장소의 샘플 BVH(네 발 리그면 네 발 걷기) — 그대로 붙여 넣어 돈다
+        rid = Path(out).parent.name; bv = pipeline.quote_arg(pipeline.rig_sample_bvh(ROOT, rid))   # 저장소의 샘플 BVH(네 발 리그면 네 발 걷기) — 그대로 붙여 넣어 돈다
         try:   # needs_review 면 고칠 명령을 먼저(10/18 26회차: "done (needs_review)" 뒤에 바로 demo·export 만 권했다)
             st = json.loads((Path(out).parent / "state.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):

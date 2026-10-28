@@ -43,7 +43,7 @@ class RigMockTests(unittest.TestCase):
         rep = (self.tmp / "runs/t1/report.md").read_text()
         self.assertNotIn(str((self.tmp / "runs/t1").resolve()), rep)   # 실행 폴더 안 파일은 상대 경로(이슈에 그대로 붙인다)
         self.assertIn("- targets: `runs/t1/targets.json`", rep)   # 프로젝트 폴더에서 그대로 `--targets` 에 넘길 수 있는 경로(10/7 Codex 리뷰)
-        self.assertIn("`bw rig test_humanoid.glb --targets runs/t1/targets.json`", rep)   # 메시 경로까지 채워 그대로 돈다(10/11 9회차)
+        self.assertIn("`bw rig test_humanoid.glb --targets runs/t1/targets.json --no-judge`", rep)   # 메시 경로까지 채워 그대로 돈다(10/11 9회차)
         self.assertRegex(rep, r"- versions: bonewright \S+ · Blender \d")   # 이슈 재현용 버전 줄(Blender 쪽 _common.done 이 채운다)
         # 렌더는 사람이 볼 그림이라 `BW_NO_RENDER=1` 로 끌 수 있다(화면 없는 CI 서버에서 렌더러가 죽는다).
         # 꺼져 있으면 그림이 없는 게 정상이고, 켜져 있으면 세 장이 다 나와야 한다

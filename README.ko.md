@@ -2,7 +2,7 @@
 
 **캐릭터 메시(`.glb` / `.gltf`)를 넣으면 애니메이션할 수 있는 블렌더 리그를 돌려준다** — Rigify 컨트롤,
 모든 버텍스의 스킨 웨이트, 그리고 결과를 믿으면 안 될 때 알려 주는 통과/거부 게이트.
-파이썬이 단계를 돌리고, `codex exec`가 판정하고, 게이트가 검증한다. [English](README.md)
+파이썬이 단계를 돌리고, `codex exec`가 관절을 맞추고, 게이트가 검증한다. [English](README.md)
 
 <p align="center">
   <img src="docs/media/rig-views.png" width="860" alt="메시를 투과해 정면·측면·3/4에서 본 Rigify 리그">
@@ -47,7 +47,7 @@ bw export <run-id>            # 변형 본만 남긴 GLB + 스킨, 다시 불러
 | 이미 뼈대가 있음 | `bw rig x.glb --from-skeleton` (맞춤 호출 없음, `--no-judge` 를 더하면 토큰 0) |
 | 뼈대 없고 맞는 프리셋도 없음 | `bw rig x.glb --from-shape` |
 
-기본 `bw rig` 는 모델을 최대 2회(약 1달러) 호출할 수 있다: 맞춤(fit)과 시각 판정(judge). `--from-skeleton`·`--from-shape` 는
+기본 `bw rig` 는 맞춤(fit) 모델을 최대 1회 호출할 수 있다. 시각 판정은 기본 꺼짐이며 실제 호출을 차단한다. 파이썬에서 명시한 mock 판정만 실행할 수 있다. `--from-skeleton`·`--from-shape` 는
 맞춤을 건너뛴다. 둘 중 한 옵션에 `--no-judge` 를 함께 쓰면 모델 호출 0회이며 codex 가 필요 없다.
 `bw rig character.glb --no-judge` 는 기본 백엔드에서 맞춤 모델 호출이 남는다.
 `BW_BACKEND=mock` 은 두 단계에 mock 백엔드를 써서 모델 호출 0회이며 codex 가 필요 없다.

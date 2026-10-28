@@ -923,7 +923,7 @@ class NeedsReviewStatusTests(unittest.TestCase):
                 shown = out.getvalue()
                 self.assertIn("deform bones outside the mesh 2", shown); self.assertIn(want, shown); self.assertNotIn("for-issue", shown)
                 a = cli.build_parser().parse_args(shlex.split(re.search(r"`bw (rig [^`]+)`", shown).group(1)))
-                self.assertEqual((str(mesh), "quadruped", str(rd / "targets.json")), (str(Path(a.mesh).resolve()), a.preset, str(Path(a.targets).resolve())))
+                self.assertEqual((str(mesh), "quadruped", str(rd / "targets.json")), (str(Path(a.mesh).expanduser().resolve()), a.preset, str(Path(a.targets).expanduser().resolve())))   # 홈은 `~`로 보이고 셸이 펼친다
         self.assertEqual(("", "", " --preset quadruped"), (cli.pipeline.preset_opt(None), cli.pipeline.preset_opt("humanoid"), cli.pipeline.preset_opt("quadruped")))
 
     def test_rig_end_gives_the_fix_before_next(self):
@@ -948,7 +948,74 @@ class NeedsReviewStatusTests(unittest.TestCase):
                     if status != "ok":
                         self.assertLess(shown.index("symmetry error"), shown.index("bw demo q1"))
                         a = cli.build_parser().parse_args(shlex.split(re.search(r"`bw (rig [^`]+)`", shown).group(1)))
-                        self.assertEqual(("quadruped", str(rd / "targets.json")), (a.preset, str(Path(a.targets).resolve())))
+                        self.assertEqual(("quadruped", str(rd / "targets.json")), (a.preset, str(Path(a.targets).expanduser().resolve())))   # 안내는 홈을 `~`로 보이고 셸이 펼친다
+
+
+    def test_zero_token_reruns_never_enter_the_judge(self):
+        """Defaults and parsed status/rig/report reruns never dispatch a judge without API keys.
+
+        실제 파서는 그대로 쓰고 Blender 경계만 고정 응답으로 바꾼다. 렌더 분기까지 지나 호출 0을 확인한다.
+        """
+        import inspect
+        import re
+        from bonewright import config, pipeline
+        self.assertTrue(inspect.signature(pipeline.rig).parameters["no_judge"].default)
+        analysis = {"stats": {"verts": 100, "loose_parts": 1, "nonmanifold_edges": 0},
+                    "landmarks": {"height": 1.8, "ground_z": 0, "symmetry_error": 0, "pose_guess": "t", "quad": {"ok": True}}}
+        stats = {"rig_bones": 100, "deform_bones": 100, "unweighted_verts": 0, "bones_outside_bbox": [],
+                 "moved_bones": [], "weight_sum_min": 1, "weight_sum_max": 1, "symmetry_max_error": 0.1}
+        seen = []
+        def blender_reply(run, name, params):
+            seen.append(name)
+            if name == "analyze":
+                return analysis
+            if name == "fit_generate":
+                return {"blend": str(run.dir / "02_rigged.blend"), "stats": dict(stats)}
+            if name == "render_views":
+                return {"images": [str(run.dir / "view_front.png")], "bone_proxies": 1}
+            self.fail("unexpected Blender step: " + name)
+        for backend in (None, "codex", "mock"):
+            for lang in ("en", "ko"):
+                env = {"BW_LANG": lang, **({"BW_BACKEND": backend} if backend else {})}
+                seen.clear()
+                with self.subTest(backend=backend, lang=lang), tempfile.TemporaryDirectory() as t, \
+                        patch.dict(os.environ, env, clear=True), patch.object(cli, "ROOT", Path(t)), \
+                        patch.object(pipeline, "need_blender", return_value=None), \
+                        patch.object(pipeline.Run, "blender", blender_reply), \
+                        patch.object(pipeline, "run_step", side_effect=AssertionError("model dispatch attempted")) as model:
+                    root = Path(t); mesh = root / "my dog.glb"; mesh.write_bytes(b"glTF")
+                    targets = root / "edited targets.json"; targets.write_text('{"spine": {"head": [0, 0, 1]}}')
+                    cwd = os.getcwd()
+                    try:
+                        os.chdir(root)
+                        out, err = io.StringIO(), io.StringIO()
+                        argv = ["bw", "rig", str(mesh), "--preset", "quadruped", "--targets", str(targets), "--run-id", "seed"]
+                        with patch.object(sys, "argv", argv), patch("sys.stdout", out), patch("sys.stderr", err), \
+                                patch.object(pipeline, "rig", wraps=pipeline.rig) as rig:
+                            self.assertEqual(0, cli.main())
+                            self.assertTrue(rig.call_args.kwargs["no_judge"])
+                        texts = {"rig": err.getvalue(), "report": (root / "runs/seed/report.md").read_text()}
+                        out = io.StringIO()
+                        with patch.object(sys, "argv", ["bw", "status", "seed"]), patch("sys.stdout", out), patch("sys.stderr", io.StringIO()):
+                            self.assertEqual(0, cli.main())
+                        texts["status"] = out.getvalue()
+                        for source, text in texts.items():
+                            with self.subTest(source=source):
+                                words = shlex.split(re.search(r"`bw (rig [^`]+--targets[^`]+)`", text).group(1))
+                                self.assertIn("--no-judge", words)
+                                parsed = cli.build_parser().parse_args(words)
+                                self.assertTrue(parsed.no_judge)
+                                with patch.object(sys, "argv", ["bw", *words, "--run-id", "again-" + source]), \
+                                        patch("sys.stdout", io.StringIO()), patch("sys.stderr", io.StringIO()):
+                                    self.assertEqual(0, cli.main())
+                        if backend != "mock":
+                            pipeline.rig(root, str(mesh), "quadruped", run_id="explicit-false", targets_file=str(targets), no_judge=False, quiet=True)
+                            with self.assertRaises(pipeline.Blocked):
+                                pipeline.Run(root, "shared-entry", config.load(root), quiet=True).call("judge", "judge", {}, {})
+                        self.assertIn("render_views", seen)
+                        model.assert_not_called()
+                    finally:
+                        os.chdir(cwd)
 
 
 class EmptyStatusTests(unittest.TestCase):

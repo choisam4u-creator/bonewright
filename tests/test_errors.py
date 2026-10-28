@@ -1624,7 +1624,7 @@ class RigStartLineTests(unittest.TestCase):
 
     def test_start_line_says_how_many_model_calls(self):
         """The first `bw rig` line says how many model calls it may make (cost used to show only in report.md at the end)."""
-        self.assertIn("up to 2 model call(s) (fit·judge)", self.start_line("codex"))
+        self.assertIn("up to 1 model call(s) (fit)", self.start_line("codex"))
         self.assertIn("up to 1 model call(s) (fit)", self.start_line("codex", no_judge=True))
         self.assertIn("0 model calls", self.start_line("codex", from_skeleton=True, no_judge=True))
         self.assertIn("0 model calls", self.start_line("mock"))
@@ -1921,6 +1921,47 @@ class BpyProbeCacheTests(unittest.TestCase):
             self.assertFalse(blender.has_bpy_module("/y/python"))
         self.assertEqual(["/x/python", "/y/python"], calls)
 
+
+
+class SampleBvhQuotingTests(unittest.TestCase):
+    def test_warning_commands_keep_spaced_sample_path_in_one_argument(self):
+        """Sample paths with spaces remain one exact BVH argument in both warning command forms.
+
+        공백 있는 저장소·설치본의 원시 샘플 경로를 마지막 안내에서 한 번만 인용한다.
+        """
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            work = root / "outside"
+            work.mkdir()
+            try:
+                os.chdir(work)
+                for source in ("repository", "installed"):
+                    pkg = root / ("BW Review" if source == "repository" else "BW Install/site-packages") / "bonewright"
+                    samples = pkg.parent / "examples" if source == "repository" else pkg / "_samples"
+                    samples.mkdir(parents=True)
+                    for name in ("wave.bvh", "dog_walk.bvh"):
+                        (samples / name).write_text("HIERARCHY")
+                    for quad, warning in ((True, pipeline.upright_on_quad_warning), (False, pipeline.lying_on_human_warning)):
+                        expected = str((samples / ("dog_walk.bvh" if quad else "wave.bvh")).resolve())
+                        for lang in ("en", "ko"):
+                            for joined in (False, True):
+                                before = ["--bvh=old.bvh"] if joined else ["--bvh", "old.bvh"]
+                                argv = ["bw", "motion", *before, "--rig", "r1"]
+                                with self.subTest(source=source, quad=quad, lang=lang, joined=joined), \
+                                        patch.object(pipeline, "__file__", str(pkg / "pipeline.py")), \
+                                        patch.dict(os.environ, {"BW_LANG": lang}), patch.object(sys, "argv", argv):
+                                    self.assertEqual(expected, pipeline.sample_bvh(quad))
+                                    message = warning(root, "r1")
+                                    command = re.search(r"`(bw motion [^`]+)`", message)[1]
+                                    words = shlex.split(command)
+                                    replacement = ["--bvh=" + expected] if joined else ["--bvh", expected]
+                                    self.assertEqual(["bw", "motion", *replacement, "--rig", "r1"], words)
+                                    parsed = cli.build_parser().parse_args(words[1:])
+                                    self.assertEqual(expected, parsed.bvh)
+                                    self.assertTrue(Path(parsed.bvh).is_file())
+            finally:
+                os.chdir(cwd)
 
 if __name__ == "__main__":
     unittest.main()

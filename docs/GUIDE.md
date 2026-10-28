@@ -2,7 +2,7 @@
 
 > Short version: [README.md](../README.md). This is the complete reference, moved out of the README unchanged apart from link paths.
 
-Rig and animate Blender characters with Codex. **Python drives the steps, `codex exec` judges, gates verify.**
+Rig and animate Blender characters with Codex. **Python drives the steps, `codex exec` fits joints, gates verify.**
 
 > **License: MIT, except `bonewright/bpy_scripts/`, which is GPL-3.0-or-later.** Anything that `import bpy` is a
 > derivative work of Blender, so it has to be GPL; the MIT core reaches Blender only by launching it as a child
@@ -119,7 +119,7 @@ bw rig character.glb          # rig it; add --from-skeleton if the file already 
 ```
 
 Developed and locally validated on macOS with Blender 5.2 LTS and Codex CLI 0.155; CI uses two Linux jobs.
-Everything except the `fit` and `judge` steps costs zero model tokens; `BW_BACKEND=mock` runs the whole pipeline
+Only the `fit` step can use model tokens; live visual judge calls are blocked (the judge defaults to off). `BW_BACKEND=mock` runs the whole pipeline
 deterministically with no model calls at all, which is what the tests and the benchmark use. Only `mock` and
 `codex` (the default when unset) are accepted: any other value, a typo such as `Mock` included, stops before any model
 call instead of quietly falling back to the paid path.
@@ -442,13 +442,12 @@ or a usage limit ends with `→ why: bw doctor --for-issue <run-id>`, which show
 stopped on a `BLOCKED:` message instead repeats that message there, with its next command (`BW_NO_RENDER=1 bw motion …`);
 so does a rejected rig (`fit rejected`, `preflight rejected`: the reasons, the `--targets` draft command, `--force`).
 A rig that finished as `needs_review` (both at the end of `bw rig`, before its `next:` line, and in `bw status`) names its first failed check and the 0-token rerun from its `targets.json`
-(`bw rig <mesh> --preset <preset> --targets runs/<id>/targets.json`).
+(`bw rig <mesh> --preset <preset> --targets runs/<id>/targets.json --no-judge`).
 `bw export` and `bw demo` record their own `export_state.json` / `demo_state.json`, so a failed export never turns a
 finished rig into a failed one.
 
-Cost: one `bw rig` makes **2 model calls** — a fit call (~80k input tokens) and a visual judge call (2 images).
-Measured runs landed at **$0.86 – $1.10** each. `bw usage` prints the ledger. A rejected mesh costs nothing, and
-`--no-judge` skips the second call.
+Cost: a default `bw rig` makes **at most 1 model call** — fit. The visual judge defaults to off, and live judge calls are blocked even when a Python caller passes `no_judge=False`; that argument can enable only the mock judge.
+Earlier fit-and-judge runs measured **$0.86 – $1.10** each; the changed default has no new cost measurement. `bw usage` prints the ledger. A rejected mesh costs nothing. `--no-judge` remains accepted for existing commands.
 
 When a command stops with `BLOCKED:`, the line starting with `→` says what to change. For an error it did not
 expect, it also prints the run's `logs/` folder (one Blender log per step); prefix the command with `BW_DEBUG=1`
