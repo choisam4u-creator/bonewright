@@ -33,3 +33,6 @@ packages = ["bonewright"]
 [tool.hatch.build.targets.wheel.force-include]
 # pip 으로 설치해도 `bw plugin-path` 가 실제 폴더를 가리키게 Codex 플러그인을 패키지 안에 함께 싣는다
 "plugin" = "bonewright/_plugin"
+# 안내 명령(`bw motion --bvh …`)이 저장소 밖 설치본에서도 실제 파일을 가리키게 샘플 BVH(손 흔들기 12KB·네 발 걷기 13KB, 절차 생성 MIT)도 함께
+"examples/wave.bvh" = "bonewright/_samples/wave.bvh"
+"examples/dog_walk.bvh" = "bonewright/_samples/dog_walk.bvh"

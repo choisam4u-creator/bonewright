@@ -6,6 +6,10 @@ import unittest
 from pathlib import Path
 
 PKG = Path(__file__).resolve().parent.parent / "bonewright"
+# 사용자가 직접 돌리는 저장소 스크립트(README·examples/README 가 안내한다). 10/9 3회차에 T() 를 넣었다
+USER_SCRIPTS = [PKG.parent / "examples" / "rig_sample.py", PKG.parent / "scripts" / "fetch_bench_assets.py",
+                PKG.parent / "scripts" / "check_license_boundary.py", PKG.parent / "scripts" / "bench_score.py",
+                PKG.parent / "scripts" / "check_issue_report.py"]
 
 
 def hangul(s: str) -> bool:
@@ -40,7 +44,7 @@ def placeholders(node: ast.expr) -> list[str]:
 
 
 def t_calls():
-    for path in sorted(PKG.rglob("*.py")):
+    for path in [*sorted(PKG.rglob("*.py")), *USER_SCRIPTS]:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "T":
@@ -72,7 +76,9 @@ class TPairTests(unittest.TestCase):
 
 
     def test_progress_log_has_no_bare_hangul(self):
-        """진행 로그(`_log(quiet, 메시지)`)의 한국어는 모두 T() 안에 있어야 영어 모드 첫 화면에 한국어가 안 섞인다."""
+        """Korean in progress log messages (_log) is always inside T().
+
+        진행 로그(`_log(quiet, 메시지)`)의 한국어는 모두 T() 안에 있어야 영어 모드 첫 화면에 한국어가 안 섞인다."""
         def bare(node):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "T":
                 return
@@ -111,15 +117,142 @@ class TPairTests(unittest.TestCase):
         return found
 
     def test_blender_scripts_have_no_bare_hangul(self):
-        """Blender 스크립트(`bpy_scripts/`, GPL 쪽)의 문자열 중 한국어는 docstring 이 아니면 T() 안에 있어야 한다.
+        """Korean strings in bpy_scripts/ are inside T() unless they are docstrings.
+
+        Blender 스크립트(`bpy_scripts/`, GPL 쪽)의 문자열 중 한국어는 docstring 이 아니면 T() 안에 있어야 한다.
         오류(`error`)·분석 경고(`suspect`)·사족 notes 가 `bw` 화면에 그대로 나오기 때문이다. 주석은 AST 에 없어 상관없다."""
         self.assertGreater(self.bare_hangul(sorted((PKG / "bpy_scripts").glob("*.py"))), 15)   # 10/6: analyze·_quad·_common 등에 20곳
 
     def test_package_has_no_bare_hangul(self):
-        """`bonewright/` 전체(본체): `bw bench` 표·`runs/<id>/report.md`·오류·mock 응답까지 영어 모드에 한국어가 섞이지 않게.
+        """Korean strings anywhere in bonewright/ are inside T() so English mode stays English.
+
+        `bonewright/` 전체(본체): `bw bench` 표·`runs/<id>/report.md`·오류·mock 응답까지 영어 모드에 한국어가 섞이지 않게.
         10/7 bench 17·pipeline 12·codex 2·mock 2·manifest 1곳을 T() 로 옮기고 넓혔다."""
         files = sorted(p for p in PKG.rglob("*.py") if "bpy_scripts" not in p.parts)
         self.assertGreater(self.bare_hangul(files), 100)
 
+
+    def test_user_scripts_have_no_bare_hangul(self):
+        """Korean strings in user-facing scripts (examples/, scripts/) are inside T().
+
+        `examples/rig_sample.py`·`scripts/fetch_bench_assets.py`·`scripts/check_license_boundary.py`: 영어 화면에 나오는 문자열의 한국어는 T() 안에만."""
+        for path in USER_SCRIPTS:
+            with self.subTest(script=path.name):
+                self.assertGreater(self.bare_hangul([path]), 3)
+
+
+class PromptLangTests(unittest.TestCase):
+    """모델 프롬프트 언어: `--lang` > runs/config.json 의 lang > 화면 언어(BW_LANG·로캘).
+    10/8 전에는 기본이 ko 라 영어 사용자도 판정 문장(notes·reasoning)을 한국어로 받았다."""
+
+    def load(self, env: dict, lang=None, cfg_json=None):
+        import json
+        import os
+        import tempfile
+        from unittest.mock import patch
+        from bonewright import config
+        with tempfile.TemporaryDirectory() as d:
+            if cfg_json is not None:
+                (Path(d) / "runs").mkdir()
+                (Path(d) / "runs" / "config.json").write_text(json.dumps(cfg_json), encoding="utf-8")
+            clean = {k: v for k, v in os.environ.items() if k not in ("BW_LANG", "LC_ALL", "LC_MESSAGES", "LANG")}
+            with patch.dict(os.environ, {**clean, **env}, clear=True):
+                return config.load(Path(d), lang)["lang"]
+
+    def test_follows_screen_language(self):
+        self.assertEqual("en", self.load({}))
+        self.assertEqual("en", self.load({"BW_LANG": "en"}))
+        self.assertEqual("ko", self.load({"BW_LANG": "ko"}))
+        self.assertEqual("ko", self.load({"LANG": "ko_KR.UTF-8"}))
+
+    def test_flag_and_config_win(self):
+        self.assertEqual("ko", self.load({"BW_LANG": "en"}, lang="ko"))
+        self.assertEqual("ko", self.load({"BW_LANG": "en"}, cfg_json={"lang": "ko"}))
+        self.assertEqual("en", self.load({"BW_LANG": "ko"}, lang="en", cfg_json={"lang": "ko"}))
+
+    def test_every_prompt_has_both_languages(self):
+        ko = sorted(p.name for p in (PKG / "prompts" / "ko").glob("*.md"))
+        en = sorted(p.name for p in (PKG / "prompts" / "en").glob("*.md"))
+        self.assertEqual(ko, en)
+        self.assertTrue(ko)
+        for name in en:
+            self.assertFalse(hangul((PKG / "prompts" / "en" / name).read_text(encoding="utf-8")), name)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class FetchScriptLanguageTests(unittest.TestCase):
+    """`scripts/fetch_bench_assets.py` 는 두 README·examples/README 가 안내하는 명령이다 — 영어 화면에 한글이 없는지.
+    10/9 까지 `--help`·진행 문구가 한국어뿐이었다. 내려받기는 가짜로 바꿔 네트워크 없이 돈다."""
+
+    def test_help_and_progress_follow_screen_language(self):
+        import contextlib, importlib.util, io, sys, tempfile
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("fetch_bench_assets", PKG.parent / "scripts" / "fetch_bench_assets.py")
+        fb = importlib.util.module_from_spec(spec); spec.loader.exec_module(fb)
+        calls = iter(range(10_000))
+
+        def fake_get(url, dest):   # 하나는 실패, 나머지는 받은 척
+            if next(calls) == 0:
+                raise OSError("offline")
+            return 2048
+        for argv in (["--help"], ["--out", "{d}"]):
+            with self.subTest(argv=argv[0]), tempfile.TemporaryDirectory() as d:
+                out = io.StringIO()
+                with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(fb, "get", fake_get), \
+                     mock.patch.object(sys, "argv", ["fetch_bench_assets.py", *[a.format(d=d) for a in argv]]), \
+                     contextlib.redirect_stdout(out), contextlib.redirect_stderr(out), contextlib.suppress(SystemExit):
+                    fb.main()
+                text = out.getvalue()
+                self.assertTrue(text.strip())
+                self.assertFalse(hangul(text), [ln for ln in text.splitlines() if hangul(ln)][:3])
+
+
+class BenchScoreLanguageTests(unittest.TestCase):
+    """`scripts/bench_score.py` 는 README·GUIDE 가 벤치 숫자의 출처로 안내한다 — 영어 화면의 진행 줄·점수·실패 목록에
+    한글이 없는지(10/9 3회차까지 한국어뿐). 리깅·상태·늘어남은 가짜로 바꿔 Blender 없이 돈다."""
+
+    def test_score_lines_follow_screen_language(self):
+        import contextlib, importlib.util, io, sys, tempfile
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("bench_score", PKG.parent / "scripts" / "bench_score.py")
+        bs = importlib.util.module_from_spec(spec); spec.loader.exec_module(bs)
+        with tempfile.TemporaryDirectory() as d:
+            for n in ("a_ok", "b_fail"):
+                (Path(d) / f"{n}.glb").write_bytes(b"glTF")
+            out = io.StringIO()
+            status = lambda home, rid: "ok" if rid == "sc_a_ok_preset" else "rejected"   # noqa: E731
+            with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(bs, "run", return_value=(0, "")), \
+                 mock.patch.object(bs, "status", status), mock.patch.object(bs, "stretch", return_value=(8.0, 0.02)), \
+                 mock.patch.object(sys, "argv", ["bench_score.py", "--assets", d, "--home", d, "--motion-humanoid", "w.bvh"]), \
+                 contextlib.redirect_stdout(out):
+                bs.main()
+        text = out.getvalue()
+        self.assertFalse(hangul(text), text)
+        self.assertIn("rig score     1/2", text)
+        self.assertIn("motion pass   0/1", text)
+        self.assertIn("rig failed: b_fail", text)
+        self.assertIn("motion tear: a_ok", text)
+        self.assertIn(" preset ", text)
+
+
+class IssueReportCheckTests(unittest.TestCase):
+    """`scripts/check_issue_report.py`(CI): 개인 경로가 남으면 영어로 실패하고 고칠 곳(→ scrub())을 짚는지. bw 는 가짜."""
+
+    def test_private_path_fails_with_a_hint(self):
+        import contextlib, importlib.util, io, subprocess, sys
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("check_issue_report", PKG.parent / "scripts" / "check_issue_report.py")
+        ci = importlib.util.module_from_spec(spec); spec.loader.exec_module(ci)
+        fake = subprocess.CompletedProcess(["bw"], 0, stdout="<details>\nBW_HOME=/home/alice/bw\n</details>\n", stderr="")
+        err = io.StringIO()
+        with mock.patch.dict("os.environ", {"BW_LANG": "en"}), mock.patch.object(ci.subprocess, "run", return_value=fake), \
+             mock.patch.object(sys, "argv", ["check_issue_report.py"]), \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            code = ci.main()
+        self.assertEqual(1, code)
+        self.assertIn("private path left: /home/a", err.getvalue())
+        self.assertIn("→", err.getvalue()); self.assertIn("scrub()", err.getvalue())
+        self.assertFalse(hangul(err.getvalue()), err.getvalue())

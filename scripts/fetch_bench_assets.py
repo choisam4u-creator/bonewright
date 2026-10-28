@@ -13,7 +13,13 @@ import sys
 import urllib.request
 from pathlib import Path
 
-UA = {"User-Agent": "bonewright-bench-fetch/0.2 (+https://github.com/)"}
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bonewright import __version__  # noqa: E402
+from bonewright.i18n import T  # noqa: E402  화면 언어(BW_LANG·로캘)를 따른다
+
+REPO_URL = "https://github.com/choisam4u-creator/bonewright"
+# 원배포처가 누가 받아 가는지 알고 문의할 수 있게: 버전은 패키지에서, 주소는 저장소
+UA = {"User-Agent": f"bonewright-bench-fetch/{__version__} (+{REPO_URL})"}
 
 KHRONOS = "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/{n}/glTF-Binary/{n}.glb"
 # Quaternius, Ultimate Animated Animals (2021-07) — CC0 1.0. 공개 구글 드라이브 폴더의 glTF 하위 폴더.
@@ -34,21 +40,21 @@ CHARACTERS = {
     # 이름: (내려받을 URL, 확장자, 라이선스 — 확인한 근거)
     "mannequiny": ("https://raw.githubusercontent.com/godotengine/godot-demo-projects/master/"
                    "3d/ragdoll_physics/characters/mannequiny.glb", "glb",
-                   "CC BY 4.0 · © 2020 GDQuest and contributors — 같은 폴더의 mannequiny.LICENSE.md 원문 확인"),
+                   "CC BY 4.0 · © 2020 GDQuest and contributors — checked against mannequiny.LICENSE.md in the same folder"),
     "godot_player": ("https://raw.githubusercontent.com/godotengine/godot-demo-projects/master/"
                      "3d/platformer/player/player.glb", "glb",
-                     "MIT · godot-demo-projects 저장소 라이선스(자산 전용 라이선스 파일 없음)"),
+                     "MIT · licence of the godot-demo-projects repository (no asset-specific licence file)"),
     "robot_expressive": ("https://raw.githubusercontent.com/mrdoob/three.js/dev/"
                          "examples/models/gltf/RobotExpressive/RobotExpressive.glb", "glb",
-                         "CC0 1.0 · Tomás Laulhé(Quaternius) 원작, Don McCurdy 수정 — 모델 폴더 README.md 원문 확인"),
+                         "CC0 1.0 · by Tomás Laulhé (Quaternius), modified by Don McCurdy — checked against the model folder's README.md"),
     "rigged_mesh": ("https://raw.githubusercontent.com/BabylonJS/Assets/master/"
                     "meshes/Demos/retargeting/riggedMesh.glb", "glb",
-                    "CC BY 4.0 · BabylonJS/Assets 저장소 라이선스"),
+                    "CC BY 4.0 · licence of the BabylonJS/Assets repository"),
     # .gltf 는 버퍼가 밖에 있다 — .bin 을 **원래 이름 그대로** 옆에 둬야 열린다
     "quaternius_ual": ("https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/main/"
                        "glTF/AnimationLibrary_Godot_Standard.gltf", "gltf",
-                       "CC0 1.0 · Quaternius, Universal Animation Library — 미러 저장소 라이선스와 "
-                       "quaternius.com/packs/universalanimationlibrary.html 양쪽 확인"),
+                       "CC0 1.0 · Quaternius, Universal Animation Library — checked against both the mirror repository's licence "
+                       "and quaternius.com/packs/universalanimationlibrary.html"),
 }
 UAL_BIN = ("https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/main/"
            "glTF/AnimationLibrary_Godot_Standard.bin")
@@ -58,10 +64,10 @@ UAL_BIN = ("https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-l
 # 지문(원본 뼈 수·관절 좌표 비율)과 이미 탈락시킨 후보는 docs/bench-unresolved-fingerprints.json 에 있다.
 # 후보를 찾으면 `bw bench 후보.glb` 로 돌려 그 파일과 대조하면 1분이면 판정된다.
 UNRESOLVED = {
-    "kira": "원본 뼈 23 · 맞춘 6 · 키 0.8233m · 가구 30개가 든 방에 앉은 상반신 리그 · CC0 로 기록됨",
-    "alien_bug": "원본 뼈 30 · 맞춘 1 · 키 0.5714m · 6족 곤충 · CC0 로 기록됨",
-    "quat_pp_41j": "원본 뼈 41 · 맞춘 17 · 키 5.5353m · Quaternius 캐릭터 · 옆으로 누운 채 리깅되던 그 자산이다",
-    "quat_pp_43j": "원본 뼈 43 · 맞춘 15 · 키 2.2239m · Quaternius 캐릭터 · T 포즈",
+    "kira": "23 source bones · 6 matched · 0.8233 m tall · seated upper-body rig in a room with 30 pieces of furniture · recorded as CC0",
+    "alien_bug": "30 source bones · 1 matched · 0.5714 m tall · six-legged insect · recorded as CC0",
+    "quat_pp_41j": "41 source bones · 17 matched · 5.5353 m tall · Quaternius character · the asset that used to rig lying on its side",
+    "quat_pp_43j": "43 source bones · 15 matched · 2.2239 m tall · Quaternius character · T-pose",
 }
 
 POLY = "https://static.poly.pizza/{id}.glb"
@@ -95,38 +101,39 @@ KAYKIT = ["Skeleton_Warrior", "Skeleton_Mage", "Skeleton_Minion"]
 SAMPLES = {"Fox": "CC-BY 4.0 (PixelMannen / tomkranis)", "CesiumMan": "CC-BY 4.0 (Cesium)",
            "RiggedFigure": "CC-BY 4.0 (Khronos)", "RiggedSimple": "CC-BY 4.0 (Khronos)"}
 
-ATTRIBUTION = """# 벤치마크 자산 출처와 라이선스
+ATTRIBUTION = """# Benchmark assets: sources and licences
 
-이 폴더는 `scripts/fetch_bench_assets.py` 가 만든 것이다. **저장소에 커밋하지 않는다.**
+This folder was made by `scripts/fetch_bench_assets.py`. **Do not commit it to the repository.**
 
 ## quadruped/ — Quaternius, *Ultimate Animated Animals* (2021-07)
-- 라이선스: **CC0 1.0 Universal** (팩에 동봉된 License.txt 원문 확인)
-- 출처: https://quaternius.com/packs/ultimateanimatedanimals.html
-- CC0 라 귀속 의무는 없지만 예의로 남긴다: LowPoly Models by @Quaternius
-- 뼈 이름 주의: 이름이 관절보다 한 칸 밀려 있다(BackLeg=고관절, BackUpperLeg=무릎, Back=골반,
-  Body 는 아마추어 원점). 좌표로 확인한 값이며 `bonewright/bench.py` 의 QUAD_MAP 에 반영돼 있다.
+- Licence: **CC0 1.0 Universal** (checked against the License.txt shipped in the pack)
+- Source: https://quaternius.com/packs/ultimateanimatedanimals.html
+- CC0 needs no attribution; kept as a courtesy: LowPoly Models by @Quaternius
+- Bone names are shifted one joint (BackLeg = hip, BackUpperLeg = knee, Back = pelvis, Body = armature origin).
+  Checked by coordinates and reflected in QUAD_MAP in `bonewright/bench.py`.
 
 ## samples/ — Khronos glTF-Sample-Assets
-- 출처: https://github.com/KhronosGroup/glTF-Sample-Assets
-- 모델별 라이선스는 아래와 각 모델 폴더의 LICENSE.md 참고
+- Source: https://github.com/KhronosGroup/glTF-Sample-Assets
+- Per-model licences below and in each model folder's LICENSE.md
 {samples}
 
-## characters/ — 사람·로봇 5종 (라이선스가 저마다 다르다)
+## characters/ — five humans and robots (each under its own licence)
 {characters}
 
-## 아직 스크립트로 못 받는 4종
-벤치는 66종을 채점하는데 이 스크립트는 62종만 받는다. 아래 넷은 처음 모을 때 출처를 적어 두지 않아
-어디서 받았는지 복원하지 못했다. 같은 파일을 다시 찾으면 `CHARACTERS` 에 URL 을 채우면 된다.
+## Four assets this script cannot download yet
+The benchmark scores 66 assets; this script fetches 62. The sources of the four below were not written down when
+they were first collected and could not be recovered. If you find the same file again, fill its URL into `CHARACTERS`.
 
-**후보를 판정하는 법**: 저장소의 `docs/bench-unresolved-fingerprints.json` 에 원본 뼈 수와 관절 좌표
-비율이 들어 있다. 후보를 `bw bench 후보.glb` 로 돌려 `gt_bones` 와 좌표를 대조하면 된다. 되찾은 5종은
-이 방법으로 소수점까지 일치했고, 2026-09-20 에 시험한 poly.pizza 후보 6종은 전부 탈락했다(근거도 그 파일에).
+**How to check a candidate**: `docs/bench-unresolved-fingerprints.json` in the repository holds each one's source
+bone count and joint-coordinate ratios. Run the candidate with `bw bench candidate.glb` and compare `gt_bones` and
+the coordinates. The five recovered assets matched to the decimal this way; the six poly.pizza candidates tried on
+2026-09-20 all failed (reasons in the same file).
 {unresolved}
 
-## 일부러 뺀 것
-- **믹사모/Adobe**: 약관 17조가 콘텐츠로 AI 시스템을 만들거나 훈련·테스트·개선하는 것을 금지한다.
-- **에픽 자체 Fab 콘텐츠**(파라곤, Game Animation Sample 등): 리스팅에 `AI 사용 허용: 아니요`(NoAI)이고
-  포맷이 언리얼 전용이라 블렌더로 열 수도 없다. Fab 의 **제3자 CC-BY** 자산은 쓸 수 있다.
+## Left out on purpose
+- **Mixamo / Adobe**: section 17 of the terms forbids using the content to build, train, test or improve AI systems.
+- **Epic's own Fab content** (Paragon, Game Animation Sample, ...): listed as `AI usage allowed: No` (NoAI), and in
+  an Unreal-only format that Blender cannot open. **Third-party CC-BY** assets on Fab can be used.
 """
 
 
@@ -142,91 +149,99 @@ def get(url: str, dest: Path) -> int:
 def check_skinned(p: Path) -> str:
     """받은 파일에 실제로 뼈대가 들어 있는지 본다(정답 대조 벤치는 원본 뼈대가 있어야 한다)"""
     if p.suffix.lower() != ".gltf":
-        return "(glb — 확인 생략)"
+        return T("(glb — 확인 생략)", "(glb — not checked)")
     try:
         d = json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
-        return f"읽기 실패: {e}"
+        return T(f"읽기 실패: {e}", f"could not read: {e}")
     skins = d.get("skins") or []
-    return f"스킨 {len(skins)} · 관절 {sum(len(s.get('joints', [])) for s in skins)}" if skins else "뼈대 없음 ⚠"
+    joints = sum(len(s.get("joints", [])) for s in skins)
+    return T(f"스킨 {len(skins)} · 관절 {joints}", f"skins {len(skins)} · joints {joints}") if skins else T("뼈대 없음 ⚠", "no skeleton ⚠")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="벤치마크 자산을 원저작자 배포처에서 받는다(재배포 아님)")
-    ap.add_argument("--out", default="bench-assets", help="받을 폴더(기본 bench-assets)")
-    ap.add_argument("--only", choices=["quadruped", "samples", "monsters", "characters"], help="한 종류만 받기")
+    ap = argparse.ArgumentParser(
+        description=T("벤치마크 자산을 원저작자 배포처에서 받는다(재배포 아님). 출처·라이선스는 <out>/ATTRIBUTION.md 에 남는다.",
+                      "Download the benchmark assets from where their authors publish them (not redistributed). "
+                      "Sources and licences are written to <out>/ATTRIBUTION.md."))
+    ap.add_argument("--out", default="bench-assets", help=T("받을 폴더(기본 bench-assets)", "folder to download into (default bench-assets)"))
+    ap.add_argument("--only", choices=["quadruped", "samples", "monsters", "characters"],
+                    help=T("한 종류만 받기", "download one group only"))
     a = ap.parse_args()
     out = Path(a.out)
     total = 0
     if a.only in (None, "quadruped"):
-        print("사족 10종 (Quaternius, CC0)")
+        print(T("사족 10종 (Quaternius, CC0)", "10 quadrupeds (Quaternius, CC0)"))
         for name, fid in ANIMALS.items():
             dest = out / "quadruped" / f"{name}.gltf"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(GDRIVE.format(id=fid), dest)
                 total += n
-                print(f"  받음 {name:10s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:10s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
     if a.only in (None, "samples"):
-        print("Khronos 샘플")
+        print(T("Khronos 샘플", "Khronos samples"))
         for name in SAMPLES:
             dest = out / "samples" / f"{name}.glb"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(KHRONOS.format(n=name), dest)
                 total += n
-                print(f"  받음 {name:14s} {n/1e6:5.1f}MB")
+                print(T("  받음 ", "  got ") + f"{name:14s} {n/1e6:5.1f}MB")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
     if a.only in (None, "monsters"):
-        print("비인간·괴물 43종 (Quaternius Ultimate Monsters + KayKit Skeletons, 둘 다 CC0)")
+        print(T("비인간·괴물 43종 (Quaternius Ultimate Monsters + KayKit Skeletons, 둘 다 CC0)",
+                "43 non-humans and monsters (Quaternius Ultimate Monsters + KayKit Skeletons, both CC0)"))
         for name, fid in sorted(MONSTERS.items()):
             dest = out / "monsters" / f"{name}.glb"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(POLY.format(id=fid), dest)
                 total += n
-                print(f"  받음 {name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
         for name in KAYKIT:
             dest = out / "monsters" / f"kaykit_{name.lower()}.glb"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(KAYKIT_BASE.format(n=name), dest)
                 total += n
-                print(f"  받음 {name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:20s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
     if a.only in (None, "characters"):
-        print("사람·로봇 5종 (라이선스 제각각 — ATTRIBUTION.md 참고)")
+        print(T("사람·로봇 5종 (라이선스 제각각 — ATTRIBUTION.md 참고)", "5 humans and robots (licences differ — see ATTRIBUTION.md)"))
         for name, (url, ext, lic) in CHARACTERS.items():
             dest = out / "characters" / f"{name}.{ext}"
             if dest.exists() and dest.stat().st_size > 1024:   # 0바이트·잘린 파일은 다시 받는다
-                print(f"  건너뜀 {name} (이미 있음)"); continue
+                print(T(f"  건너뜀 {name} (이미 있음)", f"  skip {name} (already there)")); continue
             try:
                 n = get(url, dest)
                 total += n
                 if name == "quaternius_ual":   # 외부 버퍼를 원래 이름으로 같이 받는다
                     total += get(UAL_BIN, dest.parent / "AnimationLibrary_Godot_Standard.bin")
-                print(f"  받음 {name:18s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
+                print(T("  받음 ", "  got ") + f"{name:18s} {n/1e6:5.1f}MB  {check_skinned(dest)}")
             except Exception as e:
-                print(f"  실패 {name}: {e}", file=sys.stderr)
-        print(f"  ⚠ 아직 못 받는 자산 {len(UNRESOLVED)}종: {', '.join(UNRESOLVED)} — 출처 기록이 없다")
+                print(T(f"  실패 {name}: {e}", f"  failed {name}: {e}"), file=sys.stderr)
+        print(T(f"  ⚠ 아직 못 받는 자산 {len(UNRESOLVED)}종: {', '.join(UNRESOLVED)} — 출처 기록이 없다",
+                f"  ⚠ {len(UNRESOLVED)} assets cannot be downloaded yet: {', '.join(UNRESOLVED)} — no record of their source"))
     out.mkdir(parents=True, exist_ok=True)
     (out / "ATTRIBUTION.md").write_text(
         ATTRIBUTION.format(
             samples="\n".join(f"- `{k}.glb` — {v}" for k, v in SAMPLES.items()),
-            characters="\n".join(f"- `{k}.{e}` — {lic}\n  - 출처: {u}" for k, (u, e, lic) in CHARACTERS.items()),
+            characters="\n".join(f"- `{k}.{e}` — {lic}\n  - source: {u}" for k, (u, e, lic) in CHARACTERS.items()),
             unresolved="\n".join(f"- `{k}` — {v}" for k, v in UNRESOLVED.items())), encoding="utf-8")
-    print(f"\n총 {total/1e6:.1f}MB → {out}  (출처·라이선스는 {out}/ATTRIBUTION.md)")
-    print("사족 벤치:  bw bench " + str(out / "quadruped") + "/*.gltf --preset quadruped")
+    print(T(f"\n총 {total/1e6:.1f}MB → {out}  (출처·라이선스는 {out}/ATTRIBUTION.md)",
+            f"\ntotal {total/1e6:.1f}MB → {out}  (sources and licences in {out}/ATTRIBUTION.md)"))
+    print(T("사족 벤치:  ", "quadruped bench:  ") + "bw bench " + str(out / "quadruped") + "/*.gltf --preset quadruped")
     return 0
 
 

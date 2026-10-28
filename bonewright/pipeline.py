@@ -1,16 +1,18 @@
 """파이프라인: rig(분석 → 맞춤 판단 → 생성·스키닝 → 게이트 → 렌더 → 시각 판정 → 보고서), motion(kimodo → BVH → 가져오기)."""
 import json
 import os
+import platform
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import NoReturn
 
-from . import schemas
-from .blender import run_script
-from .codex import CodexError, UsageLimit, run_step
-from .config import load
+from . import __version__, schemas
+from .blender import BlenderError, require as need_blender, run_script
+from .codex import CodexError, CodexMissing, UsageLimit, run_step
+from .config import guide, load, unknown_keys_line
 from .from_skeleton import targets_from_skeleton
 from .gates import judge_gates, preflight, rig_gates
 from .i18n import T
@@ -25,28 +27,366 @@ class Blocked(RuntimeError):
     """사용자가 고쳐서 다시 돌릴 수 있는 중단. 메시지에는 '무엇을 바꾸면 되는지'를 한 줄 넣는다."""
 
 
+README_NAMES = ("character.glb", "x.glb", "mesh.glb")   # README·GUIDE 명령 속 자리 이름 — 그대로 치면 '파일이 없다'
 MESH_EXTS = (".glb", ".gltf", ".fbx", ".obj", ".blend")   # bpy_scripts/_common.py import_mesh 가 읽는 형식
 
 
-def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = ()) -> Path:
+def need_file(path: str | Path, what: str, fix: str, exts: tuple[str, ...] = (), many: str = "") -> Path:
     """입력 파일을 Blender·모델을 부르기 **전에** 확인한다. 없거나 형식이 틀리면 고칠 방법을 담아 Blocked.
-    what·fix 는 호출하는 쪽에서 T(한국어, 영어)로 넘긴다."""
+    what·fix·many 는 호출하는 쪽에서 T(한국어, 영어)로 넘긴다. many: 폴더를 줬을 때 여러 파일을 한 번에 다루는 명령."""
     p = Path(path).expanduser()
+    if p.is_dir():   # "파일이 없다" 는 거짓말이다 — 폴더는 있다(10/10 8회차 `bw rig .`)
+        inside = sorted(f for f in p.iterdir() if f.is_file() and (not exts or f.suffix.lower() in exts))
+        first = T(f" 예: {inside[0]}", f" e.g. {inside[0]}") if inside else ""
+        also = f"\n  → {many}" if many else ""
+        raise Blocked(T(f"{what} 자리에 폴더를 줬다: {p}\n  → 파일 하나를 준다.{first}{also}",
+                        f"{what}: this is a folder, not a file: {p}\n  → pass one file.{first}{also}"))
     if not p.is_file():
-        raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}", f"{what} file not found: {p}\n  → {fix}"))
+        near = near_files(p, exts)
+        also = T(f"\n  → 이 폴더에 비슷한 파일: {' · '.join(near)}", f"\n  → similar file here: {' · '.join(near)}") if near else ""
+        if not near and (repo := repo_copy(str(path))):   # 10/18 25회차: 저장소 밖에서 README 의 `tests/assets/…`·`examples/…` 를 그대로 쳤다
+            q = f'"{repo}"' if any(c.isspace() for c in repo) else repo
+            cmd = swap_arg(str(path), repo) if str(path) in sys.argv[1:] else q
+            also = T(f"\n  → `{path}` 는 저장소 폴더 기준 경로다. 저장소의 그 파일로: `{cmd}`",
+                     f"\n  → `{path}` is relative to the repository folder. With the repository's file: `{cmd}`")
+        elif not near and set(exts) & set(MESH_EXTS) and p.name in README_NAMES:   # 10/14 17회차: README 의 `bw rig character.glb` 를 그대로 쳤다
+            from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+            where, first = _from_repo()
+            also = T(f"\n  → `{p.name}`: README 의 예시 이름이다. 내 파일 경로로 바꾸거나, 먼저 {where}저장소 캐릭터로(모델 호출 없음): `{first}`",
+                     f"\n  → `{p.name}` is the example name from the README. Put your own file's path there, or first, {where}try the character the repository ships (no model calls): `{first}`")
+        raise Blocked(T(f"{what} 파일이 없다: {p}\n  → {fix}{also}", f"{what} file not found: {p}\n  → {fix}{also}"))
     if exts and p.suffix.lower() not in exts:
-        raise Blocked(T(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {' · '.join(exts)} 중 하나로 내보내서 다시 지정하라",
-                        f"cannot read {what} format: {p.suffix or '(no extension)'} ({p.name})\n  → export it as one of {' · '.join(exts)} and pass that"))
+        if ".glb" in exts and p.stat().st_size >= 4 and p.read_bytes()[:4] == b"glTF":   # 10/13 16회차: VRM(.vrm) 등은 내용이 .glb 그대로다
+            q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+            new = str(Path(str(path)).with_suffix(".glb"))
+            cp = f"{'copy' if os.name == 'nt' else 'cp'} {q(str(path))} {q(new)}"
+            again = " ".join(["bw", *(q(new if w == str(path) else w) for w in sys.argv[1:])]) if str(path) in sys.argv[1:] else ""
+            then = T(f" 뒤 `{again}`", f", then `{again}`") if again else ""
+            raise Blocked(T(f"{what} 확장자 {p.suffix or '(없음)'} 는 못 읽지만 내용은 glTF Binary(.glb)다: {p.name}\n  → 이름만 .glb 로 복사해 그대로 쓴다: `{cp}`{then}",
+                            f"cannot read {what} format {p.suffix or '(no extension)'}, but the file is glTF Binary (.glb) inside: {p.name}\n  → copy it to a .glb name and pass that: `{cp}`{then}"))
+        if set(exts) & set(MESH_EXTS) and p.suffix.lower() == ".zip":   # 10/14 17회차: Sketchfab·itch.io 등은 모델을 zip 으로 준다
+            zip_hint(path, p, what, exts)
+        fmt = T(f"{exts[0]} 로", f"{exts[0]}") if len(exts) == 1 else T(f"{' · '.join(exts)} 중 하나로", f"one of {' · '.join(exts)}")
+        mesh = ""
+        if ".bvh" in exts and p.suffix.lower() in MESH_EXTS:   # 10/12 14회차: `--bvh hero.glb` — 메시를 동작 자리에 줬다
+            arg = f'"{path}"' if any(c.isspace() for c in str(path)) else str(path)
+            mesh = T(f"\n  → 이건 메시다. 리깅은 `bw rig {arg}`, 동작은 BVH 파일을 `--bvh` 에 준다. 저장소의 샘플: `--bvh {quote_arg(sample_bvh())}`",
+                     f"\n  → this is a mesh. Rig it with `bw rig {arg}`; `--bvh` takes a motion file. The repository's sample: `--bvh {quote_arg(sample_bvh())}`")
+        raise Blocked(T(f"{what} 형식을 읽을 수 없다: {p.suffix or '(확장자 없음)'} ({p.name})\n  → {fmt} 내보내서 다시 지정하라{mesh}",
+                        f"cannot read {what} format: {p.suffix or '(no extension)'} ({p.name})\n  → export it as {fmt} and pass that{mesh}"))
     return p
 
 
-def need_rig(root: Path, run_id: str) -> Path:
-    """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다."""
+def zip_hint(path: str | Path, p: Path, what: str, exts: tuple[str, ...]) -> None:
+    """zip 을 메시 자리에 줬을 때: 안의 메시를 이름으로, 어디서나 도는 풀기 명령(`python3 -m zipfile -e`)과 푼 경로로 같은 명령.
+    "다시 내보내라" 는 틀린 말이다 — 풀면 된다. 읽을 수 없는 zip 이면 아무 말 없이 돌아가 형식 안내로."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(p) as z:
+            names = [n for n in z.namelist() if not n.endswith("/") and not n.startswith("__MACOSX/")]
+    except (zipfile.BadZipFile, OSError):
+        return
+    meshes = sorted((n for n in names if Path(n).suffix.lower() in exts), key=lambda n: (exts.index(Path(n).suffix.lower()), n))
+    q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+    if not meshes:
+        inside = " · ".join(Path(n).name for n in names[:5]) + (" …" if len(names) > 5 else "")
+        raise Blocked(T(f"{what} 자리에 zip 을 줬는데 안에 읽을 메시({' · '.join(exts)})가 없다: {p.name}\n  → 든 것: {inside or '(비었음)'}. "
+                        f"{exts[0]} 등으로 내보낸 파일을 준다",
+                        f"{what}: this is a zip with no readable mesh ({' · '.join(exts)}) inside: {p.name}\n  → it holds: {inside or '(empty)'}. "
+                        f"Pass a file exported as {exts[0]} or similar"))
+    out = str(Path(str(path)).with_suffix(""))
+    new = str(Path(out) / meshes[0])
+    unzip = f"{'py' if os.name == 'nt' else 'python3'} -m zipfile -e {q(str(path))} {q(out)}"
+    again = " ".join(["bw", *(q(new if w == str(path) else w) for w in sys.argv[1:])]) if str(path) in sys.argv[1:] else f"bw rig {q(new)}"
+    more = T(f" (메시 {len(meshes)}개 중 첫째)", f" (first of {len(meshes)} meshes)") if len(meshes) > 1 else ""
+    raise Blocked(T(f"{what} 자리에 zip 을 줬다: {p.name} — 안에 {meshes[0]}{more}\n  → 풀어서 그 파일을 준다: `{unzip}` 뒤 `{again}`",
+                    f"{what}: this is a zip: {p.name} — it holds {meshes[0]}{more}\n  → unzip it and pass that file: `{unzip}`, then `{again}`"))
+
+
+def near_files(p: Path, exts: tuple[str, ...] = ()) -> list[str]:
+    """없는 파일 p 와 같은 폴더의 비슷한 파일(최대 3개, 준 경로와 같은 꼴로 — 그대로 붙여 넣게): 대소문자만 다른 이름,
+    확장자만 다른 이름(exts 안), 가까운 이름(difflib). 10/12 13회차 실측: `bw rig hero.glb`(옆에 Hero.glb)가 '경로를 확인하라' 뿐."""
+    import difflib
+    folder = p.parent
+    try:
+        files = sorted(f.name for f in folder.iterdir() if f.is_file() and (not exts or f.suffix.lower() in exts))
+    except OSError:   # 폴더가 없거나 읽을 수 없다
+        return []
+    name = p.name.lower()
+    hits = [f for f in files if f.lower() == name]
+    hits += [f for f in files if Path(f).stem.lower() in (p.stem.lower(), name) and f not in hits]   # Hero.gltf → Hero.glb, Hero → Hero.glb
+    hits += [f for f in difflib.get_close_matches(p.name, files, n=3, cutoff=0.75) if f not in hits]
+    out = []
+    for f in hits[:3]:
+        s = str(p.with_name(f))
+        out.append(f'"{s}"' if any(c.isspace() for c in s) else s)
+    return out
+
+
+def repo_copy(path: str) -> str | None:
+    """지금 폴더에 없는 상대 경로가 저장소(또는 휠에 실린 examples 사본)에 있으면 그 절대 경로. README 의 명령은 저장소 폴더 기준이다."""
+    p = Path(path)
+    if p.is_absolute() or not p.parts or p.parts[0] in ("..", "~"):
+        return None
+    here = Path(__file__).resolve().parent
+    for c in (here.parent / p, *([here / "_samples" / p.name] if p.parts[0] == "examples" and len(p.parts) == 2 else [])):
+        if c.is_file():
+            return str(c)
+    return None
+
+
+def targets_problems(data) -> list[str]:
+    """--targets 내용의 모양 문제(최대 5개). Blender 의 fit_generate 가 받는 꼴: {"본": {"head": [x,y,z], "tail": [x,y,z]}},
+    head·tail 은 하나만 있어도 된다. 10/11 11회차: 목록·숫자 둘짜리 좌표가 Blender 단계까지 갔다."""
+    import math
+    if not isinstance(data, dict):
+        return [T(f"맨 위가 {{...}} 객체가 아니다({type(data).__name__})", f"the top level is not a {{...}} object ({type(data).__name__})")]
+    if not data:
+        return [T("본이 하나도 없다", "no bones in it")]
+    out = []
+    for name, v in data.items():
+        if not isinstance(v, dict) or not ({"head", "tail"} & set(v)):
+            out.append(T(f"{name}: head·tail 이 없다", f"{name}: no head or tail"))
+            continue
+        for part in ("head", "tail"):
+            c = v.get(part)
+            if c is not None and not (isinstance(c, list) and len(c) == 3 and all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) for x in c)):
+                out.append(T(f"{name}.{part}: 숫자 x,y,z 세 개여야 한다({json.dumps(c, ensure_ascii=False)})",
+                             f"{name}.{part}: must be three numbers x,y,z ({json.dumps(c, ensure_ascii=False)})"))
+    return out[:5]
+
+
+def need_mesh_bytes(p: Path) -> None:
+    """Blender 를 띄우기 전에 빈 파일·GLB 머리가 틀린 파일을 막는다. 10/10 8회차: 0바이트 .glb 가 Blender 를 띄운 뒤에야
+    실패했고, Blender 가 없는 곳에선 'Blender not found' 가 진짜 원인을 가렸다."""
+    size = p.stat().st_size
+    if size == 0:
+        raise Blocked(T(f"메시 파일이 비었다(0바이트): {p}\n  → 내보내기·내려받기가 끝까지 됐는지 보고 원본에서 다시 내보내라",
+                        f"the mesh file is empty (0 bytes): {p}\n  → check that the export or download finished, and export it again"))
+    if p.suffix.lower() == ".glb":
+        with open(p, "rb") as f:
+            head = f.read(4)
+        if head != b"glTF":
+            raise Blocked(T(f"GLB 가 아니다(머리가 'glTF' 가 아님, {size:,}바이트): {p}\n  → 이름만 .glb 인 다른 파일일 수 있다. "
+                            "Blender 등에서 glTF Binary(.glb)로 다시 내보내라",
+                            f"not a GLB (the file does not start with 'glTF', {size:,} bytes): {p}\n  → it may be another format "
+                            "renamed to .glb. Export it again as glTF Binary (.glb), e.g. from Blender"))
+    kind = MESH_HEADS.get(p.suffix.lower())
+    if kind:   # 10/12 14회차: `echo hi > a.fbx` 도 Blender 단계까지 갔다 — .glb 말고도 머리를 본다
+        with open(p, "rb") as f:
+            head = f.read(4096)
+        if not kind[1](head):
+            first = head[:40].decode("latin-1").splitlines()[0] if head.strip() else ""
+            ext = p.suffix.lower()
+            raise Blocked(T(f"{kind[0]} 파일이 아니다(시작이 맞지 않음: {first!r}, {size:,}바이트): {p}\n  → 이름만 {ext} 인 다른 파일(웹 페이지·다른 형식)일 수 있다. "
+                            f"원본에서 {ext} 로 다시 내보내라(.glb 가 가장 잘 된다)",
+                            f"not {kind[0]} data (it does not start the way that format does: {first!r}, {size:,} bytes): {p}\n  → it may be another file "
+                            f"(a web page, another format) named {ext}. Export it again as {ext} (.glb works best)"))
+
+
+def _text(head: bytes) -> bool:
+    return b"\0" not in head
+
+
+MESH_HEADS = {   # 확장자 → (이름, 첫 4KB 가 그 형식으로 보이는가). .glb 는 위에서 따로(문구가 다르다)
+    ".gltf": ("glTF (JSON)", lambda h: h.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"{")),
+    ".fbx": ("FBX", lambda h: h.startswith(b"Kaydara FBX Binary") or (_text(h) and b"FBX" in h)),
+    ".blend": ("Blender (.blend)", lambda h: h.startswith((b"BLENDER", b"\x1f\x8b", b"\x28\xb5\x2f\xfd"))),   # 압축 저장: gzip·zstd
+    ".obj": ("Wavefront OBJ", _text),
+}
+
+
+def need_bvh_bytes(p: Path) -> None:
+    """이름만 .bvh 인 파일(내려받기 실패한 HTML·빈 파일)을 실행 폴더·Blender 전에 막는다. BVH 는 'HIERARCHY' 로 시작한다.
+    10/11 10회차: 확장자만 보고 Blender 가져오기까지 갔고, Blender 가 없는 곳에선 'Blender not found' 가 원인을 가렸다."""
+    size = p.stat().st_size
+    if size == 0:
+        raise Blocked(T(f"BVH 파일이 비었다(0바이트): {p}\n  → 내려받기·내보내기가 끝까지 됐는지 보고 다시 받아라. 저장소의 샘플: `--bvh {quote_arg(sample_bvh())}`",
+                        f"the BVH file is empty (0 bytes): {p}\n  → check that the download or export finished, and get it again. The repository's sample: `--bvh {quote_arg(sample_bvh())}`"))
+    with open(p, "rb") as f:
+        head = f.read(256).decode("latin-1").lstrip("\ufeff\xef\xbb\xbf \t\r\n")
+    if not head.upper().startswith("HIERARCHY"):
+        first = head.splitlines()[0][:40] if head.strip() else ""
+        raise Blocked(T(f"BVH 가 아니다(첫 줄이 'HIERARCHY' 가 아님: {first!r}, {size:,}바이트): {p}\n  → 이름만 .bvh 인 다른 파일(웹 페이지 등)일 수 있다. "
+                        f"원본에서 BVH 로 다시 내보내거나 받아라. 저장소의 샘플: `--bvh {quote_arg(sample_bvh())}`",
+                        f"not a BVH (the first line is not 'HIERARCHY': {first!r}, {size:,} bytes): {p}\n  → it may be another file (a web page, say) "
+                        f"saved as .bvh. Export or download it again as BVH. The repository's sample: `--bvh {quote_arg(sample_bvh())}`"))
+
+
+def metarig_names(preset: str) -> list[str]:
+    """Rigify 메타리그의 본 이름 전부(Blender 없이). 목록은 bonewright/metarig_names.json — Blender 시험이 실제 메타리그와 대조한다."""
+    return json.loads((Path(__file__).parent / "metarig_names.json").read_text(encoding="utf-8")).get(preset, [])
+
+
+def need_pin_names(pins: dict, preset: str) -> None:
+    """--pin 의 본 이름을 Blender 전에 메타리그와 대조한다. 10/10 8회차 실측: 없는 이름은 Blender 까지 가서 말없이 무시됐다."""
+    import difflib
+    names = metarig_names(preset)
+    bad = [n for n in pins if n not in names]
+    if not names or not bad:
+        return
+    lines = []
+    for n in bad:   # 대소문자만 다른 이름(hand.l → hand.L)을 맨 앞에
+        near = [m for m in names if m.lower() == n.lower()]
+        near += [m for m in difflib.get_close_matches(n, names, n=3, cutoff=0.5) if m not in near]
+        lines.append(f"  - {n}" + (T(f" → 가까운 이름: {', '.join(near[:3])}", f" → closest: {', '.join(near[:3])}") if near else ""))
+    listed = "\n".join(lines)
+    ex = "spine.004" if preset == "quadruped" else "hand.L"
+    raise Blocked(T(f"--pin 의 본 이름이 {preset} 메타리그에 없다:\n{listed}\n  → 메타리그 이름을 쓴다(대소문자·.L/.R 까지 같게). 예: --pin {ex}=0.6,0,1.3",
+                    f"--pin bone not in the {preset} metarig:\n{listed}\n  → use a metarig bone name (case and .L/.R must match). e.g. --pin {ex}=0.6,0,1.3"))
+
+
+def quote_arg(value: str) -> str:
+    """명령 안내의 인자 한 개만 인용한다. 샘플 경로를 미리 감싸면 swap_opt 에서 두 번 감쌌다."""
+    return f'"{value}"' if any(c.isspace() for c in value) else value
+
+
+def sample_bvh(quad: bool = False) -> str:
+    """안내에 넣을 샘플 BVH 경로(examples/wave.bvh — rig_sample.wave_bvh 가 만든 손 흔들기 24프레임, 저장소에 실려 있다).
+    quad 면 네 발 걷기(examples/dog_walk.bvh — rig_sample.dog_walk_bvh, 10/17 24회차).
+    저장소 폴더에서 치면 상대 경로, 다른 곳이면 저장소의 절대 경로, 설치본(`pip install .`)이면 휠에 실린 사본
+    (pyproject force-include → bonewright/_samples/, 10/12 13회차), 그것도 없으면 자리표시."""
+    name = "dog_walk.bvh" if quad else "wave.bvh"
+    if Path("examples", name).is_file():
+        return f"examples/{name}"
+    here = Path(__file__).resolve().parent
+    for p in (here.parent / "examples" / name, here / "_samples" / name):
+        if p.is_file():
+            return str(p)
+    return T("<파일.bvh>", "<file.bvh>")
+
+
+def rig_sample_bvh(root: Path, rig_run: str) -> str:
+    """그 리그에 그대로 입힐 샘플 BVH — 네 발 리그면 네 발 걷기, 아니면 손 흔들기.
+    10/17 24회차: 개 리그의 `next:` 가 사람 손 흔들기를 권해 앞다리가 팔처럼 움직였다(23회차엔 말만 붙였다)."""
+    return sample_bvh(rig_preset(root, rig_run) == "quadruped")
+
+
+def fetch_bench() -> tuple[str, str]:
+    """벤치 자산을 받는 명령과 그 앞에 붙일 '저장소 폴더에서'. 스크립트는 저장소에만 있다(휠에 없음) — 저장소 폴더면 상대 경로,
+    다른 폴더면 저장소의 절대 경로(받는 곳 --out 은 지금 폴더의 bench-assets/ 라 뒤 `bw bench bench-assets/…` 도 그대로 돈다),
+    설치본만 있어 못 찾으면 '저장소 폴더에서'. 10/12 13회차 실측: 임시 폴더에서 안내를 그대로 치면 'No such file'."""
+    rel = "scripts/fetch_bench_assets.py"
+    if Path(rel).is_file():
+        return "", f"python3 {rel}"
+    p = Path(__file__).resolve().parents[1] / rel
+    if not p.is_file():
+        return T("저장소 폴더에서 ", " from the repository folder"), f"python3 {rel}"
+    return "", "python3 " + (f'"{p}"' if any(c.isspace() for c in str(p)) else str(p))
+
+
+def latest_rig(root: Path, preset: str | None = None) -> str | None:
+    """가장 최근에 리깅을 마친 실행 id(02_rigged.blend 시각), 없으면 None — 안내 명령의 `<run-id>` 자리를 채운다.
+    preset 을 주면 그 프리셋 리그만(기록 없는 옛 리그는 humanoid 로 본다)."""
+    runs = root / "runs"
+    rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+    if preset:
+        rigged = [p for p in rigged if (rig_preset(root, p.name) or "humanoid") == preset]
+    return max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name if rigged else None
+
+
+# 끝난 리그에서 export·demo 가 만든 것. 같은 `--run-id` 로 다시 리깅하면 새 리그 옆에 옛 리그의 GLB·영상이 남아 새 것처럼 보였다(10/14 18회차 실측)
+FROM_RIG = ("rigged.glb", "export.json", "export_state.json", "demo.mp4", "demo.gif", "demo_state.json")
+
+
+def clear_replaced_rig(run_dir: Path) -> list[str] | None:
+    """run_dir 가 끝난 리그(state step final)면 옛 리그에서 나온 FROM_RIG 를 지우고 그 이름들을, 아니면 None(실패·중단 실행은 말없이 다시 쓴다)."""
+    try:
+        if json.loads((run_dir / "state.json").read_text(encoding="utf-8")).get("step") != "final":
+            return None
+    except (OSError, ValueError, AttributeError):
+        return None
+    gone = [n for n in FROM_RIG if (run_dir / n).is_file()]
+    for n in gone:
+        (run_dir / n).unlink()
+    return [n for n in gone if n.endswith((".glb", ".mp4", ".gif"))]
+
+
+def run_kind(rd: Path) -> str | None:
+    """실행 폴더의 종류(rig·motion·bench) — 만든 파일로 보고, 아직 없으면 기본 id 의 머리로. 모르면 None."""
+    if (rd / "bench.json").is_file():
+        return "bench"
+    if any((rd / f).is_file() for f in ("02_rigged.blend", "analysis.json", "fit.json")):
+        return "rig"
+    if any((rd / f).is_file() for f in ("motion.blend", "retarget.json")):
+        return "motion"
+    return next((k for k in ("rig", "motion", "bench") if rd.name.startswith(k + "-")), None)
+
+
+def this_command() -> str:
+    """지금 친 명령 그대로(공백 있는 값은 따옴표) — 뒤에 옵션을 붙이거나 앞에 환경 변수를 둘 안내용."""
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in sys.argv[1:])])
+
+
+def swap_arg(old: str, new: str) -> str:
+    """지금 친 명령에서 값 old 를 new 로 바꾼 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
+    words = [new if w == old else f"--rig={new}" if w == f"--rig={old}" else w for w in sys.argv[1:]]
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+
+
+def swap_opt(flag: str, new: str) -> str:
+    """지금 친 명령에서 옵션 하나의 값(`--bvh X`·`--bvh=X`)만 new 로 바꾼 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
+    words, nxt = [], False
+    for w in sys.argv[1:]:
+        words.append(new if nxt else f"{flag}={new}" if w.startswith(flag + "=") else w)
+        nxt = w == flag
+    return " ".join(["bw", *(quote_arg(w) for w in words)])
+
+
+def drop_opt(flag: str) -> str:
+    """지금 친 명령에서 옵션 하나(`--preset X`·`--preset=X`)를 뺀 꼴(공백은 따옴표) — 그대로 붙여 넣어 돈다."""
+    words, skip = [], False
+    for w in sys.argv[1:]:
+        if skip:
+            skip = False
+        elif w == flag:
+            skip = True
+        elif not w.startswith(flag + "="):
+            words.append(w)
+    return " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+
+
+def rig_preset(root: Path, run_id: str) -> str | None:
+    """리그 실행 기록(rig_stats.json)의 프리셋. 기록이 없는 옛 실행이면 None."""
+    rs = root / "runs" / run_id / "rig_stats.json"
+    try:
+        return json.loads(rs.read_text(encoding="utf-8")).get("preset") if rs.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
+def need_rig(root: Path, run_id: str, use: str = "") -> Path:
+    """리깅 결과(.blend)가 있는 실행인지 확인한다. 없으면 실행 목록을 보는 법과 리깅 명령을 알려 준다.
+    use: 고친 명령의 꼴(예: "bw export {}") — 다른 리그가 있으면 id 오타일 수 있어 가까운 리그를 그 꼴로 준다(10/11 9회차)."""
     blend = root / "runs" / run_id / "02_rigged.blend"
     if not blend.exists():
         state = root / "runs" / run_id / "state.json"
+        runs = root / "runs"
+        rigged = [p for p in runs.iterdir() if (p / "02_rigged.blend").is_file()] if runs.is_dir() else []
+        if (runs / run_id).is_dir() and (kind := run_kind(runs / run_id)) in ("motion", "bench"):   # 10/15 19회차: 동작 실행에 "리깅을 마치지 못했다 → 이 id 로 리깅" — 따르면 그 실행을 덮어쓴다
+            what = T(f"`{run_id}` 은 리그가 아니라 `bw {kind}` 실행이다", f"`{run_id}` is a `bw {kind}` run, not a rig")
+            if rigged:
+                rid = max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name
+                raise Blocked(T(f"{what}\n  → 최근 리그로: `{swap_arg(run_id, rid)}` (리그 목록 `bw status`)",
+                                f"{what}\n  → with the latest rig: `{swap_arg(run_id, rid)}` (rigs: `bw status`)"))
+            from .cli import _from_repo
+            where, first = _from_repo()
+            raise Blocked(T(f"{what}, 그리고 리깅을 마친 실행이 없다\n  → 먼저 {where}`{first}`, 그 `next:` 줄의 id 로 같은 명령",
+                            f"{what}, and no rig has been made yet\n  → {where}run `{first}` first, then this command with the id on its `next:` line"))
+        if not state.exists() and rigged:
+            import difflib
+            near = difflib.get_close_matches(run_id, [p.name for p in rigged], n=3, cutoff=0.5) \
+                or [max(rigged, key=lambda p: (p / "02_rigged.blend").stat().st_mtime).name]
+            shown = " · ".join(f"`{use.format(n)}`" if use else n for n in near)
+            raise Blocked(T(f"그런 리그가 없다: {run_id}\n  → 가까운 리그: {shown} (전체 목록 `bw status`)",
+                            f"no rig named {run_id}\n  → closest rig: {shown} (all runs: `bw status`)"))
         why = (T(f"이 실행은 리깅을 마치지 못했다(`bw status {run_id}`)", f"this run did not finish rigging (`bw status {run_id}`)") if state.exists()
                else T("그런 실행 id 가 없다(`bw status` 로 목록 확인)", "there is no run with that id (list them with `bw status`)"))
+        if not state.exists() and not rigged:   # 10/13 16회차: 리그가 하나도 없다 — 빈 BW_HOME 의 다른 안내처럼 저장소 캐릭터로 그대로 도는 첫 명령
+            from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+            where, first = _from_repo()
+            raise Blocked(T(f"리깅 결과가 없다: {blend}\n  → {why}. 이 id 로 먼저 리깅하라 — {where}저장소 캐릭터(모델 호출 없음): `{first} --run-id {run_id}`, 내 메시: `bw rig <메시> --run-id {run_id}`",
+                            f"no rig result: {blend}\n  → {why}. Rig with this id first — {where}on the character the repository ships (no model calls): `{first} --run-id {run_id}`; your mesh: `bw rig <mesh> --run-id {run_id}`"))
         raise Blocked(T(f"리깅 결과가 없다: {blend}\n  → {why}. 먼저 `bw rig <메시> --run-id {run_id}` 로 리깅하라",
                         f"no rig result: {blend}\n  → {why}. Rig first with `bw rig <mesh> --run-id {run_id}`"))
     return blend
@@ -56,21 +396,65 @@ def _prompt(name: str, lang: str) -> str:
     return (PROMPTS / lang / f"{name}.md").read_text(encoding="utf-8")
 
 
+def versions_line(blender_result: dict) -> str:
+    """report.md 둘째 줄: 리그 결과는 버전마다 달라, 버전 없는 이슈는 재현이 안 된다(rig-problem 템플릿이 report.md 를 붙이라 한다)."""
+    return (f"- versions: bonewright {__version__} · Blender {blender_result.get('blender') or '?'} · "
+            f"Python {platform.python_version()} · {platform.system()} {platform.machine()}")
+
+
+def _shown(path: str | Path, base: Path) -> str:
+    """report.md 에 적을 경로: 실행 폴더 안이면 그 기준 상대 경로, 밖이면 홈 폴더를 `~` 로.
+    이슈 템플릿이 report.md 를 그대로 붙이라고 하므로 사용자 이름이 든 절대 경로를 남기지 않는다."""
+    p = Path(path)
+    try:
+        return p.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        s = str(p)
+        for home in dict.fromkeys((str(Path.home()), str(Path.home().resolve()))):   # 홈이 심볼릭 링크면 resolve 된 메시 경로는 실제 쪽에 있다
+            if home not in ("", "/") and (s == home or s.startswith(home + os.sep)):
+                return "~" + s[len(home):]
+        return s
+
+
+def _arg(path: str | Path, base: Path) -> str:
+    """명령에 넣을 경로: `_shown` 과 같고(홈은 `~`), 공백이 있으면 따옴표로 감싼다 — 안내 명령을 그대로 붙여 넣어 돌게."""
+    s = _shown(path, base)
+    return f'"{s}"' if any(c.isspace() for c in s) else s
+
+
+def preset_opt(preset: str | None) -> str:
+    """다시 칠 `bw rig` 명령에 붙일 프리셋 — 기본(humanoid)이 아닐 때만. 10/18 26회차: `--targets` 재실행 안내가
+    `--preset quadruped` 를 빠뜨려, 그대로 치면 네 발 목표표를 사람 메타리그에 얹었다."""
+    return f" --preset {preset}" if preset and preset != "humanoid" else ""
+
+
 def _log(quiet: bool, msg: str) -> None:
     if not quiet:
         print(f"[bw {time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
 
 
 class Run:
-    def __init__(self, root: Path, run_id: str, cfg: dict, quiet: bool = False) -> None:
-        self.root, self.run_id, self.cfg, self.quiet = root, run_id, cfg, quiet
+    def __init__(self, root: Path, run_id: str, cfg: dict, quiet: bool = False, state_file: str = "state.json") -> None:
+        # state_file: export·demo 는 이미 끝난 리그 실행 폴더를 빌려 쓴다 — 그 실패가 리그의 state.json 을 덮어
+        # `bw status` 가 리그까지 실패한 것처럼 보이지 않게 따로 적는다(10/10 8회차)
+        self.root, self.run_id, self.cfg, self.quiet, self.state_file = root, run_id, cfg, quiet, state_file
         self.dir = root / "runs" / run_id
         self.logs = self.dir / "logs"
         self.dir.mkdir(parents=True, exist_ok=True)
         self.usage: list[dict] = []
+        self.step: str | None = None
+        Run.current = self   # Ctrl-C 를 받은 cli 가 어느 실행·단계였는지 적을 수 있게(10/11 11회차)
+
+    current: "Run | None" = None
+
+    def interrupted(self) -> None:
+        """Ctrl-C: 'running' 으로 남으면 `bw status` 가 계속 도는 중이라 한다."""
+        if self.step:
+            self.state(self.step, "interrupted")
 
     def state(self, step: str, status: str, **extra) -> None:
-        atomic_write(self.dir / "state.json", json.dumps({"step": step, "status": status, "at": time.time(), "pid": os.getpid(),
+        self.step = step
+        atomic_write(self.dir / self.state_file, json.dumps({"step": step, "status": status, "at": time.time(), "pid": os.getpid(),
                                                           "input_tokens": self.tokens()["input"], **extra}, ensure_ascii=False, indent=2))
 
     def tokens(self) -> dict:
@@ -80,6 +464,8 @@ class Run:
         return {"input": i, "output": o, "usd_upper": round(i / 1e6 * b["price_input_per_m"] + o / 1e6 * b["price_output_per_m"], 2)}
 
     def call(self, name: str, role: str, inputs: dict, schema: dict, images: list[str] | None = None) -> dict:
+        if name == "judge" and os.environ.get("BW_BACKEND") != "mock":
+            raise Blocked(T("시각 판정은 꺼져 있다 → --no-judge 로 실행하라", "the visual judge is disabled → run with --no-judge"))
         limit = self.cfg["budget"]["max_input_tokens"]
         if limit and self.tokens()["input"] >= limit:
             self.state(name, "budget_stop")
@@ -95,6 +481,9 @@ class Run:
                                            f"맞춤 판단까지 끝난 실행이면 `--targets runs/{self.run_id}/targets.json` 으로 모델 호출 없이 이어 갈 수 있다",
                                            "run the same command again after the reset (see usage with `bw usage`). "
                                            f"If the fit step already finished, `--targets runs/{self.run_id}/targets.json` continues with no model calls"))
+        except CodexMissing as e:
+            self.state(name, "failed")
+            raise Blocked(f"{name}: {self.no_codex_hint(name, e)}")
         except CodexError as e:
             self.state(name, "failed")
             raise Blocked(f"{name}: {e}")
@@ -106,15 +495,252 @@ class Run:
         _log(self.quiet, f"  ← {name} {usage.get('seconds')}s · in {u.get('input_tokens', 0):,} / out {u.get('output_tokens', 0):,}")
         return result
 
+    def no_codex_hint(self, name: str, e: CodexMissing) -> str:
+        """codex 가 없을 때 `bw rig` 이면 일반 설명 대신 모델 없이 그대로 도는 같은 명령. 10/14 18회차 실측: 분석으로 원본 뼈대가
+        있는 걸 이미 알면서 "뼈대가 든 파일은 `--from-skeleton`, 아니면 …" 이라 했다."""
+        if sys.argv[1:2] != ["rig"] or name not in ("fit", "judge"):
+            return str(e)
+        try:
+            had = (json.loads((self.dir / "analysis.json").read_text(encoding="utf-8"))["stats"].get("import") or {}).get("had_armature")
+        except (OSError, ValueError, KeyError):
+            had = None
+        words = [*sys.argv[1:], *(["--from-skeleton" if had else "--from-shape"] if name == "fit" else []),
+                 *([] if "--no-judge" in sys.argv else ["--no-judge"])]
+        again = " ".join(["bw", *(f'"{w}"' if any(c.isspace() for c in w) else w for w in words)])
+        why = (T("맞춤 단계는 끝났다 — 시각 판정만 끈다", "the fit is done — only the visual judge is turned off") if name == "judge" else
+               T("이 파일에는 원본 뼈대가 있다 — 관절을 그대로 받는다", "this file carries its own skeleton — its joints are taken as they are") if had else
+               T("원본 뼈대가 없다 — 메시 모양에서 뼈대를 만든다", "no skeleton in this file — the skeleton is built from the mesh shape"))
+        return str(e).split("\n", 1)[0] + T(f"\n  → 모델 없이(토큰 0) 같은 명령: `{again}` ({why})",
+                                              f"\n  → the same command with no model (0 tokens): `{again}` ({why})")
+
     def blender(self, name: str, params: dict) -> dict:
         _log(self.quiet, f"  ⚙ blender {name}")
         t = time.time()
-        r = run_script(name, params, self.cfg["blender"], self.logs)
+        try:
+            r = run_script(name, params, self.cfg["blender"], self.logs)
+        except BlenderError as e:
+            self.state(name, "failed")   # 'running' 으로 남으면 `bw status` 가 영원히 도는 중이라 한다
+            if HEADLESS.search(str(e)):   # 화면 없는 리눅스: 이슈 안내 대신 렌더를 끄는 같은 명령(10/13 15회차 실측)
+                raise Blocked(headless_hint(name, self.dir)) from e
+            raise
         _log(self.quiet, f"  ⚙ {name} {time.time() - t:.1f}s")
         return r
 
 
-def apply_bone_map(mapping: dict, path: Path, bvh_bones: list) -> tuple[dict, int, list]:
+# Rigify 가 메타리그를 리그로 못 만들 때 Blender 로그 끝에 남는 말(bpy 5.2.2 실측: "RIGIFY ERROR: Bone 'spine.003': Cannot connect chain …")
+RIGIFY = re.compile(r"RIGIFY ERROR: (?!\")([^\n]+)")   # 트레이스백 속 소스 줄(`"RIGIFY ERROR: " + message`)은 뺀다
+
+
+def rigify_hint(why: str, r: "Run", preset: str, from_skeleton: bool, joints: dict | None, n_targets: int, landmarks: dict) -> str:
+    """Rigify 생성 실패: 무엇이 안 맞았나 + 그대로 칠 다음 명령. 원본 뼈대가 다른 프리셋으로 더 많이 읽히면 그 프리셋으로 바꾼 같은 명령,
+    아니면 원본 뼈대 경로는 그것 없이, 맞춘 관절이면 고쳐 쓸 targets.json."""
+    q = lambda w: f'"{w}"' if any(c.isspace() for c in w) else w
+    args = sys.argv[1:] if sys.argv[1:2] == ["rig"] else []
+    head = T(f"generate: Rigify 가 이 관절로 리그를 못 만들었다 — {why}", f"generate: Rigify could not build a rig on these joints — {why}")
+    other = "humanoid" if preset == "quadruped" else "quadruped"
+    n_other = len(targets_from_skeleton(joints, other, landmarks["height"], landmarks.get("ground_z", 0.0))[0]) if (from_skeleton and joints) else 0
+    if args and n_other > n_targets:
+        cmd, i = list(args), next((i for i, w in enumerate(args) if w == "--preset" or w.startswith("--preset=")), None)
+        if i is None:
+            cmd.append(f"--preset={other}")
+        elif cmd[i] == "--preset" and i + 1 < len(cmd):
+            cmd[i + 1] = other
+        else:
+            cmd[i] = f"--preset={other}"
+        line = " ".join(["bw", *map(q, cmd)])
+        return head + T(f"\n  → 이 뼈대는 {other} 로 더 많이 읽힌다(알아본 관절 {other} {n_other}개 · {preset} {n_targets}개): `{line}`",
+                        f"\n  → this skeleton reads better as {other} (joints recognised: {other} {n_other} · {preset} {n_targets}): `{line}`")
+    if args and from_skeleton:
+        line = " ".join(["bw", *map(q, (w for w in args if w != "--from-skeleton"))])
+        return head + T(f"\n  → 원본 뼈대 대신 메시에서 관절을 찾는 기본 경로로: `{line}`",
+                        f"\n  → take the joints from the mesh instead of the file's skeleton (the default route): `{line}`")
+    targets = _shown(r.dir / "targets.json", Path.cwd())
+    again = [w for w in args if w != "--targets" and w != (args[args.index("--targets") + 1] if "--targets" in args[:-1] else None)]
+    line = " ".join(["bw", *map(q, again), "--targets", q(targets)]) if args else f"--targets {q(targets)}"
+    return head + T(f"\n  → 위에 적힌 본의 관절을 {targets} 에서 옮기고 모델 호출 없이 다시: `{line}`",
+                    f"\n  → move the joints of the bone named above in {targets}, then again with no model calls: `{line}`")
+
+
+# Blender 렌더러가 화면(EGL/OpenGL) 없이 못 뜰 때 로그에 남는 말. bpy 5.2.2 리눅스 실측: "Couldn't open libEGL.so.1", 종료 -6
+HEADLESS = re.compile(r"libEGL|eglInitialize|EGL_NOT_INITIALIZED|Unable to open a display|cannot open display|"
+                      r"failed to create (?:a )?(?:GPU|OpenGL) context", re.I)
+
+
+def headless_hint(step: str, run_dir: Path) -> str:
+    """렌더 단계가 화면 없이 죽었을 때: 무엇이 죽었나 · 이미 된 것(리그 .blend) · `BW_NO_RENDER=1` 을 붙인 같은 명령 · EGL 설치."""
+    rigged = run_dir / "02_rigged.blend"
+    done = (T(f"\n  → 리깅은 이미 끝났다: {_shown(rigged, Path.cwd())}", f"\n  → the rig itself is done: {_shown(rigged, Path.cwd())}")
+            if rigged.is_file() and step == "render_views" else "")
+    again = " ".join(["BW_NO_RENDER=1", "bw", *(f'"{a}"' if any(c.isspace() for c in a) else a for a in sys.argv[1:])])
+    judge = T("(시각 판정도 꺼진다)", " (the visual judge is off too)") if step == "render_views" else ""
+    skip = ("" if step == "render_demo" else   # 데모 영상은 그림 자체라 끌 수 없다
+            T(f"\n  → 그림 없이 끝까지{judge}: `{again}`", f"\n  → finish without pictures{judge}: `{again}`"))
+    return T(f"{step}: Blender 렌더러가 화면(EGL/OpenGL) 없이 뜨지 못했다 — 화면 없는 리눅스·서버·컨테이너{done}{skip}\n"
+             "  → 그림도 필요하면 EGL 을 설치하거나(Debian/Ubuntu: `sudo apt install libegl1`) 화면이 있는 컴퓨터에서 같은 명령",
+             f"{step}: the Blender renderer could not start without a display (EGL/OpenGL) — a headless Linux, server or container{done}{skip}\n"
+             "  → to get the pictures too, install EGL (Debian/Ubuntu: `sudo apt install libegl1`) or run the same command on a machine with a display")
+
+
+def load_bone_map(path: str | Path) -> dict:
+    """`--map` 파일을 읽고 모양을 본다. motion() 이 Blender 를 띄우기 **전에** 부른다(10/10 8회차: 없는 파일이 BVH 가져오기 뒤에야 걸렸다)."""
+    text = need_file(path, "--map", T('{"LeftArm": "upper_arm_fk.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm_fk.L"}')).read_text(encoding="utf-8-sig")
+    try:
+        user = json.loads(text)
+    except ValueError as e:
+        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})", f"--map file is not JSON: {path} ({e})") + "\n  → " + _json_fix(text, e))
+    if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
+        # 어느 항목이 틀렸는지 댄다(10/16 21회차: "형태여야 한다 + 예" 뿐이었다)
+        what = (T(f"최상위가 {type(user).__name__}", f"the top level is a {type(user).__name__}") if not isinstance(user, dict) else
+                T("글이 아닌 값: ", "values that are not text: ") + ", ".join(f'"{k}": {json.dumps(v, ensure_ascii=False)}' for k, v in user.items() if not isinstance(v, str))[:200])
+        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path} — {what}\n  → 예: {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}',
+                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path} — {what}\n  → e.g. {{"LeftArm": "upper_arm_fk.L", "LeftForeArm": "forearm_fk.L"}}'))
+    return user
+
+
+def _json_fix(text: str, e: ValueError) -> str:
+    """JSON 이 아닌 `--map` 의 다음 할 일: 파이썬·JS 식(작은따옴표·끝 쉼표)으로 읽히면 그대로 쓸 JSON 한 줄, 아니면 틀린 줄.
+
+    10/16 21회차 실측: `{'LeftArm': 'x',}` → 파서 메시지와 "e.g. {…}" 뿐이었다."""
+    import ast
+    try:
+        fixed = ast.literal_eval(text.strip())
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        fixed = None
+    if isinstance(fixed, dict) and fixed and all(isinstance(k, str) and isinstance(v, str) for k, v in fixed.items()):
+        return T("작은따옴표·끝 쉼표 대신 JSON 으로 — 파일 내용을 이 한 줄로: ", "JSON wants double quotes and no trailing comma — make the file this one line: ") \
+            + json.dumps(fixed, ensure_ascii=False)
+    line = getattr(e, "lineno", None)
+    rows = text.splitlines()
+    if line and 0 < line <= len(rows):
+        src = rows[line - 1].strip()[:120]
+        return T(f"{line}번째 줄 `{src}` 을 고쳐라(이름은 큰따옴표). 예: ", f"fix line {line} `{src}` (names in double quotes). e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
+    return T("예: ", "e.g. ") + '{"LeftArm": "upper_arm_fk.L"}'
+
+
+def map_example(free: list, names: list, mapping: dict | None = None, bvh: str | None = None) -> str:
+    """`--map` 파일 꼴 한 줄 — BVH 부모 사슬로 정한 짝 전부(10/18 26회차: 첫 짝 하나뿐이라 나머지 팔다리는 또 안 움직였다).
+    사슬을 못 읽으면 이름을 못 알아본 첫 BVH 본과 같은 쪽의 빈 컨트롤."""
+    from .retarget import bvh_parents, limb_pairs
+    try:
+        parents = bvh_parents(bvh) if bvh else {}
+    except OSError:
+        parents = {}
+    if pairs := limb_pairs(free, names, mapping or {}, parents):
+        return json.dumps(pairs, ensure_ascii=False)
+    side = names[0] if names else ""
+    from .bench import _norm
+    pick = next((c for c in free if c.endswith("." + (_norm(side)[1] or ""))), free[0])
+    return json.dumps({side: pick}, ensure_ascii=False)
+
+
+def missing_map(path: str, bvh: str | None, preset: str | None) -> str | None:
+    """`--map` 파일이 아직 없을 때(비슷한 파일도 없을 때) 만드는 명령(OS 셸별)과 같은 명령. 내용은 Blender 전에 BVH 이름으로 정한다:
+    움직이지 않을 팔다리가 있으면 ⚠ 와 같은 꼴, 없으면 사람 왼팔 예. 10/18 25회차 실측: ⚠ 가 준 `… --map bones.json` 을 그대로
+    치면 "파일이 없다 → {…} 형태의 JSON 을 지정하라" 뿐 — 무엇을 어떻게 만들지 없었다."""
+    import platform
+    p = Path(path).expanduser()
+    if p.exists() or near_files(p) or not p.parent.is_dir():
+        return None   # 폴더·비슷한 파일·없는 폴더는 need_file 의 안내가 낫다
+    eg = json.dumps({"LeftArm": "upper_arm_fk.L"})
+    if bvh and preset and Path(bvh).is_file():
+        from .retarget import bvh_mapping, bvh_rest_joints, unmoved_limbs
+        names = [n for n in bvh_rest_joints(str(Path(bvh).expanduser())) if not n.endswith("_end")]
+        mapping = bvh_mapping(names, preset)
+        free, unrec = unmoved_limbs(mapping, [n for n in names if n not in mapping], preset)
+        if free:
+            eg = map_example(free, unrec, mapping, str(Path(bvh).expanduser()))
+        elif preset == "quadruped":
+            eg = json.dumps({"LeftArm": "front_thigh_fk.L"})
+    q = f'"{path}"' if any(c.isspace() for c in str(path)) else str(path)
+    make = f"Set-Content {q} '{eg}'" if platform.system() == "Windows" else f"echo '{eg}' > {q}"
+    return T(f"--map 파일이 아직 없다: {path}\n  → 만들고(왼쪽 BVH 본 → 오른쪽 리그 컨트롤, 한 줄에 여럿): `{make}`\n  → 그다음 같은 명령: `{this_command()}`",
+             f"--map file does not exist yet: {path}\n  → make it (BVH bone on the left → rig control on the right, several per line): `{make}`\n  → then the same command: `{this_command()}`")
+
+
+def unmoved_warning(free: list, names: list, has_map: bool, mapping: dict | None = None, bvh: str | None = None) -> str:
+    """팔다리 컨트롤이 비었는데 그쪽에 이름을 못 알아본 BVH 본이 있다 — 그 팔다리는 움직이지 않는다.
+    다음 할 일: 그 이름으로 `--map` 을 써서 같은 명령(10/16 22회차: 숫자만 남고 "done" 이었다)."""
+    eg = map_example(free, names, mapping, bvh)
+    cmd = this_command() if has_map else f"{this_command()} --map bones.json"
+    shown = ", ".join(free[:6]) + (", …" if len(free) > 6 else "")
+    nm = ", ".join(names[:6]) + (", …" if len(names) > 6 else "")
+    return T(f"  ⚠ 팔다리 컨트롤 {len(free)}개가 움직이지 않는다(붙은 BVH 본 없음): {shown}\n"
+             f"    이름을 못 알아본 BVH 본: {nm}\n"
+             f"    → 어느 본이 어느 컨트롤인지 매핑 파일에 적어 같은 명령: `{cmd}` — 파일 꼴 {eg}(값은 위 컨트롤 이름 중에서)",
+             f"  ⚠ {len(free)} limb control(s) do not move (no BVH bone drives them): {shown}\n"
+             f"    BVH bones whose names were not recognised: {nm}\n"
+             f"    → write which bone drives which control in a map file and run the same command: `{cmd}` — file shaped like {eg} (values from the controls above)")
+
+
+def upright_on_quad_warning(root: Path, rig_run: str) -> str:
+    """서 있는 몸(사람) BVH 를 네 발 리그에 — 팔이 앞다리를 움직인다(10/17 23회차: 개 리그의 앞다리가 손을 흔들고 "done").
+    다음 할 일: 사람 리그가 있으면 그 리그로 바꾼 같은 명령, 없으면 저장소 캐릭터 첫 리깅."""
+    if (hum := latest_rig(root, "humanoid")):
+        nxt = T(f"사람 리그에: `{swap_arg(rig_run, hum)}`", f"onto a human rig: `{swap_arg(rig_run, hum)}`")
+    else:
+        from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+        where, first = _from_repo()
+        nxt = T(f"사람 리그부터 — {where}`{first}`, 그 `next:` 줄의 명령", f"rig a human first — {where}`{first}`, then the command on its `next:` line")
+    # 10/17 24회차: "네 발 동작 BVH 를 주거나" — 줄 파일이 없었다. 저장소의 네 발 걷기로 바꾼 같은 명령을 먼저
+    walk = swap_opt("--bvh", sample_bvh(quad=True))
+    return T(f"  ⚠ 이 BVH 는 서 있는 몸(머리가 골반 위)인데 리그 `{rig_run}` 은 네 발(quadruped)이다 — 팔이 앞다리를 움직여 앞다리가 팔처럼 움직인다\n"
+             f"    → 네 발 동작으로(저장소의 네 발 걷기): `{walk}` · 또는 {nxt}",
+             f"  ⚠ this BVH stands upright (head above the hips) but rig `{rig_run}` is four-legged (quadruped) — its arms drive the front legs, so the front legs move like arms\n"
+             f"    → a four-legged motion (the repository's walk): `{walk}` · or {nxt}")
+
+
+def lying_on_human_warning(root: Path, rig_run: str) -> str:
+    """네 발(누운 몸) BVH 를 사람 리그에 — 앞다리가 팔을, 뒷다리가 다리를 움직이고 꼬리는 버려진다(10/17 24회차: 손발 오차 55.45cm, "done").
+    다음 할 일: 네 발 리그가 있으면 그 리그로 바꾼 같은 명령, 그리고 저장소의 사람 샘플(손 흔들기)로 바꾼 같은 명령."""
+    wave = swap_opt("--bvh", sample_bvh())
+    if (quad := latest_rig(root, "quadruped")):
+        nxt = T(f"네 발 리그에: `{swap_arg(rig_run, quad)}` · 또는 ", f"onto a four-legged rig: `{swap_arg(rig_run, quad)}` · or ")
+    else:
+        nxt = ""
+    return T(f"  ⚠ 이 BVH 는 네 발 짐승(머리가 골반 앞)인데 리그 `{rig_run}` 은 사람(humanoid)이다 — 앞다리가 팔을 움직이고 꼬리는 옮기지 않는다\n"
+             f"    → {nxt}사람 동작으로(저장소의 손 흔들기): `{wave}`",
+             f"  ⚠ this BVH is four-legged (head in front of the hips) but rig `{rig_run}` is a human (humanoid) — its front legs drive the arms and the tail is dropped\n"
+             f"    → {nxt}a human motion (the repository's hand wave): `{wave}`")
+
+
+def map_target_warning(bad: dict) -> str:
+    """`--map` 이 리그에 없는 본으로 보낸 항목 — Blender 쪽에서 말없이 빠져 그 BVH 본이 안 움직였다(10/16 21회차 실측:
+    안내의 예 `upper_arm.L` 은 메타리그 이름이고 컨트롤은 `upper_arm_fk.L`). 가까운 컨트롤이 있으면 고칠 항목을 그대로 댄다."""
+    items = ", ".join(f'"{k}": "{v["to"]}"' + (f' → "{v["near"][0]}"' if v.get("near") else "")
+                      for k, v in list(bad.items())[:4])
+    return T(f"  ⚠ --map: 리그에 없는 본 {len(bad)}개 — 그 BVH 본은 움직이지 않는다: {items}\n"
+             "    → 리그 본 이름은 컨트롤 이름이다(사람 프리셋 팔다리는 `_fk`, 예: upper_arm_fk.L). 매핑 파일을 고쳐 같은 명령",
+             f"  ⚠ --map: {len(bad)} rig bone(s) not in the rig — those BVH bones do not move: {items}\n"
+             "    → rig bone names are control names (humanoid limbs end in `_fk`, e.g. upper_arm_fk.L). Fix the map file and run the same command")
+
+
+def unknown_map_names(unknown: list, bvh_bones: list, path: str) -> str:
+    """`--map` 의 BVH 쪽 이름이 BVH 에 없을 때 다음 할 일: 가까운 BVH 본(대소문자·difflib)과 고친 파일 한 줄, 없으면 BVH 본 이름들.
+    10/18 25회차 실측: `{"LeftArn": …}` 에 "BVH 에 없는 이름 1개 무시: LeftArn" 뿐 — 무엇으로 고칠지는 BVH 를 열어 봐야 했다."""
+    import difflib
+    low = {b.lower(): b for b in bvh_bones}
+    near = {k: low.get(k.lower()) or next(iter(difflib.get_close_matches(k, bvh_bones, n=1, cutoff=0.6)), None) for k in unknown}
+    hit = {k: v for k, v in near.items() if v}
+    try:
+        user = load_bone_map(path)
+    except Blocked:
+        user = {}
+    if not hit and user and all(v in bvh_bones for k, v in user.items() if k in unknown):   # 키·값을 거꾸로({"리그 본": "BVH 본"})
+        swapped = json.dumps({v: k for k, v in user.items()}, ensure_ascii=False)
+        return T(f"  → 거꾸로 적은 것 같다 — 왼쪽(키)이 BVH 본, 오른쪽이 리그 본이다. 바꾼 {Path(path).name}: {swapped}",
+                 f"  → it looks reversed — the keys are BVH bones and the values rig bones. {Path(path).name} swapped: {swapped}")
+    if hit:
+        fixed = json.dumps({hit.get(k, k): v for k, v in user.items()}, ensure_ascii=False) if user else ""
+        pairs = " · ".join(f"{k} → {v}" for k, v in hit.items())
+        line = T(f"  → BVH 의 가까운 이름: {pairs}", f"  → closest BVH bone names: {pairs}")
+        if fixed and len(fixed) <= 300:
+            line += T(f"\n  → 고친 {Path(path).name}: {fixed}", f"\n  → {Path(path).name} fixed: {fixed}")
+        return line
+    names = ", ".join(bvh_bones[:8]) + (", …" if len(bvh_bones) > 8 else "")
+    return T(f"  → 왼쪽(키)은 BVH 본 이름이다. 이 BVH 의 본: {names}", f"  → the keys are BVH bone names. This BVH's bones: {names}")
+
+
+def apply_bone_map(mapping: dict, bone_map: "dict | str | Path", bvh_bones: list) -> tuple[dict, int, list]:
     """사용자 매핑 파일을 자동 매핑 위에 덮어쓴다. {"BVH 본": "리그 본"} 형태.
 
     이름으로 짝짓는 자동 매핑은 **이름이 없는 리그에서 아무것도 못 붙인다** — 메시 모양에서 만든 사슬
@@ -124,14 +750,7 @@ def apply_bone_map(mapping: dict, path: Path, bvh_bones: list) -> tuple[dict, in
 
     BVH 에 없는 이름은 조용히 넘기지 않고 세어서 돌려준다 — 오타를 말해 주지 않으면 사용자는
     "왜 안 붙지"만 반복한다. 돌려주는 값은 (덮어쓴 매핑, 적용된 개수, 무시된 이름들)."""
-    try:
-        user = json.loads(need_file(path, "--map", T('{"LeftArm": "upper_arm.L"} 형태의 JSON 파일 경로를 지정하라', 'pass a JSON file shaped like {"LeftArm": "upper_arm.L"}')).read_text(encoding="utf-8"))
-    except ValueError as e:
-        raise Blocked(T(f"--map 파일이 JSON 이 아니다: {path} ({e})\n  → 예: {{\"LeftArm\": \"upper_arm.L\"}}",
-                        f"--map file is not JSON: {path} ({e})\n  → e.g. {{\"LeftArm\": \"upper_arm.L\"}}"))
-    if not isinstance(user, dict) or not all(isinstance(v, str) for v in user.values()):
-        raise Blocked(T(f'--map 파일은 {{"BVH 본": "리그 본"}} 형태여야 한다: {path}\n  → 예: {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}',
-                        f'--map file must look like {{"BVH bone": "rig bone"}}: {path}\n  → e.g. {{"LeftArm": "upper_arm.L", "LeftForeArm": "forearm.L"}}'))
+    user = bone_map if isinstance(bone_map, dict) else load_bone_map(bone_map)
     known = {k: v for k, v in user.items() if k in bvh_bones}
     return {**mapping, **known}, len(known), [k for k in user if k not in bvh_bones]
 
@@ -155,30 +774,90 @@ def fill_missing_targets(targets: dict, inputs: dict) -> tuple[dict, list]:
     return {**{n: base[n] for n in filled}, **targets}, filled
 
 
+def import_line(imp: dict) -> str:
+    """`[1/6] import:` 한 줄을 사람 말로 — 10/14 18회차 실측: 파이썬 dict 를 4×4 행렬까지 그대로 찍었다(전체는 analysis.json·report.md 에)."""
+    n, dropped, kept = imp.get("meshes_used", 0), imp.get("meshes_dropped") or [], imp.get("meshes_attached") or []
+    parts = [T(f"메시 {n}개", f"{n} meshes") if n != 1 else T("메시 1개", "1 mesh")]
+    if dropped:
+        parts.append(T(f"뺀 메시 {', '.join(dropped)}", f"left out {', '.join(dropped)}"))
+    if kept:
+        parts.append(T(f"소품으로 붙임 {', '.join(kept)}", f"kept as attachments {', '.join(kept)}"))
+    parts.append(T("원본 뼈대 있음", "has its own skeleton") if imp.get("had_armature") else T("원본 뼈대 없음", "no skeleton of its own"))
+    if (unit := imp.get("unit_scale", 1.0)) != 1.0:
+        parts.append(T(f"단위 ×{unit}({'mm' if unit < 0.01 else 'cm'} → m)", f"units ×{unit} ({'mm' if unit < 0.01 else 'cm'} → m)"))
+    if imp.get("rotated_90"):
+        parts.append(T("옆으로 누운 축을 90° 세움", "turned 90° (left/right was not X)"))
+    if imp.get("rotated_180"):
+        parts.append(T("앞이 -Y 가 되게 180° 돌림", "turned 180° so the front faces -Y"))
+    return "[1/6] import: " + " · ".join(parts)
+
+
 def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = None, lang: str | None = None, quiet: bool = False,
-        budget: int | None = None, no_judge: bool = False, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
+        budget: int | None = None, no_judge: bool = True, facing: str = "auto", pins: dict | None = None, targets_file: str | None = None,
         force: bool = False, rest_pose: str | None = None, weights: str | None = None, from_skeleton: bool = False, from_shape: bool = False) -> Path:
+    # CLI 인증은 API 키 없이도 호출되므로 실제 judge는 막고 명시한 mock 시험만 남긴다.
+    no_judge = no_judge or os.environ.get("BW_BACKEND") != "mock"
     cfg = load(root, lang)
-    if budget:
+    if (warn := unknown_keys_line(root)):   # 경로·형식으로 막히기 전에(설정 오타가 원인일 수 있다)
+        _log(quiet, warn)
+    if budget is not None:   # 0 을 말없이 무시하지 않는다(cli 는 1 이상만 넘긴다)
         cfg["budget"]["max_input_tokens"] = budget
     run_id = run_id or time.strftime("rig-%Y%m%d-%H%M%S")
-    mesh = str(need_file(mesh, T("메시", "mesh"), T("경로를 확인하라(따옴표로 감싼 공백 경로 포함)", "check the path (quote paths with spaces)"), MESH_EXTS).resolve())
+    mesh = str(need_file(mesh, T("메시", "mesh"), T("경로를 확인하라(따옴표로 감싼 공백 경로 포함)", "check the path (quote paths with spaces)"), MESH_EXTS,
+                         many=T(f"폴더 안 메시 여럿을 한 번에 재려면 `bw bench {mesh}`", f"to measure every mesh in the folder at once: `bw bench {mesh}`")).resolve())
+    need_mesh_bytes(Path(mesh))
     targets_loaded = None
     if targets_file:   # 형식 오류도 Blender·실행 폴더를 건드리기 전에 막는다(같은 run-id 의 기존 결과를 지키려고)
         tf = need_file(targets_file, "--targets", T("이전 실행의 runs/<id>/targets.json 또는 거절 때 남긴 targets_draft.json 을 지정하라",
                                                 "pass runs/<id>/targets.json from an earlier run, or the targets_draft.json left by a rejection"))
         try:
             targets_loaded = json.loads(tf.read_text(encoding="utf-8"))
+        except UnicodeDecodeError:   # 텍스트가 아니다 — 쉼표·괄호 안내는 틀린 말이 된다(10/10 8회차: 메시를 --targets 에 줌)
+            raise Blocked(T(f"--targets 파일이 글자 파일이 아니다(바이너리): {targets_file}\n  → 메시를 준 것 아닌가? "
+                            "--targets 에는 이전 실행의 JSON 을 준다: `--targets runs/<id>/targets.json`",
+                            f"--targets is not a text file (binary): {targets_file}\n  → did you pass the mesh? "
+                            "--targets takes an earlier run's JSON: `--targets runs/<id>/targets.json`"))
         except ValueError as e:
             raise Blocked(T(f"--targets 파일이 JSON 이 아니다: {targets_file} ({e})\n  → 편집 중 쉼표·괄호가 깨졌는지 확인하라",
                             f"--targets file is not JSON: {targets_file} ({e})\n  → check for a broken comma or bracket from editing"))
+    if targets_loaded is not None and (bad := targets_problems(targets_loaded)):
+        listing = "\n  ".join(bad)
+        raise Blocked(T(f"--targets 파일 모양이 틀렸다: {targets_file}\n  {listing}\n  → 꼴은 {{\"본\": {{\"head\": [x, y, z], \"tail\": [x, y, z]}}}}(head·tail 하나만 있어도 된다). "
+                        "이전 실행이 남긴 것을 고쳐 쓴다: `--targets runs/<id>/targets.json`",
+                        f"--targets file has the wrong shape: {targets_file}\n  {listing}\n  → it is {{\"bone\": {{\"head\": [x, y, z], \"tail\": [x, y, z]}}}} (head or tail alone is fine). "
+                        "Start from one an earlier run left: `--targets runs/<id>/targets.json`"))
+    if pins and not from_shape:   # 모양 리그는 메타리그를 쓰지 않는다(본 이름이 실행마다 다르다)
+        try:
+            need_pin_names(pins, preset)
+        except Blocked as e:
+            if not from_skeleton:
+                raise
+            # --from-skeleton 은 메타리그에 못 맞추면 원본 본 이름 그대로의 일반 리그로 간다 — 그 이름일 수 있어 막지 않고 알린다
+            _log(quiet, "  ⚠ " + str(e).splitlines()[0] + T(" (일반 리그로 가면 원본 본 이름으로 쓰인다)", " (used as a source bone name if this becomes a generic rig)"))
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    replaced = clear_replaced_rig(root / "runs" / run_id)
     r = Run(root, run_id, cfg, quiet)
-    _log(quiet, f"rig {run_id} · {preset} · {mesh}")
+    if replaced is not None:
+        again = " · ".join(f"`bw {c} {run_id}`" for c, made in (("export", {"rigged.glb"}), ("demo", {"demo.mp4", "demo.gif"})) if made & set(replaced))
+        made = ", ".join(replaced)
+        gone = (T(f". 옛 리그가 만든 것({made})은 새 리그 것처럼 보이지 않게 지웠다 → 새로: {again}",
+                  f". What the old rig made ({made}) is removed so it does not pass for the new one → again: {again}") if replaced else "")
+        _log(quiet, T(f"  ⚠ runs/{run_id} 에 이미 끝난 리그가 있다 — 이 실행이 그것을 바꾼다(`--run-id` 를 빼면 새 폴더){gone}",
+                      f"  ⚠ runs/{run_id} already holds a finished rig — this run replaces it (leave out `--run-id` for a new folder){gone}"))
+    # 비용은 끝난 뒤 report.md 의 tokens 줄에서야 보였다(10/11 11회차) — 시작 줄에 모델 호출이 몇 번까지인지
+    planned = [n for n, on in (("fit", not (from_skeleton or targets_file or from_shape)), ("judge", not no_judge)) if on]
+    if os.environ.get("BW_BACKEND") == "mock" or not planned:
+        calls = T("모델 호출 0(토큰 0)", "0 model calls (0 tokens)")
+    else:
+        names = "·".join(planned)
+        calls = T(f"모델 호출 최대 {len(planned)}회({names}) — 토큰 0 은 BW_BACKEND=mock", f"up to {len(planned)} model call(s) ({names}) — for 0 tokens: BW_BACKEND=mock")
+    _log(quiet, f"rig {run_id} · {preset} · {mesh} · {calls}")
     # 1 분석
     r.state("analyze", "running")
     a = r.blender("analyze", {"mesh": mesh, "blend": str(r.dir / "01_analyzed.blend"), "facing": facing, "preset": preset})
     atomic_write(r.dir / "analysis.json", json.dumps(a, ensure_ascii=False, indent=2))
-    _log(quiet, f"[1/6] import: {a['stats'].get('import')}")
+    if (imp := a["stats"].get("import")):
+        _log(quiet, import_line(imp))
     # 1a 포즈 정규화(rest_pose=t): 팔이 많이 내려가 있으면 **재기 전에** 수평으로 펴서 다시 잰다.
     # 팔이 몸에 붙어 있으면 관절 찾기가 흔들린다(실측: 팔 75° 손 22.6cm, 90° 46.2cm 오차에 발목 검출 실패로 거절)
     want_rest = rest_pose or cfg["rig"].get("rest_pose", "keep")
@@ -242,9 +921,9 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                 pass   # 추정이 실패해도 메타리그 기본값은 남긴다
             atomic_write(r.dir / "targets_draft.json", json.dumps(draft, ensure_ascii=False, indent=2))
             hint += T(f"\n  손으로 고칠 출발점을 남겼다: {r.dir / 'targets_draft.json'} (메타리그를 이 메시 크기로 맞춘 것)"
-                      f"\n  관절을 옮긴 뒤 `bw rig <mesh> --targets {r.dir / 'targets_draft.json'}` 로 돌리면 토큰 0 이다",
+                      f"\n  관절을 옮긴 뒤 `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets {_arg(r.dir / 'targets_draft.json', root)} --no-judge` 로 돌리면 토큰 0 이다",
                       f"\n  a starting point to edit by hand: {r.dir / 'targets_draft.json'} (the metarig scaled to this mesh)"
-                      f"\n  move the joints, then `bw rig <mesh> --targets {r.dir / 'targets_draft.json'}` costs 0 tokens")
+                      f"\n  move the joints, then `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets {_arg(r.dir / 'targets_draft.json', root)} --no-judge` costs 0 tokens")
         except Exception as e:   # 초안은 부가 기능이다 — 실패해도 거절 이유는 그대로 알린다
             hint += T(f"\n  (목표표 초안을 만들지 못했다: {e})", f"\n  (could not write the targets draft: {e})")
         raise Blocked(T(f"이 메시는 {preset} 프리셋에 맞지 않는다(토큰 0 으로 중단):", f"this mesh does not fit the {preset} preset (stopped, 0 tokens):") +
@@ -329,19 +1008,25 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
     atomic_write(r.dir / "targets.json", json.dumps(fit["targets"], ensure_ascii=False, indent=2))   # 손으로 고쳐 --targets 로 재사용
     # 3 생성·스키닝·통계
     r.state("generate", "running")
-    g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": gen_preset,
-                                   "source_joints": source_joints,
-                                   # 원본이 좌우 대칭인 뼈대면 우리 결과도 대칭이어야 한다(보정이 만든 어긋남은 되돌린다)
-                                   "source_symmetric": bool(from_skeleton and source_symmetry <= a["landmarks"]["height"] * 0.005),
-                                   "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
-                                   # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
-                                   "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
-                                   "weight_method": weights or cfg["rig"].get("weights", "auto"),
-                                   "cross_trim": cfg["rig"].get("cross_trim", True),
-                                   "from_skeleton": bool(from_skeleton),
-                                   # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
-                                   # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
-                                   "propagate_helpers": from_skeleton and gen_preset == "humanoid"})
+    try:
+        g = r.blender("fit_generate", {"blend": str(r.dir / "01_analyzed.blend"), "out_blend": str(r.dir / "02_rigged.blend"), "preset": gen_preset,
+                                       "source_joints": source_joints,
+                                       # 원본이 좌우 대칭인 뼈대면 우리 결과도 대칭이어야 한다(보정이 만든 어긋남은 되돌린다)
+                                       "source_symmetric": bool(from_skeleton and source_symmetry <= a["landmarks"]["height"] * 0.005),
+                                       "targets": fit["targets"], "landmarks": a["landmarks"], "stats": a["stats"], "face": cfg["rig"]["face"], "pinned": sorted(pins),
+                                       # 이미 메시를 T 로 펴 놨으면 fit_generate 에서 또 펴지 않는다
+                                       "rest_pose": "keep" if (norm and norm.get("applied")) else want_rest,
+                                       "weight_method": weights or cfg["rig"].get("weights", "auto"),
+                                       "cross_trim": cfg["rig"].get("cross_trim", True),
+                                       "from_skeleton": bool(from_skeleton),
+                                       # 사람 메타리그를 사람 아닌 비율(로봇)에 씌울 때만 살집 보조 본도 부모 척추를 따라가게 한다.
+                                       # 사족은 메타리그가 이미 네발짐승이라 기본 자리가 맞고, 따라가게 하면 오히려 몸 밖으로 나간다(말·늑대로 확인)
+                                       "propagate_helpers": from_skeleton and gen_preset == "humanoid"})
+    except BlenderError as e:
+        if (m := RIGIFY.findall(str(e))):   # 10/14 18회차 실측: 사람 뼈대에 --preset quadruped → Rigify 트레이스백과 "이슈를 열어라"
+            raise Blocked(rigify_hint(m[-1], r, preset, from_skeleton, source_joints if gen_preset != "generic" else None,
+                                      len(fit["targets"]), a["landmarks"])) from e
+        raise
     g["preset"] = preset   # bw motion 이 리그의 프리셋을 스스로 알도록 남긴다
     if norm:
         g["stats"]["normalize_pose"] = norm
@@ -375,11 +1060,11 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                           f"[6/6] judge: outside {judge['bones_outside_mesh']} · proportions {'ok' if judge['proportions_ok'] else 'off'} · confidence {judge['confidence']}"))
     # 보고서
     t = r.tokens(); status = "ok" if not fails else "needs_review"
-    report = [f"# bonewright rig report · {run_id}", "",
-              f"- mesh: `{mesh}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
+    report = [f"# bonewright rig report · {run_id}", "", versions_line(a),
+              f"- mesh: `{_shown(mesh, r.dir)}` · preset: {preset} · verts {a['stats']['verts']:,} · height {a['landmarks']['height']} m",
               f"- import: {json.dumps(a['stats'].get('import'), ensure_ascii=False)}",
               f"- landmarks: chibi={a['landmarks'].get('chibi')} · head_ratio={a['landmarks'].get('head_ratio')} · neck={a['landmarks'].get('neck_from')} · suspect={a['landmarks'].get('suspect')}",
-              f"- rig: `{g['blend']}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
+              f"- rig: `{_shown(g['blend'], r.dir)}` · bones {st['rig_bones']} (deform {st['deform_bones']}) · moved metarig bones {len(st['moved_bones'])}",
               f"- weights ({st.get('weight_method')}): unweighted {st['unweighted_verts']} (filled by nearest bone {st.get('filled_unweighted', 0)}"
               + (f", rigid parts bound whole {st['rigid_islands_bound']}" if st.get("rigid_islands_bound") else "")
               + f") · sum {st['weight_sum_min']}–{st['weight_sum_max']} · symmetry err {st['symmetry_max_error']}",
@@ -388,11 +1073,12 @@ def rig(root: Path, mesh: str, preset: str = "humanoid", run_id: str | None = No
                  f" · ⚠ bones crossing gaps between parts {st['deform_gap_mesh']}: {st.get('deform_gap_mesh_bones', [])[:4]}") if st.get("deform_gap_mesh") else ""),
               f"- judge: {json.dumps(judge, ensure_ascii=False)}",
               f"- renders: {', '.join(Path(p).name for p in views['images'])}",
-              f"- targets: `{r.dir / 'targets.json'}` " + T("(손으로 고쳐 `bw rig <mesh> --targets` 로 토큰 0 재실행)", "(edit by hand and rerun with `bw rig <mesh> --targets`, 0 tokens)")
+              f"- targets: `runs/{run_id}/targets.json` " + T(f"(손으로 고쳐 `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets runs/{run_id}/targets.json --no-judge` 로 토큰 0 재실행)", f"(edit by hand and rerun with `bw rig {_arg(mesh, root)}{preset_opt(preset)} --targets runs/{run_id}/targets.json --no-judge`, 0 tokens)")
               + (T(f" · 고정 {sorted(pins)}", f" · pinned {sorted(pins)}") if pins else ""),
               f"- tokens: in {t['input']:,} / out {t['output']:,} · ≈${t['usd_upper']} upper · calls {len(r.usage)}", ""]
     atomic_write(r.dir / "report.md", "\n".join(report))
-    r.state("final", status)
+    # 걸린 검사와 고칠 명령을 state 에도 — `bw status` 가 다시 준다(10/18 26회차: report.md 를 열어야 알았다)
+    r.state("final", status, **({"reasons": fails, "mesh": str(Path(mesh).resolve()), "preset": preset} if fails else {}))
     _log(quiet, T(f"완료({status}) → {r.dir / 'report.md'}", f"done ({status}) → {r.dir / 'report.md'}"))
     return r.dir / "report.md"
 
@@ -419,24 +1105,65 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
     cfg = load(root)
     # 입력 확인은 실행 폴더·Blender 전에: 잘못된 --rig·--bvh 로 기존 실행 기록을 덮지 않는다
     if not text and not bvh:
-        raise Blocked(T("동작 출처가 없다\n  → `bw motion --bvh walk.bvh --rig <리그 run-id>` 또는 `bw motion --text \"a person walks\"`",
-                        "no motion source\n  → `bw motion --bvh walk.bvh --rig <rig run-id>` or `bw motion --text \"a person walks\"`"))
+        bv = quote_arg(sample_bvh())   # 그대로 붙여 넣어 도는 BVH(저장소의 손 흔들기)
+        if (rid := latest_rig(root)):   # 리그가 있으면 자리표시 대신 최근 리그 — export·demo 처럼(10/12 13회차)
+            bv = quote_arg(rig_sample_bvh(root, rid))
+            raise Blocked(T(f"동작 출처가 없다\n  → 가장 최근 리그에 샘플 동작: `bw motion --bvh {bv} --rig {rid}`(다른 리그는 `bw status`) 또는 `bw motion --text \"a person walks\"`",
+                            f"no motion source\n  → the sample motion on the latest rig: `bw motion --bvh {bv} --rig {rid}` (other rigs: `bw status`) or `bw motion --text \"a person walks\"`"))
+        # 10/15 20회차: 리그가 없는데 `--rig <rig run-id>` 자리표시 — 채울 id 가 없다. `--rig` 없이 도는 꼴과 첫 리깅 명령
+        from .cli import _from_repo   # cli 가 이 모듈을 먼저 읽는다(부를 때만 가져와 순환 없음)
+        where, first = _from_repo()
+        raise Blocked(T(f"동작 출처가 없다\n  → 샘플 동작을 Blender 로 가져오기만(리그 없음): `bw motion --bvh {bv}`\n"
+                        f"  → 캐릭터에 입히려면 먼저 리깅 — {where}`{first}`, 그 `next:` 줄에 id 를 채운 `bw motion` 명령이 나온다",
+                        f"no motion source\n  → the sample motion, imported into Blender only (no rig yet): `bw motion --bvh {bv}`\n"
+                        f"  → to put it on a character, rig first — {where}`{first}`; its `next:` line gives the `bw motion` command with the id filled in"))
     if bvh and not text:
-        need_file(bvh, "BVH", T("경로를 확인하라. BVH 는 Mixamo·CMU 등에서 받거나 `--text` 로 만든다", "check the path. Get a BVH from Mixamo, CMU etc., or make one with `--text`"), (".bvh",))
-    rig_blend = need_rig(root, rig_run) if rig_run else None
+        bv = quote_arg(sample_bvh(rig_preset(root, rig_run) == "quadruped" if rig_run else Path(bvh).name == "dog_walk.bvh"))   # 10/18 25회차: 네 발 걷기를 찾는데 손 흔들기를 권했다
+        need_bvh_bytes(need_file(bvh, "BVH", T(f"경로를 확인하라. 저장소의 샘플: `--bvh {bv}`, 그 밖엔 Mixamo·CMU 등에서 받거나 `--text` 로 만든다",
+                                f"check the path. The repository's sample: `--bvh {bv}`; otherwise get one from Mixamo, CMU etc., or make one with `--text`"), (".bvh",)))
+    if not rig_run:   # 리타겟 옵션은 `if rig_run:` 안에서만 쓰인다 — 말없이 버리면 기다린 끝에 GLB 가 없다
+        unused = [f for f, on in (("--export", export), ("--map", bone_map), (f"--legs {legs}", legs != "auto"), ("--no-roll", not roll)) if on]
+        if unused:   # 10/15 20회차: 리그가 있어도 `--rig <rig run-id>` 자리표시였다 → 지금 친 명령에 최근 리그를 붙인 꼴
+            what = T(f"{' · '.join(unused)} 는 리그에 옮길 때만 쓴다", f"{' · '.join(unused)}: used only when retargeting onto a rig")
+            if (rid := latest_rig(root)):
+                raise Blocked(T(f"{what}\n  → 최근 리그에: `{this_command()} --rig {rid}` (리그 목록 `bw status`), 아니면 그 옵션을 빼라",
+                                f"{what}\n  → onto the latest rig: `{this_command()} --rig {rid}` (rigs: `bw status`), or drop the option"))
+            from .cli import _from_repo
+            where, first = _from_repo()
+            raise Blocked(T(f"{what}, 그리고 리깅을 마친 실행이 없다\n  → 먼저 {where}`{first}`, 그 `next:` 줄의 id 를 `--rig <id>` 로 붙여 같은 명령 — 아니면 그 옵션을 빼라",
+                            f"{what}, and no rig has been made yet\n  → {where}run `{first}` first, then this command with `--rig <id>` from its `next:` line — or drop the option"))
+    rig_blend = need_rig(root, rig_run, "--rig {}") if rig_run else None
+    # 10/17 23회차 실측: 개 리그에 `--preset humanoid` → 말없이 돌아 팔다리 6개가 안 움직이고, ⚠ 는 "이름을 못 알아봤다" +
+    # 리그에 없는 `upper_arm_fk.L` 로 --map 을 쓰라 했다. 리그와 다른 프리셋은 Blender 전에 막고 그 옵션을 뺀 같은 명령
+    if rig_run and preset and (was := rig_preset(root, rig_run)) and was != preset:
+        raise Blocked(T(f"`--preset {preset}` 인데 리그 `{rig_run}` 은 {was} 로 리깅됐다 — `--preset` 은 리그의 프리셋이라, 다르면 팔다리가 안 움직인다\n"
+                        f"  → 그 옵션을 뺀 같은 명령(리그 기록에서 읽는다): `{drop_opt('--preset')}`",
+                        f"`--preset {preset}` but rig `{rig_run}` was rigged as {was} — `--preset` is the rig's preset, and a different one leaves its limbs unmoved\n"
+                        f"  → the same command without it (read from the rig): `{drop_opt('--preset')}`"))
+    if bone_map and (miss := missing_map(bone_map, bvh, rig_run and (preset or rig_preset(root, rig_run) or "humanoid"))):
+        raise Blocked(miss)
+    user_map = load_bone_map(bone_map) if bone_map else None
     run_id = run_id or time.strftime("motion-%Y%m%d-%H%M%S")
-    r = Run(root, run_id, cfg, quiet)
     k = cfg["kimodo"]; kroot = (root / k["root"]).resolve()
-    if text:
+    if text:   # kimodo 도 실행 폴더·Blender 전에 본다(설치 안내가 더 구체적이다)
         gen, text_model = kimodo_paths(kroot, k)
-        if gen is None:
-            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → docs/GUIDE.md 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 `--bvh 파일` 을 써라",
-                            f"kimodo.cpp is not built: {kroot}/build/release/kmd-generate\n  → build it as in \"Text → motion: building kimodo.cpp\" in docs/GUIDE.md, or use `--bvh file` instead of text"))
+        if gen is None:   # 10/13 16회차: 대신 쓸 `--bvh file` 이 자리표시였다 — 출처 없음 안내처럼 샘플 BVH·리그를 채운다
+            rid = rig_run or latest_rig(root)
+            alt = f"bw motion --bvh {quote_arg(rig_sample_bvh(root, rid) if rid else sample_bvh())}" + (f" --rig {rid}" if rid else "")
+            raise Blocked(T(f"kimodo.cpp 빌드가 없다: {kroot}/build/release/kmd-generate\n  → {guide()} 의 \"Text → motion: building kimodo.cpp\" 절대로 빌드하거나, 텍스트 대신 BVH 로: `{alt}`",
+                            f"kimodo.cpp is not built: {kroot}/build/release/kmd-generate\n  → build it as in \"Text → motion: building kimodo.cpp\" in {guide()}, or use a BVH instead of text: `{alt}`"))
         if text_model is None:
             raise Blocked(T(f"kimodo.cpp 텍스트 인코더가 없다: {kroot / k['text_bundle']} 도, `tokenizer.gguf` 옆의 GGUF 도 없다\n"
                             "  → `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1` 로 받거나, runs/config.json 의 kimodo.text_bundle 에 경로를 적어라",
                             f"kimodo.cpp text encoder not found: neither {kroot / k['text_bundle']} nor a GGUF beside `tokenizer.gguf`\n"
                             "  → get it with `scripts/download_gguf_weights.sh --output \"$PWD\" --model soma-rp-v1.1`, or set kimodo.text_bundle in runs/config.json"))
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    r = Run(root, run_id, cfg, quiet)
+    # 단계 번호는 실제로 도는 단계만 센다: `--bvh` 만이면 [1/1] 로 시작한다(10/10 까지 [3/3] 부터라 앞 단계가 빠진 줄 알았다)
+    steps = (["kimodo", "bvh"] if text else []) + ["import"] + (["retarget"] if rig_run else []) + (["export"] if rig_run and export else [])
+    def n(step: str) -> str:
+        return f"[{steps.index(step) + 1}/{len(steps)}]"
+    if text:
         r.state("kimodo", "running")
         (r.dir / "prompt.txt").write_text(text, encoding="utf-8")
         t = time.time()
@@ -445,35 +1172,37 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         (r.logs).mkdir(exist_ok=True); (r.logs / "kimodo.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
         if proc.returncode != 0:
             r.state("kimodo", "failed"); raise Blocked(T("kimodo 실패: ", "kimodo failed: ") + proc.stderr[-500:])
-        _log(quiet, f"[1/3] kimodo: {proc.stdout.strip()} · {time.time() - t:.1f}s")
+        _log(quiet, f"{n('kimodo')} kimodo: {proc.stdout.strip()} · {time.time() - t:.1f}s")
         bvh = str(r.dir / "motion" / "motion.bvh")
         proc = subprocess.run([sys.executable, str(kroot / "scripts" / "export_bvh.py"), "--motion-dir", str(r.dir / "motion"), "--output", bvh, "--fps", "30", "--scale", "1.0"],
                               capture_output=True, text=True)
         if proc.returncode != 0:
             raise Blocked(T("BVH 변환 실패: ", "BVH conversion failed: ") + proc.stderr[-500:])
-        _log(quiet, f"[2/3] bvh: {bvh}")
+        _log(quiet, f"{n('bvh')} bvh: {bvh}")
     r.state("import", "running")
     from .retarget import detect_bvh_up
     if rig_run and preset is None:   # 리그 실행 기록에서 프리셋을 읽는다(없는 옛 실행은 humanoid). 위 축 판단에도 필요하다
-        rs = root / "runs" / rig_run / "rig_stats.json"
-        preset = (json.loads(rs.read_text()).get("preset") if rs.exists() else None) or "humanoid"
+        preset = rig_preset(root, rig_run) or "humanoid"
     if bvh_up == "auto":   # 위 축을 틀리면 조용히 망가진다(늑대 걷기: 발이 바닥에서 1m 뜸) → 머리·발 위치로 정한다
         bvh_up = detect_bvh_up(str(Path(bvh).resolve()), preset or "humanoid")
-        _log(quiet, T(f"[3/3] bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)", f"[3/3] bvh up axis detected: {bvh_up} (if wrong, set it with --bvh-up)"))
+        _log(quiet, T(f"{n('import')} bvh 위 축 자동 판단: {bvh_up} (틀리면 --bvh-up 으로 직접 지정)", f"{n('import')} bvh up axis detected: {bvh_up} (if wrong, set it with --bvh-up)"))
     imp = r.blender("import_bvh", {"bvh": str(Path(bvh).resolve()), "out_blend": str(r.dir / "motion.blend"), "bvh_up": bvh_up})
-    _log(quiet, T(f"[3/3] import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
-                    f"[3/3] import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
-    report = [f"# bonewright motion report · {run_id}", "", f"- source: {'text: ' + text if text else 'bvh: ' + bvh}",
+    _log(quiet, T(f"{n('import')} import: 본 {imp['bones']} · 프레임 {imp['frames']} · {imp['fps']}fps · 루트 이동 {imp['root_move']}m",
+                    f"{n('import')} import: bones {imp['bones']} · frames {imp['frames']} · {imp['fps']}fps · root move {imp['root_move']}m"))
+    report = [f"# bonewright motion report · {run_id}", "", versions_line(imp), f"- source: {'text: ' + text if text else 'bvh: ' + _shown(bvh, r.dir)}",
               f"- armature: {imp['armature']} · bones {imp['bones']} · frames {imp['frames']} · fps {imp['fps']} · root move {imp['root_move']} m",
-              f"- blend: `{r.dir / 'motion.blend'}`"]
+              "- blend: `motion.blend`"]
     if rig_run:
         from .retarget import bvh_mapping
         blend = rig_blend
         mapping = bvh_mapping(imp["bone_names"], preset)
         if bone_map:
-            mapping, applied, unknown = apply_bone_map(mapping, Path(bone_map), imp["bone_names"])
+            mapping, applied, unknown = apply_bone_map(mapping, user_map, imp["bone_names"])
             _log(quiet, T(f"  📄 --map {applied}개 적용", f"  📄 --map applied {applied}")
                         + (T(f" · BVH 에 없는 이름 {len(unknown)}개 무시: {', '.join(unknown[:4])}", f" · ignored {len(unknown)} names not in the BVH: {', '.join(unknown[:4])}") if unknown else ""))
+            if unknown:
+                _log(quiet, unknown_map_names(unknown, imp["bone_names"], bone_map))
+                report.append("- --map BVH names not in the BVH (ignored): " + ", ".join(unknown))
         r.state("retarget", "running")
         fa, fb = imp["frames"] if imp.get("frames") else (1, 1)
         rf = sorted({fa, fa + (fb - fa) // 3, fa + 2 * (fb - fa) // 3, fb})
@@ -481,10 +1210,31 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
         rt = r.blender("retarget_bvh", {"blend": str(blend), "bvh": str(Path(bvh).resolve()), "mapping": mapping,
                                         "out_blend": str(r.dir / "retargeted.blend"), "out_dir": str(r.dir),
                                         "render_frames": rf, "height": (an.get("landmarks") or {}).get("height", 1.8), "roll": roll, "bvh_up": bvh_up, "legs": legs})
-        _log(quiet, T(f"[4/4] retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개 · "
-                      f"본 방향 오차 평균 {rt.get('mean_dir_deg')}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
-                      f"[4/4] retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved · "
-                      f"mean bone direction error {rt.get('mean_dir_deg')}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)"))
+        # 못 옮긴 본은 이름까지(--map 에 쓸 이름), 오차를 못 쟀으면 "None°" 대신 그 말(10/16 22회차: 사족 리그에서 "None°·Nonecm")
+        left = f" ({', '.join(rt['unmapped'][:4])}{', …' if len(rt['unmapped']) > 4 else ''})" if rt["unmapped"] else ""
+        err = (T(f"본 방향 오차 평균 {rt['mean_dir_deg']}° · 손발 위치 오차 평균 {rt.get('mean_end_cm')}cm(비율 차이 포함)",
+                 f"mean bone direction error {rt['mean_dir_deg']}° · mean hand/foot position error {rt.get('mean_end_cm')}cm (includes proportion difference)")
+               if rt.get("mean_dir_deg") is not None else T("오차는 재지 않음(사람 프리셋 팔다리만 잰다)", "error not measured (humanoid limbs only)"))
+        _log(quiet, T(f"{n('retarget')} retarget: 본 {len(rt['mapped'])}개 옮김 · 못 옮긴 BVH 본 {len(rt['unmapped'])}개{left} · {err}",
+                      f"{n('retarget')} retarget: {len(rt['mapped'])} bones moved · {len(rt['unmapped'])} BVH bones not moved{left} · {err}"))
+        from .retarget import unmoved_limbs
+        # 우리 쪽 매핑으로 센다 — rt["mapped"] 는 Blender 쪽 실제 본 이름이라(사족: front_thigh.L) 컨트롤 이름과 다르다
+        drove = {k: v for k, v in mapping.items() if k not in (rt.get("no_target") or {})}
+        free, names = unmoved_limbs(drove, rt["unmapped"], preset or "humanoid")
+        if free:
+            _log(quiet, unmoved_warning(free, names, bool(bone_map), drove, str(Path(bvh).resolve())))
+            report.append(f"- limb controls no BVH bone drives (not moved): {', '.join(free)} · BVH bones not recognised on that side: {', '.join(names)}")
+        from .retarget import bvh_upright
+        if preset == "quadruped" and bvh_upright(str(Path(bvh).resolve()), bvh_up):
+            _log(quiet, upright_on_quad_warning(root, rig_run))
+            report.append("- the BVH stands upright (a human motion) on a quadruped rig: its arms drive the front legs")
+        from .retarget import bvh_lying
+        if preset != "quadruped" and bvh_lying(str(Path(bvh).resolve())):
+            _log(quiet, lying_on_human_warning(root, rig_run))
+            report.append("- the BVH is four-legged (lying body) on a humanoid rig: its front legs drive the arms")
+        if bad := {k: v for k, v in (rt.get("no_target") or {}).items() if bone_map and k in user_map}:
+            _log(quiet, map_target_warning(bad))
+            report.append("- --map rig bones not in the rig (not moved): " + ", ".join(f"{k} → {v['to']}" for k, v in bad.items()))
         report += [f"- retarget → `{rig_run}`: mapped {len(rt['mapped'])} bones, unmapped {rt['unmapped']}",
                    f"- legs: {rt.get('legs')} · IK {rt.get('ik_legs') or []} · FK(no foot joint in source) {rt.get('ik_skipped') or []} · roll transfer: {rt.get('roll')} · hand/foot twist error vs BVH: " + ", ".join(f"{k} {v['mean_deg']}°(max {v['max_deg']})" for k, v in (rt.get('roll_deg') or {}).items()),
                    f"- bone direction error vs BVH (proportion-free): mean {rt.get('mean_dir_deg')}° · " +
@@ -494,16 +1244,16 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
                    f"- foot contact (lowest toe per frame): {rt.get('foot_contact')}",
                    f"- foot slide during BVH stance frames: {rt.get('foot_slide')}",
                    f"- deformation (edge stretch vs rest at rendered frames): {rt.get('stretch') and {k: v for k, v in rt['stretch'].items() if k != 'per_frame'}}",
-                   f"- blend: `{r.dir / 'retargeted.blend'}`",
+                   "- blend: `retargeted.blend`",
                    "- frames: " + " ".join(f"`{Path(p).name}`" for p in rt.get("renders", []))]
         atomic_write(r.dir / "retarget.json", json.dumps(rt, ensure_ascii=False, indent=2))
         if export:
             out = (r.dir / "animated.glb") if export == "auto" else Path(export).resolve()
             r.state("export", "running")
             ex = r.blender("export_anim", {"blend": str(r.dir / "retargeted.blend"), "out": str(out)})
-            _log(quiet, T(f"[5/5] export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm",
-                              f"[5/5] export: {out.name} · bones {ex['bones']} · frames {ex['frames']} · re-read hand/foot max difference {ex['max_diff_cm']}cm"))
-            report += [f"- export: `{out}` · {ex['bones']} deform bones · {ex['verts']} verts · frames {ex['frames']} · "
+            _log(quiet, T(f"{n('export')} export: {out.name} · 본 {ex['bones']} · 프레임 {ex['frames']} · 다시 읽어 손발 위치 차이 최대 {ex['max_diff_cm']}cm",
+                              f"{n('export')} export: {out.name} · bones {ex['bones']} · frames {ex['frames']} · re-read hand/foot max difference {ex['max_diff_cm']}cm"))
+            report += [f"- export: `{_shown(out, r.dir)}` · {ex['bones']} deform bones · {ex['verts']} verts · frames {ex['frames']} · "
                        f"re-import check at frame {ex['probe_frame']}: {ex['reimport_diff_cm']} (cm)"]
     else:
         report.append("- retarget: pass --rig <run-id> to move this motion onto a rig")
@@ -516,9 +1266,22 @@ def motion(root: Path, text: str | None = None, bvh: str | None = None, run_id: 
 def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = False) -> Path:
     """리깅 결과 → 변형 본만 든 GLB(토큰 0). 다시 읽어 본 위치를 대조한다."""
     cfg = load(root)
-    blend = need_rig(root, run_id)
-    r = Run(root, run_id, cfg, quiet)
-    dst = Path(out).resolve() if out else (r.dir / "rigged.glb")
+    blend = need_rig(root, run_id, "bw export {}")
+    dst = None
+    if out:   # Blender 를 띄우기 전에(10/10 8회차: 폴더·.fbx 가 Blender 단계에서야 실패했다)
+        dst = Path(out).expanduser()
+        if dst.is_dir():
+            dst = dst / f"{run_id}.glb"   # 폴더를 주면 그 안에 <id>.glb
+        elif dst.suffix.lower() != ".glb":
+            raise Blocked(T(f"내보내기는 GLB 만 쓴다: {out}\n  → `--out {Path(out).with_suffix('.glb')}` 처럼 .glb 로, 또는 폴더를 준다(그 안에 {run_id}.glb)",
+                            f"export writes GLB only: {out}\n  → use a .glb path such as `--out {Path(out).with_suffix('.glb')}`, or a folder (it gets {run_id}.glb)"))
+        if not dst.parent.is_dir():
+            raise Blocked(T(f"출력 폴더가 없다: {dst.parent}\n  → 먼저 만들거나(`mkdir -p {dst.parent}`) 있는 폴더를 준다",
+                            f"output folder does not exist: {dst.parent}\n  → create it first (`mkdir -p {dst.parent}`) or pass an existing one"))
+        dst = dst.resolve()
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    r = Run(root, run_id, cfg, quiet, state_file="export_state.json")
+    dst = dst or (r.dir / "rigged.glb")
     ex = r.blender("export_rig", {"blend": str(blend), "out": str(dst)})
     _log(quiet, T(f"export: {dst} · 변형 본 {ex['bones']} · 정점 {ex['verts']}/{ex['verts_in_source']} · 다시 읽어 본 위치 차이 최대 {ex['max_diff_cm']}cm",
                     f"export: {dst} · deform bones {ex['bones']} · verts {ex['verts']}/{ex['verts_in_source']} · re-read bone max difference {ex['max_diff_cm']}cm"))
@@ -526,16 +1289,36 @@ def export_rig(root: Path, run_id: str, out: str | None = None, quiet: bool = Fa
     return dst
 
 
+def ffmpeg_install(system: str | None = None) -> str:
+    """이 OS 에서 ffmpeg 를 까는 명령 하나(10/10 8회차: 한국어판은 macOS 의 brew 만, 영어판은 "install ffmpeg" 뿐이었다)."""
+    import platform
+    system = system or platform.system()
+    return {"Darwin": "`brew install ffmpeg`", "Windows": "`winget install ffmpeg`"}.get(system, "`sudo apt install ffmpeg`")
+
+
+def unset_env_command(name: str, system: str | None = None) -> str:
+    """환경 변수 name 만 뺀 채 지금 친 명령을 다시 — 셸마다 꼴이 달라 OS 로 고른다(Windows 는 PowerShell)."""
+    import platform
+    if (system or platform.system()) == "Windows":
+        return f"Remove-Item Env:{name}; {this_command()}"
+    return f"env -u {name} {this_command()}"
+
+
 def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: int = 96) -> Path:
     """리그 결과 데모 영상(토큰 0): runs/<id>/02_rigged.blend → demo.mp4(+ ffmpeg 가 있으면 demo.gif)."""
     import shutil
     cfg = load(root)
-    blend = need_rig(root, run_id)
-    r = Run(root, run_id, cfg, quiet)
-    if os.environ.get("BW_NO_RENDER") == "1":
+    blend = need_rig(root, run_id, "bw demo {}")
+    if os.environ.get("BW_NO_RENDER") == "1":   # Blender 확인보다 먼저: 없으면 "Blender not found" 가 진짜 이유를 가렸다
         # 데모 영상은 **그림이 목적**인 기능이라 통째로 막는다(화면 없는 서버에서는 렌더러가 죽는다)
-        raise Blocked(T("BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다\n  → 화면이 있는 환경에서 `BW_NO_RENDER` 를 지우고 다시 실행하라",
-                        "BW_NO_RENDER=1, so no demo video is made\n  → unset `BW_NO_RENDER` and run again on a machine with a display"))
+        # 10/15 20회차: "BW_NO_RENDER 를 지우고 다시" 뿐 — 그대로 칠 명령과, 화면 없이도 되는 다음 일(GLB)을 준다
+        again = unset_env_command("BW_NO_RENDER")
+        raise Blocked(T(f"BW_NO_RENDER=1 이라 데모 영상을 만들지 않는다(리그는 끝나 있다)\n  → 화면이 있는 컴퓨터에서 그 값만 빼고: `{again}`\n"
+                        f"  → 화면 없이도 되는 것 — 게임 엔진용 GLB: `bw export {run_id}`",
+                        f"BW_NO_RENDER=1, so no demo video is made (the rig itself is done)\n  → on a machine with a display, without that variable: `{again}`\n"
+                        f"  → works without a display — the GLB for game engines: `bw export {run_id}`"))
+    need_blender(cfg["blender"])   # 실행 폴더를 만들기 전에
+    r = Run(root, run_id, cfg, quiet, state_file="demo_state.json")
     a = json.loads((r.dir / "analysis.json").read_text(encoding="utf-8"))
     d = r.blender("render_demo", {"blend": str(blend), "out_dir": str(r.dir), "stats": a["stats"], "height": a["landmarks"]["height"], "size": size, "frames": frames})
     out = Path(d["frames_dir"])
@@ -545,6 +1328,7 @@ def demo(root: Path, run_id: str, quiet: bool = False, size: int = 640, frames: 
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp4), "-vf", "fps=12,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse", str(gif)])
         out = mp4
     else:
-        _log(quiet, T("ffmpeg 가 없어 PNG 프레임만 남긴다 (brew install ffmpeg)", "no ffmpeg, so only PNG frames are kept (install ffmpeg)"))
+        _log(quiet, T(f"ffmpeg 가 없어 PNG 프레임만 남긴다 → {ffmpeg_install()} 뒤 같은 명령을 다시",
+                      f"no ffmpeg, so only PNG frames are kept → {ffmpeg_install()}, then run the same command again"))
     _log(quiet, T(f"demo: {out} · 프레임 {d['frames']} · 컨트롤 {d['controls']}", f"demo: {out} · frames {d['frames']} · controls {d['controls']}"))
     return out

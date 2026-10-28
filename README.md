@@ -2,7 +2,7 @@
 
 **Give it a character mesh (`.glb` / `.gltf`), get back a Blender rig you can animate** — Rigify controls,
 skin weights on every vertex, and a pass/fail gate that tells you when the result should not be trusted.
-Python drives the steps, `codex exec` judges, gates verify. [한국어](README.ko.md)
+Python drives the steps, `codex exec` fits joints, gates verify. [한국어](README.ko.md)
 
 <p align="center">
   <img src="docs/media/rig-views.png" width="860"
@@ -12,6 +12,8 @@ Python drives the steps, `codex exec` judges, gates verify. [한국어](README.k
 ## What it does for you
 
 - **Rigs** humans and four-legged animals from a bare mesh (T- or A-pose), or reuses a skeleton the file already has.
+  Sample results: [a capsule doll](examples/sample-output/capsule_doll.md) (73 deform bones) and
+  [a four-legged capsule dog](examples/sample-output/capsule_dog.md) (110), both procedural.
 - **Rigs anything else with limbs** (insects, monsters) as bone chains built from the mesh's own shape.
 - **Refuses** meshes it cannot rig well instead of handing back a broken rig (`--force` overrides).
 - **Retargets motion** — a BVH clip onto the new rig — and **exports** a game-ready GLB.
@@ -21,30 +23,45 @@ Python drives the steps, `codex exec` judges, gates verify. [한국어](README.k
 Needs Python 3 and Blender 5.2 LTS (or the `bpy` wheel). The CLI itself has no dependencies.
 
 ```bash
-pip install .                 # or: pip install ".[headless]" to use the bpy wheel instead of Blender.app
-bw doctor                     # checks that Blender and Rigify are reachable
+git clone https://github.com/choisam4u-creator/bonewright && cd bonewright
+python3 -m venv .venv && source .venv/bin/activate   # Homebrew / Linux Python refuses a global pip install (PEP 668)
+pip install .                 # or: pip install ".[headless]" to use the bpy wheel instead of Blender.app (Python 3.13)
+bw doctor                     # checks that Blender or bpy is found (either one) and marks what is optional
 ```
+
+In a new terminal, activate the venv
+again before `bw`; if `bw` is still not found, `python3 -m bonewright` runs the same commands (`python3 -m bonewright doctor`).
 
 ## First run
 
+Try it first on the character that ships with the repository — no model, no codex, 0 tokens:
+
 ```bash
-bw rig character.glb          # rig it; results land in runs/<run-id>/ (report path printed)
-bw demo <run-id>              # mp4/gif of the rig moving through its IK controls
+bw rig tests/assets/quaternius_adventurer.glb --from-skeleton --no-judge   # reuses the file's own skeleton
+bw rig character.glb          # your mesh; results land in runs/<run-id>/ (report path printed)
+bw demo <run-id>              # mp4/gif of the rig moving through its IK controls (`bw rig` ends with this, run-id filled in, on its "next:" line)
 bw export <run-id>            # deform-only GLB + skin, re-imported and checked
 ```
 
 | your file | command |
 |---|---|
 | human or dog proportions, no skeleton | `bw rig x.glb` (add `--preset quadruped` for animals) |
-| already has a skeleton | `bw rig x.glb --from-skeleton` (0 model tokens) |
+| already has a skeleton | `bw rig x.glb --from-skeleton` (no fit call; add `--no-judge` for 0 tokens) |
 | no skeleton and no preset fits | `bw rig x.glb --from-shape` |
 
-A `bw rig` run makes two model calls (about $1). `BW_BACKEND=mock` or `--from-skeleton` costs zero tokens.
+A default `bw rig` run can make at most one model call: fit. The visual judge is off by default and live judge calls are blocked; only an explicitly requested mock judge can run. `--from-skeleton` / `--from-shape`
+skip fit; combine either option with `--no-judge` for 0 model calls and no codex requirement.
+`bw rig character.glb --no-judge` still leaves the fit model call enabled with the default backend.
+`BW_BACKEND=mock` uses the mock backend for both stages: 0 model calls, no codex required.
 
 **Language.** `bw --help`, `bw doctor` and `BLOCKED:` error messages are in English (Korean with `BW_LANG=ko` or a
 `ko_*` locale). So are the per-gate rejection reasons listed under a `BLOCKED:` line and the `bw rig` / `bw motion`
 progress log, the analysis warnings and errors that come from inside the Blender scripts, and the `bw bench` table and
 run reports. The [guide](docs/GUIDE.md#rejection-gate) explains the rejection gate in English.
+
+**Settings.** To stop typing the same flags, put them in `runs/config.json` in your project folder, e.g.
+`{"lang": "en", "rig": {"rest_pose": "t"}}` fixes the model prompt language and bakes a T-pose rest on every run.
+Flags still win over the file. Keys and defaults: [guide → Settings](docs/GUIDE.md#settings-runsconfigjson).
 
 ## What you get
 
@@ -59,8 +76,11 @@ run reports. The [guide](docs/GUIDE.md#rejection-gate) explains the rejection ga
 `bw rig mannequiny.glb`: 7,136 verts → 410 bones (73 deform), every vertex weighted, all gates green.
 On the benchmark, **63 / 66** assets rig with every gate green and **25 / 29** of the ones that can walk
 retarget a walk cleanly (`python3 scripts/bench_score.py`).
+To check retargeting yourself without any download, see [a sample retarget result](examples/sample-output/capsule_doll_motion.md)
+(`python3 examples/rig_sample.py --motion`: a procedural 24-frame wave BVH, 18 of 19 joints mapped), and
+[the same for four legs](examples/sample-output/capsule_dog_motion.md) (`--preset quadruped --motion`: a procedural walk, 20 of 20).
 
-Status: **v0.2 (alpha)**. Developed on macOS; Linux runs the test suite in CI; Windows runs only the Blender-free tests in CI and has never been driven by hand.
+Status: **v0.2 (alpha)**. Development and local validation target macOS; the existing CI runs the test suite on Linux.
 
 ## More
 

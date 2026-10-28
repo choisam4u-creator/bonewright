@@ -25,6 +25,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bonewright.i18n import T  # noqa: E402  화면 언어(BW_LANG·로캘)를 따른다
+
 QUAD_HINT = ("animals",)          # 네발짐승 폴더는 프리셋이 다르다
 SKIP_DIRS = ("raw",)              # 내려받은 원본 사본 — 같은 모델이 두 번 세어진다
 
@@ -49,8 +52,15 @@ def verdict(st, a):
     메시가 넓게 찢기는 것은 다른 문제라 따로 부른다."""
     deep, wide = st
     if wide >= WIDE:
-        return "찢김"
-    return "국소 튐" if deep >= a.stretch_max else "통과"
+        return "tear"
+    return "spike" if deep >= a.stretch_max else "pass"
+
+
+def label(code):
+    """판정·단계 코드 → 화면 문구(코드는 비교용으로 언어와 상관없이 고정)."""
+    return {"tear": T("찢김", "tear"), "spike": T("국소 튐", "local spike"), "pass": T("통과", "pass"),
+            "skeleton": T("뼈대", "skeleton"), "preset": T("프리셋", "preset"), "shape": T("모양", "shape"),
+            None: T("실패", "failed")}[code]
 
 
 def stretch(home, run_id):
@@ -77,14 +87,18 @@ def status(home, run_id):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--assets", required=True, help="벤치 자산 뿌리 폴더")
-    ap.add_argument("--home", required=True, help="BW_HOME 으로 쓸 폴더")
-    ap.add_argument("--only", help="이름에 이 문자열이 든 자산만")
-    ap.add_argument("--out", help="줄별 결과를 적을 파일")
-    ap.add_argument("--motion-humanoid", help="사람형 리그에 옮겨 볼 BVH")
-    ap.add_argument("--motion-quad", help="네발 리그에 옮겨 볼 BVH")
-    ap.add_argument("--stretch-max", type=float, default=6.0, help="동작 통과 기준: 메시 늘어남 최대 배수")
+    ap = argparse.ArgumentParser(description=T(
+        "벤치 자산 전부를 문서에 적힌 순서(--from-skeleton → 프리셋 → --from-shape)대로 리깅해 완성도 점수를 낸다(토큰 0).",
+        "Rig every benchmark asset along the documented ladder (--from-skeleton → preset → --from-shape) "
+        "and print the completion score (0 tokens)."))
+    ap.add_argument("--assets", required=True, help=T("벤치 자산 뿌리 폴더", "root folder of the benchmark assets"))
+    ap.add_argument("--home", required=True, help=T("BW_HOME 으로 쓸 폴더", "folder to use as BW_HOME"))
+    ap.add_argument("--only", help=T("이름에 이 문자열이 든 자산만", "only assets whose name contains this"))
+    ap.add_argument("--out", help=T("줄별 결과를 적을 파일", "file to write the per-asset lines to"))
+    ap.add_argument("--motion-humanoid", help=T("사람형 리그에 옮겨 볼 BVH", "BVH to retarget onto humanoid rigs"))
+    ap.add_argument("--motion-quad", help=T("네발 리그에 옮겨 볼 BVH", "BVH to retarget onto quadruped rigs"))
+    ap.add_argument("--stretch-max", type=float, default=6.0,
+                    help=T("동작 통과 기준: 메시 늘어남 최대 배수", "motion pass threshold: maximum mesh stretch ratio"))
     a = ap.parse_args()
     root = Path(a.assets)
     files = sorted(p for p in root.rglob("*") if p.suffix.lower() in (".glb", ".gltf")
@@ -98,9 +112,8 @@ def main():
         name = f.stem
         preset = "quadruped" if any(h in str(f) for h in QUAD_HINT) else "humanoid"
         t0 = time.time()
-        won = None
         won = won_rid = None
-        for step, extra in (("뼈대", ["--from-skeleton"]), ("프리셋", []), ("모양", ["--from-shape"])):
+        for step, extra in (("skeleton", ["--from-skeleton"]), ("preset", []), ("shape", ["--from-shape"])):
             rid = f"sc_{name}_{step}"
             run([str(f), "--preset", preset, *extra, "--run-id", rid, "--no-judge"], a.home)
             if status(a.home, rid) == "ok":
@@ -113,25 +126,29 @@ def main():
             mid = f"{won_rid}_mo"
             run(["--bvh", bvh, "--rig", won_rid, "--run-id", mid], a.home, sub="motion")
             st = stretch(a.home, mid)
-        rows.append((name, preset, won or "실패", st, round(time.time() - t0, 1)))
-        mark = "-" if st is None else verdict(st, a)
+        rows.append((name, preset, won, st, round(time.time() - t0, 1)))
+        mark = "-" if st is None else label(verdict(st, a))
         sv = "  -  " if st is None else f"{st[0]:5.2f}"
         wv = "   - " if st is None else f"{100 * st[1]:4.1f}%"
-        print(f"[{i:3d}/{len(files)}] {name:28s} {preset:10s} {won or '실패':6s} 늘어남 {sv} 넓이 {wv} {mark:7s} {rows[-1][4]:6.1f}s",
+        print(f"[{i:3d}/{len(files)}] {name:28s} {preset:10s} {label(won):8s} " + T(f"늘어남 {sv} 넓이 {wv}", f"stretch {sv} breadth {wv}")
+              + f" {mark:11s} {rows[-1][4]:6.1f}s",
               file=out, flush=True)
     moved = [r for r in rows if r[3] is not None]
-    good = [r for r in moved if verdict(r[3], a) == "통과"]
-    print(f"\n리깅 점수     {ok}/{len(files)} = {100 * ok / max(1, len(files)):.1f}%", file=out, flush=True)
+    good = [r for r in moved if verdict(r[3], a) == "pass"]
+    print("\n" + T("리깅 점수     ", "rig score     ") + f"{ok}/{len(files)} = {100 * ok / max(1, len(files)):.1f}%", file=out, flush=True)
     if moved:
-        print(f"동작까지 통과 {len(good)}/{len(moved)} = {100 * len(good) / len(moved):.1f}%"
-              f"  (깊이 {a.stretch_max}배 미만 + 넓이 {100 * WIDE:.0f}% 미만 · 본이 {MIN_MAPPED}개 이상 붙어 실제로 움직인 자산만)", file=out, flush=True)
+        print(T("동작까지 통과 ", "motion pass   ") + f"{len(good)}/{len(moved)} = {100 * len(good) / len(moved):.1f}%"
+              + T(f"  (깊이 {a.stretch_max}배 미만 + 넓이 {100 * WIDE:.0f}% 미만 · 본이 {MIN_MAPPED}개 이상 붙어 실제로 움직인 자산만)",
+                  f"  (depth under {a.stretch_max}x + breadth under {100 * WIDE:.0f}% · only assets with at least {MIN_MAPPED} bones mapped, i.e. that actually moved)"),
+              file=out, flush=True)
     for n, p, w, st, _t in rows:
-        if w == "실패":
-            print(f"  리깅 실패: {n} ({p})", file=out, flush=True)
-    for label in ("찢김", "국소 튐"):
+        if w is None:
+            print(T(f"  리깅 실패: {n} ({p})", f"  rig failed: {n} ({p})"), file=out, flush=True)
+    for code in ("tear", "spike"):
         for n, p, w, st, _t in rows:
-            if st is not None and verdict(st, a) == label:
-                print(f"  동작 {label}: {n} ({p}) 늘어남 {st[0]}배 · 망가진 모서리 {100 * st[1]:.2f}%",
+            if st is not None and verdict(st, a) == code:
+                print(T(f"  동작 {label(code)}: {n} ({p}) 늘어남 {st[0]}배 · 망가진 모서리 {100 * st[1]:.2f}%",
+                        f"  motion {label(code)}: {n} ({p}) stretch {st[0]}x · broken edges {100 * st[1]:.2f}%"),
                       file=out, flush=True)
 
 

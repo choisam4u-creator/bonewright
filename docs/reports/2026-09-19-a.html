@@ -29,7 +29,7 @@
 <li><code>bpy_scripts/</code>를 <b>GPL-3.0-or-later</b>로 분리하고, 왜 그런지와 경계를 문서에 적었습니다.</li>
 <li><code>scripts/check_license_boundary.py</code> — MIT 영역이 <code>bpy·bmesh·mathutils</code>를 import 하면
 <b>CI가 실패</b>합니다. 사람이 기억할 규칙이 아니라 기계가 지킬 규칙으로 바꿨습니다. 현재 14개 파일 전부 통과.</li>
-<li>추적 파일에서 개인 절대경로(<code>/Users/sam/…</code>) 제거.</li>
+<li>추적 파일에서 개인 절대경로(<code>/Users/&lt;이름&gt;/…</code>) 제거.</li>
 <li>CONTRIBUTING(핵심 규칙: <b>주장은 실제로 잰 숫자로 뒷받침한다</b>), CHANGELOG(알려진 한계 포함), README 설치·빠른시작.</li>
 <li>깨끗한 venv에서 <code>pip install .</code> → <code>bw --help</code> → 테스트 35개 통과 확인.</li>
 <li><b>벤치 재현성</b>: 자산은 라이선스상 재배포 못 하므로 저장소에 없습니다. 받기 스크립트에 어제 쓴

@@ -43,6 +43,17 @@ def _resolve(t):
     return None
 
 
+def _near(t):
+    """리그에 없는 이름에 가까운 컨트롤: 메타리그 이름(upper_arm.L)이면 FK 컨트롤(upper_arm_fk.L), 아니면 difflib."""
+    import difflib
+    base, dot, side = t.rpartition(".")
+    if dot and f"{base}_fk.{side}" in rig.pose.bones:
+        return [f"{base}_fk.{side}"]
+    return difflib.get_close_matches(t, [b.name for b in rig.pose.bones if not b.name.startswith(("ORG-", "DEF-", "MCH-"))], 1, 0.6)
+
+
+# 리그에 없는 컨트롤로 간 BVH 본 — pipeline 이 --map 에서 온 것을 말한다(10/16 21회차: `upper_arm.L` 이 말없이 빠져 왼팔이 멈췄다)
+no_target = {s: {"to": t, "near": _near(t)} for s, t in mapping.items() if s in src.pose.bones and not _resolve(t)}
 mapping = {s: r for s, t in mapping.items() if s in src.pose.bones for r in [_resolve(t)] if r}
 Ws, Wt = src.matrix_world, rig.matrix_world
 Ws3, Wt3 = Ws.to_3x3(), Wt.to_3x3()
@@ -416,7 +427,7 @@ dir_summary = {d: {"mean_deg": round(degrees(sum(v) / len(v)), 1), "max_deg": ro
                for d, v in dir_err.items() if v}
 end_summary = {d: {"mean_cm": round(sum(v) / len(v) * 100, 2), "max_cm": round(max(v) * 100, 2)} for d, v in end_err.items() if v}
 alld = [x for v in dir_err.values() for x in v]; alle = [x for v in end_err.values() for x in v]
-done({"mapped": mapping, "unmapped": [b.name for b in src.data.bones if b.name not in mapping],
+done({"mapped": mapping, "unmapped": [b.name for b in src.data.bones if b.name not in mapping], "no_target": no_target,
       "frames": [f0, f1], "scale": round(k, 4), "dir_deg": dir_summary, "roll_deg": roll_summary, "roll": bool(A.get("roll", True)), "end_cm": end_summary,
       "mean_dir_deg": round(degrees(sum(alld) / len(alld)), 2) if alld else None,
       "mean_end_cm": round(sum(alle) / len(alle) * 100, 2) if alle else None,

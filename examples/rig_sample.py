@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """입력 메시 → 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(BW_BACKEND=mock), 토큰 0.
+Reproduce a rig from a mesh (bone count and name table). Zero model calls, zero tokens. `--help` follows BW_LANG.
 
     python3 examples/rig_sample.py                    # 절차적 캡슐 인형(자산 파일 없음)을 만들어 리깅
+    python3 examples/rig_sample.py --preset quadruped # 절차적 캡슐 개(네 발)를 만들어 사족 리깅
     python3 examples/rig_sample.py adventurer         # tests/assets 의 CC0 캐릭터(1.9MB)를 리깅
     python3 examples/rig_sample.py path/to/x.glb      # 아무 메시나
-    python3 examples/rig_sample.py --table x.glb      # 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
+    python3 examples/rig_sample.py --table adventurer # 저장소의 캐릭터, 리깅 없이 GLB 안의 스킨 본 표만(블렌더 불필요)
+    python3 examples/rig_sample.py --motion           # 캡슐 인형을 리깅하고 절차 생성 BVH(손 흔들기 24프레임)를 리타겟
+    python3 examples/rig_sample.py --preset quadruped --motion   # 캡슐 개를 리깅하고 절차 생성 네 발 걷기(24프레임)를 리타겟
 
 리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/<이름>/ 에 남고
-표는 examples/out/<이름>.md 로 쓴다. 무거운 자산은 저장소에 넣지 않는다 — `scripts/fetch_bench_assets.py` 로 받는다.
+표는 examples/out/<이름>.md 로 쓴다. 결과 문서(표·요약)는 화면 언어와 상관없이 영어다 — sample-output 과 늘 같게. 무거운 자산은 저장소에 넣지 않는다 — `scripts/fetch_bench_assets.py` 로 받는다.
 """
 import argparse
 import json
@@ -20,18 +24,32 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from bonewright.i18n import T  # noqa: E402  화면 언어(BW_LANG·로캘)를 따른다
+
 OUT = ROOT / "examples" / "out"
 SAMPLES = {"adventurer": ROOT / "tests" / "assets" / "quaternius_adventurer.glb"}
+PROCEDURAL = {"humanoid": "capsule_doll", "quadruped": "capsule_dog"}   # 메시를 안 주면 절차적으로 만드는 것
+
+
+def shown(path: Path) -> str:
+    """지금 폴더에서 그대로 열리는 경로: 지금 폴더 안이면 상대, 밖이면 절대(공백이면 큰따옴표).
+    10/14 18회차 실측: 저장소 밖에서 돌리면 끝 줄이 저장소 기준 `examples/out/…` 라 열리지 않았다."""
+    try:
+        return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return f'"{path}"' if " " in str(path) else str(path)
 
 
 def glb_skin_bones(path: Path) -> list[str]:
     """GLB 의 첫 스킨 관절 이름을 순서대로 돌려준다(순수 파이썬, 블렌더 불필요)."""
     data = Path(path).read_bytes()
     if len(data) < 20 or data[:4] != b"glTF":
-        raise ValueError(f"{path}: GLB 가 아니다 — .glb(바이너리 glTF)를 넣는다. .gltf 는 Blender 로 .glb 로 내보낸 뒤 쓴다")
+        raise ValueError(T(f"{path}: GLB 가 아니다 — .glb(바이너리 glTF)를 넣는다. .gltf 는 Blender 로 .glb 로 내보낸 뒤 쓴다",
+                           f"{path}: not a GLB — give a .glb (binary glTF). Export a .gltf to .glb from Blender first"))
     n, kind = struct.unpack_from("<II", data, 12)
     if kind != 0x4E4F534A:   # 'JSON'
-        raise ValueError(f"{path}: 첫 청크가 JSON 이 아니다 — 파일이 깨졌는지 원본에서 다시 받는다")
+        raise ValueError(T(f"{path}: 첫 청크가 JSON 이 아니다 — 파일이 깨졌는지 원본에서 다시 받는다",
+                           f"{path}: the first chunk is not JSON — the file may be broken; download it again"))
     gltf = json.loads(data[20:20 + n])
     skins = gltf.get("skins") or []
     if not skins:
@@ -49,56 +67,215 @@ def bone_table(names: list[str]) -> str:
         key = re.sub(r"^(DEF-|ORG-|MCH-)", "", n)
         key = re.split(r"[.\d]", key)[0] or n
         groups.setdefault(key, []).append(n)
-    rows = [f"- 본 {len(names)}개 · 왼쪽 {side['L']} · 오른쪽 {side['R']} · 가운데 {side['C']}", "",
-            "| 부위 | 개수 | 이름 |", "|---|---:|---|"]
+    rows = [f"- {len(names)} bones · left {side['L']} · right {side['R']} · center {side['C']}", "",
+            "| part | count | names |", "|---|---:|---|"]
     rows += [f"| {k} | {len(v)} | {', '.join(f'`{x}`' for x in v)} |" for k, v in groups.items()]
     return "\n".join(rows) + "\n"
+
+
+# 절차 생성 BVH(라이선스 문제 없음): Mixamo 식 이름, Y 위, 미터, T 자세. (부모, 이름, 오프셋, 끝 오프셋)
+WAVE_JOINTS = [
+    (None, "Hips", (0, 0, 0), None),
+    ("Hips", "Spine", (0, 0.10, 0), None), ("Spine", "Chest", (0, 0.15, 0), None),
+    ("Chest", "Neck", (0, 0.20, 0), None), ("Neck", "Head", (0, 0.10, 0), (0, 0.15, 0)),
+    ("Chest", "LeftShoulder", (0.05, 0.15, 0), None), ("LeftShoulder", "LeftArm", (0.12, 0, 0), None),
+    ("LeftArm", "LeftForeArm", (0.27, 0, 0), None), ("LeftForeArm", "LeftHand", (0.25, 0, 0), (0.08, 0, 0)),
+    ("Chest", "RightShoulder", (-0.05, 0.15, 0), None), ("RightShoulder", "RightArm", (-0.12, 0, 0), None),
+    ("RightArm", "RightForeArm", (-0.27, 0, 0), None), ("RightForeArm", "RightHand", (-0.25, 0, 0), (-0.08, 0, 0)),
+    ("Hips", "LeftUpLeg", (0.09, -0.05, 0), None), ("LeftUpLeg", "LeftLeg", (0, -0.42, 0), None),
+    ("LeftLeg", "LeftFoot", (0, -0.42, 0), (0, -0.05, 0.12)),
+    ("Hips", "RightUpLeg", (-0.09, -0.05, 0), None), ("RightUpLeg", "RightLeg", (0, -0.42, 0), None),
+    ("RightLeg", "RightFoot", (0, -0.42, 0), (0, -0.05, 0.12)),
+]
+
+
+# 절차 생성 네 발 BVH(라이선스 문제 없음): Y 위, +Z 앞, 미터, 서 있는 개. 앞다리는 Quaternius 동물처럼 UpperArm/LowerArm/Wrist,
+# 뒷다리는 UpperLeg/LowerLeg/Foot, 꼬리는 Tail1~4 — `retarget.bvh_mapping(…, "quadruped")` 가 20개를 다 알아본다.
+# 10/17 24회차: 개 리그의 `next:` 가 권할 네 발 샘플이 없어 사람 손 흔들기를 권했다(앞다리가 팔처럼 움직였다)
+DOG_JOINTS = [   # 쉬는 자세는 Rigify 늑대 메타리그(캡슐 개 리그)와 같은 꺾임 — 뒷다리 허벅지는 앞으로, 정강이는 뒤로, 발목 아래는 곧게
+    (None, "Hips", (0, 0, 0), None),
+    ("Hips", "Chest", (0, 0.08, 0.40), None), ("Chest", "Neck", (0, 0.02, 0.19), None),
+    ("Neck", "Head", (0, 0.06, 0.09), (0, 0.02, 0.12)),
+    ("Chest", "LeftUpperArm", (0.11, -0.23, 0.16), None), ("LeftUpperArm", "LeftLowerArm", (0, -0.224, 0.018), None),
+    ("LeftLowerArm", "LeftWrist", (0, -0.114, -0.002), (0, -0.042, 0)),
+    ("Chest", "RightUpperArm", (-0.11, -0.23, 0.16), None), ("RightUpperArm", "RightLowerArm", (0, -0.224, 0.018), None),
+    ("RightLowerArm", "RightWrist", (0, -0.114, -0.002), (0, -0.042, 0)),
+    ("Hips", "LeftUpperLeg", (0.11, -0.034, 0.04), None), ("LeftUpperLeg", "LeftLowerLeg", (0, -0.128, 0.066), None),
+    ("LeftLowerLeg", "LeftFoot", (0, -0.196, -0.21), (0, -0.106, 0)),
+    ("Hips", "RightUpperLeg", (-0.11, -0.034, 0.04), None), ("RightUpperLeg", "RightLowerLeg", (0, -0.128, 0.066), None),
+    ("RightLowerLeg", "RightFoot", (0, -0.196, -0.21), (0, -0.106, 0)),
+    ("Hips", "Tail1", (0, -0.03, -0.14), None), ("Tail1", "Tail2", (0, 0.03, -0.09), None),
+    ("Tail2", "Tail3", (0, 0.03, -0.09), None), ("Tail3", "Tail4", (0, 0.02, -0.09), (0, 0.01, -0.08)),
+]
+
+
+def write_bvh(path: Path, joints: list, frames: int, frame) -> Path:
+    """joints(부모, 이름, 오프셋, 끝 오프셋)와 frame(f) → (루트 위치, {이름: (Z, X, Y) 도}) 로 BVH 를 쓴다(순수 파이썬, 매번 같은 파일)."""
+    kids: dict = {}
+    for parent, name, off, end in joints:
+        kids.setdefault(parent, []).append((name, off, end))
+    lines = ["HIERARCHY"]
+
+    def emit(name, off, end, depth):
+        pad = "\t" * depth
+        lines.append(f"{pad}{'ROOT' if depth == 0 else 'JOINT'} {name}")
+        lines.append(pad + "{")
+        lines.append(f"{pad}\tOFFSET {off[0]:.4f} {off[1]:.4f} {off[2]:.4f}")
+        lines.append(f"{pad}\tCHANNELS " + ("6 Xposition Yposition Zposition " if depth == 0 else "3 ") + "Zrotation Xrotation Yrotation")
+        for k in kids.get(name, []):
+            emit(*k, depth + 1)
+        if end:
+            lines.extend([f"{pad}\tEnd Site", f"{pad}\t{{", f"{pad}\t\tOFFSET {end[0]:.4f} {end[1]:.4f} {end[2]:.4f}", f"{pad}\t}}"])
+        lines.append(pad + "}")
+
+    root = joints[0][1]
+    emit(root, (0, 0, 0), None, 0)
+    lines += ["MOTION", f"Frames: {frames}", f"Frame Time: {1 / 24:.6f}"]
+    order = []
+    def walk(name):
+        order.append(name)
+        for k in kids.get(name, []):
+            walk(k[0])
+    walk(root)
+    for f in range(frames):
+        pos, rot = frame(f)
+        vals = [*pos, *rot.get(root, (0, 0, 0))]
+        for name in order[1:]:
+            vals += rot.get(name, (0, 0, 0))
+        lines.append(" ".join(f"{v:.4f}" for v in vals))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def wave_bvh(path: Path, frames: int = 24) -> Path:
+    """왼팔은 내리고 오른팔을 들어 아래팔을 흔드는 짧은 BVH 를 쓴다(순수 파이썬, 매번 같은 파일)."""
+    import math
+
+    def frame(f):
+        w = math.sin(2 * math.pi * f / 12)   # 0.5초에 한 번 흔든다
+        rot = {"LeftArm": (-70, 0, 0), "RightArm": (-60, 0, 0), "RightForeArm": (-30 + 25 * w, 0, 0),
+               "LeftLeg": (0, 5, 0), "RightLeg": (0, 5, 0)}   # (Z, X, Y) 도
+        return (0.01 * w, 0.95, 0.0), rot
+    return write_bvh(path, WAVE_JOINTS, frames, frame)
+
+
+def dog_walk_bvh(path: Path, frames: int = 24) -> Path:
+    """네 발로 걷는(속보: 왼앞·오른뒤가 같이) 1초 BVH 를 쓴다 — 앞으로 0.8m, 다리는 X 축으로 흔든다(순수 파이썬, 매번 같은 파일)."""
+    import math
+
+    def frame(f):
+        ph = 2 * math.pi * f / frames
+        rot = {"Head": (0, -4 * math.sin(2 * ph), 0), "Tail1": (6 * math.sin(ph), 10, 0), "Tail2": (6 * math.sin(ph), 0, 0)}
+        for side, legs in (("Left", (0, math.pi)), ("Right", (math.pi, 0))):   # (앞다리, 뒷다리) 위상
+            for kind, (up, low, end), p in (("Arm", ("UpperArm", "LowerArm", "Wrist"), legs[0]), ("Leg", ("UpperLeg", "LowerLeg", "Foot"), legs[1])):
+                s, lift = math.sin(ph + p), max(0.0, math.cos(ph + p))   # 앞으로 나가는 반 주기에 무릎을 굽힌다
+                bend = 35 * lift if kind == "Arm" else -30 * lift   # 앞다리는 발을 뒤로, 뒷다리(뒤꿈치)는 앞으로 접는다
+                rot[side + up] = (0, -22 * s, 0); rot[side + low] = (0, bend, 0); rot[side + end] = (0, -0.6 * bend, 0)
+        return (0.0, 0.53 + 0.01 * math.cos(2 * ph), 0.8 * f / frames), rot
+    return write_bvh(path, DOG_JOINTS, frames, frame)
+
+
+def motion_and_report(name: str, preset: str = "humanoid") -> Path:
+    """rig_and_table 로 리깅한 `name` 에 절차 BVH(사람은 wave_bvh, 네 발은 dog_walk_bvh)를 리타겟하고
+    결과 요약을 examples/out/<name>_motion.md 로 쓴다."""
+    from bonewright import pipeline
+    quad = preset == "quadruped"
+    bvh = dog_walk_bvh(OUT / "dog_walk.bvh") if quad else wave_bvh(OUT / "wave.bvh")
+    joints, what = (DOG_JOINTS, "four-legged walk") if quad else (WAVE_JOINTS, "hand wave")
+    run = f"{name}_motion"
+    pipeline.motion(OUT, bvh=str(bvh), run_id=run, quiet=True, rig_run=name)
+    rt = json.loads((OUT / "runs" / run / "retarget.json").read_text())
+    mapped = rt["mapped"]
+    pairs = sorted(mapped.items()) if isinstance(mapped, dict) else [(m, "") for m in sorted(mapped)]
+    rep = (OUT / "runs" / run / "report.md").read_text(encoding="utf-8").splitlines()
+    keep = [ln for ln in rep if ln.startswith(("- source:", "- armature:", "- retarget →", "- legs:"))]
+    keep = [re.sub(r" · roll transfer:.*", "", ln) for ln in keep]   # 숫자 오차는 기계마다 조금씩 달라 뺀다
+    keep = [re.sub(r"bvh: .*[/\\]", "bvh: examples/out/", ln) for ln in keep]   # 절대 경로(홈 폴더)를 싣지 않는다
+    frames = re.search(r"frames \[(\d+), (\d+)\]", "\n".join(keep))
+    nframes = int(frames[2]) - int(frames[1]) + 1 if frames else 0
+    md = [f"# {name}: procedural BVH ({what}) → retarget result", "",
+          f"- BVH joints {len(joints)} · frames {nframes} · mapped {len(pairs)} · unmapped BVH joints {len(rt['unmapped'])}",
+          "", "## Mapped joints", "", "| BVH joint | rig control |", "|---|---|"]
+    md += [f"| `{a}` | {f'`{b}`' if b else ''} |" for a, b in pairs]
+    md += ["", "## report.md excerpt", "", *keep, ""]
+    out = OUT / f"{name}_motion.md"
+    out.write_text("\n".join(md), encoding="utf-8")
+    return out
 
 
 def rig_and_table(mesh: Path | None, name: str, preset: str) -> Path:
     from bonewright import blender, pipeline
     if not (blender.find_blender({}) or blender.has_bpy_module()):
-        raise SystemExit("Blender 가 없다 — Blender 5.2 LTS 를 설치하거나 `pip install bpy==5.2.2`(파이썬 3.13), "
-                         "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. 표만 보려면 --table x.glb")
+        here = Path(__file__).resolve()   # 저장소 폴더 밖에서 돌렸으면 이 파일의 실제 경로로(10/11 12회차)
+        me = "examples/rig_sample.py" if Path("examples/rig_sample.py").resolve() == here else (f'"{here}"' if " " in str(here) else str(here))
+        bpy = blender.bpy_install()   # 3.13 이 아니면 venv 명령(10/12 14회차: 3.11 에서 `pip install bpy==5.2.2` 는 "No matching distribution")
+        raise SystemExit(T(f"Blender 가 없다 — Blender 5.2 LTS 를 설치하거나 {bpy}, "
+                           "또는 BW_BLENDER 에 실행 파일 경로를 넣는다. Blender 없이 본 표만 보려면: "
+                           f"python3 {me} --table adventurer",
+                           f"Blender not found — install Blender 5.2 LTS, or {bpy}, "
+                           "or put the executable's path in BW_BLENDER. For the bone table alone, without Blender: "
+                           f"python3 {me} --table adventurer"))
     os.environ["BW_BACKEND"] = "mock"
     os.environ.setdefault("BW_NO_RENDER", "1")
     OUT.mkdir(parents=True, exist_ok=True)
-    if mesh is None:   # 절차적 캡슐 인형
-        mesh = OUT / "capsule_doll.glb"
-        blender.run_script("make_test_mesh", {"out": str(mesh)}, {}, OUT / "logs")
+    if mesh is None:   # 절차적 캡슐 인형(사람) 또는 캡슐 개(사족)
+        mesh = OUT / f"{name}.glb"
+        blender.run_script("make_test_mesh", {"out": str(mesh), "kind": preset}, {}, OUT / "logs")
     src = glb_skin_bones(mesh) if mesh.suffix.lower() == ".glb" else []
     pipeline.rig(OUT, str(mesh), preset, run_id=name, quiet=True, no_judge=True)
     glb = pipeline.export_rig(OUT, name, quiet=True)
     st = json.loads((OUT / "runs" / name / "rig_stats.json").read_text())["stats"]
     status = json.loads((OUT / "runs" / name / "state.json").read_text())["status"]
-    md = [f"# {name}: `{mesh.name}` → 리깅 결과", "",
-          f"- 관문: **{status}** · 리그 본 {st['rig_bones']}(변형 {st['deform_bones']}) · 가중치 없는 정점 {st['unweighted_verts']}",
-          f"- 입력 파일의 원래 스킨 본: {len(src)}개 (리깅할 때 버리고 새로 만든다)" if src else "- 입력 파일에 스킨 본 없음",
-          "", "## 내보낸 GLB 의 변형 본", "", bone_table(glb_skin_bones(glb))]
+    md = [f"# {name}: `{mesh.name}` → rig result", "",
+          f"- gates: **{status}** · rig bones {st['rig_bones']} (deform {st['deform_bones']}) · unweighted vertices {st['unweighted_verts']}",
+          f"- skin bones already in the input file: {len(src)} (dropped and rebuilt when rigging)" if src else "- no skin bones in the input file",
+          "", "## Deform bones in the exported GLB", "", bone_table(glb_skin_bones(glb))]
     out = OUT / f"{name}.md"
     out.write_text("\n".join(md), encoding="utf-8")
     return out
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("mesh", nargs="?", help="'adventurer', .glb/.gltf 경로, 생략하면 절차적 캡슐 인형")
-    p.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid")
-    p.add_argument("--table", action="store_true", help="리깅하지 않고 GLB 안의 스킨 본 표만 찍는다(블렌더 불필요)")
+    p = argparse.ArgumentParser(
+        description=T("입력 메시 → 리깅 결과(본 개수·이름 표)를 재현한다. 모델 호출 0회(BW_BACKEND=mock), 토큰 0.",
+                      "Reproduce a rig from a mesh (bone count and name table). Zero model calls (BW_BACKEND=mock), zero tokens."),
+        epilog=T("리깅에는 Blender(앱 또는 `pip install bpy==5.2.2`)가 필요하다. 결과는 examples/out/ 에 남는다.",
+                 "Rigging needs Blender (the app or `pip install bpy==5.2.2`). Results go to examples/out/."))
+    p.add_argument("mesh", nargs="?", help=T("'adventurer', .glb/.gltf 경로, 생략하면 절차적 캡슐 인형",
+                                             "'adventurer', a .glb/.gltf path, or omit for a procedural capsule doll"))
+    p.add_argument("--preset", choices=["humanoid", "quadruped"], default="humanoid",
+                   help=T("메시를 안 주면 만들 절차 인형·리그 종류(기본 humanoid)",
+                          "rig type, and the procedural mesh to build when none is given (default humanoid)"))
+    p.add_argument("--table", action="store_true", help=T("리깅하지 않고 GLB 안의 스킨 본 표만 찍는다(블렌더 불필요)",
+                                                          "print the skin bone table inside a GLB without rigging (no Blender needed)"))
+    p.add_argument("--motion", action="store_true",
+                   help=T("리깅 뒤 절차 생성 BVH(사람은 손 흔들기, 네 발은 걷기)를 리타겟해 요약을 쓴다",
+                          "after rigging, retarget a procedural BVH (a hand wave, or a walk for --preset quadruped) and write a summary"))
     a = p.parse_args()
+    if a.motion and a.table:
+        raise SystemExit(T("--motion 과 --table 은 같이 쓸 수 없다 — --table 은 리깅하지 않는다",
+                           "--motion and --table do not go together — --table does not rig"))
     mesh = SAMPLES.get(a.mesh, Path(a.mesh)) if a.mesh else None
     if mesh is not None and not mesh.exists():
-        raise SystemExit(f"파일이 없다: {mesh} — 경로를 확인하거나 'adventurer' 를 쓴다. "
-                         "벤치 자산은 `python3 scripts/fetch_bench_assets.py` 로 받는다")
+        fetch = shown(ROOT / "scripts" / "fetch_bench_assets.py")
+        raise SystemExit(T(f"파일이 없다: {mesh} — 경로를 확인하거나 'adventurer' 를 쓴다. "
+                           f"벤치 자산은 `python3 {fetch}` 로 받는다",
+                           f"file not found: {mesh} — check the path or use 'adventurer'. "
+                           f"Benchmark assets come from `python3 {fetch}`"))
     if a.table:
         if mesh is None:
-            raise SystemExit("--table 에는 .glb 경로가 필요하다 (예: --table adventurer)")
+            raise SystemExit(T("--table 에는 .glb 경로가 필요하다 (예: --table adventurer)",
+                               "--table needs a .glb path (e.g. --table adventurer)"))
         print(bone_table(glb_skin_bones(mesh)), end="")
         return 0
-    name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else "capsule_doll")
+    name = a.mesh if a.mesh in SAMPLES else (mesh.stem if mesh else PROCEDURAL[a.preset])
     out = rig_and_table(mesh, name, a.preset)
     print(out.read_text(encoding="utf-8"), end="")
-    print(f"\n표: {out.relative_to(ROOT)}")
+    print("\n" + T("표: ", "table: ") + shown(out))
+    if a.motion:
+        mo = motion_and_report(name, a.preset)
+        print("\n" + mo.read_text(encoding="utf-8"), end="")
+        print("\n" + T("리타겟 요약: ", "retarget summary: ") + shown(mo))
     return 0
 
 

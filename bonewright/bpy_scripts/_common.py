@@ -16,6 +16,7 @@ def args():
 
 
 def done(result: dict, path: str):
+    result.setdefault("blender", bpy.app.version_string)   # report.md 의 versions 줄(이슈 재현에 버전이 필요하다)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print("BW_RESULT " + path)

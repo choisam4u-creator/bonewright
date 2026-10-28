@@ -44,7 +44,7 @@ HTML 안의 상대 `href` 는 26개 파일 모두 0개 — 바깥 링크(https)�
 | `quad-landmarks-20260915.html` | 15KB | 사족 관절 찾기 | — | 없음 |
 | `quad-pelvis-20260915.html` | 13KB | 사족 골반 오차 수정 | — | 없음 |
 | `retarget-20260915.html` | 10KB | BVH 리타게팅 | — | 없음 |
-| `reports/2026-09-17-a.html` | 17KB | 진행 보고 | — | **173행 `~/Desktop/Gpt_Codex/bonewright`** |
+| `reports/2026-09-17-a.html` | 17KB | 진행 보고 | — | **173행 저장소 경로를 `<저장소>`로 바꾼다** |
 | `reports/2026-09-17-b·c`, `09-18-a·b`, `09-19-b`, `09-20-audit`, `09-20-status` (7개) | 7~13KB | 진행 보고·문서 검증 | — | 없음 |
 | `reports/2026-09-19-a.html` | 9KB | 오픈소스 준비 | — | **32행 개인 경로 설명 문구(사용자 이름이 드러남)** |
 | `auto-improve/2026-09-24.md` | 1KB | 3일 개선 기록 | PRE-PUBLIC-AUDIT | 없음 |
