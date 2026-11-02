@@ -1314,6 +1314,24 @@ class EmptyUsageTests(unittest.TestCase):
             self.assertEqual("", err)
 
 
+class LedgerRecordTests(unittest.TestCase):
+    def test_non_object_lines_do_not_hide_valid_usage_or_break_backfill(self):
+        from bonewright import ledger
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            ledger.append(root, {"run_id": "r", "backend": "codex", "in": 10, "out": 2})
+            valid = ledger.path(root).read_text(encoding="utf-8")
+            ledger.path(root).write_text(
+                'null\n42\ntrue\n"text"\n[]\n[{}]\n{broken\n' + valid,
+                encoding="utf-8")
+            self.assertEqual(1, len(ledger.rows(root)))
+            total = ledger.summarize(root)["total"]
+            self.assertEqual(1, total["calls"])
+            self.assertEqual(10, total["in"])
+            self.assertEqual(2, total["out"])
+            self.assertEqual(0, ledger.backfill(root))
+
+
 class HelpLanguageTests(unittest.TestCase):
     """bw --help 는 BW_LANG(없으면 로캘)을 따른다. README 는 영문이므로 영어가 기본."""
 
