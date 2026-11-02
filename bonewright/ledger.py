@@ -24,7 +24,9 @@ def rows(root: Path) -> list[dict]:
     out = []
     for line in p.read_text(encoding="utf-8").splitlines():
         try:
-            out.append(json.loads(line))
+            record = json.loads(line)
+            if isinstance(record, dict):
+                out.append(record)
         except ValueError:
             continue
     return out
