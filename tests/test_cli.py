@@ -1332,6 +1332,32 @@ class LedgerRecordTests(unittest.TestCase):
             self.assertEqual(0, ledger.backfill(root))
 
 
+    def test_backfill_skips_damaged_manifests_and_keeps_valid_runs_once(self):
+        """One damaged manifest does not block valid usage before or after it, or duplicate it on a second backfill."""
+        import json
+        from bonewright import ledger
+        for damaged in (b'{broken', b'', b'null', b'[]', b'42', b'\xff'):
+            with self.subTest(damaged=damaged), tempfile.TemporaryDirectory() as t:
+                root = Path(t)
+                bad = root / "runs" / "b-broken" / "manifest.json"
+                bad.parent.mkdir(parents=True)
+                bad.write_bytes(damaged)
+                for rid in ("a-valid", "c-valid"):
+                    manifest = root / "runs" / rid / "manifest.json"
+                    manifest.parent.mkdir(parents=True)
+                    manifest.write_text(json.dumps({"usage": [{"step": "analyze", "at": 1700000000,
+                        "backend": "codex", "usage": {"input_tokens": 10, "output_tokens": 2}}]}), encoding="utf-8")
+                self.assertEqual(2, ledger.backfill(root))
+                records = ledger.rows(root)
+                self.assertEqual(["a-valid", "c-valid"], [r["run_id"] for r in records])
+                self.assertEqual([10, 10], [r["in"] for r in records])
+                self.assertEqual([2, 2], [r["out"] for r in records])
+                before = ledger.path(root).read_bytes()
+                self.assertEqual(0, ledger.backfill(root))
+                self.assertEqual(before, ledger.path(root).read_bytes())
+                self.assertEqual(damaged, bad.read_bytes())
+
+
 class HelpLanguageTests(unittest.TestCase):
     """bw --help 는 BW_LANG(없으면 로캘)을 따른다. README 는 영문이므로 영어가 기본."""
 
