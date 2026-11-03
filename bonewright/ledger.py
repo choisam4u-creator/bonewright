@@ -55,7 +55,12 @@ def backfill(root: Path) -> int:
         mf = d / "manifest.json"
         if not mf.exists():
             continue
-        m = json.loads(mf.read_text())
+        try:
+            m = json.loads(mf.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if not isinstance(m, dict):
+            continue
         for u in m.get("usage", []):
             key = (d.name, u.get("step"), round(u.get("at", 0), 3))
             if key in seen or not u.get("at"):
