@@ -18,7 +18,7 @@
 
 ## 설치
 
-파이썬 3와 Blender 5.2 LTS(또는 `bpy` 휠)가 필요하다. CLI 자체는 의존성이 없다.
+파이썬 3.11 이상과 Blender 5.2 LTS(또는 `bpy` 휠)가 필요하다. CLI 자체는 의존성이 없다.
 
 ```bash
 git clone https://github.com/choisam4u-creator/bonewright && cd bonewright

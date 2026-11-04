@@ -20,7 +20,7 @@ Python drives the steps, `codex exec` fits joints, gates verify. [한국어](REA
 
 ## Install
 
-Needs Python 3 and Blender 5.2 LTS (or the `bpy` wheel). The CLI itself has no dependencies.
+Needs Python 3.11 or later and Blender 5.2 LTS (or the `bpy` wheel). The CLI itself has no dependencies.
 
 ```bash
 git clone https://github.com/choisam4u-creator/bonewright && cd bonewright
