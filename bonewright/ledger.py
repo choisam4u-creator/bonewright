@@ -61,7 +61,12 @@ def backfill(root: Path) -> int:
             continue
         if not isinstance(m, dict):
             continue
-        for u in m.get("usage", []):
+        records = m.get("usage", [])
+        if not isinstance(records, list):
+            continue
+        for u in records:
+            if not isinstance(u, dict):
+                continue
             key = (d.name, u.get("step"), round(u.get("at", 0), 3))
             if key in seen or not u.get("at"):
                 continue

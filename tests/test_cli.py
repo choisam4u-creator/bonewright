@@ -1332,6 +1332,31 @@ class LedgerRecordTests(unittest.TestCase):
             self.assertEqual(0, ledger.backfill(root))
 
 
+    def test_backfill_skips_non_record_usage_and_keeps_valid_entries_once(self):
+        from bonewright import ledger
+        valid = {"step": "analyze", "at": 1700000000,
+                 "usage": {"input_tokens": 10, "output_tokens": 2}}
+        for records in (None, 42, True, "broken", {},
+                        [None, 42, True, "broken", [], valid]):
+            with self.subTest(records=records), tempfile.TemporaryDirectory() as t:
+                root = Path(t)
+                manifest = root / "runs" / "a-damaged" / "manifest.json"
+                manifest.parent.mkdir(parents=True)
+                manifest.write_text(json.dumps({"usage": records}), encoding="utf-8")
+                original = manifest.read_bytes()
+                good = root / "runs" / "b-valid" / "manifest.json"
+                good.parent.mkdir(parents=True)
+                good.write_text(json.dumps({"usage": [valid]}), encoding="utf-8")
+                expected = 2 if isinstance(records, list) else 1
+                self.assertEqual(expected, ledger.backfill(root))
+                self.assertEqual([10] * expected, [r["in"] for r in ledger.rows(root)])
+                self.assertEqual([2] * expected, [r["out"] for r in ledger.rows(root)])
+                before = ledger.path(root).read_bytes()
+                self.assertEqual(0, ledger.backfill(root))
+                self.assertEqual(before, ledger.path(root).read_bytes())
+                self.assertEqual(original, manifest.read_bytes())
+
+
     def test_backfill_skips_damaged_manifests_and_keeps_valid_runs_once(self):
         """One damaged manifest does not block valid usage before or after it, or duplicate it on a second backfill."""
         import json
