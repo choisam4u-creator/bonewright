@@ -923,7 +923,7 @@ class NeedsReviewStatusTests(unittest.TestCase):
                 shown = out.getvalue()
                 self.assertIn("deform bones outside the mesh 2", shown); self.assertIn(want, shown); self.assertNotIn("for-issue", shown)
                 a = cli.build_parser().parse_args(shlex.split(re.search(r"`bw (rig [^`]+)`", shown).group(1)))
-                self.assertEqual((str(mesh), "quadruped", str(rd / "targets.json")), (str(Path(a.mesh).expanduser().resolve()), a.preset, str(Path(a.targets).expanduser().resolve())))   # 홈은 `~`로 보이고 셸이 펼친다
+                self.assertEqual((str(mesh.resolve()), "quadruped", str((rd / "targets.json").resolve())), (str(Path(a.mesh).expanduser().resolve()), a.preset, str(Path(a.targets).expanduser().resolve())))   # 홈은 `~`로 보이고 셸이 펼친다
         self.assertEqual(("", "", " --preset quadruped"), (cli.pipeline.preset_opt(None), cli.pipeline.preset_opt("humanoid"), cli.pipeline.preset_opt("quadruped")))
 
     def test_rig_end_gives_the_fix_before_next(self):
@@ -948,7 +948,7 @@ class NeedsReviewStatusTests(unittest.TestCase):
                     if status != "ok":
                         self.assertLess(shown.index("symmetry error"), shown.index("bw demo q1"))
                         a = cli.build_parser().parse_args(shlex.split(re.search(r"`bw (rig [^`]+)`", shown).group(1)))
-                        self.assertEqual(("quadruped", str(rd / "targets.json")), (a.preset, str(Path(a.targets).expanduser().resolve())))   # 안내는 홈을 `~`로 보이고 셸이 펼친다
+                        self.assertEqual(("quadruped", str((rd / "targets.json").resolve())), (a.preset, str(Path(a.targets).expanduser().resolve())))   # 안내는 홈을 `~`로 보이고 셸이 펼친다
 
 
     def test_zero_token_reruns_never_enter_the_judge(self):
